@@ -6,6 +6,7 @@ import { KunNavigationBreadcrumb } from '~/components/kun/NavigationBreadcrumb'
 import { generateKunMetadata, kunViewport } from './metadata'
 import { KunBackToTop } from '~/components/kun/BackToTop'
 import type { Metadata, Viewport } from 'next'
+import { NuqsAdapter } from 'nuqs/adapters/next/app'
 import '~/styles/index.scss'
 import './actions'
 
@@ -28,16 +29,18 @@ export default function RootLayout({
 
       <body>
         <Providers>
-          <div className="relative flex flex-col items-center justify-center min-h-screen bg-radial">
-            <KunTopBar />
-            <KunNavigationBreadcrumb />
-            <div className="flex min-h-[calc(100dvh-256px)] w-full max-w-7xl grow px-3 sm:px-6">
-              {children}
-              <Toaster />
+          <NuqsAdapter>
+            <div className="relative flex flex-col items-center justify-center min-h-screen bg-radial">
+              <KunTopBar />
+              <KunNavigationBreadcrumb />
+              <div className="flex min-h-[calc(100dvh-256px)] w-full max-w-7xl grow px-3 sm:px-6">
+                {children}
+                <Toaster />
+              </div>
+              <KunBackToTop />
+              <KunFooter />
             </div>
-            <KunBackToTop />
-            <KunFooter />
-          </div>
+          </NuqsAdapter>
         </Providers>
       </body>
     </html>

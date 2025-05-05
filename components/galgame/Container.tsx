@@ -8,6 +8,7 @@ import {
   useQueryStates
 } from 'nuqs'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { useMounted } from '~/hooks/useMounted'
 import { GalgameCard } from './Card'
 import { FilterBar } from './FilterBar'
 import { KunHeader } from '../kun/Header'
@@ -23,12 +24,13 @@ export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
   const [galgames, setGalgames] = useState<GalgameCard[]>(initialGalgames)
   const [total, setTotal] = useState(initialTotal)
   const [loading, setLoading] = useState(false)
+  const isMounted = useMounted()
 
   const [params, setParams] = useQueryStates(
     {
-      selectedType: parseAsString.withDefault('all'),
-      selectedLanguage: parseAsString.withDefault('all'),
-      selectedPlatform: parseAsString.withDefault('all'),
+      type: parseAsString.withDefault('all'),
+      language: parseAsString.withDefault('all'),
+      platform: parseAsString.withDefault('all'),
       sortField: parseAsStringLiteral(sortFieldLiteral).withDefault(
         'resource_update_time'
       ),
@@ -41,6 +43,7 @@ export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
   )
 
   useEffect(() => {
+    if (!isMounted) return
     fetchPatches()
   }, [params])
 
@@ -71,20 +74,16 @@ export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
       />
 
       <FilterBar
-        selectedType={params.selectedType}
-        setSelectedType={(selectedType) => setParams({ selectedType })}
+        selectedType={params.type}
+        setSelectedType={(type) => setParams({ type })}
         sortField={params.sortField}
         setSortField={(sortField) => setParams({ sortField })}
         sortOrder={params.sortOrder}
         setSortOrder={(sortOrder) => setParams({ sortOrder })}
-        selectedLanguage={params.selectedLanguage}
-        setSelectedLanguage={(selectedLanguage) =>
-          setParams({ selectedLanguage })
-        }
-        selectedPlatform={params.selectedPlatform}
-        setSelectedPlatform={(selectedPlatform) =>
-          setParams({ selectedPlatform })
-        }
+        selectedLanguage={params.language}
+        setSelectedLanguage={(language) => setParams({ language })}
+        selectedPlatform={params.platform}
+        setSelectedPlatform={(platform) => setParams({ platform })}
         selectedYears={JSON.parse(params.selectedYears)}
         setSelectedYears={(selectedYears) =>
           setParams({ selectedYears: JSON.stringify(selectedYears) })

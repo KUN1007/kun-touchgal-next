@@ -24,18 +24,21 @@ export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
   const [total, setTotal] = useState(initialTotal)
   const [loading, setLoading] = useState(false)
 
-  const [params, setParams] = useQueryStates({
-    selectedType: parseAsString.withDefault('all'),
-    selectedLanguage: parseAsString.withDefault('all'),
-    selectedPlatform: parseAsString.withDefault('all'),
-    sortField: parseAsStringLiteral(sortFieldLiteral).withDefault(
-      'resource_update_time'
-    ),
-    sortOrder: parseAsStringLiteral(sortOrderLiteral).withDefault('desc'),
-    selectedYears: parseAsString.withDefault(JSON.stringify(['all'])),
-    selectedMonths: parseAsString.withDefault(JSON.stringify(['all'])),
-    page: parseAsInteger.withDefault(1)
-  })
+  const [params, setParams] = useQueryStates(
+    {
+      selectedType: parseAsString.withDefault('all'),
+      selectedLanguage: parseAsString.withDefault('all'),
+      selectedPlatform: parseAsString.withDefault('all'),
+      sortField: parseAsStringLiteral(sortFieldLiteral).withDefault(
+        'resource_update_time'
+      ),
+      sortOrder: parseAsStringLiteral(sortOrderLiteral).withDefault('desc'),
+      selectedYears: parseAsString.withDefault(JSON.stringify(['all'])),
+      selectedMonths: parseAsString.withDefault(JSON.stringify(['all'])),
+      page: parseAsInteger.withDefault(1)
+    },
+    { history: 'push' }
+  )
 
   useEffect(() => {
     fetchPatches()

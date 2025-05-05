@@ -28,9 +28,9 @@ export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
 
   const [params, setParams] = useQueryStates(
     {
-      type: parseAsString.withDefault('all'),
-      language: parseAsString.withDefault('all'),
-      platform: parseAsString.withDefault('all'),
+      selectedType: parseAsString.withDefault('all'),
+      selectedLanguage: parseAsString.withDefault('all'),
+      selectedPlatform: parseAsString.withDefault('all'),
       sortField: parseAsStringLiteral(sortFieldLiteral).withDefault(
         'resource_update_time'
       ),
@@ -39,7 +39,14 @@ export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
       selectedMonths: parseAsString.withDefault(JSON.stringify(['all'])),
       page: parseAsInteger.withDefault(1)
     },
-    { history: 'push' }
+    {
+      history: 'push',
+      urlKeys: {
+        selectedType: 'type',
+        selectedLanguage: 'language',
+        selectedPlatform: 'platform'
+      }
+    }
   )
 
   useEffect(() => {
@@ -74,16 +81,20 @@ export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
       />
 
       <FilterBar
-        selectedType={params.type}
-        setSelectedType={(type) => setParams({ type })}
+        selectedType={params.selectedType}
+        setSelectedType={(selectedType) => setParams({ selectedType })}
         sortField={params.sortField}
         setSortField={(sortField) => setParams({ sortField })}
         sortOrder={params.sortOrder}
         setSortOrder={(sortOrder) => setParams({ sortOrder })}
-        selectedLanguage={params.language}
-        setSelectedLanguage={(language) => setParams({ language })}
-        selectedPlatform={params.platform}
-        setSelectedPlatform={(platform) => setParams({ platform })}
+        selectedLanguage={params.selectedLanguage}
+        setSelectedLanguage={(selectedLanguage) =>
+          setParams({ selectedLanguage })
+        }
+        selectedPlatform={params.selectedPlatform}
+        setSelectedPlatform={(selectedPlatform) =>
+          setParams({ selectedPlatform })
+        }
         selectedYears={JSON.parse(params.selectedYears)}
         setSelectedYears={(selectedYears) =>
           setParams({ selectedYears: JSON.stringify(selectedYears) })

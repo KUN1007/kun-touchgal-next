@@ -174,7 +174,7 @@ export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
           <KunPagination
             total={Math.ceil(total / 24)}
             page={page}
-            onPageChange={() => setPage(page)}
+            onPageChange={setPage}
             isLoading={loading}
           />
         </div>

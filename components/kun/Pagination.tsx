@@ -25,6 +25,10 @@ export const KunPagination = ({
   const [isEditing, setIsEditing] = useState(false)
   const [inputValue, setInputValue] = useState(String(page))
 
+  useEffect(() => {
+    onPageChange(Number(searchParams.get('page')) || 1)
+  }, [searchParams.toString()])
+
   const createQueryString = (name: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString())
     params.set(name, value)

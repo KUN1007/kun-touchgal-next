@@ -50,6 +50,29 @@ export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
     if (!isMounted) {
       return
     }
+
+    // url 更新 state，确保浏览器返回时 state 更新，并重新 fetch
+    setSelectedType(searchParams.get('type') || 'all')
+    setSelectedLanguage(searchParams.get('language') || 'all')
+    setSelectedPlatform(searchParams.get('platform') || 'all')
+    setSortField(
+      (searchParams.get('sortField') as SortField) || 'resource_update_time'
+    )
+    setSortOrder((searchParams.get('sortOrder') as SortOrder) || 'desc')
+    setSelectedYears(
+      JSON.parse(searchParams.get('selectedYears') as string) || ['all']
+    )
+    setSelectedMonths(
+      JSON.parse(searchParams.get('selectedMonths') as string) || ['all']
+    )
+    setPage(Number(searchParams.get('page')) || 1)
+  }, [searchParams.toString()])
+
+  useEffect(() => {
+    if (!isMounted) {
+      return
+    }
+
     const params = new URLSearchParams()
 
     params.set('type', selectedType)
@@ -74,8 +97,7 @@ export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
     selectedYears,
     selectedMonths,
     page,
-    isMounted,
-    router
+    isMounted
   ])
 
   const fetchPatches = async () => {
@@ -152,7 +174,7 @@ export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
           <KunPagination
             total={Math.ceil(total / 24)}
             page={page}
-            onPageChange={setPage}
+            onPageChange={() => setPage(page)}
             isLoading={loading}
           />
         </div>

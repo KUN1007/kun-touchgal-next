@@ -17,6 +17,8 @@ interface Props {
   initialTotal: number
 }
 
+const PAGE_LIMIT = 50
+
 export const CardContainer = ({ initialResources, initialTotal }: Props) => {
   const [resources, setResources] = useState<PatchResource[]>(initialResources)
   const [total, setTotal] = useState(initialTotal)
@@ -26,6 +28,10 @@ export const CardContainer = ({ initialResources, initialTotal }: Props) => {
   const isMounted = useMounted()
   const searchParams = useSearchParams()
   const [page, setPage] = useState(Number(searchParams.get('page')) || 1)
+
+  useEffect(() => {
+    setPage(Number(searchParams.get('page')) || 1)
+  }, [searchParams.toString()])
 
   const fetchData = async () => {
     setLoading(true)
@@ -37,7 +43,7 @@ export const CardContainer = ({ initialResources, initialTotal }: Props) => {
       sortField,
       sortOrder,
       page,
-      limit: 50
+      limit: PAGE_LIMIT
     })
 
     setResources(resources)
@@ -75,10 +81,10 @@ export const CardContainer = ({ initialResources, initialTotal }: Props) => {
         </div>
       )}
 
-      {total > 50 && (
+      {total > PAGE_LIMIT && (
         <div className="flex justify-center">
           <KunPagination
-            total={Math.ceil(total / 50)}
+            total={Math.ceil(total / PAGE_LIMIT)}
             page={page}
             onPageChange={setPage}
             isLoading={loading}

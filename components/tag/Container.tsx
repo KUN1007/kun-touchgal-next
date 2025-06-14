@@ -15,6 +15,8 @@ interface Props {
   initialTotal: number
 }
 
+const PAGE_LIMIT = 100
+
 export const Container = ({ initialTags, initialTotal }: Props) => {
   const [tags, setTags] = useState<TagType[]>(initialTags)
   const [page, setPage] = useState(1)
@@ -29,7 +31,7 @@ export const Container = ({ initialTags, initialTotal }: Props) => {
       total: number
     }>('/tag/all', {
       page,
-      limit: 100
+      limit: PAGE_LIMIT
     })
     setTags(tags)
     setTotal(total)
@@ -83,10 +85,10 @@ export const Container = ({ initialTags, initialTotal }: Props) => {
         <TagList tags={tags} loading={loading} searching={searching} />
       )}
 
-      {total > 100 && !query && (
+      {total > PAGE_LIMIT && !query && (
         <div className="flex justify-center">
           <KunPagination
-            total={Math.ceil(total / 100)}
+            total={Math.ceil(total / PAGE_LIMIT)}
             page={page}
             onPageChange={setPage}
             isLoading={loading}

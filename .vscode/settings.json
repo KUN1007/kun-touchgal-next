@@ -117,6 +117,7 @@
     "tinyint",
     "TOTP",
     "touchgal",
+    "touchgaloss",
     "touchgalstatic",
     "turbopack",
     "turbotrace",

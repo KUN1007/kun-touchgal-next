@@ -31,7 +31,7 @@ export const KunRedirectContainer = () => {
           <Link isExternal href="https://www.sailingnet.pro/">
             <Image
               alt={kunMoyuMoe.title}
-              src="https://img.touchgalstatic.org/2024/09/6e194add9120240905110255.webp"
+              src="https://s.touchgaloss.cfd/2024/09/6e194add9120240905110255.webp"
             />
           </Link>
         </div>

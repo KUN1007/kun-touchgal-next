@@ -97,10 +97,22 @@
       "link": "https://tensou.app"
     },
     {
-      "name": "kisushiinaのGal小站",
-      "avatar": "https://kisugal.org/c5ea38f0ba2772d57d4515d538376efb",
-      "label": "kisushiinaのGal小站是一个纯免费，质量高的Galgame资源网站",
+      "name": "KisuGal",
+      "avatar": "https://kisugal.org/usr/uploads/2025/09/3227602300.jpg",
+      "label": "KisuGal是一个免费无任何门槛的GalGame资源下载平台",
       "link": "https://kisugal.org"
+    },
+    {
+      "name": "绮梦ACG",
+      "avatar": "https://game.acgs.one/favicon.ico",
+      "label": "绮梦ACG 专注分享次元世界 免费GAL下载",
+      "link": "https://game.acgs.one"
+    },
+    {
+      "name": "绯玉丸ACG",
+      "avatar": "https://pic1.imgdb.cn/item/68d87c2d7511f948b0018855.webp",
+      "label": "一个分享Gal，Cos，Asmr的网站Ciallo～(∠・ω< )⌒★",
+      "link": "https://feiyuwan.top"
     }
   ]
 }

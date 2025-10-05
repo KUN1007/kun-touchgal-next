@@ -88,7 +88,7 @@ export const videoInputRule = $inputRule(
   (ctx) =>
     new InputRule(
       // Matches format: {{kun-video="video url"}}
-      // eg: {{kun-video="https://s.touchgaloss.cfd/2023/05/f15179024920231109233759.mp4"}}
+      // eg: {{kun-video="https://cloud.touchgaloss.com/2023/05/f15179024920231109233759.mp4"}}
       /{{kun-video="(?<src>[^"]+)?"?\}}/,
       (state, match, start, end) => {
         const [matched, src = ''] = match

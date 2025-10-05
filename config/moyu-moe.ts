@@ -5,7 +5,7 @@ const KUN_SITE_NAME = 'TouchGal'
 const KUN_SITE_MENTION = '@touchgal'
 const KUN_SITE_TITLE = 'TouchGal - 一站式Galgame文化社区!'
 const KUN_SITE_IMAGE =
-  'https://s.touchgaloss.cfd/uploads/20241217174250074.avif'
+  'https://cloud.touchgaloss.com/uploads/20241217174250074.avif'
 const KUN_SITE_DESCRIPTION =
   'TouchGal 是一个一站式 Galgame 文化社区。提供Galgame 论坛、Galgame 下载等服务。承诺永久免费, 高质量。为Galgame 爱好者提供一片净土！'
 const KUN_SITE_URL = 'https://www.touchgal.us'
@@ -68,7 +68,7 @@ export const kunMoyuMoe: KunSiteConfig = {
   },
   domain: {
     main: KUN_SITE_URL,
-    imageBed: 'https://s.touchgaloss.cfd',
+    imageBed: 'https://cloud.touchgaloss.com',
     storage: KUN_SITE_URL,
     kungal: KUN_SITE_URL,
     telegram_group: KUN_SITE_TELEGRAM_GROUP,

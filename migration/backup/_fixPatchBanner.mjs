@@ -13,7 +13,7 @@ const fixPatchBanner = async () => {
     await prisma.patch.update({
       where: { id: p.id },
       data: {
-        banner: `https://s.touchgaloss.cfd/patch/${p.id}/banner/banner.avif`
+        banner: `https://cloud.touchgaloss.com/patch/${p.id}/banner/banner.avif`
       }
     })
   }

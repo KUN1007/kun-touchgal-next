@@ -4,7 +4,7 @@ import path from 'path'
 
 const prisma = new PrismaClient()
 const DOMAIN = 'img.touchgalstatic.org'
-const NEW_DOMAIN = 's.touchgaloss.cfd'
+const NEW_DOMAIN = 'cloud.touchgaloss.com'
 const BATCH_SIZE = 100
 const SCHEMA_PATH = path.resolve(process.cwd(), 'prisma', 'schema.prisma')
 

@@ -34,7 +34,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 's.touchgaloss.cfd',
+        hostname: 'cloud.touchgaloss.com',
         port: '',
         pathname: '/**'
       }

@@ -1,12 +1,12 @@
-![kun-touchgal-next](./public/touchgal.avif)
+![kun-哈基米-next](./public/哈基米.avif)
 
-# TouchGal
+# 哈基米
 
-TouchGal 是一个一站式 Galgame 文化社区。提供Galgame 论坛、Galgame 下载等服务。承诺永久免费, 高质量。为Galgame 爱好者提供一片净土！
+哈基米 是一个一站式 哈基米 文化社区。提供哈基米 论坛、哈基米 下载等服务。承诺永久免费, 高质量。为哈基米 爱好者提供一片净土！
 
 ## 错误反馈
 
-如果要反馈错误, 请您加入 TouchGal 的官方 Discord 服务器
+如果要反馈错误, 请您加入 哈基米 的官方 Discord 服务器
 
 https://discord.gg/55zuwkrJ
 
@@ -27,55 +27,55 @@ https://discord.gg/55zuwkrJ
 
 ```env
 # 数据库 URL, 我们使用 psql
-KUN_DATABASE_URL = "postgresql://postgres:kunloveren@localhost:5432/touchgal?schema=public"
+KUN_DATABASE_URL = "postgresql://postgres:kunloveren@localhost:5432/哈基米?schema=public"
 
 # 网站 URL, 不变即可
-KUN_VISUAL_NOVEL_SITE_URL = "https://www.touchgal.us"
+KUN_VISUAL_NOVEL_SITE_URL = "https://www.哈基米.us"
 
 # 开发环境 URL, 不变即可
 NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV = "http://127.0.0.1:3000"
-NEXT_PUBLIC_KUN_PATCH_ADDRESS_PROD = "https://image.touchgal.moyu.moe"
+NEXT_PUBLIC_KUN_PATCH_ADDRESS_PROD = "https://image.哈基米.hajimi.moe"
 
 # 本地 Redis 端口和地址, 一般无需变动
 REDIS_HOST = '127.0.0.1'
 REDIS_PORT = '6379'
 
 # jwt 配置, 开发环境无需变动
-JWT_ISS = 'touchgal'
-JWT_AUD = 'touchgal_admin'
-JWT_SECRET = 'moemoekungalgamekunisthecutest!chinorensukiazkhx'
+JWT_ISS = '哈基米'
+JWT_AUD = '哈基米_admin'
+JWT_SECRET = 'moemoekun哈基米kunisthecutest!chinorensukiazkhx'
 
 # NODE_ENV, 开发环境无需变动
 NODE_ENV = "development"
 
 # 邮件服务地址
-KUN_VISUAL_NOVEL_EMAIL_FROM = "鲲 Galgame 补丁"
-KUN_VISUAL_NOVEL_EMAIL_HOST = "moyu.moe"
+KUN_VISUAL_NOVEL_EMAIL_FROM = "哈基米 补丁"
+KUN_VISUAL_NOVEL_EMAIL_HOST = "hajimi.moe"
 KUN_VISUAL_NOVEL_EMAIL_PORT = '587'
-KUN_VISUAL_NOVEL_EMAIL_ACCOUNT = "auth@moyu.moe"
-KUN_VISUAL_NOVEL_EMAIL_PASSWORD = "莲最可爱！"
+KUN_VISUAL_NOVEL_EMAIL_ACCOUNT = "auth@hajimi.moe"
+KUN_VISUAL_NOVEL_EMAIL_PASSWORD = "哈！"
 
 # S3 相关配置
-KUN_VISUAL_NOVEL_S3_STORAGE_ACCESS_KEY_ID = "kkkkkkkkkkkkkkkkkkkkkkkkkkkk"
-KUN_VISUAL_NOVEL_S3_STORAGE_SECRET_ACCESS_KEY = "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+KUN_VISUAL_NOVEL_S3_STORAGE_ACCESS_KEY_ID = "哈哈哈哈哈哈哈哈哈哈哈哈哈"
+KUN_VISUAL_NOVEL_S3_STORAGE_SECRET_ACCESS_KEY = "哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈"
 KUN_VISUAL_NOVEL_S3_STORAGE_BUCKET_NAME = "kun"
-KUN_VISUAL_NOVEL_S3_STORAGE_ENDPOINT = "https://moyu.moe"
+KUN_VISUAL_NOVEL_S3_STORAGE_ENDPOINT = "https://hajimi.moe"
 KUN_VISUAL_NOVEL_S3_STORAGE_REGION = "us-west-001"
-NEXT_PUBLIC_KUN_VISUAL_NOVEL_S3_STORAGE_URL = "https://touchgal-patch.moyu.moe"
+NEXT_PUBLIC_KUN_VISUAL_NOVEL_S3_STORAGE_URL = "https://哈基米-patch.hajimi.moe"
 
 # 图床相关配置
-KUN_VISUAL_NOVEL_IMAGE_BED_HOST = "touchgal-image.moyu.moe"
-KUN_VISUAL_NOVEL_IMAGE_BED_URL = "https://touchgal-image.moyu.moe"
+KUN_VISUAL_NOVEL_IMAGE_BED_HOST = "哈基米-image.hajimi.moe"
+KUN_VISUAL_NOVEL_IMAGE_BED_URL = "https://哈基米-image.hajimi.moe"
 ```
 
 ## 贡献指南
 
-如果您的更改涉及到对项目源码的变动, **请务必在本地将项目运行成功, 自行测试无误后再 Pull Request**, 否则会严重阻碍代码审计工作
+如果您的更改涉及到对项目源码的变动, **请务必在本地将项目运行成功, 自行测试无误后再 Pull Request**, 否则会严重阻碍哈基米代码审计工作
 
 ## 开源声明 / 开源协议
 
-本项目由 [鲲 Galgame 补丁 - kun-galgame-patch-next](https://github.com/KUN1007/kun-galgame-patch-next) 修改而来, 原仓库地址
+本项目由 [鲲 哈基米 补丁 - kun-哈基米-patch-next](https://github.com/KUN1007/kun-哈基米-patch-next) 修改而来, 原仓库地址
 
-https://github.com/KUN1007/kun-galgame-patch-next
+https://github.com/KUN1007/kun-哈基米-patch-next
 
-本项目遵从 `AGPL-3.0` 开源协议, 进行任何的修改分发时请注明原始仓库与作者地址
+本项目遵从 `哈基米` 开源协议, 进行任何的修改分发时请注明原始仓库与作者地址

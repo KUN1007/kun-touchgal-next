@@ -28,22 +28,23 @@ export const PatchHeaderTabs = ({
       fullWidth={true}
       defaultSelectedKey="introduction"
       onSelectionChange={(value) => {
-        if (value === 'resources') {
-          window.scroll(0, 400)
-        }
         setSelected(value.toString())
       }}
       selectedKey={selected}
     >
-      <Tab key="introduction" title="游戏信息" className="p-0">
+      <Tab key="introduction" title="游戏信息" className="p-0 min-w-20">
         <IntroductionTab intro={intro} patchId={Number(id)} uid={uid} />
       </Tab>
 
-      <Tab key="resources" title="资源链接" className="p-0">
+      <Tab key="resources" title="资源链接" className="p-0 min-w-20">
         <ResourceTab id={id} vndbId={vndbId} />
       </Tab>
 
-      <Tab key="comments" title="游戏评论" className="p-0">
+      <Tab key="comments" title="讨论版" className="p-0 min-w-20">
+        <CommentTab id={id} />
+      </Tab>
+
+      <Tab key="rating" title="游戏评价" className="p-0 min-w-20">
         <CommentTab id={id} />
       </Tab>
     </Tabs>

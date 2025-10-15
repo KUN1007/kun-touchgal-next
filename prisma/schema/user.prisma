@@ -29,6 +29,9 @@ model user {
   patch_resource_like   user_patch_resource_like_relation[]
   patch_favorite_folder user_patch_favorite_folder[]
 
+  patch_rating      patch_rating[]
+  patch_rating_like patch_rating_like[]
+
   following       user_follow_relation[] @relation("user_following")
   follower        user_follow_relation[] @relation("user_follower")
   patch           patch[]                @relation("user_patch")

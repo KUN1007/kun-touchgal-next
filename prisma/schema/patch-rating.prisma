@@ -1,0 +1,41 @@
+model patch_rating {
+  id Int @id @default(autoincrement())
+
+  // strong_no, no, neutral, yes, strong_yes
+  recommend     String
+  // 1-10
+  overall       Int
+  // not_started, in_progress, finished_one, finished_main, finished_all, dropped
+  play_status   String @default("not_started")
+  short_summary String @default("") @db.VarChar(1314)
+  // summary spoiler - none, portion, serious
+  spoiler_level String @default("none")
+
+  user_id  Int
+  user     user  @relation(fields: [user_id], references: [id])
+  patch_id Int
+  patch    patch @relation(fields: [patch_id], references: [id])
+
+  like patch_rating_like[]
+
+  created DateTime @default(now())
+  updated DateTime @updatedAt
+
+  // user can rating a patch only once
+  @@unique([user_id, patch_id])
+  @@index([patch_id])
+}
+
+model patch_rating_like {
+  id Int @id @default(autoincrement())
+
+  patch_rating_id Int
+  patch_rating    patch_rating @relation(fields: [patch_rating_id], references: [id], onDelete: Cascade)
+  user_id         Int
+  user            user         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  created DateTime @default(now())
+  updated DateTime @updatedAt
+
+  @@unique([patch_rating_id, user_id])
+}

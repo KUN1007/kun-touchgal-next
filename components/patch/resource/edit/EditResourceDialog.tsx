@@ -18,6 +18,7 @@ import { ResourceLinksInput } from '../publish/ResourceLinksInput'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import { ResourceDetailsForm } from '../publish/ResourceDetailsForm'
 import { FileUploadContainer } from '../upload/FileUploadContainer'
+import { ResourceSectionSelect } from '../publish/ResourceSectionSelect'
 import type { PatchResource } from '~/types/api/patch'
 
 type EditResourceFormData = z.infer<typeof patchResourceCreateSchema>
@@ -93,6 +94,12 @@ export const EditResourceDialog = ({
 
       <ModalBody>
         <form className="space-y-6">
+          <ResourceSectionSelect
+            errors={errors}
+            section={watch().section}
+            setSection={(content) => setValue('section', content)}
+          />
+
           {watch().storage === 's3' && (
             <FileUploadContainer
               onSuccess={handleUploadSuccess}

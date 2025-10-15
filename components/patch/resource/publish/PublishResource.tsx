@@ -131,7 +131,6 @@ export const PublishResource = ({
           <ResourceSectionSelect
             errors={errors}
             section={watch().section}
-            userRole={user.role}
             setSection={(content) => {
               setValue('section', content)
               setValue('storage', userRoleStorageMap[user.role])

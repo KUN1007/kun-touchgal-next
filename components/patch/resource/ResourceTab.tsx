@@ -22,6 +22,9 @@ export const ResourceTab = ({ id, vndbId }: Props) => {
             如果您要发布资源, 请您选择正确的资源分类, 并仔细编写注意事项,
             以免其它用户产生困扰。
           </p>
+          <p className="font-bold">
+            使用资源前请认真阅读资源的备注（如果有）, 以免产生问题。
+          </p>
         </div>
 
         <Resources id={Number(id)} vndbId={vndbId} />

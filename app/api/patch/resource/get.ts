@@ -59,7 +59,8 @@ export const getPatchResource = async (
       id: resource.user.id,
       name: resource.user.name,
       avatar: resource.user.avatar,
-      patchCount: resource.user._count.patch_resource
+      patchCount: resource.user._count.patch_resource,
+      role: resource.user.role
     }
   }))
 

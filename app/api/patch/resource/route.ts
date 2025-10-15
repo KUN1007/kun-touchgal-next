@@ -48,9 +48,6 @@ export const POST = async (req: NextRequest) => {
     return NextResponse.json('用户未登录')
   }
   if (payload.role < 3) {
-    if (input.section === 'galgame') {
-      return NextResponse.json('用户或创作者仅可发布补丁资源')
-    }
     if (input.storage === 'touchgal') {
       return NextResponse.json('仅管理员可使用 TouchGal 资源盘')
     }

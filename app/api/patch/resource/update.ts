@@ -129,7 +129,8 @@ export const updatePatchResource = async (
         id: newResource.user.id,
         name: newResource.user.name,
         avatar: newResource.user.avatar,
-        patchCount: newResource.user._count.patch_resource
+        patchCount: newResource.user._count.patch_resource,
+        role: newResource.user.role
       }
     }
 

@@ -4,7 +4,7 @@
 
 /* Paragraphs */
 .kun-prose p {
-  @apply my-6 leading-relaxed;
+  @apply my-2 leading-relaxed;
 }
 
 /* Links */

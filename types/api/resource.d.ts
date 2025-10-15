@@ -16,5 +16,6 @@ export interface PatchResource {
   created: string
   user: KunUser & {
     patchCount: number
+    role: number
   }
 }

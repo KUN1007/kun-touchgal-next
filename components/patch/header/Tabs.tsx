@@ -44,9 +44,7 @@ export const PatchHeaderTabs = ({
         <CommentTab id={id} />
       </Tab>
 
-      <Tab key="rating" title="游戏评价" className="p-0 min-w-20">
-        <CommentTab id={id} />
-      </Tab>
+      <Tab key="rating" title="游戏评价" className="p-0 min-w-20"></Tab>
     </Tabs>
   )
 }

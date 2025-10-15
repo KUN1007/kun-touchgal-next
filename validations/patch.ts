@@ -7,6 +7,11 @@ import {
   SUPPORTED_RESOURCE_LINK,
   SUPPORTED_RESOURCE_SECTION
 } from '~/constants/resource'
+import {
+  KUN_GALGAME_RATING_RECOMMEND_CONST,
+  KUN_GALGAME_RATING_SPOILER_CONST,
+  KUN_GALGAME_RATING_PLAY_STATUS_CONST
+} from '~/constants/galgame'
 
 export const patchTagChangeSchema = z.object({
   patchId: z.coerce.number({ message: 'ID 必须为数字' }).min(1).max(9999999),
@@ -148,3 +153,42 @@ export const togglePatchFavoriteSchema = z.object({
     .min(1)
     .max(9999999)
 })
+
+export const patchRatingCreateSchema = z.object({
+  patchId: z.coerce
+    .number({ message: 'patch rating ID 格式不正确' })
+    .min(1)
+    .max(9999999),
+  recommend: z
+    .string({ message: '推荐程度不正确' })
+    .refine((v) => KUN_GALGAME_RATING_RECOMMEND_CONST.includes(v as any), {
+      message: '推荐程度不正确'
+    }),
+  overall: z.coerce
+    .number({ message: '评分不正确' })
+    .min(1, { message: '评分最小为 1' })
+    .max(10, { message: '评分最大为 10' }),
+  playStatus: z
+    .string({ message: '游玩状态不正确' })
+    .refine((v) => KUN_GALGAME_RATING_PLAY_STATUS_CONST.includes(v as any), {
+      message: '游玩状态不正确'
+    }),
+  shortSummary: z
+    .string({ message: '简评不正确' })
+    .trim()
+    .max(1314, { message: '简评最多 1314 字' }),
+  spoilerLevel: z
+    .string({ message: '剧透等级不正确' })
+    .refine((v) => KUN_GALGAME_RATING_SPOILER_CONST.includes(v as any), {
+      message: '剧透等级不正确'
+    })
+})
+
+export const patchRatingUpdateSchema = patchRatingCreateSchema.merge(
+  z.object({
+    ratingId: z.coerce
+      .number({ message: 'patch rating ID 格式不正确' })
+      .min(1)
+      .max(9999999)
+  })
+)

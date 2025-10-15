@@ -6,11 +6,7 @@ import { sendRegisterEmailVerificationCodeSchema } from '~/validations/auth'
 import { checkKunCaptchaExist } from '~/app/api/utils/verifyKunCaptcha'
 import { prisma } from '~/prisma/index'
 import { getKv } from '~/lib/redis'
-import { getRemoteIp } from '~/app/api/utils/getRemoteIp'
-import {
-  KUN_PATCH_DISABLE_REGISTER_KEY,
-  KUN_PATCH_PERMANENT_BAN_USER_KEY
-} from '~/config/redis'
+import { KUN_PATCH_DISABLE_REGISTER_KEY } from '~/config/redis'
 
 export const sendRegisterCode = async (
   input: z.infer<typeof sendRegisterEmailVerificationCodeSchema>,
@@ -24,20 +20,6 @@ export const sendRegisterCode = async (
   const isDisableRegister = await getKv(KUN_PATCH_DISABLE_REGISTER_KEY)
   if (isDisableRegister) {
     return '由于网站近日遭受大量攻击，当前时间段暂时不可注册，请明天下午再来，一定要来哦'
-  }
-
-  const isDeletedUserEmail = await getKv(
-    `${KUN_PATCH_PERMANENT_BAN_USER_KEY}:${input.email}`
-  )
-  if (isDeletedUserEmail) {
-    return '您的邮箱已被永久封禁'
-  }
-  const authUserIp = getRemoteIp(headers)
-  const isDeletedUserIp = await getKv(
-    `${KUN_PATCH_PERMANENT_BAN_USER_KEY}:${authUserIp}`
-  )
-  if (isDeletedUserIp) {
-    return '您的 IP 地址已被永久封禁'
   }
 
   const normalizedName = input.name.toLowerCase()

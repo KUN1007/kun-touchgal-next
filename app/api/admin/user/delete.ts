@@ -1,7 +1,5 @@
 import { z } from 'zod'
-import { setKv } from '~/lib/redis'
 import { prisma } from '~/prisma/index'
-import { KUN_PATCH_PERMANENT_BAN_USER_KEY } from '~/config/redis'
 import { deleteResource } from '../resource/delete'
 
 const userIdSchema = z.object({
@@ -28,9 +26,6 @@ export const deleteUser = async (
   if (!admin) {
     return '未找到管理员'
   }
-
-  await setKv(`${KUN_PATCH_PERMANENT_BAN_USER_KEY}:${user.email}`, user.email)
-  await setKv(`${KUN_PATCH_PERMANENT_BAN_USER_KEY}:${user.ip}`, user.ip)
 
   const patchResourceS3Ids = await prisma.patch_resource.findMany({
     where: { user_id: input.uid, storage: 's3' },

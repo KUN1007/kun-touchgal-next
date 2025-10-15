@@ -1,0 +1,32 @@
+model patch_comment {
+  id      Int    @id @default(autoincrement())
+  content String @default("") @db.VarChar(10007)
+  edit    String @default("")
+
+  like_by user_patch_comment_like_relation[]
+
+  reply     patch_comment[] @relation("comment_reply")
+  parent_id Int?
+  parent    patch_comment?  @relation("comment_reply", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user_id   Int
+  user      user            @relation("user_patch_comment", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  patch_id  Int
+  patch     patch           @relation("patch_comment", fields: [patch_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  created DateTime @default(now())
+  updated DateTime @updatedAt
+}
+
+model user_patch_comment_like_relation {
+  id Int @id @default(autoincrement())
+
+  user_id    Int
+  user       user          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  comment_id Int
+  comment    patch_comment @relation(fields: [comment_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  created DateTime @default(now())
+  updated DateTime @updatedAt
+
+  @@unique([user_id, comment_id])
+}

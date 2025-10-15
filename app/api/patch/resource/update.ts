@@ -36,7 +36,7 @@ export const updatePatchResource = async (
   }
 
   let newContent: string
-  if (resource.storage === 'user' || resource.content === content) {
+  if (resource.storage !== 's3' || resource.content === content) {
     newContent = content
   } else {
     await deletePatchResource(

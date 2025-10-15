@@ -17,16 +17,46 @@ export const KunCarousel = ({ posts }: KunCarouselProps) => {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
   const [direction, setDirection] = useState(0)
+  const [isPageVisible, setIsPageVisible] = useState(true)
 
   useEffect(() => {
-    if (!isHovered) {
-      const timer = setInterval(() => {
-        setDirection(1)
-        setCurrentSlide((prev) => (prev + 1) % posts.length)
-      }, 5000)
-      return () => clearInterval(timer)
+    const handleVisibility = () => {
+      const visible =
+        typeof document !== 'undefined' &&
+        document.visibilityState === 'visible'
+
+      setIsPageVisible(visible)
+
+      if (visible) {
+        setCurrentSlide((prev) =>
+          posts.length > 0
+            ? ((prev % posts.length) + posts.length) % posts.length
+            : 0
+        )
+        setDirection(0)
+      }
     }
-  }, [isHovered, posts.length])
+    handleVisibility()
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () =>
+      document.removeEventListener('visibilitychange', handleVisibility)
+  }, [posts.length])
+
+  useEffect(() => {
+    if (isHovered || !isPageVisible || posts.length === 0) {
+      return
+    }
+
+    const timer = setInterval(() => {
+      setDirection(1)
+      setCurrentSlide((prev) =>
+        posts.length > 0 ? (prev + 1) % posts.length : 0
+      )
+    }, 5000)
+
+    return () => clearInterval(timer)
+  }, [isHovered, isPageVisible, posts.length])
 
   const slideVariants = {
     enter: (direction: number) => ({

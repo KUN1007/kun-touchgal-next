@@ -15,6 +15,7 @@ import type { PatchIntroduction } from '~/types/api/patch'
 
 // @ts-expect-error
 import './_adjust.scss'
+import { PatchCompany } from './Company'
 
 const KunPlyr = dynamic(
   () =>
@@ -101,6 +102,8 @@ export const IntroductionTab = ({ intro, patchId, uid }: Props) => {
         </div> */}
 
         {uid && <PatchTag patchId={patchId} initialTags={intro.tag} />}
+
+        <PatchCompany patchId={patchId} initialCompanies={intro.company} />
 
         <Info intro={intro} />
       </CardBody>

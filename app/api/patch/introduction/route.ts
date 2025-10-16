@@ -42,6 +42,18 @@ export const getPatchIntroduction = async (
             }
           }
         }
+      },
+      company: {
+        include: {
+          company: {
+            select: {
+              id: true,
+              name: true,
+              count: true,
+              alias: true
+            }
+          }
+        }
       }
     }
   })
@@ -55,6 +67,7 @@ export const getPatchIntroduction = async (
     released: patch.released,
     alias: patch.alias.map((a) => a.name),
     tag: patch.tag.map((tag) => tag.tag),
+    company: patch.company.map((company) => company.company),
     created: patch.created,
     updated: patch.updated,
     resourceUpdateTime: patch.resource_update_time

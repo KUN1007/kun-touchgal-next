@@ -29,6 +29,7 @@ model user {
   patch_resource_like   user_patch_resource_like_relation[]
   patch_favorite_folder user_patch_favorite_folder[]
 
+  patch_company     patch_company[]
   patch_rating      patch_rating[]
   patch_rating_like patch_rating_like[]
 

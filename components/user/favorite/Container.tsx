@@ -137,7 +137,9 @@ export const UserFavorite = ({
                 {folder.description}
               </p>
               <div className="flex items-center justify-between">
-                <span className="text-small">{folder._count.patch} 个补丁</span>
+                <span className="text-small">
+                  {folder._count.patch} 个 Galgame
+                </span>
                 {folder.is_public ? (
                   <span className="text-small text-primary">公开</span>
                 ) : (

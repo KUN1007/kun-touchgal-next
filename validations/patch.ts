@@ -23,6 +23,19 @@ export const patchTagChangeSchema = z.object({
     .max(107, { message: '一个 Galgame 最多有 107 个标签' })
 })
 
+export const patchCompanyChangeSchema = z.object({
+  patchId: z.coerce
+    .number({ message: 'Galgame ID 必须为数字' })
+    .min(1)
+    .max(9999999),
+  companyId: z
+    .array(
+      z.coerce.number({ message: '会社 ID 必须为数字' }).min(1).max(9999999)
+    )
+    .min(1)
+    .max(107, { message: '一个 Galgame 最多有 107 个会社' })
+})
+
 export const patchCommentCreateSchema = z.object({
   patchId: z.coerce.number().min(1).max(9999999),
   parentId: z.coerce.number().min(1).max(9999999).nullable(),

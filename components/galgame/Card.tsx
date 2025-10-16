@@ -62,7 +62,7 @@ export const GalgameCard = ({ patch, openOnNewTab = true }: Props) => {
             />
           </div>
 
-          {patch.averageRating && (
+          {patch.averageRating !== 0 && (
             <span className="flex bg-background/50 px-2 rounded-xl items-center gap-1 absolute top-2 right-2 z-10">
               <Star className="size-4 text-warning" fill="#F5A524" />
               <span>{patch.averageRating}</span>

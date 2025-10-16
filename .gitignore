@@ -52,3 +52,6 @@ next-env.d.ts
 /migration/markdown
 /migration/*.txt
 /migration/*.json
+
+refs
+migration/temp

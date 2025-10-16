@@ -19,11 +19,13 @@ model patch {
   user_id Int
   user    user @relation("user_patch", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  alias           patch_alias[]
   tag             patch_tag_relation[]
+  company         patch_company_relation[]
   favorite_folder user_patch_favorite_folder_relation[]
-  rating          patch_rating[]
-  rating_stat     patch_rating_stat?
+
+  alias       patch_alias[]
+  rating      patch_rating[]
+  rating_stat patch_rating_stat?
 
   resource patch_resource[] @relation("patch_resource")
   comment  patch_comment[]  @relation("patch_comment")

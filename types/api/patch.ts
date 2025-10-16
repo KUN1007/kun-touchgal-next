@@ -17,6 +17,7 @@ export interface Patch {
   tags: string[]
   isFavorite: boolean
   contentLimit: string
+  ratingSummary: PatchRatingSummary
   user: {
     id: number
     name: string
@@ -28,6 +29,19 @@ export interface Patch {
     favorite_folder: number
     resource: number
     comment: number
+  }
+}
+
+export interface PatchRatingSummary {
+  average: number
+  count: number
+  histogram: { score: number; count: number }[]
+  recommend: {
+    strong_no: number
+    no: number
+    neutral: number
+    yes: number
+    strong_yes: number
   }
 }
 

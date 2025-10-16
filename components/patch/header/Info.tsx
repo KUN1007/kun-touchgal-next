@@ -14,6 +14,7 @@ import { PatchHeaderActions } from './Actions'
 import { Tags } from './Tags'
 import Image from 'next/image'
 import { EditBanner } from './EditBanner'
+import { PatchRatingSummaryBadge } from './RatingSummaryBadge'
 import type { Patch } from '~/types/api/patch'
 
 interface PatchHeaderInfoProps {
@@ -57,6 +58,8 @@ export const PatchHeaderInfo = ({
                 </Chip>
               </Tooltip>
             </div>
+
+            <PatchRatingSummaryBadge patch={patch} />
 
             <div className="flex flex-wrap gap-2">
               <Tags patch={patch} />

@@ -35,7 +35,7 @@ export const ResourceCard = ({ resource }: Props) => {
           />
         </div>
 
-        <h2 className="text-lg font-semibold transition-colors line-clamp-2 hover:text-primary-500">
+        <h2 className="sm:text-lg text-sm transition-colors line-clamp-2 hover:text-primary-500">
           {resource.patchName}
         </h2>
 

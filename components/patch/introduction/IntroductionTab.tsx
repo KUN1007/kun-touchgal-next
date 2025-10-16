@@ -13,7 +13,7 @@ import { KunLink } from '~/components/kun/milkdown/plugins/components/link/KunLi
 import { KunExternalLink } from '~/components/kun/external-link/ExternalLink'
 import type { PatchIntroduction } from '~/types/api/patch'
 
-// @ts-expect-error
+// @ts-expect-error Include a description after the "@ts-expect-error" directive
 import './_adjust.scss'
 import { PatchCompany } from './Company'
 

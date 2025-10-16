@@ -191,7 +191,7 @@ export const CompanyFormModal: FC<Props> = ({
   const handleSubmit = () => {
     startSubmit(async () => {
       try {
-        let logoLink = ''
+        const logoLink = ''
 
         if (isEdit) {
           const companyId = company!.id

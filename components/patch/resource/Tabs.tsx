@@ -81,7 +81,6 @@ export const ResourceTabs = ({
         setKunResources([])
       }
     } catch (err) {
-      console.error('获取鲲补丁失败', err)
       setKunResources([])
     } finally {
       setKunLoading(false)

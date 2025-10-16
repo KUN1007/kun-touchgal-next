@@ -5,7 +5,7 @@ import type { Node } from 'unist'
 // wrap introduction screenshot images
 export const remarkKunWrapImage: Plugin<[], Node> = () => {
   return (tree: any) => {
-    // @ts-expect-error
+    // @ts-expect-error Include a description after the "@ts-expect-error" directive
     visit(tree, 'element', (node: any, index: number | null, parent: any) => {
       if (!parent || index === null) return
       if (!/^h[1-6]$/.test(node.tagName)) return
@@ -57,7 +57,7 @@ export const remarkKunWrapImage: Plugin<[], Node> = () => {
         type: 'element',
         tagName: 'div',
         properties: { className: ['data-kun-img-container'] },
-        // @ts-expect-error
+        // @ts-expect-error Include a description after the "@ts-expect-error" directive
         children: collected
       }
 

@@ -40,7 +40,7 @@ export const KunUser = ({ user, userProps }: KunUserProps) => {
           name: username,
           alt: altString,
           className:
-            'transition-transform border duration-200 cursor-pointer shrink-0 hover:scale-110',
+            'transition-transform duration-200 cursor-pointer shrink-0 hover:scale-110',
           ...restAvatar
         }}
         className="cursor-pointer"

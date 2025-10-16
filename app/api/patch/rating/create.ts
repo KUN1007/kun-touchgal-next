@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { patchRatingCreateSchema } from '~/validations/patch'
+import type { KunPatchRating } from '~/types/api/galgame'
 
 export const createPatchRating = async (
   input: z.infer<typeof patchRatingCreateSchema>,
@@ -21,7 +22,7 @@ export const createPatchRating = async (
     }
   })
   if (exists) {
-    return '您已经评价过该补丁'
+    return '您已经评价过该游戏'
   }
 
   const data = await prisma.patch_rating.create({
@@ -62,8 +63,8 @@ export const createPatchRating = async (
     likeCount: 0,
     userId: data.user_id,
     patchId: data.patch_id,
-    created: String(data.created),
-    updated: String(data.updated),
+    created: data.created,
+    updated: data.updated,
     user: data.user
-  }
+  } satisfies KunPatchRating
 }

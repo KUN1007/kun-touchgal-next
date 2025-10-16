@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
+import type { KunPatchRating } from '~/types/api/galgame'
 
 const patchIdSchema = z.object({
   patchId: z.coerce.number().min(1).max(9999999)
@@ -15,7 +16,13 @@ export const getPatchRating = async (
     where: { patch_id: patchId },
     include: {
       patch: { select: { unique_id: true } },
-      user: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          avatar: true
+        }
+      },
       _count: {
         select: { like: true }
       },
@@ -27,7 +34,7 @@ export const getPatchRating = async (
     }
   })
 
-  const ratings = data.map((rating) => ({
+  const ratings: KunPatchRating[] = data.map((rating) => ({
     id: rating.id,
     uniqueId: rating.patch.unique_id,
     recommend: rating.recommend,
@@ -39,8 +46,8 @@ export const getPatchRating = async (
     likeCount: rating._count.like,
     userId: rating.user_id,
     patchId: rating.patch_id,
-    created: String(rating.created),
-    updated: String(rating.updated),
+    created: rating.created,
+    updated: rating.updated,
     user: {
       id: rating.user.id,
       name: rating.user.name,

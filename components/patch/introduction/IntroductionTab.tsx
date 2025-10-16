@@ -13,6 +13,7 @@ import { KunLink } from '~/components/kun/milkdown/plugins/components/link/KunLi
 import { KunExternalLink } from '~/components/kun/external-link/ExternalLink'
 import type { PatchIntroduction } from '~/types/api/patch'
 
+// @ts-expect-error
 import './_adjust.scss'
 
 const KunPlyr = dynamic(

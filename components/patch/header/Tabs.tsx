@@ -2,6 +2,7 @@ import { Tab, Tabs } from '@heroui/tabs'
 import { IntroductionTab } from '~/components/patch/introduction/IntroductionTab'
 import { ResourceTab } from '~/components/patch/resource/ResourceTab'
 import { CommentTab } from '~/components/patch/comment/CommentTab'
+import { RatingTab } from '~/components/patch/rating/RatingTab'
 import type { PatchIntroduction } from '~/types/api/patch'
 import type { Dispatch, SetStateAction } from 'react'
 
@@ -44,7 +45,9 @@ export const PatchHeaderTabs = ({
         <CommentTab id={id} />
       </Tab>
 
-      <Tab key="rating" title="游戏评价" className="p-0 min-w-20"></Tab>
+      <Tab key="rating" title="游戏评价" className="p-0 min-w-20">
+        <RatingTab id={id} />
+      </Tab>
     </Tabs>
   )
 }

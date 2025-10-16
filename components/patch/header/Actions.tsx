@@ -18,6 +18,7 @@ import { kunCopy } from '~/utils/kunCopy'
 import { kunMoyuMoe } from '~/config/moyu-moe'
 import toast from 'react-hot-toast'
 import { FavoriteButton } from './button/favorite/FavoriteButton'
+import { RatingButton } from './button/rating/RatingButton'
 import { FeedbackButton } from './button/FeedbackButton'
 import type { Patch } from '~/types/api/patch'
 
@@ -80,6 +81,8 @@ export const PatchHeaderActions = ({
             下载
           </Button>
         </Tooltip>
+
+        <RatingButton patchId={patch.id} />
 
         <FavoriteButton patchId={patch.id} isFavorite={patch.isFavorite} />
 

@@ -56,6 +56,11 @@ export const createGalgame = async (
         data: { banner: imageLink }
       })
 
+      // Ensure rating_stat row exists for this patch
+      await prisma.patch_rating_stat.create({
+        data: { patch_id: newId }
+      })
+
       if (alias.length) {
         const aliasData = alias.map((name) => ({
           name,

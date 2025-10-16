@@ -39,3 +39,39 @@ model patch_rating_like {
 
   @@unique([patch_rating_id, user_id])
 }
+
+/// Aggregated statistics for patch ratings to speed up reads and sorting
+model patch_rating_stat {
+  // Primary key also references patch
+  patch_id Int   @id
+  patch    patch @relation(fields: [patch_id], references: [id], onDelete: Cascade)
+
+  // Average overall (1-10), one decimal is enough but use Float
+  avg_overall Float @default(0)
+  count       Int   @default(0)
+
+  // Recommend counters
+  rec_strong_no  Int @default(0)
+  rec_no         Int @default(0)
+  rec_neutral    Int @default(0)
+  rec_yes        Int @default(0)
+  rec_strong_yes Int @default(0)
+
+  // Overall score histogram 1..10
+  o1  Int @default(0)
+  o2  Int @default(0)
+  o3  Int @default(0)
+  o4  Int @default(0)
+  o5  Int @default(0)
+  o6  Int @default(0)
+  o7  Int @default(0)
+  o8  Int @default(0)
+  o9  Int @default(0)
+  o10 Int @default(0)
+
+  created DateTime @default(now())
+  updated DateTime @updatedAt
+
+  @@index([avg_overall])
+  @@index([count])
+}

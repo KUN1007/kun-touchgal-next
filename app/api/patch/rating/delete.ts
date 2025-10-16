@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
+import { recomputePatchRatingStat } from './stat'
 
 const ratingIdSchema = z.object({
   ratingId: z.coerce.number({ message: 'ID 不正确' }).min(1).max(9999999)
@@ -22,5 +23,8 @@ export const deletePatchRating = async (
   }
 
   await prisma.patch_rating.delete({ where: { id: input.ratingId } })
+
+  await recomputePatchRatingStat(rating.patch_id)
+
   return {}
 }

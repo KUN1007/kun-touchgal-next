@@ -101,9 +101,21 @@ export const getGalgame = async (
   ])
 
   const galgames: GalgameCard[] = data.map((gal) => ({
-    ...gal,
+    id: gal.id,
+    uniqueId: gal.unique_id,
+    name: gal.name,
+    banner: gal.banner,
+    view: gal.view,
+    download: gal.download,
+    type: gal.type,
+    language: gal.language,
+    platform: gal.platform,
     tags: gal.tag.map((t) => t.tag.name).slice(0, 3),
-    uniqueId: gal.unique_id
+    created: gal.created,
+    _count: gal._count,
+    averageRating: gal.rating_stat?.avg_overall
+      ? Math.round(gal.rating_stat.avg_overall * 10) / 10
+      : 0
   }))
 
   return { galgames, total }

@@ -3,7 +3,6 @@ import { prisma } from '~/prisma/index'
 import { getKv, setKv } from '~/lib/redis'
 import { PATCH_CACHE_DURATION } from '~/config/cache'
 import { roundOneDecimal } from '~/utils/rating/average'
-import { KUN_GALGAME_RATING_RECOMMEND_CONST } from '~/constants/galgame'
 import type { Patch } from '~/types/api/patch'
 
 const CACHE_KEY = 'patch'
@@ -60,46 +59,9 @@ export const getPatchById = async (
     return '未找到对应 Galgame'
   }
 
-  const [ratingAgg, recommendGroups, overallGroups] = await prisma.$transaction(
-    [
-      prisma.patch_rating.aggregate({
-        where: { patch_id: patch.id },
-        _avg: { overall: true },
-        _count: { _all: true }
-      }),
-      prisma.patch_rating.groupBy({
-        by: ['recommend'],
-        where: { patch_id: patch.id },
-        _count: { _all: true },
-        orderBy: { recommend: 'asc' }
-      }),
-      prisma.patch_rating.groupBy({
-        by: ['overall'],
-        where: { patch_id: patch.id },
-        _count: { _all: true },
-        orderBy: { overall: 'asc' }
-      })
-    ]
-  )
-
-  const recommendCountMap: Record<string, number> = {}
-  for (const k of KUN_GALGAME_RATING_RECOMMEND_CONST) {
-    recommendCountMap[k] = 0
-  }
-  for (const g of recommendGroups) {
-    const c = (g as any)._count?._all ?? 0
-    recommendCountMap[g.recommend] = c
-  }
-
-  const scoreCountMap: Record<number, number> = {}
-  for (let s = 1; s <= 10; s++) scoreCountMap[s] = 0
-  for (const g of overallGroups as any[]) {
-    const score = g.overall as number
-    const c = g._count?._all ?? 0
-    if (typeof score === 'number' && score >= 1 && score <= 10) {
-      scoreCountMap[score] = c
-    }
-  }
+  const stat = await prisma.patch_rating_stat.findUnique({
+    where: { patch_id: patch.id }
+  })
 
   const response: Patch = {
     id: patch.id,
@@ -118,21 +80,45 @@ export const getPatchById = async (
     alias: patch.alias.map((a) => a.name),
     isFavorite: patch.favorite_folder.length > 0,
     contentLimit: patch.content_limit,
-    ratingSummary: {
-      average: roundOneDecimal(ratingAgg._avg.overall),
-      count: ratingAgg._count._all,
-      histogram: Array.from({ length: 10 }, (_, i) => ({
-        score: i + 1,
-        count: scoreCountMap[i + 1]
-      })),
-      recommend: {
-        strong_no: recommendCountMap.strong_no,
-        no: recommendCountMap.no,
-        neutral: recommendCountMap.neutral,
-        yes: recommendCountMap.yes,
-        strong_yes: recommendCountMap.strong_yes
-      }
-    },
+    ratingSummary: stat
+      ? {
+          average: roundOneDecimal(stat.avg_overall),
+          count: stat.count,
+          histogram: [
+            { score: 1, count: stat.o1 },
+            { score: 2, count: stat.o2 },
+            { score: 3, count: stat.o3 },
+            { score: 4, count: stat.o4 },
+            { score: 5, count: stat.o5 },
+            { score: 6, count: stat.o6 },
+            { score: 7, count: stat.o7 },
+            { score: 8, count: stat.o8 },
+            { score: 9, count: stat.o9 },
+            { score: 10, count: stat.o10 }
+          ],
+          recommend: {
+            strong_no: stat.rec_strong_no,
+            no: stat.rec_no,
+            neutral: stat.rec_neutral,
+            yes: stat.rec_yes,
+            strong_yes: stat.rec_strong_yes
+          }
+        }
+      : {
+          average: 0,
+          count: 0,
+          histogram: Array.from({ length: 10 }, (_, i) => ({
+            score: i + 1,
+            count: 0
+          })),
+          recommend: {
+            strong_no: 0,
+            no: 0,
+            neutral: 0,
+            yes: 0,
+            strong_yes: 0
+          }
+        },
     user: {
       id: patch.user.id,
       name: patch.user.name,

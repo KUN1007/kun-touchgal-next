@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { patchRatingUpdateSchema } from '~/validations/patch'
+import { recomputePatchRatingStat } from './stat'
 import type { KunPatchRating } from '~/types/api/galgame'
 
 export const updatePatchRating = async (
@@ -58,6 +59,8 @@ export const updatePatchRating = async (
       }
     }
   })
+
+  await recomputePatchRatingStat(patchId)
 
   return {
     id: data.id,

@@ -23,6 +23,7 @@ model patch {
   tag             patch_tag_relation[]
   favorite_folder user_patch_favorite_folder_relation[]
   rating          patch_rating[]
+  rating_stat     patch_rating_stat?
 
   resource patch_resource[] @relation("patch_resource")
   comment  patch_comment[]  @relation("patch_comment")

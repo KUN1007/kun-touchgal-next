@@ -31,5 +31,8 @@ export const GalgameCardSelectField = {
       resource: true,
       comment: true
     }
+  },
+  rating_stat: {
+    select: { avg_overall: true }
   }
 }

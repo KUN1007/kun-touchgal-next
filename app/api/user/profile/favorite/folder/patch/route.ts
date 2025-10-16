@@ -4,6 +4,7 @@ import { kunParseGetQuery } from '~/app/api/utils/parseQuery'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { prisma } from '~/prisma/index'
 import { getFavoriteFolderPatchSchema } from '~/validations/user'
+import { GalgameCardSelectField } from '~/constants/api/select'
 
 export const GET = async (req: NextRequest) => {
   const input = kunParseGetQuery(req, getFavoriteFolderPatchSchema)
@@ -41,22 +42,7 @@ const getPatchByFolder = async (
     where: { folder_id: input.folderId },
     include: {
       patch: {
-        include: {
-          tag: {
-            select: {
-              tag: {
-                select: { name: true }
-              }
-            }
-          },
-          _count: {
-            select: {
-              favorite_folder: true,
-              resource: true,
-              comment: true
-            }
-          }
-        }
+        select: GalgameCardSelectField
       }
     },
     skip: offset,
@@ -76,7 +62,10 @@ const getPatchByFolder = async (
     platform: relation.patch.platform,
     tags: relation.patch.tag.map((t) => t.tag.name),
     created: relation.patch.created,
-    _count: relation.patch._count
+    _count: relation.patch._count,
+    averageRating: relation.patch.rating_stat?.avg_overall
+      ? Math.round(relation.patch.rating_stat.avg_overall * 10) / 10
+      : 0
   }))
 
   return { patches, total }

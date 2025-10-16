@@ -7,6 +7,10 @@
   @apply my-2 leading-relaxed;
 }
 
+.kun-prose p:has(> img) {
+  @apply m-0;
+}
+
 /* Links */
 .kun-prose a {
   @apply text-primary-500 underline decoration-primary-200 underline-offset-2 font-medium
@@ -111,7 +115,7 @@
 }
 
 .kun-prose img {
-  @apply rounded-lg shadow-md my-8 border border-default-200;
+  @apply rounded-lg shadow-md border border-default-200;
 }
 
 .kun-prose figure {
@@ -140,4 +144,9 @@
 /* Mark text */
 .kun-prose mark {
   @apply bg-warning-100 text-warning-800 px-1 rounded;
+}
+
+/* styles for custom screenshot img container */
+.data-kun-img-container {
+  @apply grid lg:grid-cols-3 md:grid-cols-2 gap-3 grid-cols-1;
 }

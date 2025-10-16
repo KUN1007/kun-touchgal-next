@@ -10,6 +10,7 @@ import { unified } from 'unified'
 import { remarkKunVideo } from './remarkKunVideo'
 import { remarkKunLink } from './remarkKunLink'
 import { remarkKunExternalLinks } from './remarkKunExternalLinks'
+import { remarkKunWrapImage } from './remarkKunWrapImage'
 
 export const markdownToHtmlExtend = async (markdown: string) => {
   const htmlVFile = await unified()
@@ -27,6 +28,7 @@ export const markdownToHtmlExtend = async (markdown: string) => {
           'data-kun-link',
           'data-href',
           'data-text',
+          'data-kun-img-container',
           'className'
         ],
         img: ['src', 'alt', 'title', 'class', 'loading'],
@@ -44,6 +46,7 @@ export const markdownToHtmlExtend = async (markdown: string) => {
     .use(remarkFrontmatter)
     .use(remarkGfm)
     .use(rehypePrism, { ignoreMissing: true })
+    .use(remarkKunWrapImage)
     .use(rehypeStringify)
     .process(markdown)
 

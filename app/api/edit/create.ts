@@ -6,6 +6,7 @@ import { patchCreateSchema } from '~/validations/edit'
 import { handleBatchPatchTags } from './batchTag'
 import { kunMoyuMoe } from '~/config/moyu-moe'
 import { postToIndexNow } from './_postToIndexNow'
+import { ensurePatchCompaniesFromVNDB } from './fetchCompanies'
 
 export const createGalgame = async (
   input: Omit<z.infer<typeof patchCreateSchema>, 'alias' | 'tag'> & {
@@ -87,6 +88,12 @@ export const createGalgame = async (
 
   if (typeof res === 'string') {
     return res
+  }
+
+  if (vndbId) {
+    try {
+      await ensurePatchCompaniesFromVNDB(res.patchId, vndbId, uid)
+    } catch {}
   }
 
   if (tag.length) {

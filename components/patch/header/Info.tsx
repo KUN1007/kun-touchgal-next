@@ -87,7 +87,7 @@ export const PatchHeaderInfo = ({
                 }}
               />
               <KunCardStats
-                patch={patch}
+                patch={{ ...patch, averageRating: 0 }}
                 disableTooltip={false}
                 isMobile={false}
               />

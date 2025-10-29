@@ -7,9 +7,8 @@ import { KunCardStats } from '~/components/kun/CardStats'
 import Link from 'next/link'
 import { KunPatchAttribute } from '~/components/kun/PatchAttribute'
 import { cn } from '~/utils/cn'
-import { SUPPORTED_TYPE_MAP } from '~/constants/resource'
-import { Chip } from '@heroui/react'
 import { Star } from 'lucide-react'
+import { Badge, Chip } from '@heroui/react'
 
 interface Props {
   patch: GalgameCard
@@ -41,7 +40,7 @@ export const GalgameCard = ({ patch, openOnNewTab = true }: Props) => {
             radius="none"
             alt={patch.name}
             className={cn(
-              'size-full object-cover transition-all duration-300 relative',
+              'size-full object-cover transition-all duration-300',
               imageLoaded ? 'scale-100 opacity-90' : 'scale-105 opacity-0'
             )}
             removeWrapper={true}
@@ -54,38 +53,26 @@ export const GalgameCard = ({ patch, openOnNewTab = true }: Props) => {
             onLoad={() => setImageLoaded(true)}
           />
 
-          <div className="absolute w-full py-1 px-3 bg-white/60 dark:bg-black/40 bottom-0 z-10">
-            <KunCardStats
-              patch={patch}
-              isMobile={true}
-              className="text-black dark:text-white"
-            />
-          </div>
-
           {patch.averageRating !== 0 && (
-            <span className="flex bg-background/50 px-2 rounded-xl items-center gap-1 absolute top-2 right-2 z-10">
-              <Star className="size-4 text-warning" fill="#F5A524" />
-              <span>{patch.averageRating}</span>
-            </span>
+            <div className="absolute top-2 right-2 z-10">
+              <Chip size="sm" variant="solid" color="warning">
+                <span className="flex items-center gap-1">
+                  <Star className="w-4 h-4" />
+                  {patch.averageRating}
+                </span>
+              </Chip>
+            </div>
           )}
         </div>
       </CardHeader>
       <CardBody className="justify-between space-y-2">
-        <h2 className="transition-colors text-small sm:text-lg line-clamp-2 hover:text-primary-500">
+        <h2 className="font-semibold transition-colors text-small sm:text-lg line-clamp-2 hover:text-primary-500">
           {patch.name}
         </h2>
+        <KunCardStats patch={patch} isMobile={true} />
       </CardBody>
       <CardFooter className="pt-0">
-        <div className="flex flex-wrap gap-2">
-          {patch.type.map((t) => (
-            <span
-              className="px-2 py-0.5 bg-primary/20 text-primary rounded-xl text-xs"
-              key={t}
-            >
-              {SUPPORTED_TYPE_MAP[t]}
-            </span>
-          ))}
-        </div>
+        <KunPatchAttribute types={patch.type} size="sm" />
       </CardFooter>
     </Card>
   )

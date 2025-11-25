@@ -1,15 +1,6 @@
 'use client'
 
-import {
-  Chip,
-  Input,
-  Table,
-  TableBody,
-  TableCell,
-  TableColumn,
-  TableHeader,
-  TableRow
-} from '@heroui/react'
+import { Chip, Input } from '@heroui/react'
 import { Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useDebounce } from 'use-debounce'
@@ -17,18 +8,9 @@ import { kunFetchGet } from '~/utils/kunFetch'
 import { useMounted } from '~/hooks/useMounted'
 import { KunLoading } from '~/components/kun/Loading'
 import { KunPagination } from '~/components/kun/Pagination'
-import { RenderCell } from './RenderCell'
+import { AdminResourceApplyCard } from './Card'
+import { ResourceApprovalButton } from './ApprovalButton'
 import type { AdminResource } from '~/types/api/admin'
-
-const columns = [
-  { name: '资源', id: 'name' },
-  { name: '上传用户', id: 'user' },
-  { name: '存储方式', id: 'storage' },
-  { name: '大小', id: 'size' },
-  { name: '状态', id: 'status' },
-  { name: '创建时间', id: 'created' },
-  { name: '操作', id: 'actions' }
-]
 
 interface Props {
   initialResources: AdminResource[]
@@ -95,37 +77,25 @@ export const ResourceApply = ({ initialResources, initialTotal }: Props) => {
       {loading ? (
         <KunLoading hint="正在加载待审核资源..." />
       ) : (
-        <Table
-          aria-label="资源发布申请列表"
-          bottomContent={
-            <div className="flex justify-center w-full">
-              <KunPagination
-                total={Math.ceil(total / 30)}
-                onPageChange={setPage}
-                isLoading={loading}
-                page={page}
-              />
-            </div>
-          }
-        >
-          <TableHeader columns={columns}>
-            {(column) => (
-              <TableColumn key={column.id}>{column.name}</TableColumn>
-            )}
-          </TableHeader>
-          <TableBody items={resources}>
-            {(item) => (
-              <TableRow key={item.id}>
-                {(columnKey) => (
-                  <TableCell>
-                    {RenderCell(item, columnKey.toString())}
-                  </TableCell>
-                )}
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+        <div className="space-y-4">
+          {resources.map((resource) => (
+            <AdminResourceApplyCard
+              key={resource.id}
+              resource={resource}
+              actions={<ResourceApprovalButton resource={resource} />}
+            />
+          ))}
+        </div>
       )}
+
+      <div className="flex justify-center w-full">
+        <KunPagination
+          total={Math.ceil(total / 30)}
+          onPageChange={setPage}
+          isLoading={loading}
+          page={page}
+        />
+      </div>
     </div>
   )
 }

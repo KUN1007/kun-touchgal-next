@@ -3,32 +3,36 @@ import { NextRequest, NextResponse } from 'next/server'
 import { kunParseGetQuery } from '~/app/api/utils/parseQuery'
 import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
+import { getUserFollowStatusSchema } from '~/validations/user'
 import type { UserFollow } from '~/types/api/user'
 
-const uidSchema = z.object({
-  uid: z.coerce.number({ message: '请输入合法的用户 ID' }).min(1).max(9999999)
-})
-
 export const getUserFollower = async (
-  uid: number,
+  input: z.infer<typeof getUserFollowStatusSchema>,
   currentUserUid: number | undefined
 ) => {
-  const relations = await prisma.user_follow_relation.findMany({
-    where: { following_id: uid },
-    include: {
-      follower: {
-        include: {
-          follower: true,
-          following: true
+  const { uid, page, limit } = input
+  const offset = (page - 1) * limit
+
+  const [data, total] = await Promise.all([
+    prisma.user_follow_relation.findMany({
+      take: limit,
+      skip: offset,
+      where: { following_id: uid },
+      include: {
+        follower: {
+          include: {
+            follower: true,
+            following: true
+          }
         }
       }
-    }
-  })
-  if (!relations.length) {
-    return []
-  }
+    }),
+    prisma.user_follow_relation.count({
+      where: { following_id: uid }
+    })
+  ])
 
-  const followers: UserFollow[] = relations.map((r) => ({
+  const followers: UserFollow[] = data.map((r) => ({
     id: r.follower.id,
     name: r.follower.name,
     avatar: r.follower.avatar,
@@ -40,16 +44,16 @@ export const getUserFollower = async (
       .includes(currentUserUid ?? 0)
   }))
 
-  return followers
+  return { followers, total }
 }
 
 export const GET = async (req: NextRequest) => {
-  const input = kunParseGetQuery(req, uidSchema)
+  const input = kunParseGetQuery(req, getUserFollowStatusSchema)
   if (typeof input === 'string') {
     return NextResponse.json(input)
   }
   const payload = await verifyHeaderCookie(req)
 
-  const response = await getUserFollower(input.uid, payload?.uid)
+  const response = await getUserFollower(input, payload?.uid)
   return NextResponse.json(response)
 }

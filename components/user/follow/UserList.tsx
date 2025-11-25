@@ -2,12 +2,13 @@
 
 import { Avatar, Card, CardBody } from '@heroui/react'
 import { Users } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
 import { useRouter } from '@bprogress/next'
 import { KunLoading } from '~/components/kun/Loading'
 import { KunNull } from '~/components/kun/Null'
 import { UserFollow } from './Follow'
+import { KunPagination } from '~/components/kun/Pagination'
 import type { UserFollow as UserFollowType } from '~/types/api/user'
 
 interface UserListProps {
@@ -18,30 +19,48 @@ interface UserListProps {
 export const UserList = ({ userId, type }: UserListProps) => {
   const router = useRouter()
 
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(100)
   const [users, setUsers] = useState<UserFollowType[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, startTransition] = useTransition()
 
-  const getUsers = async () => {
-    setLoading(true)
-    let results = []
+  const getUsers = () => {
+    startTransition(async () => {
+      let results: UserFollowType[] = []
+      let tt = 0
 
-    if (type === 'followers') {
-      results = await kunFetchGet<UserFollowType[]>('/user/follow/follower', {
-        uid: userId
-      })
-    } else {
-      results = await kunFetchGet<UserFollowType[]>('/user/follow/following', {
-        uid: userId
-      })
-    }
+      if (type === 'followers') {
+        const res = await kunFetchGet<{
+          followers: UserFollowType[]
+          total: number
+        }>('/user/follow/follower', {
+          uid: userId,
+          page,
+          limit: 100
+        })
+        results = res.followers
+        tt = res.total
+      } else {
+        const res = await kunFetchGet<{
+          followings: UserFollowType[]
+          total: number
+        }>('/user/follow/following', {
+          uid: userId,
+          page,
+          limit: 100
+        })
+        results = res.followings
+        tt = res.total
+      }
 
-    setUsers(results)
-    setLoading(false)
+      setUsers(results)
+      setTotal(tt)
+    })
   }
 
   useEffect(() => {
     getUsers()
-  }, [])
+  }, [page])
 
   return (
     <>
@@ -86,6 +105,17 @@ export const UserList = ({ userId, type }: UserListProps) => {
                   : 'TA 还没有关注过任何人哦'
               }
             />
+          )}
+
+          {total > 100 && (
+            <div className="flex justify-center">
+              <KunPagination
+                total={Math.ceil(total / 100)}
+                page={page}
+                onPageChange={setPage}
+                isLoading={loading}
+              />
+            </div>
           )}
         </div>
       )}

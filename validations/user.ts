@@ -84,6 +84,12 @@ export const getFavoriteFolderPatchSchema = z.object({
   limit: z.coerce.number().min(1).max(100)
 })
 
+export const getUserFollowStatusSchema = z.object({
+  uid: z.coerce.number({ message: '请输入合法的用户 ID' }).min(1).max(9999999),
+  page: z.coerce.number().min(1).max(9999999),
+  limit: z.coerce.number().min(1).max(100)
+})
+
 export const saveUser2FASecretSchema = z.object({
   secret: z
     .string()

@@ -21,7 +21,7 @@ export const PatchCompany: FC<Props> = ({ patchId, initialCompanies }) => {
 
   return (
     <div className="mt-4 space-y-4">
-      <h2 className="text-xl font-medium">所属会社</h2>
+      <h2 className="text-2xl font-medium">所属会社</h2>
 
       <div className="space-x-2">
         {selectedCompanies.map((company) => (

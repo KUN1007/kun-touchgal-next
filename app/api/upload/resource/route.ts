@@ -1,3 +1,4 @@
+import { differenceInDays } from 'date-fns'
 import { NextRequest, NextResponse } from 'next/server'
 import { setKv } from '~/lib/redis'
 import { calculateFileStreamHash } from '../resourceUtils'
@@ -43,6 +44,10 @@ const checkRequestValid = async (req: NextRequest) => {
   const user = await prisma.user.findUnique({ where: { id: payload.uid } })
   if (!user) {
     return '用户未找到'
+  }
+  const isNewUser = differenceInDays(new Date(), user.register_time) < 3
+  if (isNewUser) {
+    return '您的注册时间小于三天, 本站规定注册时长大于三天的用户才可以上传资源'
   }
   if (user.role < 2) {
     return '您的权限不足, 创作者或者管理员才可以上传文件到对象存储'

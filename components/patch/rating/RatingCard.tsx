@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Card, CardBody } from '@heroui/card'
-import { Button, Chip, Tooltip } from '@heroui/react'
+import { Alert, Button, Chip, Tooltip } from '@heroui/react'
 import {
   Modal,
   ModalBody,
@@ -11,14 +11,13 @@ import {
   ModalHeader,
   useDisclosure
 } from '@heroui/modal'
-import { Lollipop, Pencil, Star, Trash2 } from 'lucide-react'
+import { Pencil, Star, Trash2 } from 'lucide-react'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
 import { formatTimeDifference } from '~/utils/time'
 import { RatingLikeButton } from './RatingLike'
 import { useUserStore } from '~/store/userStore'
 import toast from 'react-hot-toast'
 import { kunFetchDelete } from '~/utils/kunFetch'
-import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import { RatingModal } from './RatingModal'
 import {
   KUN_GALGAME_RATING_RECOMMEND_MAP,
@@ -42,6 +41,7 @@ export const RatingCard = ({
 }: Props) => {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const { user } = useUserStore((state) => state)
+  const [isShowSpoiler, setIsShowSpoiler] = useState(false)
 
   const canEdit = user.uid === rating.user.id || user.role >= 3
 
@@ -93,9 +93,6 @@ export const RatingCard = ({
               <Chip color="secondary" variant="flat">
                 {KUN_GALGAME_RATING_PLAY_STATUS_MAP[rating.playStatus]}
               </Chip>
-              <Chip color="default" variant="flat">
-                {KUN_GALGAME_RATING_SPOILER_MAP[rating.spoilerLevel]}
-              </Chip>
             </div>
 
             <span className="text-warning flex items-center gap-1 text-3xl font-bold">
@@ -104,7 +101,27 @@ export const RatingCard = ({
             </span>
           </div>
 
-          {rating.shortSummary && (
+          {rating.spoilerLevel !== 'none' && (
+            <div className="flex items-center justify-center w-full">
+              <Alert
+                color="warning"
+                description="点击显示以显示这条含有剧透的评价"
+                endContent={
+                  <Button
+                    onPress={() => setIsShowSpoiler(!isShowSpoiler)}
+                    color="warning"
+                    variant="flat"
+                  >
+                    显示
+                  </Button>
+                }
+                title={KUN_GALGAME_RATING_SPOILER_MAP[rating.spoilerLevel]}
+                variant="faded"
+              />
+            </div>
+          )}
+
+          {rating.shortSummary && isShowSpoiler && (
             <p className="text-default-700 whitespace-pre-wrap">
               {rating.shortSummary}
             </p>

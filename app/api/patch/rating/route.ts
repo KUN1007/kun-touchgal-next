@@ -33,8 +33,11 @@ export const GET = async (req: NextRequest) => {
     return NextResponse.json(input)
   }
   const payload = await verifyHeaderCookie(req)
+  if (!payload) {
+    return NextResponse.json('用户未登录')
+  }
 
-  const response = await getPatchRating(input, payload?.uid ?? 0)
+  const response = await getPatchRating(input, payload.uid)
   return NextResponse.json(response)
 }
 

@@ -9,8 +9,9 @@ import { KunNull } from '~/components/kun/Null'
 import { RatingCard } from './RatingCard'
 import { RatingModal } from './RatingModal'
 import { useDisclosure } from '@heroui/react'
-import type { KunPatchRating } from '~/types/api/galgame'
 import { KunLoading } from '~/components/kun/Loading'
+import { useUserStore } from '~/store/userStore'
+import type { KunPatchRating } from '~/types/api/galgame'
 
 interface Props {
   id: number
@@ -20,6 +21,7 @@ export const Ratings = ({ id }: Props) => {
   const [ratings, setRatings] = useState<KunPatchRating[]>([])
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [isPending, startTransition] = useTransition()
+  const user = useUserStore((state) => state.user)
 
   const fetchData = async () => {
     startTransition(async () => {
@@ -51,6 +53,10 @@ export const Ratings = ({ id }: Props) => {
 
   const handleDeleted = (ratingId: number) => {
     setRatings((prev) => prev.filter((r) => r.id !== ratingId))
+  }
+
+  if (!user.uid) {
+    return <KunNull message="请登陆后查看游戏评价" />
   }
 
   return (

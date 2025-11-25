@@ -22,12 +22,16 @@ import toast from 'react-hot-toast'
 interface Props {
   galgame: GalgameCard
   folderId: number
+  pageUid: number
+  currentUserUid: number
   onRemoveFavorite: (patchId: number) => void
 }
 
 export const UserGalgameCard = ({
   galgame,
   folderId,
+  pageUid,
+  currentUserUid,
   onRemoveFavorite
 }: Props) => {
   const [isPending, startTransition] = useTransition()
@@ -74,18 +78,20 @@ export const UserGalgameCard = ({
 
             <KunCardStats patch={galgame} isMobile={true} />
 
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                variant="flat"
-                color="danger"
-                onPress={onOpenDelete}
-                isDisabled={isPending}
-                isLoading={isPending}
-              >
-                从收藏夹移除
-              </Button>
-            </div>
+            {pageUid === currentUserUid && (
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant="flat"
+                  color="danger"
+                  onPress={onOpenDelete}
+                  isDisabled={isPending}
+                  isLoading={isPending}
+                >
+                  从收藏夹移除
+                </Button>
+              </div>
+            )}
 
             <Modal
               isOpen={isOpenDelete}

@@ -174,13 +174,15 @@ export const UserFavorite = ({
                 {isPending ? (
                   <KunLoading hint="正在获取收藏数据..." />
                 ) : (
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {patches.map((galgame) => (
                       <UserGalgameCard
                         key={galgame.id}
                         galgame={galgame}
                         folderId={selectedFolder.id}
                         onRemoveFavorite={onRemoveFavorite}
+                        pageUid={pageUid}
+                        currentUserUid={currentUserUid}
                       />
                     ))}
                   </div>

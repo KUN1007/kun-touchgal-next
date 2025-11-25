@@ -41,7 +41,9 @@ export const RatingCard = ({
 }: Props) => {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const { user } = useUserStore((state) => state)
-  const [isShowSpoiler, setIsShowSpoiler] = useState(false)
+  const [isShowSummary, setIsShowSummary] = useState(
+    rating.spoilerLevel === 'none'
+  )
 
   const canEdit = user.uid === rating.user.id || user.role >= 3
 
@@ -108,7 +110,7 @@ export const RatingCard = ({
                 description="点击显示以显示这条含有剧透的评价"
                 endContent={
                   <Button
-                    onPress={() => setIsShowSpoiler(!isShowSpoiler)}
+                    onPress={() => setIsShowSummary(!isShowSummary)}
                     color="warning"
                     variant="flat"
                   >
@@ -121,7 +123,7 @@ export const RatingCard = ({
             </div>
           )}
 
-          {rating.shortSummary && isShowSpoiler && (
+          {rating.shortSummary && isShowSummary && (
             <p className="text-default-700 whitespace-pre-wrap">
               {rating.shortSummary}
             </p>

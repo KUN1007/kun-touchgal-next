@@ -5,7 +5,7 @@ import { Chip } from '@heroui/chip'
 import { Link } from '@heroui/link'
 import { Tooltip } from '@heroui/tooltip'
 import { Heart } from 'lucide-react'
-import { formatDistanceToNow } from '~/utils/formatDistanceToNow'
+import { formatTimeDifference } from '~/utils/time'
 import type { UserComment } from '~/types/api/user'
 
 interface Props {
@@ -29,7 +29,7 @@ export const UserCommentCard = ({ comment }: Props) => {
 
         <div className="flex items-center justify-between text-default-500">
           <span className="text-sm text-muted-foreground">
-            发布于 {formatDistanceToNow(comment.created)}
+            发布于 {formatTimeDifference(comment.created)}
           </span>
 
           <Tooltip content="点赞数">

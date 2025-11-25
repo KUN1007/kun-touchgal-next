@@ -3,7 +3,7 @@
 import { Chip } from '@heroui/react'
 import { Image } from '@heroui/image'
 import Link from 'next/link'
-import { formatDistanceToNow } from '~/utils/formatDistanceToNow'
+import { formatTimeDifference } from '~/utils/time'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
 import type { AdminGalgame } from '~/types/api/admin'
 
@@ -47,7 +47,7 @@ export const RenderCell = (galgame: AdminGalgame, columnKey: string) => {
     case 'created':
       return (
         <Chip size="sm" variant="light">
-          {formatDistanceToNow(galgame.created)}
+          {formatTimeDifference(galgame.created)}
         </Chip>
       )
     default:

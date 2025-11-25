@@ -16,7 +16,7 @@ import { EditTagModal } from './EditTagModal'
 import { DeleteTagModal } from './DeleteTagModal'
 import { useRouter } from '@bprogress/next'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
-import { formatDistanceToNow } from '~/utils/formatDistanceToNow'
+import { formatTimeDifference } from '~/utils/time'
 import { useUserStore } from '~/store/userStore'
 import { useSearchParams } from 'next/navigation'
 import { FilterBar } from './FilterBar'
@@ -103,7 +103,7 @@ export const TagDetailContainer = ({
               user={tag.user}
               userProps={{
                 name: tag.user.name,
-                description: `创建于 ${formatDistanceToNow(tag.created)}`,
+                description: `创建于 ${formatTimeDifference(tag.created)}`,
                 avatarProps: {
                   src: tag.user?.avatar
                 }

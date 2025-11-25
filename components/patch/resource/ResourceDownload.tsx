@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '@heroui/react'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
 import { ChevronDown, ChevronUp, Download } from 'lucide-react'
-import { formatDistanceToNow } from '~/utils/formatDistanceToNow'
+import { formatTimeDifference } from '~/utils/time'
 import { ResourceLikeButton } from './ResourceLike'
 import { ResourceDownloadCard } from './DownloadCard'
 import { markdownToHtml } from './kun/markdownToHtml'
@@ -62,7 +62,7 @@ export const ResourceDownload = ({ resource }: Props) => {
               {resource.name ? resource.name : '资源备注'}
             </h3>
             <p className="text-sm text-default-5000">
-              该补丁资源创建于 {formatDistanceToNow(resource.created)}
+              该补丁资源创建于 {formatTimeDifference(resource.created)}
             </p>
           </div>
 
@@ -116,7 +116,7 @@ export const ResourceDownload = ({ resource }: Props) => {
           user={resource.user}
           userProps={{
             name: resource.user.name,
-            description: `${formatDistanceToNow(resource.created)} • 已发布资源 ${resource.user.patchCount} 个`,
+            description: `${formatTimeDifference(resource.created)} • 已发布资源 ${resource.user.patchCount} 个`,
             avatarProps: {
               showFallback: true,
               src: resource.user.avatar,

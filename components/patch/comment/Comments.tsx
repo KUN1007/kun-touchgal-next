@@ -6,7 +6,7 @@ import { Button } from '@heroui/button'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
 import { ArrowUpDown, MessageCircle } from 'lucide-react'
 import { kunFetchGet } from '~/utils/kunFetch'
-import { formatDistanceToNow } from '~/utils/formatDistanceToNow'
+import { formatTimeDifference } from '~/utils/time'
 import { PublishComment } from './PublishComment'
 import { CommentLikeButton } from './CommentLike'
 import { CommentDropdown } from './CommentDropdown'
@@ -86,7 +86,7 @@ export const Comments = ({ id }: Props) => {
                   user={comment.user}
                   userProps={{
                     name: comment.user.name,
-                    description: formatDistanceToNow(comment.created),
+                    description: formatTimeDifference(comment.created),
                     avatarProps: {
                       showFallback: true,
                       name: comment.user.name,

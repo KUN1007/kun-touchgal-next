@@ -5,7 +5,7 @@ import { Divider } from '@heroui/divider'
 import { Chip, Tooltip } from '@heroui/react'
 import { KunCardStats } from '~/components/kun/CardStats'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
-import { formatDistanceToNow } from '~/utils/formatDistanceToNow'
+import { formatTimeDifference } from '~/utils/time'
 import {
   GALGAME_AGE_LIMIT_DETAIL,
   GALGAME_AGE_LIMIT_MAP
@@ -76,7 +76,7 @@ export const PatchHeaderInfo = ({
               <KunUser
                 user={patch.user}
                 userProps={{
-                  name: `${patch.user.name} - ${formatDistanceToNow(patch.created)}`,
+                  name: `${patch.user.name} - ${formatTimeDifference(patch.created)}`,
                   avatarProps: {
                     showFallback: true,
                     name: patch.user.name.charAt(0).toUpperCase(),

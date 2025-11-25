@@ -2,7 +2,7 @@
 
 import { Card, Chip, Link } from '@heroui/react'
 import { docDirectoryLabelMap } from '~/constants/doc'
-import { formatDistanceToNow } from '~/utils/formatDistanceToNow'
+import { formatTimeDifference } from '~/utils/time'
 import type { HomeCarouselMetadata } from './mdx'
 
 interface Props {
@@ -51,7 +51,7 @@ export const KunDesktopCard = ({ posts, currentSlide }: Props) => {
             </Chip>
 
             <Chip variant="flat" size="sm">
-              {formatDistanceToNow(post.date)}
+              {formatTimeDifference(post.date)}
             </Chip>
           </div>
         </div>

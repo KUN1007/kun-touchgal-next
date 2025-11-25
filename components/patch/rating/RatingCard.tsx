@@ -13,7 +13,7 @@ import {
 } from '@heroui/modal'
 import { Lollipop, Pencil, Star, Trash2 } from 'lucide-react'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
-import { formatDistanceToNow } from '~/utils/formatDistanceToNow'
+import { formatTimeDifference } from '~/utils/time'
 import { RatingLikeButton } from './RatingLike'
 import { useUserStore } from '~/store/userStore'
 import toast from 'react-hot-toast'
@@ -77,7 +77,7 @@ export const RatingCard = ({
               user={rating.user}
               userProps={{
                 name: rating.user.name,
-                description: `发布于 ${formatDistanceToNow(rating.created)}`,
+                description: `发布于 ${formatTimeDifference(rating.created)}`,
                 avatarProps: {
                   src: rating.user.avatar
                 }

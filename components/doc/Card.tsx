@@ -5,7 +5,7 @@ import { Card, CardBody, CardFooter } from '@heroui/react'
 import { Calendar, Type } from 'lucide-react'
 import { Image } from '@heroui/image'
 import { KunPostMetadata } from '~/lib/mdx/types'
-import { formatDistanceToNow } from '~/utils/formatDistanceToNow'
+import { formatTimeDifference } from '~/utils/time'
 import Link from 'next/link'
 
 interface Props {
@@ -44,7 +44,7 @@ export const KunAboutCard = ({ post }: Props) => {
         <div className="flex items-center gap-4 text-sm text-default-500">
           <div className="flex items-center gap-1">
             <Calendar size={16} />
-            <time>{formatDistanceToNow(post.date)}</time>
+            <time>{formatTimeDifference(post.date)}</time>
           </div>
           <div className="flex items-center gap-1">
             <Type size={16} />

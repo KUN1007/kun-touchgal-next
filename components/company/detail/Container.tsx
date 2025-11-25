@@ -14,7 +14,7 @@ import { KunLoading } from '~/components/kun/Loading'
 import { GalgameCard } from '~/components/galgame/Card'
 import { KunNull } from '~/components/kun/Null'
 import { CompanyFormModal } from '../form/CompanyFormModal'
-import { formatDistanceToNow } from '~/utils/formatDistanceToNow'
+import { formatTimeDifference } from '~/utils/time'
 import { kunFetchGet } from '~/utils/kunFetch'
 import { SUPPORTED_LANGUAGE_MAP } from '~/constants/resource'
 import { useUserStore } from '~/store/userStore'
@@ -80,7 +80,7 @@ export const CompanyDetailContainer: FC<Props> = ({
               user={company.user}
               userProps={{
                 name: company.user.name,
-                description: `创建于 ${formatDistanceToNow(company.created)}`,
+                description: `创建于 ${formatTimeDifference(company.created)}`,
                 avatarProps: {
                   src: company.user?.avatar
                 }

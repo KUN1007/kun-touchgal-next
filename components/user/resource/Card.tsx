@@ -1,7 +1,7 @@
 import { Chip } from '@heroui/chip'
 import { Card, CardBody } from '@heroui/card'
 import { Image } from '@heroui/image'
-import { formatDistanceToNow } from '~/utils/formatDistanceToNow'
+import { formatTimeDifference } from '~/utils/time'
 import Link from 'next/link'
 import { KunPatchAttribute } from '~/components/kun/PatchAttribute'
 
@@ -39,7 +39,7 @@ export const UserResourceCard = ({ resource }: Props) => {
                 {resource.patchName}
               </h2>
               <Chip variant="flat">
-                {formatDistanceToNow(resource.created)}
+                {formatTimeDifference(resource.created)}
               </Chip>
             </div>
 

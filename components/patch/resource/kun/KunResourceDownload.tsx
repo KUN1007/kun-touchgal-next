@@ -4,7 +4,7 @@ import DOMPurify from 'isomorphic-dompurify'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Button, User } from '@heroui/react'
 import { ChevronDown, ChevronUp, Download } from 'lucide-react'
-import { formatDistanceToNow } from '~/utils/formatDistanceToNow'
+import { formatTimeDifference } from '~/utils/time'
 import { KunResourceDownloadCard } from './KunDownloadCard'
 import { markdownToHtml } from './markdownToHtml'
 import Link from 'next/link'
@@ -66,7 +66,7 @@ export const KunResourceDownload = ({ resource }: Props) => {
               {resource.name ? resource.name : '资源备注'}
             </h3>
             <p className="text-sm text-default-5000">
-              该补丁资源最后更新于 {formatDistanceToNow(resource.update_time)}
+              该补丁资源最后更新于 {formatTimeDifference(resource.update_time)}
             </p>
           </div>
 

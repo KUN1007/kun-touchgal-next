@@ -66,7 +66,7 @@
     "axios": "^1.11.0",
     "canvas-confetti": "^1.9.3",
     "clsx": "^2.1.1",
-    "dayjs": "^1.11.13",
+    "date-fns": "^4.1.0",
     "diff": "^8.0.2",
     "framer-motion": "^12.23.9",
     "globby": "^14.1.0",

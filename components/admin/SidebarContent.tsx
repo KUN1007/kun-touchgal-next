@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import {
   BadgeCheck,
+  Box,
   Edit,
   FileClock,
   Gamepad2,
@@ -27,7 +28,7 @@ const menuItems = [
     icon: Users
   },
   {
-    name: '创作者管理',
+    name: '创作者申请',
     href: '/admin/creator',
     icon: BadgeCheck
   },
@@ -35,6 +36,11 @@ const menuItems = [
     name: '下载资源管理',
     href: '/admin/resource',
     icon: Puzzle
+  },
+  {
+    name: '首次资源发布申请',
+    href: '/admin/resource-apply',
+    icon: Box
   },
   {
     name: 'Gal 管理',

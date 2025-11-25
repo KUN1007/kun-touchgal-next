@@ -13,6 +13,7 @@ model patch_resource {
   language String[]
   platform String[]
   download Int      @default(0)
+  // 0 - normal, 1 - banned, 2 - pending approval
   status   Int      @default(0)
 
   like_by user_patch_resource_like_relation[]

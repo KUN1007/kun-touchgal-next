@@ -16,7 +16,7 @@ export const getHomeData = async (
     }),
     prisma.patch_resource.findMany({
       orderBy: { created: 'desc' },
-      where: { patch: nsfwEnable, section: 'patch' },
+      where: { patch: nsfwEnable, section: 'patch', status: 0 },
       include: {
         patch: {
           select: {

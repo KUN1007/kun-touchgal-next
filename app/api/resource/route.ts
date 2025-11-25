@@ -24,7 +24,7 @@ export const getPatchResource = async (
       take: limit,
       skip: offset,
       orderBy: orderByField,
-      where: { patch: nsfwEnable, section: 'patch' },
+      where: { patch: nsfwEnable, section: 'patch', status: 0 },
       include: {
         patch: {
           select: {
@@ -47,7 +47,7 @@ export const getPatchResource = async (
       }
     }),
     prisma.patch_resource.count({
-      where: { patch: nsfwEnable, section: 'patch' }
+      where: { patch: nsfwEnable, section: 'patch', status: 0 }
     })
   ])
 

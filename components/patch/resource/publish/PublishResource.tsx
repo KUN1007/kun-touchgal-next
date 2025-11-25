@@ -84,8 +84,13 @@ export const PublishResource = ({
     setCreating(false)
     kunErrorHandler(res, (value) => {
       reset()
-      onSuccess?.(value)
-      toast.success('资源发布成功')
+      if (value.status === 2) {
+        toast.success('资源已提交审核，通过后将自动显示')
+        onClose()
+      } else {
+        onSuccess?.(value)
+        toast.success('发布成功')
+      }
     })
   }
 
@@ -106,21 +111,18 @@ export const PublishResource = ({
   return (
     <ModalContent>
       <ModalHeader className="flex-col space-y-2">
-        <h3 className="text-lg">创建资源</h3>
+        <h3 className="text-lg">发布资源</h3>
         <div className="text-sm font-medium text-default-500">
           {user.role > 1 ? (
             <div className="space-y-1">
-              <p>
-                作为创作者, 您每天有 5GB (5120MB) 的上传额度, 该额度每天早上 8
-                点重置
-              </p>
-              <p>{`您今日已使用存储 ${user.dailyUploadLimit.toFixed(3)} MB`}</p>
-              <Progress size="sm" value={progress} aria-label="已使用存储" />
+              <p>每日上传总额度为 5GB (5120MB)，上传越多可用额度越高。</p>
+              <p>{`今日剩余上传额度 ${user.dailyUploadLimit.toFixed(3)} MB`}</p>
+              <Progress size="sm" value={progress} aria-label="今日上传额度" />
             </div>
           ) : (
             <>
-              您需要先自行发布 3 个补丁资源以使用我们的对象存储, 当您发布完成 3
-              个合法补丁后, 您可以 <Link href="/apply">申请成为创作者</Link>
+              普通用户至少上传 3 个有效资源后可申请创作者，创作者每日上传额度更高，详情见
+              <Link href="/apply">创作者申请页面</Link>
             </>
           )}
         </div>
@@ -173,22 +175,19 @@ export const PublishResource = ({
           </Button>
           <Button
             color="primary"
-            disabled={creating}
+            disabled={creating || uploadingResource}
             isLoading={creating}
             endContent={<Upload className="size-4" />}
             onPress={handleRewriteResource}
           >
-            发布资源
+            提交资源
           </Button>
         </div>
 
         {creating && (
-          <>
-            <p>
-              我们正在将您的补丁从服务器同步到云端, 请稍后 ...
-              取决于您的网络环境, 这也许需要一段时间
-            </p>
-          </>
+          <p className="text-xs text-default-500">
+            正在提交资源，请不要关闭此窗口，提交完成后会有提示。
+          </p>
         )}
       </ModalFooter>
     </ModalContent>

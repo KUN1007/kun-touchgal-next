@@ -13,7 +13,10 @@ export const getPatchResource = async (
   const { patchId } = input
 
   const data = await prisma.patch_resource.findMany({
-    where: { patch_id: patchId },
+    where: {
+      patch_id: patchId,
+      status: 0
+    },
     include: {
       patch: { select: { unique_id: true } },
       user: {

@@ -53,7 +53,7 @@ export const POST = async (req: NextRequest) => {
     }
   }
 
-  const response = await createPatchResource(input, payload.uid)
+  const response = await createPatchResource(input, payload.uid, payload.role)
   return NextResponse.json(response)
 }
 

@@ -16,7 +16,7 @@ export const getUserPatchResource = async (
 
   const [data, total] = await Promise.all([
     prisma.patch_resource.findMany({
-      where: { user_id: uid, patch: nsfwEnable },
+      where: { user_id: uid, patch: nsfwEnable, status: 0 },
       include: {
         patch: true
       },
@@ -25,7 +25,7 @@ export const getUserPatchResource = async (
       take: limit
     }),
     prisma.patch_resource.count({
-      where: { user_id: uid, patch: nsfwEnable }
+      where: { user_id: uid, patch: nsfwEnable, status: 0 }
     })
   ])
 

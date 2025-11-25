@@ -3,12 +3,13 @@ import { prisma } from '~/prisma/index'
 import { patchResourceCreateSchema } from '~/validations/patch'
 import { uploadFileToS3 } from '~/lib/s3'
 import { getKv } from '~/lib/redis'
+import { createMessage } from '~/app/api/utils/message'
 import type { PatchResource } from '~/types/api/patch'
 
 const uploadPatchResource = async (patchId: number, hash: string) => {
   const filePath = await getKv(hash)
   if (!filePath) {
-    return '本地临时文件存储未找到, 请重新上传文件'
+    return '未找到已上传的文件，请重新上传后再试'
   }
   const fileName = filePath.split('/').pop()
 
@@ -21,7 +22,8 @@ const uploadPatchResource = async (patchId: number, hash: string) => {
 
 export const createPatchResource = async (
   input: z.infer<typeof patchResourceCreateSchema>,
-  uid: number
+  uid: number,
+  userRole: number
 ) => {
   const {
     patchId,
@@ -39,9 +41,15 @@ export const createPatchResource = async (
       type: true,
       language: true,
       platform: true,
-      unique_id: true
+      unique_id: true,
+      name: true
     }
   })
+
+  const resourceCount = await prisma.patch_resource.count({
+    where: { user_id: uid }
+  })
+  const needApproval = resourceCount === 0 && userRole < 3
 
   let res: string
   if (storage === 's3') {
@@ -54,7 +62,7 @@ export const createPatchResource = async (
     res = content
   }
 
-  return await prisma.$transaction(async (prisma) => {
+  const resource = await prisma.$transaction(async (prisma) => {
     const newResource = await prisma.patch_resource.create({
       data: {
         patch_id: patchId,
@@ -64,6 +72,7 @@ export const createPatchResource = async (
         platform,
         content: res,
         storage,
+        status: needApproval ? 2 : 0,
         ...resourceData
       },
       include: {
@@ -134,4 +143,15 @@ export const createPatchResource = async (
 
     return resource
   })
+
+  if (needApproval) {
+    await createMessage({
+      type: 'system',
+      content: `你的第一个补丁资源「${currentPatch?.name ?? ''}」已提交审核，审核通过后将自动公开显示。`,
+      recipient_id: uid,
+      link: currentPatch?.unique_id ? `/${currentPatch.unique_id}` : '/'
+    })
+  }
+
+  return resource
 }

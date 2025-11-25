@@ -4,9 +4,23 @@ import { Chip } from '@heroui/react'
 import Link from 'next/link'
 import { SUPPORTED_RESOURCE_LINK_MAP } from '~/constants/resource'
 import { formatTimeDifference } from '~/utils/time'
-import { ResourceEdit } from './ResourceEdit'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
+import { ResourceApprovalButton } from './ApprovalButton'
+import { RESOURCE_STATUS_MAP } from '~/constants/admin'
 import type { AdminResource } from '~/types/api/admin'
+
+const getStatusColor = (status: number) => {
+  switch (status) {
+    case 0:
+      return 'success'
+    case 1:
+      return 'danger'
+    case 2:
+      return 'warning'
+    default:
+      return 'default'
+  }
+}
 
 export const RenderCell = (resource: AdminResource, columnKey: string) => {
   switch (columnKey) {
@@ -43,6 +57,12 @@ export const RenderCell = (resource: AdminResource, columnKey: string) => {
           {resource.size}
         </Chip>
       )
+    case 'status':
+      return (
+        <Chip size="sm" variant="flat" color={getStatusColor(resource.status)}>
+          {RESOURCE_STATUS_MAP[resource.status] ?? '未知'}
+        </Chip>
+      )
     case 'created':
       return (
         <Chip size="sm" variant="light">
@@ -50,7 +70,7 @@ export const RenderCell = (resource: AdminResource, columnKey: string) => {
         </Chip>
       )
     case 'actions':
-      return <ResourceEdit initialResource={resource} />
+      return <ResourceApprovalButton resource={resource} />
     default:
       return (
         <Chip color="primary" variant="flat">

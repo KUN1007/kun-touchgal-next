@@ -1,11 +1,11 @@
 :root {
-  --sh-class: hsl(var(--nextui-primary-500));
-  --sh-identifier: hsl(var(--nextui-default-800));
-  --sh-sign: hsl(var(--nextui-default-500));
-  --sh-property: hsl(var(--nextui-primary-700));
-  --sh-entity: hsl(var(--nextui-success-600));
-  --sh-jsxliterals: hsl(var(--nextui-secondary-600));
-  --sh-string: hsl(var(--nextui-success-500));
-  --sh-keyword: hsl(var(--nextui-warning-600));
-  --sh-comment: hsl(var(--nextui-default-400));
+  --sh-class: hsl(var(--heroui-primary-500));
+  --sh-identifier: hsl(var(--heroui-default-800));
+  --sh-sign: hsl(var(--heroui-default-500));
+  --sh-property: hsl(var(--heroui-primary-700));
+  --sh-entity: hsl(var(--heroui-success-600));
+  --sh-jsxliterals: hsl(var(--heroui-secondary-600));
+  --sh-string: hsl(var(--heroui-success-500));
+  --sh-keyword: hsl(var(--heroui-warning-600));
+  --sh-comment: hsl(var(--heroui-default-400));
 }

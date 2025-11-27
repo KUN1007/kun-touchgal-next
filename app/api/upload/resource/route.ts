@@ -1,4 +1,3 @@
-import { differenceInDays } from 'date-fns'
 import { NextRequest, NextResponse } from 'next/server'
 import { setKv } from '~/lib/redis'
 import { calculateFileStreamHash } from '../resourceUtils'
@@ -45,9 +44,8 @@ const checkRequestValid = async (req: NextRequest) => {
   if (!user) {
     return '用户未找到'
   }
-  const isNewUser = differenceInDays(new Date(), user.register_time) < 3
-  if (isNewUser) {
-    return '您的注册时间小于三天, 本站规定注册时长大于三天的用户才可以上传资源'
+  if (user.moemoepoint < 20) {
+    return '仅限萌萌点大于 20 的用户才可以发布资源'
   }
   if (user.role < 2) {
     return '您的权限不足, 创作者或者管理员才可以上传文件到对象存储'
@@ -60,6 +58,12 @@ const checkRequestValid = async (req: NextRequest) => {
   }
   if (user.daily_upload_size >= 5120) {
     return '您今日的上传大小已达到 5GB 限额'
+  }
+  const resource = await prisma.patch_resource.findFirst({
+    where: { user_id: payload.uid, status: 2 }
+  })
+  if (resource) {
+    return '您有至少一个 Galgame 资源在待审核阶段, 请等待审核结束后再发布资源'
   }
 
   const fileSizeInGB = Number(fileSizeInMB.toFixed(3))

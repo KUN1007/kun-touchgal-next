@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
-import { randomNum } from '~/utils/random'
+import { randomNormalInt } from '~/utils/random'
 
 const checkIn = async (uid: number) => {
   const user = await prisma.user.findUnique({
@@ -14,7 +14,7 @@ const checkIn = async (uid: number) => {
     return '您今天已经签到过了'
   }
 
-  const randomMoemoepoints = randomNum(0, 7)
+  const randomMoemoepoints = randomNormalInt(2, 7)
 
   await prisma.user.update({
     where: { id: uid },

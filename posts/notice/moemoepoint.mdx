@@ -1,0 +1,99 @@
+---
+title: 萌萌点用法、获取、消耗说明
+banner: 'https://cloud.touchgaloss.com/uploads/20251201143220112.avif'
+description: 'TouchGal 的萌萌点用于限制与激励社区行为：萌萌点超过 20 才能发布 Galgame 资源，更改用户名需消耗 17 点。萌萌点可通过每日签到随机获得 2–7 点（呈正态分布），也可在发布 Galgame、发布资源或补丁时获得固定奖励，删除资源会同步扣除相应点数。内容被点赞或收藏也会带来 1 点增益，取消则扣回。通过多样互动与贡献，用户可持续积累萌萌点并提升社区参与度。'
+date: 2025-12-01
+authorUid: 1
+authorName: 'Palentum'
+authorAvatar: 'https://cloud.touchgaloss.com/user/avatar/user_1/avatar-mini.avif'
+authorHomepage: 'https://www.arnebiae.com'
+pin: false
+---
+
+## 用法
+
+TouchGal 的萌萌点机制目前具有下面的作用
+
+ - 仅限萌萌点 > 20 的用户可以发布 Galgame 相关资源。
+ - 更改用户名需要消耗 17 萌萌点。
+
+## 获取
+
+TouchGal 的萌萌点可以通过下面几种方式获取
+
+### 每日签到
+
+只有注册用户可以在 TouchGal 进行签到，签到方式为点击头像，然后点击签到
+
+签到会自动获取在 [2, 7] 区间的萌萌点, 概率遵循正态分布
+
+这是我们目前的正态数字生成函数
+
+```typescript
+export const randomNormalInt = (min: number, max: number) => {
+  const mean = (min + max) / 2
+  const stdDev = (max - min) / 6
+
+  const weights = []
+  for (let x = min; x <= max; x++) {
+    const w = Math.exp(-0.5 * Math.pow((x - mean) / stdDev, 2))
+    weights.push(w)
+  }
+
+  const sum = weights.reduce((a, b) => a + b, 0)
+  const r = Math.random() * sum
+
+  let accum = 0
+  for (let i = 0; i < weights.length; i++) {
+    accum += weights[i]
+    if (r <= accum) return min + i
+  }
+}
+```
+
+这是 `randomNormalInt` 一个示例的测试结果
+
+```shell
+Distribution (counts):
+[
+    524,  2681,  9461,
+  23185, 40015, 48086,
+  39966, 23322,  9644,
+   2594,   522
+]
+
+ASCII Histogram:
+ 0 | █
+ 1 | ███
+ 2 | ██████████
+ 3 | ████████████████████████
+ 4 | ██████████████████████████████████████████
+ 5 | ██████████████████████████████████████████████████
+ 6 | ██████████████████████████████████████████
+ 7 | ████████████████████████
+ 8 | ██████████
+ 9 | ███
+10 | █
+
+Stats:
+  Sample Mean:      5.0021
+  Sample StdDev:    1.6561
+  Expected Mean:    5.0000
+  Expected StdDev:  1.6667
+```
+
+### 发布 Galgame
+
+发布一个 Galgame 项目将会获得 3 萌萌点，目前只有站点管理员可以创建一个新的 Galgame
+
+### 发布 Galgame 资源或补丁
+
+发布一个 Galgame 资源或补丁您将获得 3 萌萌点，删除这个资源，获得的萌萌点会被同步删除
+
+### 被点赞
+
+您发布的 Galgame、评论、评分、资源 均可以被其它用户点赞，这些项目被点赞您均会获得 1 萌萌点，如果其它用户取消点赞，则获得的 1 萌萌点会被同步扣除
+
+### 被收藏
+
+您发布的 Galgame 可以被收藏，被收藏将会获得 1 萌萌点，目前只有站点管理员可以创建一个新的 Galgame

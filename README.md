@@ -8,7 +8,7 @@ TouchGal 是一个一站式 Galgame 文化社区。提供Galgame 论坛、Galgam
 
 如果要反馈错误, 请您加入 TouchGal 的官方 Discord 服务器
 
-https://discord.gg/55zuwkrJ
+https://discord.gg/e4QePvPQTB
 
 ## 开发联系
 

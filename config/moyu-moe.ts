@@ -8,7 +8,7 @@ const KUN_SITE_IMAGE =
   'https://cloud.touchgaloss.com/uploads/20241217174250074.avif'
 const KUN_SITE_DESCRIPTION =
   'TouchGal 是一个一站式 Galgame 文化社区。提供Galgame 论坛、Galgame 下载等服务。承诺永久免费, 高质量。为Galgame 爱好者提供一片净土！'
-const KUN_SITE_URL = 'https://www.touchgal.us'
+const KUN_SITE_URL = 'https://www.touchgal.top'
 const KUN_SITE_ARCHIVE = 'https://archive.touchgal.co/'
 const KUN_SITE_FORUM = 'https://bbs.touchgal.co/'
 const KUN_SITE_NAV = 'https://gal.red'

@@ -1,8 +1,7 @@
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '~/prisma/index'
 import { promises as fs } from 'fs'
 import path from 'path'
 
-const prisma = new PrismaClient()
 const DOMAIN = 'img.touchgalstatic.org'
 const SCHEMA_PATH = path.resolve(process.cwd(), 'prisma', 'schema.prisma')
 

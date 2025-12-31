@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '~/prisma/index'
 
 const generateUniqueId = () => {
   const characters = 'abcdefghijklmnopqrstuvwxyz0123456789'

@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '~/prisma/index'
 
 const VNDB_API_BASE = 'https://api.vndb.org/kana'
 const BATCH_SIZE = 100

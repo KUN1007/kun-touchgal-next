@@ -55,3 +55,6 @@ next-env.d.ts
 
 refs
 migration/temp
+
+# prisma generated
+prisma/generated

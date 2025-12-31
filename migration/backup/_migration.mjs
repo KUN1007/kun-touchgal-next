@@ -2,11 +2,9 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import matter from 'gray-matter'
-import { PrismaClient } from '@prisma/client'
 import size from './size.json' with { type: 'json' }
 import { uploadImageFromURL } from './_uploadBanner.mjs'
-
-const prisma = new PrismaClient()
+import { prisma } from '~/prisma/index'
 
 // 用户 ID, 根据生产环境的实际 uid 确定
 const USER_ID = 1

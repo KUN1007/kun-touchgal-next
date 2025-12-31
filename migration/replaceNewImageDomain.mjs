@@ -1,8 +1,7 @@
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '~/prisma/index'
 import { promises as fs } from 'fs'
 import path from 'path'
 
-const prisma = new PrismaClient()
 const DOMAIN = 'img.touchgalstatic.org'
 const NEW_DOMAIN = 'cloud.touchgaloss.com'
 const BATCH_SIZE = 100

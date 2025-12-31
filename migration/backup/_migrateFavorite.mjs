@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client'
 import { readFile } from 'fs/promises'
-
-const prisma = new PrismaClient()
+import { prisma } from '~/prisma/index'
 
 async function migrateFavorites() {
   try {

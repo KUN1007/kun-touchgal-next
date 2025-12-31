@@ -5,7 +5,7 @@ import { prisma } from '~/prisma/index'
 import { searchSchema } from '~/validations/search'
 import { GalgameCardSelectField } from '~/constants/api/select'
 import { getNSFWHeader } from '~/app/api/utils/getNSFWHeader'
-import { Prisma } from '@prisma/client'
+import { Prisma } from '~/prisma/generated/prisma/client'
 import type { SearchSuggestionType } from '~/types/api/search'
 
 export const searchGalgame = async (

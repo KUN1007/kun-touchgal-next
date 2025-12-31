@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '~/prisma/index'
 
 // const invalidIds = [4219, 1032, 3480, 258, 2310]
 

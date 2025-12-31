@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '~/prisma/index'
 
 const batch = async (arr, size, fn) => {
   for (let i = 0; i < arr.length; i += size) {

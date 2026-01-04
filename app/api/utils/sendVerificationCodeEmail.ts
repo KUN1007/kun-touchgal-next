@@ -1,5 +1,3 @@
-import { createTransport } from 'nodemailer'
-import SMPTransport from 'nodemailer-smtp-transport'
 import { getRemoteIp } from './getRemoteIp'
 import { getKv, setKv } from '~/lib/redis'
 import { generateRandomString } from '~/utils/random'
@@ -20,33 +18,39 @@ export const sendVerificationCodeEmail = async (
   }
 
   const code = generateRandomString(7)
+
   await setKv(email, code, 10 * 60)
   await setKv(`limit:email:${email}`, code, 60)
   await setKv(`limit:ip:${ip}`, code, 60)
 
-  const transporter = createTransport(
-    SMPTransport({
-      pool: {
-        pool: true
+  const res = await fetch(
+    `${process.env.KUN_VISUAL_NOVEL_EMAIL_HOST}/api/v1/send/message`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Server-API-Key': process.env.KUN_VISUAL_NOVEL_EMAIL_PASSWORD || '',
+        Authorization: `Bearer ${process.env.KUN_VISUAL_NOVEL_EMAIL_PASSWORD}`
       },
-      host: process.env.KUN_VISUAL_NOVEL_EMAIL_HOST,
-      port: Number(process.env.KUN_VISUAL_NOVEL_EMAIL_PORT) || 587,
-      secure: false,
-      requireTLS: true,
-      auth: {
-        user: process.env.KUN_VISUAL_NOVEL_EMAIL_ACCOUNT,
-        pass: process.env.KUN_VISUAL_NOVEL_EMAIL_PASSWORD
-      }
-    })
+      body: JSON.stringify({
+        to: [email],
+        from: process.env.KUN_VISUAL_NOVEL_EMAIL_ACCOUNT,
+        sender: `${process.env.KUN_VISUAL_NOVEL_EMAIL_FROM}<${process.env.KUN_VISUAL_NOVEL_EMAIL_ACCOUNT}>`,
+        subject: `${kunMoyuMoe.titleShort} - 验证码`,
+        tag: 'verification-code',
+        html_body: createKunVerificationEmailTemplate(type, code),
+        plain_body: `您的验证码是：${code}，10 分钟内有效`
+      })
+    }
   )
 
-  const mailOptions = {
-    from: `${process.env.KUN_VISUAL_NOVEL_EMAIL_FROM}<${process.env.KUN_VISUAL_NOVEL_EMAIL_ACCOUNT}>`,
-    sender: process.env.KUN_VISUAL_NOVEL_EMAIL_ACCOUNT,
-    to: email,
-    subject: `${kunMoyuMoe.titleShort} - 验证码`,
-    html: createKunVerificationEmailTemplate(type, code)
+  if (!res.ok) {
+    const text = await res.text()
+    return text
   }
 
-  await transporter.sendMail(mailOptions)
+  const r = await res.json()
+  if (r.status === 'error') {
+    return JSON.stringify(r)
+  }
 }

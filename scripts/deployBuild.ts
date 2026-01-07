@@ -31,7 +31,7 @@ try {
   }
 
   execSync(
-    'git pull && pnpm prisma:push && pnpm build && pnpm stop && pnpm start',
+    'git pull && pnpm i && pnpm prisma:push && pnpm build && pnpm stop && pnpm start',
     { stdio: 'inherit' }
   )
 } catch (e) {

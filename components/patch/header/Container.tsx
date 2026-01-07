@@ -27,6 +27,7 @@ export const PatchHeaderContainer = ({
       id: patch.id,
       uniqueId: patch.uniqueId,
       vndbId: patch.vndbId ?? '',
+      vndbRelationId: patch.vndbRelationId ?? '',
       name: patch.name,
       introduction: patch.introduction,
       alias: patch.alias,

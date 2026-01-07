@@ -2,7 +2,8 @@ model patch {
   id                   Int      @id @default(autoincrement())
   unique_id            String   @unique @db.VarChar(8)
   name                 String   @db.VarChar(1007)
-  vndb_id              String?  @unique @db.VarChar(107)
+  vndb_id              String?  @db.VarChar(107)
+  vndb_relation_id     String?  @db.VarChar(107)
   banner               String   @default("") @db.VarChar(1007)
   introduction         String   @default("") @db.VarChar(100007)
   released             String   @default("unknown") @db.VarChar(107)
@@ -32,6 +33,8 @@ model patch {
 
   created DateTime @default(now())
   updated DateTime @updatedAt
+
+  @@unique([vndb_id, vndb_relation_id])
 }
 
 model patch_alias {

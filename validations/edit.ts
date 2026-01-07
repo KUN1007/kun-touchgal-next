@@ -4,6 +4,7 @@ export const patchCreateSchema = z.object({
   banner: z.any(),
   name: z.string().trim().min(1, { message: '游戏名称是必填项' }),
   vndbId: z.string().max(10),
+  vndbRelationId: z.string().max(10),
   introduction: z
     .string()
     .trim()
@@ -23,6 +24,7 @@ export const patchUpdateSchema = z.object({
   id: z.coerce.number().min(1).max(9999999),
   name: z.string().trim().min(1, { message: '游戏名称是必填项' }),
   vndbId: z.string().max(10),
+  vndbRelationId: z.string().max(10),
   introduction: z
     .string()
     .trim()

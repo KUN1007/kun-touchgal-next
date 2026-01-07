@@ -3,7 +3,7 @@
 import { Button, Input } from '@heroui/react'
 import { useRewritePatchStore } from '~/store/rewriteStore'
 import toast from 'react-hot-toast'
-import type { VNDBResponse } from '../VNDB'
+import { fetchVNDBDetails } from '~/utils/vndb'
 
 interface Props {
   vndbId: string
@@ -15,42 +15,46 @@ export const VNDBInput = ({ vndbId, setVNDBId, errors }: Props) => {
   const { data, setData } = useRewritePatchStore()
 
   const handleFetchVNDBData = async () => {
-    if (!data.vndbId) {
+    if (!data.vndbId.trim()) {
       toast.error('VNDB ID 不可为空')
       return
     }
 
+    const normalized = data.vndbId.trim().toLowerCase()
+    if (!/^v\d+$/.test(normalized)) {
+      toast.error('VNDB ID 需要以 v 开头')
+      return
+    }
+
     toast('正在从 VNDB 获取数据...')
-    const vndbResponse = await fetch(`https://api.vndb.org/kana/vn`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        filters: ['id', '=', data.vndbId],
-        fields: 'title, titles.lang, titles.title, aliases, released'
+    try {
+      const { titles, released } = await fetchVNDBDetails(normalized)
+
+      setData({
+        ...data,
+        vndbId: normalized,
+        alias: [...new Set(titles)],
+        released: released || data.released
       })
-    })
+      setVNDBId(normalized)
 
-    const vndbData: VNDBResponse = await vndbResponse.json()
-    const allTitles = vndbData.results.flatMap((vn) => {
-      const jaTitle = vn.titles.find((t) => t.lang === 'ja')?.title
-      const titlesArray = [
-        ...(jaTitle ? [jaTitle] : []),
-        vn.title,
-        ...vn.titles.filter((t) => t.lang !== 'ja').map((t) => t.title),
-        ...vn.aliases
-      ]
-      return titlesArray
-    })
-
-    setData({
-      ...data,
-      alias: [...new Set(allTitles)],
-      released: vndbData.results[0].released
-    })
-
-    toast.success('获取数据成功! 已为您自动添加游戏别名')
+      toast.success('获取数据成功! 已为您自动添加游戏别名')
+    } catch (error) {
+      console.error(error)
+      if (
+        error instanceof Error &&
+        (error.message === 'VNDB_API_ERROR' ||
+          error.message === 'VNDB_NOT_FOUND')
+      ) {
+        const message =
+          error.message === 'VNDB_NOT_FOUND'
+            ? '未找到对应的 VNDB 数据'
+            : 'VNDB API 请求失败, 请稍后重试'
+        toast.error(message)
+      } else {
+        toast.error('VNDB API 请求失败, 请稍后重试')
+      }
+    }
   }
 
   return (
@@ -65,7 +69,7 @@ export const VNDBInput = ({ vndbId, setVNDBId, errors }: Props) => {
         isInvalid={!!errors}
         errorMessage={errors}
       />
-      <p className="text-sm ">
+      <p className="text-sm">
         提示: VNDB ID 需要 VNDB 官网 (vndb.org)
         获取，当进入对应游戏的页面，游戏页面的 URL (形如
         https://vndb.org/v19658) 中的 v19658 就是 VNDB ID

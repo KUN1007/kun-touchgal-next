@@ -13,7 +13,7 @@ export const updateGalgame = async (
   }
 
   if (input.vndbId) {
-    const galgame = await prisma.patch.findUnique({
+    const galgame = await prisma.patch.findFirst({
       where: { vndb_id: input.vndbId }
     })
     if (galgame && galgame.id !== input.id) {
@@ -21,14 +21,23 @@ export const updateGalgame = async (
     }
   }
 
-  const { id, vndbId, name, alias, introduction, contentLimit, released } =
-    input
+  const {
+    id,
+    vndbId,
+    vndbRelationId,
+    name,
+    alias,
+    introduction,
+    contentLimit,
+    released
+  } = input
 
   await prisma.patch.update({
     where: { id },
     data: {
       name,
       vndb_id: vndbId ? vndbId : null,
+      vndb_relation_id: vndbRelationId ? vndbRelationId : null,
       introduction,
       content_limit: contentLimit,
       released

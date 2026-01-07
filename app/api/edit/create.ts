@@ -18,6 +18,7 @@ export const createGalgame = async (
   const {
     name,
     vndbId,
+    vndbRelationId,
     alias,
     banner,
     tag,
@@ -36,6 +37,7 @@ export const createGalgame = async (
           name,
           unique_id: galgameUniqueId,
           vndb_id: vndbId ? vndbId : null,
+          vndb_relation_id: vndbRelationId ? vndbRelationId : null,
           introduction,
           user_id: uid,
           banner: '',

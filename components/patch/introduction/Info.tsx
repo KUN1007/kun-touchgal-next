@@ -48,6 +48,42 @@ export const Info = ({ intro }: Props) => {
             </span>
           </div>
         )}
+        {intro.vndbRelationId && (
+          <div className="flex items-center gap-2 text-sm text-default-500">
+            <Link className="size-4" />
+            <span>
+              VNDB Relation:{' '}
+              {
+                <LinkComp
+                  underline="hover"
+                  size="sm"
+                  isExternal
+                  href={`https://vndb.org/${intro.vndbRelationId}`}
+                >
+                  {intro.vndbRelationId}
+                </LinkComp>
+              }
+            </span>
+          </div>
+        )}
+        {intro.dlsiteCode && (
+          <div className="flex items-center gap-2 text-sm text-default-500">
+            <Link className="size-4" />
+            <span>
+              DLsite 页面:{' '}
+              {
+                <LinkComp
+                  underline="hover"
+                  size="sm"
+                  isExternal
+                  href={`https://www.dlsite.com/maniax/work/=/product_id/${intro.dlsiteCode}.html/`}
+                >
+                  {intro.dlsiteCode}
+                </LinkComp>
+              }
+            </span>
+          </div>
+        )}
       </div>
 
       {intro.alias.length > 0 && (

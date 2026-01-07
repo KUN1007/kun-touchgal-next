@@ -4,6 +4,7 @@ export interface RewritePatchData {
   uniqueId: string
   vndbId: string
   vndbRelationId: string
+  dlsiteCode: string
   name: string
   introduction: string
   alias: string[]
@@ -24,6 +25,7 @@ const initialState: RewritePatchData = {
   uniqueId: '',
   vndbId: '',
   vndbRelationId: '',
+  dlsiteCode: '',
   name: '',
   introduction: '',
   alias: [],

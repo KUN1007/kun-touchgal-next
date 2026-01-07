@@ -6,6 +6,7 @@ export interface Patch {
   uniqueId: string
   vndbId: string | null
   vndbRelationId: string | null
+  dlsiteCode: string | null
   name: string
   banner: string
   introduction: string
@@ -50,6 +51,7 @@ export interface PatchRatingSummary {
 export interface PatchIntroduction {
   vndbId: string | null
   vndbRelationId?: string | null
+  dlsiteCode?: string | null
   introduction: string
   released: string
   alias: string[]

@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { patchUpdateSchema } from '~/validations/edit'
 import { handleBatchPatchTags } from './batchTag'
+import { ensurePatchCompanyFromDlsite } from './dlsite'
 
 export const updateGalgame = async (
   input: z.infer<typeof patchUpdateSchema>,
@@ -18,6 +19,18 @@ export const updateGalgame = async (
     })
     if (galgame && galgame.id !== input.id) {
       return `Galgame VNDB ID 与游戏 ID 为 ${galgame.unique_id} 的游戏重复`
+    }
+  }
+
+  const normalizedDlsiteCode = input.dlsiteCode?.trim()
+    ? input.dlsiteCode.trim().toUpperCase()
+    : ''
+  if (normalizedDlsiteCode) {
+    const dlsitePatch = await prisma.patch.findFirst({
+      where: { dlsite_code: normalizedDlsiteCode }
+    })
+    if (dlsitePatch && dlsitePatch.id !== input.id) {
+      return `Galgame DLSite Code 与游戏 ID 为 ${dlsitePatch.unique_id} 的游戏重复`
     }
   }
 
@@ -38,6 +51,7 @@ export const updateGalgame = async (
       name,
       vndb_id: vndbId ? vndbId : null,
       vndb_relation_id: vndbRelationId ? vndbRelationId : null,
+      dlsite_code: normalizedDlsiteCode ? normalizedDlsiteCode : null,
       introduction,
       content_limit: contentLimit,
       released
@@ -62,6 +76,10 @@ export const updateGalgame = async (
 
   if (input.tag.length) {
     await handleBatchPatchTags(input.id, input.tag, uid)
+  }
+
+  if (normalizedDlsiteCode) {
+    await ensurePatchCompanyFromDlsite(id, normalizedDlsiteCode, uid)
   }
 
   return {}

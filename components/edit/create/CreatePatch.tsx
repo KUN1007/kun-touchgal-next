@@ -5,6 +5,7 @@ import { Card, CardBody, CardHeader, Input } from '@heroui/react'
 import { useCreatePatchStore } from '~/store/editStore'
 import { VNDBInput } from './VNDBInput'
 import { VNDBRelationInput } from './VNDBRelationInput'
+import { DLSiteInput } from './DLSiteInput'
 import { AliasInput } from './AliasInput'
 import { BannerImage } from './BannerImage'
 import { PublishButton } from './PublishButton'
@@ -31,6 +32,7 @@ export const CreatePatch = () => {
         <CardBody className="mt-4 space-y-12">
           <VNDBInput errors={errors.vndbId} />
           <VNDBRelationInput errors={errors.vndbRelationId} />
+          <DLSiteInput errors={errors.dlsiteCode} />
 
           <div className="space-y-2">
             <h2 className="text-xl">游戏名称 (必须)</h2>

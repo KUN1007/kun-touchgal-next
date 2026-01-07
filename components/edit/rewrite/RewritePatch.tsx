@@ -16,6 +16,7 @@ import { BatchTag } from '../components/BatchTag'
 import { ReleaseDateInput } from '../components/ReleaseDateInput'
 import { VNDBInput } from './VNDBInput'
 import { VNDBRelationInput } from './VNDBRelationInput'
+import { DLSiteInput } from './DLSiteInput'
 import type { RewritePatchData } from '~/store/rewriteStore'
 
 export const RewritePatch = () => {
@@ -83,6 +84,7 @@ export const RewritePatch = () => {
             errors={errors.vndbId}
           />
           <VNDBRelationInput errors={errors.vndbRelationId} />
+          <DLSiteInput errors={errors.dlsiteCode} />
 
           <GameNameInput
             name={data.name}

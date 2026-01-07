@@ -75,7 +75,7 @@ export const CompanyDetailContainer: FC<Props> = ({
           </Chip>
         }
         endContent={
-          <div className="flex justify-between">
+          <div className="flex justify-between mb-4">
             <KunUser
               user={company.user}
               userProps={{
@@ -114,7 +114,7 @@ export const CompanyDetailContainer: FC<Props> = ({
 
       {company.alias.length > 0 && (
         <div className="mb-4">
-          <h2 className="mb-4 text-lg font-semibold">别名</h2>
+          <h2 className="mb-2 text-lg font-semibold">别名</h2>
           <div className="flex flex-wrap gap-2">
             {company.alias.map((alias, index) => (
               <Chip key={index} variant="flat" color="secondary">
@@ -127,7 +127,7 @@ export const CompanyDetailContainer: FC<Props> = ({
 
       {company.official_website.length > 0 && (
         <div className="mb-4">
-          <h2 className="mb-4 text-lg font-semibold">官网地址</h2>
+          <h2 className="mb-2 text-lg font-semibold">官网地址</h2>
           <div className="flex flex-wrap gap-2">
             {company.official_website.map((site, index) => (
               <Link showAnchorIcon isExternal href={site} key={index}>

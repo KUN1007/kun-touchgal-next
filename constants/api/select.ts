@@ -18,6 +18,11 @@ export const GalgameCardSelectField = {
   language: true,
   platform: true,
   created: true,
+  rating_stat: {
+    select: {
+      avg_overall: true
+    }
+  },
   tag: {
     select: {
       tag: {
@@ -31,8 +36,5 @@ export const GalgameCardSelectField = {
       resource: true,
       comment: true
     }
-  },
-  rating_stat: {
-    select: { avg_overall: true }
   }
 }

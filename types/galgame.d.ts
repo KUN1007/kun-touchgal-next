@@ -15,5 +15,5 @@ interface GalgameCard {
     resource: number
     comment: number
   }
-  averageRating: number
+  averageRating?: number
 }

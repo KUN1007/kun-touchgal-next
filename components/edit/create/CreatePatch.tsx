@@ -11,6 +11,7 @@ import { BannerImage } from './BannerImage'
 import { PublishButton } from './PublishButton'
 import { PatchIntroduction } from './PatchIntroduction'
 import { ContentLimit } from './ContentLimit'
+import { DuplicateCheckButton } from './DuplicateCheckButton'
 import { BatchTag } from '../components/BatchTag'
 import { ReleaseDateInput } from '../components/ReleaseDateInput'
 import type { CreatePatchRequestData } from '~/store/editStore'
@@ -25,8 +26,16 @@ export const CreatePatch = () => {
     <form className="w-full max-w-5xl py-4 mx-auto">
       <Card className="w-full">
         <CardHeader className="flex gap-3">
-          <div className="flex flex-col">
-            <h1 className="text-2xl">创建新游戏</h1>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl shrink-0">创建新游戏</h1>
+              <DuplicateCheckButton />
+            </div>
+
+            <p className="mt-2">
+              游戏查重会使用 VNDB ID, VNDB Relation ID, DLsite Code
+              以及游戏标题和别名进行查重
+            </p>
           </div>
         </CardHeader>
         <CardBody className="mt-4 space-y-12">

@@ -1,9 +1,8 @@
 'use client'
 
-import { Button, Input, Link } from '@heroui/react'
+import { Button, Input } from '@heroui/react'
 import { useCreatePatchStore } from '~/store/editStore'
 import toast from 'react-hot-toast'
-import { kunFetchGet } from '~/utils/kunFetch'
 import { fetchVNDBDetails } from '~/utils/vndb'
 
 interface Props {
@@ -13,7 +12,7 @@ interface Props {
 export const VNDBInput = ({ errors }: Props) => {
   const { data, setData } = useCreatePatchStore()
 
-  const handleCheckDuplicate = async () => {
+  const handleFetchData = async () => {
     const rawInput = data.vndbId.trim()
     if (!rawInput) {
       toast.error('VNDB ID 不可为空')
@@ -27,16 +26,6 @@ export const VNDBInput = ({ errors }: Props) => {
     }
 
     try {
-      const res = await kunFetchGet<KunResponse<{}>>('/edit/duplicate', {
-        vndbId: normalizedInput
-      })
-      if (typeof res === 'string') {
-        toast.error('游戏重复, 该游戏已经有人发布过了')
-        return
-      } else {
-        toast.success('检测完成, 该游戏并未重复!')
-      }
-
       toast('正在从 VNDB 获取数据...')
       const { titles, released } = await fetchVNDBDetails(normalizedInput)
 
@@ -84,9 +73,9 @@ export const VNDBInput = ({ errors }: Props) => {
             className="mr-4"
             color="primary"
             size="sm"
-            onPress={handleCheckDuplicate}
+            onPress={handleFetchData}
           >
-            检查重复
+            获取 VNDB 数据
           </Button>
         )}
       </div>

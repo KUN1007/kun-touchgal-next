@@ -48,14 +48,24 @@ export const VNDBRelationInput = ({ errors }: Props) => {
       const { vndbId, titles: relationTitles, released: relationReleased } =
         relationResult
 
-      const duplicateResult = await kunFetchGet<KunResponse<{}>>(
-        '/edit/duplicate',
-        {
-          vndbId
-        }
-      )
+      const duplicateResult = await kunFetchGet<
+        KunResponse<{ uniqueId: string }>
+      >('/edit/duplicate', {
+        vndbId,
+        vndbRelationId: normalized,
+        dlsiteCode: data.dlsiteCode.trim().toUpperCase(),
+        title: data.name.trim()
+      })
+
       if (typeof duplicateResult === 'string') {
-        toast.error('游戏重复, 该游戏已经有人发布过了')
+        toast.error(duplicateResult)
+        return
+      }
+
+      if (duplicateResult?.uniqueId) {
+        toast.error(
+          `该 VN 已存在（ID: ${duplicateResult.uniqueId}），请直接编辑原条目`
+        )
         return
       }
 

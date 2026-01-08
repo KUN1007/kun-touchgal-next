@@ -9,6 +9,7 @@ import { kunFetchFormData } from '~/utils/kunFetch'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import { patchCreateSchema } from '~/validations/edit'
 import { useRouter } from '@bprogress/next'
+import { cn } from '~/utils/cn'
 import type { Dispatch, SetStateAction } from 'react'
 import type { CreatePatchRequestData } from '~/store/editStore'
 
@@ -16,9 +17,10 @@ interface Props {
   setErrors: Dispatch<
     SetStateAction<Partial<Record<keyof CreatePatchRequestData, string>>>
   >
+  className?: string
 }
 
-export const PublishButton = ({ setErrors }: Props) => {
+export const PublishButton = ({ setErrors, className }: Props) => {
   const router = useRouter()
   const { data, resetData } = useCreatePatchStore()
 
@@ -85,7 +87,7 @@ export const PublishButton = ({ setErrors }: Props) => {
     <Button
       color="primary"
       onPress={handleSubmit}
-      className="w-full mt-4"
+      className={cn('w-full mt-4', className)}
       isDisabled={creating}
       isLoading={creating}
     >

@@ -18,7 +18,7 @@ export const HomeHero = () => {
     <div className="w-full mx-auto">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 sm:gap-6 min-h-[300px]">
         <div className="flex-col justify-center hidden space-y-2 sm:flex sm:space-y-6">
-          <Card className="h-full border-none bg-gradient-to-br from-primary-500/20 via-secondary-500/20 to-success-500/20">
+          <Card className="h-full border-none bg-gradient-to-br from-primary-500/10 via-secondary-500/10 to-success-500/10">
             <CardBody className="flex justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-primary-500" />

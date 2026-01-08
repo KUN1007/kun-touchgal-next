@@ -1,7 +1,12 @@
 'use client'
 
 import { Input, Button, Card, CardBody } from '@heroui/react'
-import { Select, SelectItem } from '@heroui/select'
+import {
+  Dropdown,
+  DropdownTrigger,
+  DropdownMenu,
+  DropdownItem
+} from '@heroui/dropdown'
 import { ArrowUpDown } from 'lucide-react'
 import type { RankingSortField } from '~/types/api/ranking'
 
@@ -40,6 +45,10 @@ export const RankingControls = ({
   onSortOrderChange,
   onMinRatingCountChange
 }: Props) => {
+  const selectedLabel =
+    SORT_OPTIONS.find((option) => option.value === sortField)?.label ??
+    '排序字段'
+
   const handleMinCountChange = (value: string) => {
     const parsed = Number(value)
     if (Number.isNaN(parsed)) return
@@ -49,32 +58,51 @@ export const RankingControls = ({
   return (
     <Card>
       <CardBody>
-        <div className="flex gap-3">
-          <Select
-            label="排序字段"
-            labelPlacement="outside"
-            selectedKeys={[sortField]}
-            onChange={(event) => {
-              if (!event.target.value) {
-                return
-              }
-              onSortFieldChange(event.target.value as RankingSortField)
-            }}
-          >
-            {SORT_OPTIONS.map((option) => (
-              <SelectItem key={option.value}>{option.label}</SelectItem>
-            ))}
-          </Select>
+        <div className="flex gap-3 justify-between">
+          <div className="flex gap-3">
+            <div className="flex relative flex-col">
+              <span className="absolute text-sm -top-0.5">排序字段</span>
 
-          <Input
-            type="number"
-            label="最低评分人数"
-            labelPlacement="outside"
-            value={String(minRatingCount)}
-            min={0}
-            onValueChange={handleMinCountChange}
-            isDisabled={isLoading}
-          />
+              <Dropdown>
+                <DropdownTrigger>
+                  <Button
+                    variant="flat"
+                    className="shrink-0 mt-auto"
+                    isDisabled={isLoading}
+                  >
+                    {selectedLabel}
+                  </Button>
+                </DropdownTrigger>
+                <DropdownMenu
+                  aria-label="排行榜排序字段"
+                  selectionMode="single"
+                  selectedKeys={new Set([sortField])}
+                  onSelectionChange={(keys) => {
+                    const [key] = Array.from(keys)
+                    if (key) {
+                      onSortFieldChange(key as RankingSortField)
+                    }
+                  }}
+                >
+                  {SORT_OPTIONS.map((option) => (
+                    <DropdownItem key={option.value}>
+                      {option.label}
+                    </DropdownItem>
+                  ))}
+                </DropdownMenu>
+              </Dropdown>
+            </div>
+
+            <Input
+              type="number"
+              label="最低评分人数"
+              labelPlacement="outside"
+              value={String(minRatingCount)}
+              min={0}
+              onValueChange={handleMinCountChange}
+              isDisabled={isLoading}
+            />
+          </div>
 
           <Button
             variant="flat"

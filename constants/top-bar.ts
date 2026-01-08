@@ -17,6 +17,10 @@ export const kunNavItem: KunNavItem[] = [
     href: '/company'
   },
   {
+    name: '游戏排行',
+    href: '/ranking'
+  },
+  {
     name: '帮助文档',
     href: '/doc'
   }

@@ -37,7 +37,8 @@ export const keyLabelMap: Record<string, string> = {
   '/user/[id]/contribute': '用户贡献',
   '/user/[id]/favorite': '用户收藏',
   '/user/[id]/galgame': '用户 Galgame',
-  '/user/[id]/resource': '用户资源'
+  '/user/[id]/resource': '用户资源',
+  '/ranking': 'Galgame 排行'
 }
 
 export const dynamicRoutes = ['patch', 'tag', 'user']

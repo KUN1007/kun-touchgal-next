@@ -12,9 +12,9 @@ model patch_rating {
   spoiler_level String @default("none")
 
   user_id  Int
-  user     user  @relation(fields: [user_id], references: [id])
+  user     user  @relation(fields: [user_id], references: [id], onDelete: Cascade)
   patch_id Int
-  patch    patch @relation(fields: [patch_id], references: [id])
+  patch    patch @relation(fields: [patch_id], references: [id], onDelete: Cascade)
 
   like patch_rating_like[]
 

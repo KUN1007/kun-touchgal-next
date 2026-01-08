@@ -4,4 +4,5 @@ export type SortField =
   | 'view'
   | 'download'
   | 'favorite'
+  | 'rating'
 export type SortOrder = 'asc' | 'desc'

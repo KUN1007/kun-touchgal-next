@@ -19,7 +19,8 @@ export default async function Kun() {
     page: 1,
     limit: 24,
     yearString: JSON.stringify(['all']),
-    monthString: JSON.stringify(['all'])
+    monthString: JSON.stringify(['all']),
+    minRatingCount: 0
   })
   if (typeof response === 'string') {
     return <ErrorComponent error={response} />

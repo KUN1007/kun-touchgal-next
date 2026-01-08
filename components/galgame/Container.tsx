@@ -28,6 +28,7 @@ export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
   const [selectedYears, setSelectedYears] = useState<string[]>(['all'])
   const [selectedMonths, setSelectedMonths] = useState<string[]>(['all'])
   const [page, setPage] = useState(1)
+  const [minRatingCount, setMinRatingCount] = useState(10)
 
   const fetchPatches = async () => {
     setLoading(true)
@@ -44,7 +45,8 @@ export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
       page,
       limit: 24,
       yearString: JSON.stringify(selectedYears),
-      monthString: JSON.stringify(selectedMonths)
+      monthString: JSON.stringify(selectedMonths),
+      minRatingCount: sortField === 'rating' ? minRatingCount : 0
     })
 
     setGalgames(galgames)
@@ -65,7 +67,8 @@ export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
     selectedPlatform,
     page,
     selectedYears,
-    selectedMonths
+    selectedMonths,
+    sortField === 'rating' ? minRatingCount : null
   ])
 
   return (
@@ -90,6 +93,8 @@ export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
         setSelectedYears={setSelectedYears}
         selectedMonths={selectedMonths}
         setSelectedMonths={setSelectedMonths}
+        minRatingCount={minRatingCount}
+        setMinRatingCount={setMinRatingCount}
       />
 
       <div className="grid grid-cols-2 gap-2 mx-auto mb-8 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

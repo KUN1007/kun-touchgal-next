@@ -5,7 +5,7 @@ import Link from 'next/link'
 
 export const KunTopBarBrand = () => {
   return (
-    <NavbarBrand className="hidden md:flex">
+    <NavbarBrand className="hidden sm:flex">
       <Link className="flex items-center" href="/">
         <Image
           src="/favicon.webp"

@@ -10,6 +10,7 @@ import {
 import { Button } from '@heroui/button'
 import { Card, CardHeader, CardBody } from '@heroui/card'
 import { Select, SelectItem } from '@heroui/select'
+import { Input } from '@heroui/react'
 import { Divider } from '@heroui/divider'
 import {
   ArrowDownAZ,
@@ -44,11 +45,14 @@ interface Props {
   setSelectedYears: (years: string[]) => void
   selectedMonths: string[]
   setSelectedMonths: (months: string[]) => void
+  minRatingCount: number
+  setMinRatingCount: (count: number) => void
 }
 
 const sortFieldLabelMap: Record<string, string> = {
   resource_update_time: '资源更新时间',
   created: '游戏创建时间',
+  rating: '评分',
   view: '浏览量',
   download: '下载量',
   favorite: '收藏量'
@@ -100,16 +104,23 @@ export const FilterBar = ({
   selectedYears,
   setSelectedYears,
   selectedMonths,
-  setSelectedMonths
+  setSelectedMonths,
+  minRatingCount,
+  setMinRatingCount
 }: Props) => {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const currentSortLabel =
+    sortFieldLabelMap[sortField] ?? (sortField === 'rating' ? '评分' : '排序')
+
+  const ratingFilterActive = sortField === 'rating' && minRatingCount !== 10
 
   const hasActiveFilters =
     selectedType !== 'all' ||
     selectedLanguage !== 'all' ||
     selectedPlatform !== 'all' ||
     !selectedYears.includes('all') ||
-    !selectedMonths.includes('all')
+    !selectedMonths.includes('all') ||
+    ratingFilterActive
 
   return (
     <Card>
@@ -123,7 +134,7 @@ export const FilterBar = ({
                   className="w-full justify-between text-sm"
                   endContent={<ChevronDown className="size-4" />}
                 >
-                  {sortFieldLabelMap[sortField]}
+                  {currentSortLabel}
                 </Button>
               </DropdownTrigger>
               <DropdownMenu
@@ -141,6 +152,9 @@ export const FilterBar = ({
                 </DropdownItem>
                 <DropdownItem key="created" className="text-default-700">
                   游戏创建时间
+                </DropdownItem>
+                <DropdownItem key="rating" className="text-default-700">
+                  评分
                 </DropdownItem>
                 <DropdownItem key="view" className="text-default-700">
                   浏览量
@@ -330,6 +344,23 @@ export const FilterBar = ({
                   ))}
                 </Select>
 
+                <Input
+                  type="number"
+                  label="最低评分人数（仅评分排序生效）"
+                  placeholder="10"
+                  size="sm"
+                  value={String(minRatingCount)}
+                  min={0}
+                  onValueChange={(value) => {
+                    const parsed = Number(value)
+                    if (Number.isNaN(parsed)) {
+                      return
+                    }
+                    setMinRatingCount(Math.max(0, parsed))
+                  }}
+                  isDisabled={sortField !== 'rating'}
+                />
+
                 <Button
                   radius="lg"
                   size="lg"
@@ -341,6 +372,7 @@ export const FilterBar = ({
                     setSelectedPlatform('all')
                     setSelectedYears(['all'])
                     setSelectedMonths(['all'])
+                    setMinRatingCount(10)
                   }}
                 >
                   重置筛选

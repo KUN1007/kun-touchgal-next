@@ -9,7 +9,7 @@ const PAGE_SIZE = 48
 
 export const revalidate = 3
 
-export const metadata: Metadata = kunMetadata
+// export const metadata: Metadata = kunMetadata
 
 export default async function RankingPage() {
   const response = await kunGetRankingActions({

@@ -22,7 +22,8 @@ export const getGalgame = async (
     sortField,
     sortOrder,
     page,
-    limit
+    limit,
+    minRatingCount
   } = input
   const years = JSON.parse(input.yearString) as string[]
   const months = JSON.parse(input.monthString) as string[]
@@ -69,17 +70,31 @@ export const getGalgame = async (
   }
 
   // Other fields sort
+  const ratingFilter =
+    minRatingCount > 0
+      ? {
+          rating_stat: {
+            count: {
+              gte: minRatingCount
+            }
+          }
+        }
+      : {}
+
   const where = {
     ...(selectedType !== 'all' && { type: { has: selectedType } }),
     ...(selectedLanguage !== 'all' && { language: { has: selectedLanguage } }),
     ...(selectedPlatform !== 'all' && { platform: { has: selectedPlatform } }),
+    ...ratingFilter,
     ...nsfwEnable
   }
 
   const orderBy =
     sortField === 'favorite'
       ? { favorite_folder: { _count: sortOrder } }
-      : { [sortField]: sortOrder }
+      : sortField === 'rating'
+        ? { rating_stat: { avg_overall: sortOrder } }
+        : { [sortField]: sortOrder }
 
   const [data, total] = await Promise.all([
     prisma.patch.findMany({

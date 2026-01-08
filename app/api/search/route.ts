@@ -93,6 +93,8 @@ export const searchGalgame = async (
       OR: [
         { name: { contains: q, mode: insensitive } },
         { vndb_id: q },
+        { vndb_relation_id: q },
+        { dlsite_code: q },
         ...(searchOption.searchInIntroduction
           ? [{ introduction: { contains: q, mode: insensitive } }]
           : []),

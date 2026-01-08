@@ -59,14 +59,11 @@ export const DLSiteInput = ({ errors }: { errors?: string }) => {
         .map((title) => title?.trim())
         .filter((title): title is string => !!title)
       const alias = [...new Set([...data.alias, ...extraAliases])]
-      const tags = [
-        ...new Set([...data.tag, ...parseTags(result.tags)])
-      ]
+      const tags = [...new Set([...data.tag, ...parseTags(result.tags)])]
 
       setData({
         ...data,
         dlsiteCode: normalized,
-        name: result.title_default,
         alias,
         tag: tags,
         released: result.release_date || data.released

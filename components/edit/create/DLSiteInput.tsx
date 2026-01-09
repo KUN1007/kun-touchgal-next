@@ -72,7 +72,6 @@ export const DLSiteInput = <T extends PatchFormDataShape>({
       setData({
         ...data,
         dlsiteCode: normalized,
-        name: result.title_default || data.name,
         alias,
         tag: tags,
         released: result.release_date || data.released

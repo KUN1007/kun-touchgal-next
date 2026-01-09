@@ -39,9 +39,17 @@ export const CreatePatch = () => {
           </div>
         </CardHeader>
         <CardBody className="mt-4 space-y-12">
-          <VNDBInput errors={errors.vndbId} />
-          <VNDBRelationInput errors={errors.vndbRelationId} />
-          <DLSiteInput errors={errors.dlsiteCode} />
+          <VNDBInput data={data} setData={setData} errors={errors.vndbId} />
+          <VNDBRelationInput
+            data={data}
+            setData={setData}
+            errors={errors.vndbRelationId}
+          />
+          <DLSiteInput
+            data={data}
+            setData={setData}
+            errors={errors.dlsiteCode}
+          />
 
           <div className="space-y-2">
             <h2 className="text-xl">游戏名称 (必须)</h2>

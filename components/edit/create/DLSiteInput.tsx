@@ -2,8 +2,8 @@
 
 import { Button, Input } from '@heroui/react'
 import toast from 'react-hot-toast'
-import { useCreatePatchStore } from '~/store/editStore'
 import { kunFetchPost } from '~/utils/kunFetch'
+import type { PatchFormDataShape } from '~/components/edit/types'
 
 interface DlsiteResponse {
   rj_code: string
@@ -22,9 +22,17 @@ const parseTags = (raw?: string) => {
     .filter((t) => t.length > 0)
 }
 
-export const DLSiteInput = ({ errors }: { errors?: string }) => {
-  const { data, setData } = useCreatePatchStore()
+interface Props<T extends PatchFormDataShape> {
+  errors?: string
+  data: T
+  setData: (data: T) => void
+}
 
+export const DLSiteInput = <T extends PatchFormDataShape>({
+  errors,
+  data,
+  setData
+}: Props<T>) => {
   const handleFetch = async () => {
     const rawCode = data.dlsiteCode.trim()
     if (!rawCode) {
@@ -64,6 +72,7 @@ export const DLSiteInput = ({ errors }: { errors?: string }) => {
       setData({
         ...data,
         dlsiteCode: normalized,
+        name: result.title_default || data.name,
         alias,
         tag: tags,
         released: result.release_date || data.released

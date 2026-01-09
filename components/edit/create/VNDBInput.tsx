@@ -1,17 +1,21 @@
 'use client'
 
 import { Button, Input } from '@heroui/react'
-import { useCreatePatchStore } from '~/store/editStore'
 import toast from 'react-hot-toast'
 import { fetchVNDBDetails } from '~/utils/vndb'
+import type { PatchFormDataShape } from '~/components/edit/types'
 
-interface Props {
+interface Props<T extends PatchFormDataShape> {
   errors: string | undefined
+  data: T
+  setData: (data: T) => void
 }
 
-export const VNDBInput = ({ errors }: Props) => {
-  const { data, setData } = useCreatePatchStore()
-
+export const VNDBInput = <T extends PatchFormDataShape>({
+  errors,
+  data,
+  setData
+}: Props<T>) => {
   const handleFetchData = async () => {
     const rawInput = data.vndbId.trim()
     if (!rawInput) {

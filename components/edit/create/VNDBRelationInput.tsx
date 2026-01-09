@@ -3,8 +3,8 @@
 import { Button, Input } from '@heroui/react'
 import toast from 'react-hot-toast'
 import { kunFetchGet, kunFetchPost } from '~/utils/kunFetch'
-import { useCreatePatchStore } from '~/store/editStore'
 import { fetchVNDBDetails } from '~/utils/vndb'
+import type { PatchFormDataShape } from '~/components/edit/types'
 
 interface RelationResponse {
   vndbId: string
@@ -12,13 +12,19 @@ interface RelationResponse {
   released: string
 }
 
-interface Props {
+interface Props<T extends PatchFormDataShape> {
   errors?: string
+  data: T
+  setData: (data: T) => void
+  enableDuplicateCheck?: boolean
 }
 
-export const VNDBRelationInput = ({ errors }: Props) => {
-  const { data, setData } = useCreatePatchStore()
-
+export const VNDBRelationInput = <T extends PatchFormDataShape>({
+  errors,
+  data,
+  setData,
+  enableDuplicateCheck = true
+}: Props<T>) => {
   const handleFetchRelation = async () => {
     const rawInput = data.vndbRelationId.trim()
     if (!rawInput) {
@@ -34,45 +40,50 @@ export const VNDBRelationInput = ({ errors }: Props) => {
 
     try {
       toast('正在获取 Release 数据...')
-      const relationResult = await kunFetchPost<
-        KunResponse<RelationResponse>
-      >('/edit/vndb/relation', {
-        relationId: normalized
-      })
+      const relationResult = await kunFetchPost<KunResponse<RelationResponse>>(
+        '/edit/vndb/relation',
+        {
+          relationId: normalized
+        }
+      )
 
       if (typeof relationResult === 'string') {
         toast.error(relationResult)
         return
       }
 
-      const { vndbId, titles: relationTitles, released: relationReleased } =
-        relationResult
-
-      const duplicateResult = await kunFetchGet<
-        KunResponse<{ uniqueId: string }>
-      >('/edit/duplicate', {
+      const {
         vndbId,
-        vndbRelationId: normalized,
-        dlsiteCode: data.dlsiteCode.trim().toUpperCase(),
-        title: data.name.trim()
-      })
+        titles: relationTitles,
+        released: relationReleased
+      } = relationResult
 
-      if (typeof duplicateResult === 'string') {
-        toast.error(duplicateResult)
-        return
+      if (enableDuplicateCheck) {
+        const duplicateResult = await kunFetchGet<
+          KunResponse<{ uniqueId: string }>
+        >('/edit/duplicate', {
+          vndbId,
+          vndbRelationId: normalized,
+          dlsiteCode: data.dlsiteCode.trim().toUpperCase(),
+          title: data.name.trim()
+        })
+
+        if (typeof duplicateResult === 'string') {
+          toast.error(duplicateResult)
+          return
+        }
+
+        if (duplicateResult?.uniqueId) {
+          toast.error(
+            `与 VN 已重复 (ID: ${duplicateResult.uniqueId}), 请勿重复提交`
+          )
+          return
+        }
       }
 
-      if (duplicateResult?.uniqueId) {
-        toast.error(
-          `该 VN 已存在（ID: ${duplicateResult.uniqueId}），请直接编辑原条目`
-        )
-        return
-      }
-
-      toast('正在从 VNDB 获取原作数据...')
-      const { titles: vnTitles, released: vnReleased } = await fetchVNDBDetails(
-        vndbId
-      )
+      toast('正在同步 VNDB 数据...')
+      const { titles: vnTitles, released: vnReleased } =
+        await fetchVNDBDetails(vndbId)
 
       setData({
         ...data,
@@ -82,7 +93,7 @@ export const VNDBRelationInput = ({ errors }: Props) => {
         released: relationReleased || vnReleased || data.released
       })
 
-      toast.success('获取 Release 数据成功! 已更新 VNDB 信息')
+      toast.success('已获取 Release 数据! 并完成 VNDB 同步')
     } catch (error) {
       console.error(error)
       if (
@@ -114,8 +125,8 @@ export const VNDBRelationInput = ({ errors }: Props) => {
         errorMessage={errors}
       />
       <p className="text-sm text-default-500">
-        Relation ID 可用于发布特定版本 (如移植、合集等) 的信息，我们会自动读取关联 VN
-        的数据并保留当前版本的标题与发售日期
+        Relation ID 可用于发布特定版本 (如移植、合集等)
+        的信息，我们会自动读取关联 VN 的数据并保留当前版本的标题与发售日期
       </p>
       <div className="flex items-center text-sm">
         {data.vndbRelationId && (

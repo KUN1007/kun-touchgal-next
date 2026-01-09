@@ -14,9 +14,9 @@ import { AliasManager } from './AliasManager'
 import { ContentLimit } from './ContentLimit'
 import { BatchTag } from '../components/BatchTag'
 import { ReleaseDateInput } from '../components/ReleaseDateInput'
-import { VNDBInput } from './VNDBInput'
-import { VNDBRelationInput } from './VNDBRelationInput'
-import { DLSiteInput } from './DLSiteInput'
+import { VNDBInput } from '../create/VNDBInput'
+import { VNDBRelationInput } from '../create/VNDBRelationInput'
+import { DLSiteInput } from '../create/DLSiteInput'
 import type { RewritePatchData } from '~/store/rewriteStore'
 
 export const RewritePatch = () => {
@@ -73,18 +73,18 @@ export const RewritePatch = () => {
           </div>
         </CardHeader>
         <CardBody className="mt-4 space-y-12">
-          <VNDBInput
-            vndbId={data.vndbId}
-            setVNDBId={(id) =>
-              setData({
-                ...data,
-                vndbId: id
-              })
-            }
-            errors={errors.vndbId}
+          <VNDBInput data={data} setData={setData} errors={errors.vndbId} />
+          <VNDBRelationInput
+            data={data}
+            setData={setData}
+            errors={errors.vndbRelationId}
+            enableDuplicateCheck={false}
           />
-          <VNDBRelationInput errors={errors.vndbRelationId} />
-          <DLSiteInput errors={errors.dlsiteCode} />
+          <DLSiteInput
+            data={data}
+            setData={setData}
+            errors={errors.dlsiteCode}
+          />
 
           <GameNameInput
             name={data.name}

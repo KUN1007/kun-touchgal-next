@@ -6,6 +6,7 @@ import { Email } from './Email'
 import { Password } from './Password'
 import { EmailNotice } from './EmailNotice'
 import { TwoFactorAuth } from './TwoFactorAuth'
+import { Reset } from './Reset'
 
 export const UserSettings = () => {
   return (
@@ -20,6 +21,7 @@ export const UserSettings = () => {
         <Password />
         <EmailNotice />
         <TwoFactorAuth />
+        <Reset />
       </div>
     </div>
   )

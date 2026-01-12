@@ -134,8 +134,19 @@ export const SearchPage = () => {
     <div className="relative w-full my-4 space-y-6">
       <KunHeader
         name="搜索 Galgame"
-        description="输入内容并点击搜索按钮以搜索 Galgame, 搜索设置默认搜索游戏标题和别名, 支持使用 VNDB ID 搜索"
         headerEndContent={<SearchOption />}
+        endContent={
+          <div className="text-default-500">
+            <p>
+              输入内容并点击搜索按钮以搜索 Galgame,
+              搜索设置默认搜索游戏标题和别名。
+            </p>
+            <p>
+              搜索技巧 - 部分游戏名查找: 要查找游戏《千恋万花》，您应该搜索
+              “千恋” 即可，而不是搜索 “千恋万花”
+            </p>
+          </div>
+        }
       />
 
       <SearchInput

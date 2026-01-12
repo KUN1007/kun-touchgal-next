@@ -45,8 +45,8 @@ interface Props {
   setSelectedYears: (years: string[]) => void
   selectedMonths: string[]
   setSelectedMonths: (months: string[]) => void
-  minRatingCount: number
-  setMinRatingCount: (count: number) => void
+  minRatingCount?: number
+  setMinRatingCount?: (count: number) => void
 }
 
 const sortFieldLabelMap: Record<string, string> = {
@@ -344,22 +344,24 @@ export const FilterBar = ({
                   ))}
                 </Select>
 
-                <Input
-                  type="number"
-                  label="最低评分人数（仅评分排序生效）"
-                  placeholder="10"
-                  size="sm"
-                  value={String(minRatingCount)}
-                  min={0}
-                  onValueChange={(value) => {
-                    const parsed = Number(value)
-                    if (Number.isNaN(parsed)) {
-                      return
-                    }
-                    setMinRatingCount(Math.max(0, parsed))
-                  }}
-                  isDisabled={sortField !== 'rating'}
-                />
+                {setMinRatingCount && (
+                  <Input
+                    type="number"
+                    label="最低评分人数（仅评分排序生效）"
+                    placeholder="10"
+                    size="sm"
+                    value={String(minRatingCount)}
+                    min={0}
+                    onValueChange={(value) => {
+                      const parsed = Number(value)
+                      if (Number.isNaN(parsed)) {
+                        return
+                      }
+                      setMinRatingCount(Math.max(0, parsed))
+                    }}
+                    isDisabled={sortField !== 'rating'}
+                  />
+                )}
 
                 <Button
                   radius="lg"
@@ -372,7 +374,7 @@ export const FilterBar = ({
                     setSelectedPlatform('all')
                     setSelectedYears(['all'])
                     setSelectedMonths(['all'])
-                    setMinRatingCount(10)
+                    setMinRatingCount?.(10)
                   }}
                 >
                   重置筛选

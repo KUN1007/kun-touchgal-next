@@ -4,11 +4,16 @@ import type { NextRequest } from 'next/server'
 
 const protectedPaths = ['/admin', '/user', '/comment', '/edit']
 
+const domain =
+  process.env.NODE_ENV === 'development'
+    ? process.env.NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV
+    : process.env.NEXT_PUBLIC_KUN_PATCH_ADDRESS_PROD
+
 export const isProtectedRoute = (pathname: string) =>
   protectedPaths.some((path) => pathname.startsWith(path))
 
 const redirectToLogin = (request: NextRequest) => {
-  const loginUrl = new URL('/login', request.url)
+  const loginUrl = new URL('/login', domain)
   // loginUrl.searchParams.set('from', request.nextUrl.pathname)
   return NextResponse.redirect(loginUrl)
 }

@@ -21,7 +21,7 @@ const stepTwo = async (input: z.infer<typeof stepTwoSchema>) => {
     }
   })
   if (!user) {
-    return '用户未找到'
+    return '您的邮箱验证码无效'
   }
 
   const isCodeValid = await verifyVerificationCode(

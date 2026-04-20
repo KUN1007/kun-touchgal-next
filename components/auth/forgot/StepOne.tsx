@@ -4,12 +4,13 @@ import { useState } from 'react'
 import { z } from 'zod'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Button, Input } from '@heroui/react'
+import { Button, Input, useDisclosure } from '@heroui/react'
 import { User } from 'lucide-react'
 import { kunFetchPost } from '~/utils/kunFetch'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import toast from 'react-hot-toast'
 import { stepOneSchema } from '~/validations/forgot'
+import { KunCaptchaModal } from '~/components/kun/auth/CaptchaModal'
 
 type StepOneFormData = z.infer<typeof stepOneSchema>
 
@@ -20,19 +21,24 @@ interface Props {
 
 export const StepOne = ({ setStep, setEmail }: Props) => {
   const [loading, setLoading] = useState(false)
+  const { isOpen, onOpen, onClose } = useDisclosure()
 
-  const { control, watch } = useForm<StepOneFormData>({
+  const { control, watch, trigger } = useForm<StepOneFormData>({
     resolver: zodResolver(stepOneSchema),
     defaultValues: {
-      name: ''
+      name: '',
+      captcha: '0000000000'
     }
   })
 
-  const handleSendCode = async (data: StepOneFormData) => {
+  const handleCaptchaSuccess = async (code: string) => {
+    onClose()
     setLoading(true)
 
+    const data = watch()
     const res = await kunFetchPost<KunResponse<undefined>>('/forgot/one', {
-      name: data.name
+      name: data.name,
+      captcha: code
     })
     kunErrorHandler(res, () => {
       setEmail(data.name)
@@ -41,6 +47,15 @@ export const StepOne = ({ setStep, setEmail }: Props) => {
     })
 
     setLoading(false)
+  }
+
+  const handleOpenCaptcha = async () => {
+    setLoading(true)
+    const valid = await trigger('name')
+    setLoading(false)
+    if (valid) {
+      onOpen()
+    }
   }
 
   return (
@@ -64,10 +79,17 @@ export const StepOne = ({ setStep, setEmail }: Props) => {
         color="primary"
         className="w-full"
         isLoading={loading}
-        onPress={() => handleSendCode(watch())}
+        isDisabled={loading || isOpen}
+        onPress={handleOpenCaptcha}
       >
         发送验证码
       </Button>
+
+      <KunCaptchaModal
+        isOpen={isOpen}
+        onClose={onClose}
+        onSuccess={handleCaptchaSuccess}
+      />
     </form>
   )
 }

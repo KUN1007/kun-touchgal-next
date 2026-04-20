@@ -14,7 +14,12 @@ export const stepOneSchema = z.object({
       z.string().trim().regex(kunUsernameRegex, {
         message: '非法的用户名，用户名为 1~17 位任意字符'
       })
-    )
+    ),
+  captcha: z
+    .string()
+    .trim()
+    .min(10, { message: '非法的人机验证码格式' })
+    .max(10)
 })
 
 export const stepTwoSchema = z.object({

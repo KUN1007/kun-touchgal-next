@@ -13,6 +13,9 @@ import { checkKunCaptchaExist } from '~/app/api/utils/verifyKunCaptcha'
 import { getRedirectConfig } from '~/app/api/admin/setting/redirect/getRedirectConfig'
 import type { UserState } from '~/store/userStore'
 
+const DUMMY_PASSWORD_HASH =
+  '00000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000'
+
 const login = async (
   input: z.infer<typeof loginSchema>
 ): Promise<UserState | ({ require2FA: boolean } & KunUser) | string> => {
@@ -31,16 +34,16 @@ const login = async (
       ]
     }
   })
-  if (!user) {
-    return '用户未找到'
+
+  const isPasswordValid = await verifyPassword(
+    password,
+    user?.password ?? DUMMY_PASSWORD_HASH
+  )
+  if (!user || !isPasswordValid) {
+    return '用户名或密码错误'
   }
   if (user.status === 2) {
     return '该用户已被封禁, 如果您觉得有任何问题, 请联系我们'
-  }
-
-  const isPasswordValid = await verifyPassword(password, user.password)
-  if (!isPasswordValid) {
-    return '用户密码错误'
   }
 
   if (user.enable_2fa) {

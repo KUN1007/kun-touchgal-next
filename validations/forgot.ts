@@ -4,6 +4,7 @@ import {
   kunPasswordRegex,
   kunValidMailConfirmCodeRegex
 } from '~/utils/validate'
+import { captchaVerifyTokenSchema } from './captcha'
 
 export const stepOneSchema = z.object({
   name: z
@@ -15,11 +16,7 @@ export const stepOneSchema = z.object({
         message: '非法的用户名，用户名为 1~17 位任意字符'
       })
     ),
-  captcha: z
-    .string()
-    .trim()
-    .min(10, { message: '非法的人机验证码格式' })
-    .max(10)
+  captcha: captchaVerifyTokenSchema
 })
 
 export const stepTwoSchema = z.object({

@@ -4,6 +4,7 @@ import {
   kunPasswordRegex,
   kunValidMailConfirmCodeRegex
 } from '~/utils/validate'
+import { captchaVerifyTokenSchema } from './captcha'
 
 export const loginSchema = z.object({
   name: z
@@ -19,11 +20,7 @@ export const loginSchema = z.object({
     message:
       '非法的密码格式，密码的长度为 6 到 1007 位，必须包含至少一个英文字符和一个数字，可以选择性的包含 @!#$%^&*()_-+=\\/ 等特殊字符'
   }),
-  captcha: z
-    .string()
-    .trim()
-    .min(10, { message: '非法的人机验证码格式' })
-    .max(10)
+  captcha: captchaVerifyTokenSchema
 })
 
 export const registerSchema = z.object({
@@ -59,11 +56,7 @@ export const sendRegisterEmailVerificationCodeSchema = z.object({
         message: '非法的用户名，用户名为 1~17 位任意字符'
       })
     ),
-  captcha: z
-    .string()
-    .trim()
-    .min(10, { message: '非法的人机验证码格式' })
-    .max(10)
+  captcha: captchaVerifyTokenSchema
 })
 
 export const disableEmailNoticeSchema = z.object({

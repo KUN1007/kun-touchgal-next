@@ -1,3 +1,7 @@
+export const KUN_CAPTCHA_VERIFY_TOKEN_BYTES = 16
+export const KUN_CAPTCHA_VERIFY_TOKEN_TTL_SECONDS = 60 * 60
+export const kunCaptchaVerifyTokenRegex = /^[a-f0-9]{32}$/
+
 export const kunCaptchaErrorMessageMap: Record<number, string> = {
   1: '杂鱼 ~ 连白毛老婆都分辨不出来了吗',
   2: '杂鱼 ~ 怎么又选错了!',

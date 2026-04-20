@@ -4,6 +4,7 @@ import {
   kunValidMailConfirmCodeRegex
 } from '~/utils/validate'
 import { nonEmptyFileSchema } from './file'
+import { captchaVerifyTokenSchema } from './captcha'
 
 export const avatarSchema = z.object({
   avatar: nonEmptyFileSchema
@@ -40,7 +41,7 @@ export const resetEmailSchema = z.object({
 
 export const sendResetEmailVerificationCodeSchema = z.object({
   email: z.string().email({ message: '请输入合法的邮箱格式' }),
-  captcha: z.string().max(5000)
+  captcha: captchaVerifyTokenSchema
 })
 
 export const passwordSchema = z.object({

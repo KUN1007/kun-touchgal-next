@@ -27,7 +27,7 @@ export const StepOne = ({ setStep, setEmail }: Props) => {
     resolver: zodResolver(stepOneSchema),
     defaultValues: {
       name: '',
-      captcha: '0000000000'
+      captcha: ''
     }
   })
 

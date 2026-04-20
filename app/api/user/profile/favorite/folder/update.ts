@@ -7,19 +7,29 @@ export const updateFolder = async (
   input: z.infer<typeof updateFavoriteFolderSchema>,
   uid: number
 ) => {
-  const folder = await prisma.user_patch_favorite_folder.update({
+  const { count } = await prisma.user_patch_favorite_folder.updateMany({
     where: { id: input.folderId, user_id: uid },
     data: {
       name: input.name,
       description: input.description,
       is_public: input.isPublic
-    },
+    }
+  })
+  if (count === 0) {
+    return '未找到该收藏夹或没有权限更新'
+  }
+
+  const folder = await prisma.user_patch_favorite_folder.findUnique({
+    where: { id: input.folderId },
     include: {
       _count: {
         select: { patch: true }
       }
     }
   })
+  if (!folder) {
+    return '未找到该收藏夹'
+  }
 
   const response: UserFavoritePatchFolder = {
     name: folder.name,

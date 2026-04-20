@@ -2,7 +2,12 @@ import { z } from 'zod'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { kunParsePostBody } from '~/app/api/utils/parseQuery'
-import { verifyPassword } from '~/app/api/utils/algorithm'
+import {
+  DUMMY_PASSWORD_HASH,
+  hashPassword,
+  needsPasswordRehash,
+  verifyPassword
+} from '~/app/api/utils/algorithm'
 import {
   generateKunStatelessToken,
   generateKunToken
@@ -13,8 +18,20 @@ import { checkKunCaptchaExist } from '~/app/api/utils/verifyKunCaptcha'
 import { getRedirectConfig } from '~/app/api/admin/setting/redirect/getRedirectConfig'
 import type { UserState } from '~/store/userStore'
 
-const DUMMY_PASSWORD_HASH =
-  '00000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000'
+const upgradePasswordHash = async (
+  userId: number,
+  password: string,
+  previousPasswordHash: string
+) => {
+  try {
+    await prisma.user.updateMany({
+      where: { id: userId, password: previousPasswordHash },
+      data: { password: await hashPassword(password) }
+    })
+  } catch {
+    return
+  }
+}
 
 const login = async (
   input: z.infer<typeof loginSchema>
@@ -44,6 +61,10 @@ const login = async (
   }
   if (user.status === 2) {
     return '该用户已被封禁, 如果您觉得有任何问题, 请联系我们'
+  }
+
+  if (needsPasswordRehash(user.password)) {
+    await upgradePasswordHash(user.id, password, user.password)
   }
 
   if (user.enable_2fa) {

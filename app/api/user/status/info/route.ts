@@ -1,9 +1,7 @@
 import { z } from 'zod'
 import { NextRequest, NextResponse } from 'next/server'
 import { kunParseGetQuery } from '~/app/api/utils/parseQuery'
-import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
-import type { UserInfo } from '~/types/api/user'
 import { getUserProfile } from './service'
 
 const getProfileSchema = z.object({
@@ -15,7 +13,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(input)
   }
   const payload = await verifyHeaderCookie(req)
+  if (!payload?.uid) {
+    return NextResponse.json('请先登录', { status: 401 })
+  }
 
-  const user = await getUserProfile(input, payload?.uid ?? 0)
+  const user = await getUserProfile(input, payload.uid)
   return NextResponse.json(user)
 }

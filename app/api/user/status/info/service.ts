@@ -34,12 +34,13 @@ export const getUserProfile = async (
   }
 
   const followerUserUid = data.following.map((f) => f.follower_id)
+  const isSelf = currentUserUid === input.id
 
   const user: UserInfo = {
     id: data.id,
     requestUserUid: currentUserUid,
     name: data.name,
-    email: data.email,
+    email: isSelf ? data.email : '',
     avatar: data.avatar,
     bio: data.bio,
     role: data.role,

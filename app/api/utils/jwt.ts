@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import jwt from 'jsonwebtoken'
 import { delKv, getKv, setKv } from '~/lib/redis'
 
@@ -9,6 +10,7 @@ export interface KunGalgameStatelessPayload {
 export interface KunGalgamePayload {
   iss: string
   aud: string
+  jti: string
   uid: number
   name: string
   role: number
@@ -23,6 +25,7 @@ export const generateKunToken = async (
   const payload: KunGalgamePayload = {
     iss: process.env.JWT_ISS!,
     aud: process.env.JWT_AUD!,
+    jti: randomUUID(),
     uid,
     name,
     role
@@ -48,13 +51,13 @@ export const generateKunStatelessToken = (
 
 export const verifyKunToken = async (refreshToken: string) => {
   try {
-    const payload = jwt.verify(
-      refreshToken,
-      process.env.JWT_SECRET!
-    ) as KunGalgamePayload
+    const payload = jwt.verify(refreshToken, process.env.JWT_SECRET!, {
+      issuer: process.env.JWT_ISS!,
+      audience: process.env.JWT_AUD!
+    }) as KunGalgamePayload
     const redisToken = await getKv(`access:token:${payload.uid}`)
 
-    if (!redisToken) {
+    if (!redisToken || redisToken !== refreshToken) {
       return null
     }
 

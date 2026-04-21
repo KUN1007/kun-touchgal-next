@@ -24,8 +24,13 @@ export interface KunPatchRatingInput {
   spoilerLevel: string
 }
 
-export interface KunPatchRatingUpdateInput extends KunPatchRatingInput {
+export interface KunPatchRatingUpdateInput {
   ratingId: number
+  recommend: string
+  overall: number
+  playStatus: string
+  shortSummary: string
+  spoilerLevel: string
 }
 
 export interface KunPatchRatingResponse {

@@ -113,7 +113,6 @@ export const RatingModal = ({
         '/patch/rating',
         {
           ratingId: initial.id,
-          patchId,
           recommend: recommend as 'no',
           overall,
           playStatus: playStatus as 'not_started',

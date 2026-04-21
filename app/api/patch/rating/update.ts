@@ -11,7 +11,6 @@ export const updatePatchRating = async (
 ) => {
   const {
     ratingId,
-    patchId,
     recommend,
     overall,
     playStatus,
@@ -33,7 +32,6 @@ export const updatePatchRating = async (
   const data = await prisma.patch_rating.update({
     where: { id: ratingId, user_id: ratingUserUid },
     data: {
-      patch_id: patchId,
       recommend,
       overall,
       play_status: playStatus,
@@ -60,7 +58,7 @@ export const updatePatchRating = async (
     }
   })
 
-  await recomputePatchRatingStat(patchId)
+  await recomputePatchRatingStat(rating.patch_id)
 
   return {
     id: data.id,

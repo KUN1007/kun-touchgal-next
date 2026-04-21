@@ -1,34 +1,18 @@
 import { kunMoyuMoe } from '~/config/moyu-moe'
 import { convert } from 'html-to-text'
+import { getPatchPageTitle } from '~/utils/patch/getPatchPageTitle'
 import { generateNullMetadata } from '~/utils/noIndex'
 import type { Metadata } from 'next'
 import type { Patch, PatchIntroduction } from '~/types/api/patch'
 
-const getPlatformDescription = (platform: string[]) => {
-  const hasWindows = platform.includes('windows')
-  const hasAndroid = platform.includes('android')
-
-  if (hasWindows && hasAndroid) {
-    return 'PC + 安卓'
-  } else if (hasWindows) {
-    return 'PC 游戏'
-  } else if (hasAndroid) {
-    return '安卓游戏'
-  } else {
-    return ''
-  }
-}
-
 export const generateKunMetadataTemplate = (
   patch: Patch,
-  intro: PatchIntroduction
+  intro: PatchIntroduction,
+  nsfwAllowed: boolean
 ): Metadata => {
-  const patchType = getPlatformDescription(patch.platform)
-  const pageTitle = patch.alias.length
-    ? `${patch.name} | ${patch.alias[0]} | ${patchType}`
-    : `${patch.name} | ${patchType}`
+  const pageTitle = getPatchPageTitle(patch)
 
-  if (patch.contentLimit === 'nsfw') {
+  if (patch.contentLimit === 'nsfw' && !nsfwAllowed) {
     return generateNullMetadata('')
   }
 

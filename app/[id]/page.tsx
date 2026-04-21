@@ -12,6 +12,9 @@ import type { Metadata } from 'next'
 
 export const revalidate = 120
 
+const isNsfwAllowed = (nsfwHeader: { content_limit?: string }) =>
+  nsfwHeader.content_limit !== 'sfw'
+
 interface Props {
   params: Promise<{ id: string }>
 }
@@ -20,12 +23,19 @@ export const generateMetadata = async ({
   params
 }: Props): Promise<Metadata> => {
   const { id } = await params
-  const pageData = await kunGetPatchPageDataActions({ uniqueId: id })
+  const [pageData, nsfwHeader] = await Promise.all([
+    kunGetPatchPageDataActions({ uniqueId: id }),
+    getNSFWHeader()
+  ])
   if (typeof pageData === 'string') {
     return {}
   }
 
-  return generateKunMetadataTemplate(pageData.patch, pageData.intro)
+  return generateKunMetadataTemplate(
+    pageData.patch,
+    pageData.intro,
+    isNsfwAllowed(nsfwHeader)
+  )
 }
 
 export default async function Kun({ params }: Props) {
@@ -39,8 +49,7 @@ export default async function Kun({ params }: Props) {
     verifyHeaderCookie(),
     getNSFWHeader()
   ])
-  const nsfwAllowed =
-    (nsfwHeader as { content_limit?: string }).content_limit !== 'sfw'
+  const nsfwAllowed = isNsfwAllowed(nsfwHeader)
   if (typeof pageData === 'string') {
     return <ErrorComponent error={pageData} />
   }

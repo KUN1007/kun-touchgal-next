@@ -8,6 +8,7 @@ import { PatchHeaderInfo } from './Info'
 import { KunAutoImageViewer } from '~/components/kun/image-viewer/AutoImageViewer'
 import { KunNull } from '~/components/kun/Null'
 import { kunMoyuMoe } from '~/config/moyu-moe'
+import { getPatchPageTitle } from '~/utils/patch/getPatchPageTitle'
 import type { Patch, PatchIntroduction } from '~/types/api/patch'
 
 interface PatchHeaderProps {
@@ -88,23 +89,17 @@ export const PatchHeaderContainer = ({
   }, [])
 
   useEffect(() => {
-    if (patch.contentLimit !== 'nsfw' || isNsfwBlocked) {
+    if (patch.contentLimit !== 'nsfw') {
       return
     }
-    const platform = patch.platform
-    const patchType =
-      platform.includes('windows') && platform.includes('android')
-        ? 'PC + 安卓'
-        : platform.includes('windows')
-          ? 'PC 游戏'
-          : platform.includes('android')
-            ? '安卓游戏'
-            : ''
-    const gameTitle = patch.alias.length
-      ? `${patch.name} | ${patch.alias[0]} | ${patchType}`
-      : `${patch.name} | ${patchType}`
-    document.title = `${gameTitle} - ${kunMoyuMoe.titleShort}`
-  }, [])
+
+    if (isNsfwBlocked) {
+      document.title = ''
+      return
+    }
+
+    document.title = `${getPatchPageTitle(patch)} - ${kunMoyuMoe.titleShort}`
+  }, [isNsfwBlocked, patch])
 
   return (
     <div className="relative w-full mx-auto max-w-7xl">

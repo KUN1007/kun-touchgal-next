@@ -8,9 +8,12 @@ import {
 import { verifyHeaderCookie } from '~/utils/actions/verifyHeaderCookie'
 import { getNSFWHeader } from '~/utils/actions/getNSFWHeader'
 import { after } from 'next/server'
+import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 
 export const revalidate = 120
+
+const isValidPatchId = (id: string) => /^[A-Za-z0-9]{8}$/.test(id)
 
 const isNsfwAllowed = (nsfwHeader: { content_limit?: string }) =>
   nsfwHeader.content_limit !== 'sfw'
@@ -23,6 +26,10 @@ export const generateMetadata = async ({
   params
 }: Props): Promise<Metadata> => {
   const { id } = await params
+  if (!isValidPatchId(id)) {
+    return {}
+  }
+
   const [pageData, nsfwHeader] = await Promise.all([
     kunGetPatchPageDataActions({ uniqueId: id }),
     getNSFWHeader()
@@ -40,8 +47,8 @@ export const generateMetadata = async ({
 
 export default async function Kun({ params }: Props) {
   const { id } = await params
-  if (!id) {
-    return <ErrorComponent error={'提取页面参数错误'} />
+  if (!isValidPatchId(id)) {
+    notFound()
   }
 
   const [pageData, payload, nsfwHeader] = await Promise.all([

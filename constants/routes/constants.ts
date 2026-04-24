@@ -48,8 +48,7 @@ export const keyLabelMap: Record<string, string> = {
   '/user/[id]/resource': '用户资源',
   '/auth/email-notice': '退订邮件通知',
   '/login/2fa': '两步验证',
-  '/message/chat/[conversationId]': '私聊消息',
-  '/ranking': 'Galgame 排行'
+  '/message/chat/[conversationId]': '私聊消息'
 }
 
 export const dynamicRoutes = ['patch', 'tag', 'user']

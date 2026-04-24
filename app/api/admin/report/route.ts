@@ -1,12 +1,9 @@
-import { z } from 'zod'
 import { NextRequest, NextResponse } from 'next/server'
 import { kunParseGetQuery } from '~/app/api/utils/parseQuery'
-import { prisma } from '~/prisma/index'
 import { adminReportPaginationSchema } from '~/validations/admin'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
-import type { AdminReport, AdminReportTargetType } from '~/types/api/admin'
-import { getReportTargetWhere, resolveReportMeta } from './_meta'
 import { getReport } from './service'
+
 export const GET = async (req: NextRequest) => {
   const input = kunParseGetQuery(req, adminReportPaginationSchema)
   if (typeof input === 'string') {

@@ -47,6 +47,10 @@ model user {
   conversation_b  user_conversation[]    @relation("conversation_user_b")
   private_message user_private_message[] @relation("pm_sender")
 
+  patch_report_sent     patch_report[] @relation("patch_report_sender")
+  patch_report_received patch_report[] @relation("patch_report_reported_user")
+  patch_report_handled  patch_report[] @relation("patch_report_handler")
+
   created DateTime @default(now())
   updated DateTime @updatedAt
 }

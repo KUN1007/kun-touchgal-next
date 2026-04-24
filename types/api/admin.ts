@@ -70,12 +70,39 @@ export type AdminFeedback = Message
 
 export type AdminReportTargetType = 'comment' | 'rating'
 
-export interface AdminReport extends Message {
+export interface AdminReportPatchSummary {
+  id: number
+  uniqueId: string
+  name: string
+}
+
+export interface AdminReportCommentSummary {
+  id: number
+  content: string
+}
+
+export interface AdminReportRatingSummary {
+  id: number
+  shortSummary: string
+  overall: number
+  recommend: string
+  playStatus: string
+}
+
+export interface AdminReport {
+  id: number
   targetType: AdminReportTargetType
-  reportedUserId?: number
-  reportedCommentId?: number
-  reportedRatingId?: number
+  status: number
+  reason: string
+  handlerReply: string
+  handledAt: Date | string | null
+  created: Date | string
+  sender: KunUser
   reportedUser: KunUser | null
+  handler: KunUser | null
+  patch: AdminReportPatchSummary
+  comment: AdminReportCommentSummary | null
+  rating: AdminReportRatingSummary | null
 }
 
 export interface AdminLog {

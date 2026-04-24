@@ -162,10 +162,8 @@ export const adminHandleFeedbackSchema = z.object({
 })
 
 export const adminHandleReportSchema = z.object({
-  messageId: z.coerce.number().min(1).max(9999999),
+  reportId: z.coerce.number().min(1).max(9999999),
   action: z.enum(['delete', 'reject']),
-  targetType: adminReportTargetTypeSchema.default('comment'),
-  targetId: z.coerce.number().min(1).max(9999999).optional(),
   content: z
     .string()
     .trim()

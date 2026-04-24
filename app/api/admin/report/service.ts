@@ -2,30 +2,44 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { adminReportPaginationSchema } from '~/validations/admin'
 import type { AdminReport, AdminReportTargetType } from '~/types/api/admin'
-import { getReportTargetWhere, resolveReportMeta } from './_meta'
 
 export const getReport = async (
   input: z.infer<typeof adminReportPaginationSchema>
 ) => {
   const { page, limit, tab, targetType } = input
   const offset = (page - 1) * limit
+
   const where = {
-    type: 'report',
-    sender_id: { not: null },
-    recipient_id: null,
-    ...(tab === 'pending' ? { status: 0 } : { status: { in: [2, 3] } }),
-    ...getReportTargetWhere(targetType)
+    target_type: targetType,
+    ...(tab === 'pending' ? { status: 0 } : { status: { in: [2, 3] } })
   }
 
   const [data, total] = await Promise.all([
-    prisma.user_message.findMany({
+    prisma.patch_report.findMany({
       where,
       include: {
         sender: {
+          select: { id: true, name: true, avatar: true }
+        },
+        reported_user: {
+          select: { id: true, name: true, avatar: true }
+        },
+        handler: {
+          select: { id: true, name: true, avatar: true }
+        },
+        patch: {
+          select: { id: true, unique_id: true, name: true }
+        },
+        comment: {
+          select: { id: true, content: true }
+        },
+        rating: {
           select: {
             id: true,
-            name: true,
-            avatar: true
+            short_summary: true,
+            overall: true,
+            recommend: true,
+            play_status: true
           }
         }
       },
@@ -33,54 +47,36 @@ export const getReport = async (
       skip: offset,
       take: limit
     }),
-    prisma.user_message.count({ where })
+    prisma.patch_report.count({ where })
   ])
 
-  const reportsWithMeta = await Promise.all(
-    data.map(async (msg) => ({
-      msg,
-      meta: await resolveReportMeta(msg.content, msg.link)
-    }))
-  )
-
-  const reportedUserIds = [
-    ...new Set(
-      reportsWithMeta
-        .map(({ meta }) => meta.reportedUserId)
-        .filter((id): id is number => !!id)
-    )
-  ]
-  const reportedUsers = reportedUserIds.length
-    ? await prisma.user.findMany({
-        where: { id: { in: reportedUserIds } },
-        select: {
-          id: true,
-          name: true,
-          avatar: true
+  const reports: AdminReport[] = data.map((report) => ({
+    id: report.id,
+    targetType: report.target_type as AdminReportTargetType,
+    status: report.status,
+    reason: report.reason,
+    handlerReply: report.handler_reply,
+    handledAt: report.handled_at,
+    created: report.created,
+    sender: report.sender,
+    reportedUser: report.reported_user,
+    handler: report.handler,
+    patch: {
+      id: report.patch.id,
+      uniqueId: report.patch.unique_id,
+      name: report.patch.name
+    },
+    comment: report.comment
+      ? { id: report.comment.id, content: report.comment.content }
+      : null,
+    rating: report.rating
+      ? {
+          id: report.rating.id,
+          shortSummary: report.rating.short_summary,
+          overall: report.rating.overall,
+          recommend: report.rating.recommend,
+          playStatus: report.rating.play_status
         }
-      })
-    : []
-  const reportedUserMap = new Map(
-    reportedUsers.map((user) => [
-      user.id,
-      { id: user.id, name: user.name, avatar: user.avatar }
-    ])
-  )
-
-  const reports: AdminReport[] = reportsWithMeta.map(({ msg, meta }) => ({
-    id: msg.id,
-    type: msg.type,
-    content: msg.content,
-    status: msg.status,
-    link: msg.link,
-    created: msg.created,
-    sender: msg.sender,
-    targetType: (meta.targetType ?? targetType) as AdminReportTargetType,
-    reportedCommentId: meta.reportedCommentId,
-    reportedRatingId: meta.reportedRatingId,
-    reportedUserId: meta.reportedUserId,
-    reportedUser: meta.reportedUserId
-      ? (reportedUserMap.get(meta.reportedUserId) ?? null)
       : null
   }))
 

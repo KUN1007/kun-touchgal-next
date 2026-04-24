@@ -37,6 +37,7 @@ model patch {
 
   resource patch_resource[] @relation("patch_resource")
   comment  patch_comment[]  @relation("patch_comment")
+  report   patch_report[]
 
   created DateTime @default(now())
   updated DateTime @updatedAt

@@ -4,6 +4,7 @@ model patch_comment {
   edit    String @default("")
 
   like_by user_patch_comment_like_relation[]
+  report  patch_report[]
 
   reply     patch_comment[] @relation("comment_reply")
   parent_id Int?

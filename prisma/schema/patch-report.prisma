@@ -1,0 +1,39 @@
+// target_type: 'comment' | 'rating'
+// status: 0 - pending, 2 - resolved, 3 - rejected
+model patch_report {
+  id          Int    @id @default(autoincrement())
+  target_type String @db.VarChar(16)
+  status      Int    @default(0)
+  reason      String @db.VarChar(5007)
+
+  handler_reply String    @default("") @db.VarChar(5007)
+  handled_at    DateTime?
+
+  sender_id Int
+  sender    user @relation("patch_report_sender", fields: [sender_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  reported_user_id Int
+  reported_user    user @relation("patch_report_reported_user", fields: [reported_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  handler_id Int?
+  handler    user? @relation("patch_report_handler", fields: [handler_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  patch_id Int
+  patch    patch @relation(fields: [patch_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  comment_id Int?
+  comment    patch_comment? @relation(fields: [comment_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  rating_id Int?
+  rating    patch_rating? @relation(fields: [rating_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  created DateTime @default(now())
+  updated DateTime @updatedAt
+
+  @@index([status, target_type, created(sort: Desc)])
+  @@index([target_type, comment_id, status])
+  @@index([target_type, rating_id, status])
+  @@index([sender_id])
+  @@index([reported_user_id])
+  @@index([patch_id])
+}

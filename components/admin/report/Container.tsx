@@ -79,7 +79,6 @@ export const Report = ({ initialReports, total, title, targetType }: Props) => {
               <ReportCard
                 key={report.id}
                 report={report}
-                targetType={targetType}
                 onHandled={() => fetchData(page, activeTab)}
               />
             ))}

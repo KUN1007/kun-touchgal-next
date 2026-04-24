@@ -16,7 +16,8 @@ model patch_rating {
   patch_id Int
   patch    patch @relation(fields: [patch_id], references: [id], onDelete: Cascade)
 
-  like patch_rating_like[]
+  like   patch_rating_like[]
+  report patch_report[]
 
   created DateTime @default(now())
   updated DateTime @updatedAt

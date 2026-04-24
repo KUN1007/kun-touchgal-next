@@ -12,16 +12,38 @@ import { useUserStore } from '~/store/userStore'
 import type { AdminReport } from '~/types/api/admin'
 
 interface Props {
-  initialReport: AdminReport
+  report: AdminReport
 }
 
-export const ReportHandler = ({ initialReport }: Props) => {
+const buildPatchLink = (report: AdminReport) => {
+  const uniqueId = report.patch.uniqueId
+  if (!uniqueId) {
+    return ''
+  }
+  const params = new URLSearchParams()
+  if (report.targetType === 'comment' && report.comment) {
+    params.set('target', 'comment')
+    params.set('commentId', String(report.comment.id))
+  } else if (report.targetType === 'rating' && report.rating) {
+    params.set('tab', 'rating')
+    params.set('target', 'rating')
+    params.set('ratingId', String(report.rating.id))
+  }
+  if (report.reportedUser) {
+    params.set('reportedUid', String(report.reportedUser.id))
+  }
+  const query = params.toString()
+  return query ? `/${uniqueId}?${query}` : `/${uniqueId}`
+}
+
+export const ReportHandler = ({ report }: Props) => {
   const currentUser = useUserStore((state) => state.user)
-  const reportedUid =
-    initialReport.reportedUserId ?? initialReport.reportedUser?.id
-  const userLink = reportedUid ? `/user/${reportedUid}/comment` : ''
+  const patchLink = buildPatchLink(report)
+  const userLink = report.reportedUser
+    ? `/user/${report.reportedUser.id}/comment`
+    : ''
   const disabledKeys = [
-    ...(initialReport.link ? [] : ['game']),
+    ...(patchLink ? [] : ['game']),
     ...(userLink ? [] : ['user'])
   ]
 
@@ -41,8 +63,8 @@ export const ReportHandler = ({ initialReport }: Props) => {
         <DropdownItem
           key="game"
           onPress={() => {
-            if (initialReport.link) {
-              window.open(initialReport.link, '_blank', 'noopener,noreferrer')
+            if (patchLink) {
+              window.open(patchLink, '_blank', 'noopener,noreferrer')
             }
           }}
         >

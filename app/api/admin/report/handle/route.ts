@@ -44,13 +44,18 @@ const handleReport = async (
     input.action === 'reject' ? '您的举报已驳回' : '您的举报已处理'
   const reportReplyLabel = input.action === 'reject' ? '驳回回复' : '处理回复'
 
-  const relatedWhere = {
-    status: 0,
-    target_type: targetType,
-    ...(targetType === 'comment'
-      ? { comment_id: targetId }
-      : { rating_id: targetId })
-  }
+  const relatedWhere = targetId
+    ? {
+        status: 0,
+        target_type: targetType,
+        ...(targetType === 'comment'
+          ? { comment_id: targetId }
+          : { rating_id: targetId })
+      }
+    : {
+        id: report.id,
+        status: 0
+      }
 
   const ratingPatchId =
     input.action === 'delete' && targetType === 'rating'

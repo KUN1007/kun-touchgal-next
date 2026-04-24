@@ -13,7 +13,7 @@ const runCommand = (command: string) => {
 
 runCommand('pnpm install')
 
-runCommand('pnpx prisma db push')
+runCommand('pnpm prisma:push')
 
 if (!existsSync('./uploads')) {
   mkdirSync('./uploads')

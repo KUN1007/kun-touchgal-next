@@ -22,14 +22,9 @@ const markdownProcessor = unified()
   .freeze()
 
 export const markdownToHtml = async (markdown: string) => {
-  return renderMarkdownHtmlWithCache(
-    'standard',
-    markdown,
-    async () => {
-      const htmlVFile = await markdownProcessor.process(markdown)
+  return renderMarkdownHtmlWithCache('standard', markdown, async () => {
+    const htmlVFile = await markdownProcessor.process(markdown)
 
-      return String(htmlVFile)
-    },
-    { enabled: false }
-  )
+    return String(htmlVFile)
+  })
 }

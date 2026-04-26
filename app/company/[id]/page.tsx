@@ -2,6 +2,7 @@ import { generateKunMetadataTemplate } from './metadata'
 import { CompanyDetailContainer } from '~/components/company/detail/Container'
 import { kunGetCompanyByIdActions, kunCompanyGalgameActions } from './actions'
 import { ErrorComponent } from '~/components/error/ErrorComponent'
+import { KunBreadcrumbTitle } from '~/components/kun/BreadcrumbTitle'
 import type { SortField, SortOrder } from '~/components/galgame/_sort'
 import type { Metadata } from 'next'
 import {
@@ -95,10 +96,16 @@ export default async function Kun({ params, searchParams }: Props) {
   }
 
   return (
-    <CompanyDetailContainer
-      initialCompany={company}
-      initialPatches={response.galgames}
-      total={response.total}
-    />
+    <>
+      <KunBreadcrumbTitle
+        routeKey={`/company/${company.id}`}
+        title={company.name}
+      />
+      <CompanyDetailContainer
+        initialCompany={company}
+        initialPatches={response.galgames}
+        total={response.total}
+      />
+    </>
   )
 }

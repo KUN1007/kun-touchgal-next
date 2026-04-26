@@ -1,5 +1,6 @@
 import { PatchHeaderContainer } from '~/components/patch/header/Container'
 import { ErrorComponent } from '~/components/error/ErrorComponent'
+import { KunBreadcrumbTitle } from '~/components/kun/BreadcrumbTitle'
 import { generateKunMetadataTemplate } from './metadata'
 import {
   kunGetPatchPageDataActions,
@@ -7,6 +8,7 @@ import {
 } from './actions'
 import { verifyHeaderCookie } from '~/utils/actions/verifyHeaderCookie'
 import { getNSFWHeader } from '~/utils/actions/getNSFWHeader'
+import { getPatchPageTitle } from '~/utils/patch/getPatchPageTitle'
 import { after } from 'next/server'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -63,8 +65,14 @@ export default async function Kun({ params }: Props) {
 
   after(() => kunUpdatePatchViewsActions({ uniqueId: id }))
 
+  const isNsfwBlocked = pageData.patch.contentLimit === 'nsfw' && !nsfwAllowed
+
   return (
     <div className="container py-6 mx-auto space-y-6">
+      <KunBreadcrumbTitle
+        routeKey={`/${pageData.patch.uniqueId}`}
+        title={isNsfwBlocked ? '' : getPatchPageTitle(pageData.patch)}
+      />
       <PatchHeaderContainer
         patch={pageData.patch}
         intro={pageData.intro}

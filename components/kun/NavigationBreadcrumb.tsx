@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import {
   Button,
   Dropdown,
@@ -11,50 +10,21 @@ import {
 import { BreadcrumbItem, Breadcrumbs } from '@heroui/breadcrumbs'
 import { ChevronRight } from 'lucide-react'
 import { useParams, usePathname } from 'next/navigation'
-import { createBreadcrumbItem } from '~/constants/routes/routes'
-import type { KunBreadcrumbItem } from '~/constants/routes/constants'
+import {
+  createBreadcrumbItem,
+  getBreadcrumbTitleKey
+} from '~/constants/routes/routes'
+import { initialBreadcrumbItems, useBreadcrumbStore } from '~/store/breadcrumb'
 
 export const KunNavigationBreadcrumb = () => {
-  const initialItem: KunBreadcrumbItem[] = [
-    {
-      key: '/',
-      label: '主页',
-      href: '/'
-    }
-  ]
-
-  const [items, setItems] = useState<KunBreadcrumbItem[]>(initialItem)
   const pathname = usePathname()
   const params = useParams()
-
-  const updateBreadcrumb = () => {
-    const newItem = createBreadcrumbItem(pathname, params)
-    setItems([...initialItem, ...newItem])
-  }
-
-  useEffect(() => {
-    updateBreadcrumb()
-
-    // Next.js 在软导航时可能会替换整个 <title> 节点，
-    // 直接监听旧节点会漏掉后续标题更新
-    const observer = new MutationObserver(() => {
-      updateBreadcrumb()
-    })
-    observer.observe(document.head, {
-      childList: true,
-      characterData: true,
-      subtree: true
-    })
-
-    const frameId = requestAnimationFrame(() => {
-      updateBreadcrumb()
-    })
-
-    return () => {
-      observer.disconnect()
-      cancelAnimationFrame(frameId)
-    }
-  }, [pathname, params])
+  const titleKey = getBreadcrumbTitleKey(pathname, params)
+  const pageTitle = useBreadcrumbStore((state) => state.titles[titleKey])
+  const items = [
+    ...initialBreadcrumbItems,
+    ...createBreadcrumbItem(pathname, params, pageTitle)
+  ]
 
   const hideBreadcrumbRoutes = [
     '/',

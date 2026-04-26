@@ -11,21 +11,80 @@ import { keyLabelMap } from './constants'
 import { kunMoyuMoe } from '~/config/moyu-moe'
 import type { KunBreadcrumbItem } from './constants'
 
-type NextParams = Record<string, string | Array<string> | undefined>
+type NextParams = Readonly<Record<string, string | Array<string> | undefined>>
 
 // Some path's length is equal to galgame uniqueId (8 digits and chars)
 const pathToIgnore = ['/resource', '/register', '/redirect', '/settings']
+
+const getParamValue = (params: NextParams, key: string): string | undefined => {
+  const value = params[key]
+  if (!value) {
+    return undefined
+  }
+
+  return Array.isArray(value) ? value.join('/') : value
+}
+
+export const getBreadcrumbTitleKey = (
+  pathname: string,
+  params: NextParams
+): string => {
+  if (isPatchPath(pathname)) {
+    const id = getParamValue(params, 'id')
+    return id ? `/${id}` : pathname
+  }
+
+  if (isTagPath(pathname)) {
+    const id = getParamValue(params, 'id')
+    return id ? `/tag/${id}` : pathname
+  }
+
+  if (isUserPath(pathname)) {
+    const id = getParamValue(params, 'id')
+    return id ? `/user/${id}` : pathname
+  }
+
+  if (isDocPath(pathname)) {
+    const slug = getParamValue(params, 'slug')
+    return slug ? `/doc/${slug}` : pathname
+  }
+
+  if (isCompanyPath(pathname)) {
+    const id = getParamValue(params, 'id')
+    return id ? `/company/${id}` : pathname
+  }
+
+  if (isMessageChatConversationPath(pathname)) {
+    const conversationId = getParamValue(params, 'conversationId')
+    return conversationId ? `/message/chat/${conversationId}` : pathname
+  }
+
+  return pathname
+}
+
+const normalizeBreadcrumbTitle = (pageTitle?: string): string => {
+  return (pageTitle ?? '')
+    .replace(` - ${kunMoyuMoe.titleShort}`, '')
+    .replace(/\|.*$/, '')
+    .trim()
+}
+
+const getTitleOrDefault = (pageTitle: string, fallback: string): string => {
+  return pageTitle || fallback
+}
 
 const createPatchBreadcrumb = (
   params: NextParams,
   defaultItem: KunBreadcrumbItem,
   pageTitle: string
 ) => {
+  const id = getParamValue(params, 'id') ?? defaultItem.href.slice(1)
+
   return {
     ...defaultItem,
-    key: `/${params.id}`,
+    key: `/${id}`,
     label: pageTitle,
-    href: `/${params.id}`
+    href: `/${id}`
   }
 }
 
@@ -34,11 +93,13 @@ const createTagBreadcrumb = (
   defaultItem: KunBreadcrumbItem,
   pageTitle: string
 ) => {
+  const id = getParamValue(params, 'id') ?? defaultItem.href.split('/').pop()
+
   return {
     ...defaultItem,
-    key: `/tag/${params.id}`,
+    key: `/tag/${id}`,
     label: pageTitle,
-    href: `/tag/${params.id}`
+    href: `/tag/${id}`
   }
 }
 
@@ -47,11 +108,13 @@ const createUserBreadcrumb = (
   defaultItem: KunBreadcrumbItem,
   pageTitle: string
 ) => {
+  const id = getParamValue(params, 'id') ?? defaultItem.href.split('/')[2]
+
   return {
     ...defaultItem,
-    key: `/user/${params.id}`,
+    key: `/user/${id}`,
     label: pageTitle,
-    href: `/user/${params.id}/resource`
+    href: `/user/${id}/resource`
   }
 }
 
@@ -60,11 +123,13 @@ const createDocBreadcrumb = (
   defaultItem: KunBreadcrumbItem,
   pageTitle: string
 ) => {
+  const slug = getParamValue(params, 'slug') ?? defaultItem.href.slice(5)
+
   return {
     ...defaultItem,
-    key: `/doc/${params.id}`,
+    key: `/doc/${slug}`,
     label: pageTitle,
-    href: `/doc/${params.id}`
+    href: `/doc/${slug}`
   }
 }
 
@@ -89,7 +154,8 @@ export const getKunPathLabel = (pathname: string): string => {
 
 export const createBreadcrumbItem = (
   pathname: string,
-  params: NextParams
+  params: NextParams,
+  pageTitle?: string
 ): KunBreadcrumbItem[] => {
   if (pathname === '/') {
     return []
@@ -106,9 +172,7 @@ export const createBreadcrumbItem = (
     href: pathname
   }
 
-  const pageTitle = document.title
-    .replace(` - ${kunMoyuMoe.titleShort}`, '')
-    .replace(/\|.*$/, '')
+  const normalizedPageTitle = normalizeBreadcrumbTitle(pageTitle)
 
   const hasIgnorePath = pathToIgnore.some((p) => p === pathname)
   if (hasIgnorePath) {
@@ -121,12 +185,12 @@ export const createBreadcrumbItem = (
       label: 'Galgame',
       href: '/galgame'
     }
-    if (!pageTitle.trim()) {
+    if (!normalizedPageTitle) {
       return [allGalgameRoute]
     }
     return [
       allGalgameRoute,
-      createPatchBreadcrumb(params, defaultItem, pageTitle)
+      createPatchBreadcrumb(params, defaultItem, normalizedPageTitle)
     ]
   }
   if (isTagPath(pathname)) {
@@ -135,10 +199,23 @@ export const createBreadcrumbItem = (
       label: '游戏标签',
       href: '/tag'
     }
-    return [allTagRoute, createTagBreadcrumb(params, defaultItem, pageTitle)]
+    return [
+      allTagRoute,
+      createTagBreadcrumb(
+        params,
+        defaultItem,
+        getTitleOrDefault(normalizedPageTitle, defaultItem.label)
+      )
+    ]
   }
   if (isUserPath(pathname)) {
-    return [createUserBreadcrumb(params, defaultItem, pageTitle)]
+    return [
+      createUserBreadcrumb(
+        params,
+        defaultItem,
+        getTitleOrDefault(normalizedPageTitle, defaultItem.label)
+      )
+    ]
   }
   if (isDocPath(pathname)) {
     const allDocRoute: KunBreadcrumbItem = {
@@ -146,7 +223,14 @@ export const createBreadcrumbItem = (
       label: '帮助文档',
       href: '/doc'
     }
-    return [allDocRoute, createDocBreadcrumb(params, defaultItem, pageTitle)]
+    return [
+      allDocRoute,
+      createDocBreadcrumb(
+        params,
+        defaultItem,
+        getTitleOrDefault(normalizedPageTitle, defaultItem.label)
+      )
+    ]
   }
   if (isCompanyPath(pathname)) {
     const allCompanyRoute: KunBreadcrumbItem = {
@@ -155,8 +239,15 @@ export const createBreadcrumbItem = (
       href: '/company'
     }
     const companyName =
-      pageTitle.match(/所属会社为 (.+?) 的 Galgame/)?.[1] ?? pageTitle
-    return [allCompanyRoute, { ...defaultItem, label: companyName }]
+      normalizedPageTitle.match(/所属会社为 (.+?) 的 Galgame/)?.[1] ??
+      normalizedPageTitle
+    return [
+      allCompanyRoute,
+      {
+        ...defaultItem,
+        label: getTitleOrDefault(companyName, defaultItem.label)
+      }
+    ]
   }
   if (isMessageNoticePath(pathname)) {
     const noticeRoute: KunBreadcrumbItem = {
@@ -176,7 +267,7 @@ export const createBreadcrumbItem = (
       chatRoute,
       {
         ...defaultItem,
-        label: pageTitle
+        label: getTitleOrDefault(normalizedPageTitle, defaultItem.label)
       }
     ]
   }

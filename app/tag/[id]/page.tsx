@@ -5,6 +5,7 @@ import { kunGetTagByIdActions, kunTagGalgameActions } from './actions'
 import { ErrorComponent } from '~/components/error/ErrorComponent'
 import { verifyHeaderCookie } from '~/utils/actions/verifyHeaderCookie'
 import { KunNull } from '~/components/kun/Null'
+import { KunBreadcrumbTitle } from '~/components/kun/BreadcrumbTitle'
 import type { SortField, SortOrder } from '~/components/galgame/_sort'
 import type { Metadata } from 'next'
 import {
@@ -103,6 +104,7 @@ export default async function Kun({ params, searchParams }: Props) {
 
   return (
     <Suspense>
+      <KunBreadcrumbTitle routeKey={`/tag/${tag.id}`} title={tag.name} />
       {payload?.uid ? (
         <TagDetailContainer
           initialTag={tag}

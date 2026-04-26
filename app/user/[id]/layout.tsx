@@ -6,6 +6,7 @@ import { generateKunMetadataTemplate } from './metadata'
 import { kunGetActions } from './actions'
 import { verifyHeaderCookie } from '~/utils/actions/verifyHeaderCookie'
 import { KunNull } from '~/components/kun/Null'
+import { KunBreadcrumbTitle } from '~/components/kun/BreadcrumbTitle'
 import type { Metadata } from 'next'
 
 interface Props {
@@ -39,6 +40,10 @@ export default async function Kun({ params, children }: Props) {
 
   return (
     <div className="w-full py-8 mx-auto">
+      <KunBreadcrumbTitle
+        routeKey={`/user/${user.id}`}
+        title={`${user.name} 的主页`}
+      />
       {payload?.uid ? (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <UserProfile user={user} />

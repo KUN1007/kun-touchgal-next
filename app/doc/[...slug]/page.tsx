@@ -8,6 +8,7 @@ import { TableOfContents } from '~/components/doc/TableOfContents'
 import { KunBottomNavigation } from '~/components/doc/Navigation'
 import { generateKunMetadataTemplate } from './metadata'
 import { BlogHeader } from '~/components/doc/BlogHeader'
+import { KunBreadcrumbTitle } from '~/components/kun/BreadcrumbTitle'
 import type { Metadata } from 'next'
 
 interface Props {
@@ -40,6 +41,7 @@ export default async function Kun({ params }: Props) {
 
   return (
     <div className="flex w-full">
+      <KunBreadcrumbTitle routeKey={`/doc/${url}`} title={frontmatter.title} />
       <div className="w-full lg:w-[calc(100%-16rem)] px-3 sm:px-6">
         <BlogHeader frontmatter={frontmatter} />
         <article className="kun-prose">

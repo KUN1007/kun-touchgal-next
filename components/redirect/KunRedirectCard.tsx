@@ -8,6 +8,7 @@ import { CountdownTimer } from './CountdownTimer'
 import { useSearchParams } from 'next/navigation'
 import { useUserStore } from '~/store/userStore'
 import { useMounted } from '~/hooks/useMounted'
+import { isRedirectableUrl, sanitizeUserHref } from '~/utils/safeUrl'
 
 export const KunRedirectCard = () => {
   const isMounted = useMounted()
@@ -15,21 +16,40 @@ export const KunRedirectCard = () => {
   const userConfig = useUserStore((state) => state.user)
 
   const [isCountdownComplete, setIsCountdownComplete] = useState(false)
-  const url = searchParams.get('url') || kunMoyuMoe.domain.main
+
+  const rawUrl = searchParams.get('url')
+  const sanitizedUrl = rawUrl ? sanitizeUserHref(rawUrl) : null
+  const isUrlValid = !!sanitizedUrl && isRedirectableUrl(sanitizedUrl)
+  const url = isUrlValid ? sanitizedUrl! : kunMoyuMoe.domain.main
+  const isInvalid = !!rawUrl && !isUrlValid
 
   const handleRedirect = () => {
-    window.location.href = url
+    const safe = sanitizeUserHref(url)
+    if (!safe || !isRedirectableUrl(safe)) {
+      return
+    }
+    window.location.href = safe
   }
 
   return (
     <Card className="w-full max-w-2xl">
       <CardBody className="gap-4">
-        <div className="flex items-center gap-2 text-warning-500">
+        <div
+          className={`flex items-center gap-2 ${
+            isInvalid ? 'text-danger-500' : 'text-warning-500'
+          }`}
+        >
           <ShieldAlert className="w-5 h-5" />
-          <p className="text-lg">您即将离开 {kunMoyuMoe.titleShort}</p>
+          <p className="text-lg">
+            {isInvalid
+              ? '检测到不安全或无效的跳转链接, 已阻止跳转'
+              : `您即将离开 ${kunMoyuMoe.titleShort}`}
+          </p>
         </div>
 
-        <p className="text-default-500">您将会被跳转到:</p>
+        <p className="text-default-500">
+          {isInvalid ? '原始链接 (已阻止):' : '您将会被跳转到:'}
+        </p>
 
         <div className="overflow-auto">
           <Snippet
@@ -37,14 +57,14 @@ export const KunRedirectCard = () => {
             symbol=""
             size="lg"
             className="w-full overflow-auto scrollbar-hide"
-            color="primary"
+            color={isInvalid ? 'danger' : 'primary'}
             copyIcon={<ExternalLink />}
           >
-            {url}
+            {isInvalid ? rawUrl! : url}
           </Snippet>
         </div>
 
-        {isMounted && (
+        {isMounted && !isInvalid && (
           <CountdownTimer
             delay={userConfig.delaySeconds}
             onComplete={() => setIsCountdownComplete(true)}
@@ -58,7 +78,7 @@ export const KunRedirectCard = () => {
           color="primary"
           variant="shadow"
           onPress={handleRedirect}
-          isDisabled={!isCountdownComplete}
+          isDisabled={!isCountdownComplete || isInvalid}
         >
           点击跳转
         </Button>

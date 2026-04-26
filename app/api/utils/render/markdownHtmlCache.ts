@@ -18,8 +18,11 @@ const MARKDOWN_HTML_CACHE_KEY = 'markdown:html'
 const MARKDOWN_HTML_CACHE_VERSION = 'v2'
 const MARKDOWN_HTML_CACHE_TIMEOUT_MS = 200
 const MARKDOWN_HTML_CACHE_RETRY_DELAY_MS = 30 * 1000
+const MARKDOWN_HTML_RENDER_TIMEOUT_MS = 10 * 1000
 
 let markdownHtmlCacheDisabledUntil = 0
+
+const inFlightRenders = new Map<string, Promise<string>>()
 
 const isRedisConfigured = () =>
   Boolean(process.env.REDIS_HOST && process.env.REDIS_PORT)
@@ -94,6 +97,27 @@ const deleteMarkdownHtmlCache = async (cacheKey: string) => {
   )
 }
 
+const renderWithTimeout = async (
+  render: MarkdownHtmlRenderer
+): Promise<string> => {
+  let timer: ReturnType<typeof setTimeout> | undefined
+
+  try {
+    return await Promise.race([
+      render(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error('markdown html render timed out'))
+        }, MARKDOWN_HTML_RENDER_TIMEOUT_MS)
+      })
+    ])
+  } finally {
+    if (timer) {
+      clearTimeout(timer)
+    }
+  }
+}
+
 const writeMarkdownHtmlCache = async (
   cacheKey: string,
   html: string,
@@ -130,24 +154,40 @@ export const renderMarkdownHtmlWithCache = async (
     ttlSeconds <= 0 ||
     !isWithinByteLimit(markdown, maxMarkdownBytes)
   ) {
-    return render()
+    return renderWithTimeout(render)
   }
 
   const cacheKey = getMarkdownHtmlCacheKey(variant, markdown)
-  const cachedHtml = await readMarkdownHtmlCache(cacheKey)
 
-  if (cachedHtml !== null) {
-    if (isWithinByteLimit(cachedHtml, maxHtmlBytes)) {
-      return cachedHtml
+  const existing = inFlightRenders.get(cacheKey)
+  if (existing) {
+    return existing
+  }
+
+  const pending = (async () => {
+    const cachedHtml = await readMarkdownHtmlCache(cacheKey)
+
+    if (cachedHtml !== null) {
+      if (isWithinByteLimit(cachedHtml, maxHtmlBytes)) {
+        return cachedHtml
+      }
+
+      await deleteMarkdownHtmlCache(cacheKey)
     }
 
-    await deleteMarkdownHtmlCache(cacheKey)
-  }
+    const html = await renderWithTimeout(render)
+    if (isWithinByteLimit(html, maxHtmlBytes)) {
+      await writeMarkdownHtmlCache(cacheKey, html, ttlSeconds)
+    }
 
-  const html = await render()
-  if (isWithinByteLimit(html, maxHtmlBytes)) {
-    await writeMarkdownHtmlCache(cacheKey, html, ttlSeconds)
-  }
+    return html
+  })()
 
-  return html
+  inFlightRenders.set(cacheKey, pending)
+
+  try {
+    return await pending
+  } finally {
+    inFlightRenders.delete(cacheKey)
+  }
 }

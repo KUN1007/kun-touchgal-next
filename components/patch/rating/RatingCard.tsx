@@ -189,14 +189,20 @@ export const RatingCard = ({
                 </div>
               </div>
             ) : (
-              <div className="relative">
+              <div className="space-y-1.5">
                 {rating.spoilerLevel !== 'none' && (
-                  <button
+                  <div
+                    className="relative p-2 rounded-lg bg-warning-50 dark:bg-warning-100/10 border border-warning-200 dark:border-warning-500/20 cursor-pointer hover:bg-warning-100 dark:hover:bg-warning-100/20 transition-colors"
                     onClick={() => setIsShowSummary(false)}
-                    className="absolute -top-1 -right-1 p-1 rounded-full bg-default-100 hover:bg-default-200 transition-colors"
                   >
-                    <Eye className="size-3 text-default-500" />
-                  </button>
+                    <div className="flex items-center gap-1.5 text-warning-600 dark:text-warning-500">
+                      <Eye className="size-3.5" />
+                      <span className="text-xs font-medium">
+                        {KUN_GALGAME_RATING_SPOILER_MAP[rating.spoilerLevel]}
+                        {' — '}点击隐藏
+                      </span>
+                    </div>
+                  </div>
                 )}
                 <p className="text-sm text-default-800 whitespace-pre-wrap leading-relaxed ml-1">
                   {rating.shortSummary}

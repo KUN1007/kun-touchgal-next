@@ -103,11 +103,7 @@ const setGalgameListCache = async (
   response: GalgameListResponse
 ) => {
   try {
-    await setKv(
-      cacheKey,
-      JSON.stringify(response),
-      GALGAME_LIST_CACHE_DURATION
-    )
+    await setKv(cacheKey, JSON.stringify(response), GALGAME_LIST_CACHE_DURATION)
   } catch (error) {
     logGalgameListCacheError('Failed to write galgame list cache:', error)
   }

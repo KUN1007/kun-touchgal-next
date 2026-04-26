@@ -11,7 +11,8 @@ export const deleteUser = async (
   uid: number
 ) => {
   const user = await prisma.user.findUnique({
-    where: { id: input.uid }
+    where: { id: input.uid },
+    select: { id: true, name: true, email: true, role: true, status: true }
   })
   if (!user) {
     return '未找到用户'
@@ -21,7 +22,8 @@ export const deleteUser = async (
   }
 
   const admin = await prisma.user.findUnique({
-    where: { id: uid }
+    where: { id: uid },
+    select: { id: true, name: true }
   })
   if (!admin) {
     return '未找到管理员'

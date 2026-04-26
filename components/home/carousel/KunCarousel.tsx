@@ -10,7 +10,7 @@ import { KunHomeNavigationItems } from '../NavigationItems'
 import type { HomeCarouselMetadata } from './mdx'
 
 interface KunCarouselProps {
-  posts: HomeCarouselMetadata[]
+  posts: readonly HomeCarouselMetadata[]
 }
 
 export const KunCarousel = ({ posts }: KunCarouselProps) => {

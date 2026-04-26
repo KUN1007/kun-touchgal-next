@@ -17,7 +17,13 @@ export interface HomeCarouselMetadata {
 
 const POSTS_PATH = resolveRuntimeDirectory('posts')
 
-export const getKunPosts = (): HomeCarouselMetadata[] => {
+let cachedPosts: readonly HomeCarouselMetadata[] | null = null
+
+export const getKunPosts = (): readonly HomeCarouselMetadata[] => {
+  if (cachedPosts) {
+    return cachedPosts
+  }
+
   if (!fs.existsSync(POSTS_PATH)) {
     return []
   }
@@ -61,7 +67,9 @@ export const getKunPosts = (): HomeCarouselMetadata[] => {
 
   traverseDirectory(POSTS_PATH)
 
-  return posts.sort(
+  cachedPosts = posts.sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   )
+
+  return cachedPosts
 }

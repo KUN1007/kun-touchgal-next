@@ -4,7 +4,7 @@ import { Card, Link } from '@heroui/react'
 import type { HomeCarouselMetadata } from './mdx'
 
 interface Props {
-  posts: HomeCarouselMetadata[]
+  posts: readonly HomeCarouselMetadata[]
   currentSlide: number
 }
 

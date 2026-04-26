@@ -6,7 +6,7 @@ import { formatTimeDifference } from '~/utils/time'
 import type { HomeCarouselMetadata } from './mdx'
 
 interface Props {
-  posts: HomeCarouselMetadata[]
+  posts: readonly HomeCarouselMetadata[]
   currentSlide: number
 }
 

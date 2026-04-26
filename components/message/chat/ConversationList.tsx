@@ -8,6 +8,7 @@ import { KunPagination } from '~/components/kun/Pagination'
 import { ConversationCard } from './ConversationCard'
 import { kunFetchGet } from '~/utils/kunFetch'
 import toast from 'react-hot-toast'
+import { useMessageStore } from '~/store/messageStore'
 import type { Conversation } from '~/types/api/conversation'
 
 interface Props {
@@ -21,6 +22,13 @@ export const ConversationList = ({ initialConversations, total }: Props) => {
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(1)
   const isMounted = useMounted()
+  const setHasUnreadConversation = useMessageStore(
+    (state) => state.setHasUnreadConversation
+  )
+
+  const syncConversationUnreadStatus = (items: Conversation[]) => {
+    setHasUnreadConversation(items.some((conv) => conv.unreadCount > 0))
+  }
 
   const fetchConversations = async () => {
     setLoading(true)
@@ -38,6 +46,7 @@ export const ConversationList = ({ initialConversations, total }: Props) => {
       toast.error(response)
     } else {
       setConversations(response.conversations)
+      syncConversationUnreadStatus(response.conversations)
     }
 
     setLoading(false)
@@ -49,6 +58,10 @@ export const ConversationList = ({ initialConversations, total }: Props) => {
     }
     fetchConversations()
   }, [page])
+
+  useEffect(() => {
+    syncConversationUnreadStatus(initialConversations)
+  }, [initialConversations])
 
   return (
     <div className="space-y-4">

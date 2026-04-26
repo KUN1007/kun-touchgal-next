@@ -1,13 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { kunFetchGet, kunFetchPut } from '~/utils/kunFetch'
+import { useEffect } from 'react'
+import { kunFetchPut } from '~/utils/kunFetch'
 import { Button } from '@heroui/react'
 import { AtSign, Bell, Globe, MessageSquare, UserPlus } from 'lucide-react'
 import { Card, CardBody } from '@heroui/card'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import { useMessageStore } from '~/store/messageStore'
+import type { MessageUnreadStatus } from '~/types/api/message'
 
 const notificationSubTypes = [
   { type: 'notice', label: '全部消息', icon: Bell, href: '/message/notice' },
@@ -36,22 +38,11 @@ export const MessageNav = () => {
   )
   const isChatSection = pathname.startsWith('/message/chat')
 
-  const [hasUnreadNotification, setHasUnreadNotification] = useState(false)
-  const [hasUnreadConversation, setHasUnreadConversation] = useState(false)
-
-  useEffect(() => {
-    const fetchUnread = async () => {
-      const res = await kunFetchGet<{
-        hasUnreadNotification: boolean
-        hasUnreadConversation: boolean
-      }>('/message/unread')
-      if (typeof res !== 'string') {
-        setHasUnreadNotification(res.hasUnreadNotification)
-        setHasUnreadConversation(res.hasUnreadConversation)
-      }
-    }
-    fetchUnread()
-  }, [])
+  const {
+    hasUnreadNotification,
+    hasUnreadConversation,
+    setUnreadMessageStatus
+  } = useMessageStore((state) => state)
 
   useEffect(() => {
     if (!isNotificationSection) {
@@ -59,15 +50,16 @@ export const MessageNav = () => {
     }
 
     const readAllMessage = async () => {
-      const res = await kunFetchPut<KunResponse<{}>>('/message/read')
+      const res =
+        await kunFetchPut<KunResponse<MessageUnreadStatus>>('/message/read')
       if (typeof res === 'string') {
         toast.error(res)
       } else {
-        setHasUnreadNotification(false)
+        setUnreadMessageStatus(res)
       }
     }
     readAllMessage()
-  }, [isNotificationSection])
+  }, [isNotificationSection, setUnreadMessageStatus])
 
   return (
     <Card className="w-full lg:w-1/4">

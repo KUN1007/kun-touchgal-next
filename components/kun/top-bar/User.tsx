@@ -1,12 +1,13 @@
 'use client'
 
 import toast from 'react-hot-toast'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { NavbarContent, NavbarItem } from '@heroui/navbar'
 import Link from 'next/link'
 import { Button } from '@heroui/button'
 import { Skeleton } from '@heroui/skeleton'
 import { useUserStore } from '~/store/userStore'
+import { useMessageStore } from '~/store/messageStore'
 import { useRouter } from '@bprogress/next'
 import { kunFetchGet } from '~/utils/kunFetch'
 import { ThemeSwitcher } from './ThemeSwitcher'
@@ -16,12 +17,17 @@ import { KunSearch } from './Search'
 import { UserMessageBell } from './UserMessageBell'
 import { Tooltip } from '@heroui/tooltip'
 import { RandomGalgameButton } from '~/components/home/carousel/RandomGalgameButton'
-import type { UserState } from '~/store/userStore'
+import type { UserSession } from '~/types/api/session'
 
 export const KunTopBarUser = () => {
   const router = useRouter()
   const { user, setUser } = useUserStore((state) => state)
-  const [hasUnread, setHasUnread] = useState(false)
+  const {
+    hasUnreadNotification,
+    hasUnreadConversation,
+    setHasUnreadNotification,
+    setUnreadMessageStatus
+  } = useMessageStore((state) => state)
   const isMounted = useMounted()
 
   useEffect(() => {
@@ -32,32 +38,21 @@ export const KunTopBarUser = () => {
       return
     }
 
-    const getUserStatus = async () => {
-      const res = await kunFetchGet<KunResponse<UserState>>('/user/status')
+    const getUserSession = async () => {
+      const res = await kunFetchGet<KunResponse<UserSession>>('/user/session')
       if (typeof res === 'string') {
         toast.error(res)
         router.push('/login')
       } else {
-        setUser(res)
+        setUser(res.user)
+        setUnreadMessageStatus(res.unread)
       }
     }
 
-    const getUserUnreadMessage = async () => {
-      const res = await kunFetchGet<{
-        hasUnreadNotification: boolean
-        hasUnreadConversation: boolean
-      }>('/message/unread')
-      if (
-        typeof res !== 'string' &&
-        (res.hasUnreadNotification || res.hasUnreadConversation)
-      ) {
-        setHasUnread(true)
-      }
-    }
-
-    getUserStatus()
-    getUserUnreadMessage()
+    getUserSession()
   }, [isMounted])
+
+  const hasUnread = hasUnreadNotification || hasUnreadConversation
 
   return (
     <NavbarContent as="div" className="items-center" justify="end">
@@ -104,7 +99,7 @@ export const KunTopBarUser = () => {
             <>
               <UserMessageBell
                 hasUnreadMessages={hasUnread}
-                setReadMessage={() => setHasUnread(false)}
+                setReadMessage={() => setHasUnreadNotification(false)}
               />
 
               <UserDropdown />

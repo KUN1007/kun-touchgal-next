@@ -30,13 +30,12 @@ import { useUserStore } from '~/store/userStore'
 import { useSettingStore } from '~/store/settingStore'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from '@bprogress/next'
-import { kunFetchGet, kunFetchPost } from '~/utils/kunFetch'
+import { kunFetchPost } from '~/utils/kunFetch'
 import toast from 'react-hot-toast'
-import { useMounted } from '~/hooks/useMounted'
 import { showKunSooner } from '~/components/kun/Sooner'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import { NSFWSwitcher } from './NSFWSwitcher'
-import type { UserState } from '~/store/userStore'
+import { useMessageStore } from '~/store/messageStore'
 
 const NESTED_DROPDOWN_EXIT_MS = 50
 const OPEN_OVERLAY_MENU_SELECTOR =
@@ -51,7 +50,9 @@ export const UserDropdown = () => {
   const router = useRouter()
   const { user, setUser, logout } = useUserStore((state) => state)
   const resetSettings = useSettingStore((state) => state.resetData)
-  const isMounted = useMounted()
+  const resetUnreadMessageStatus = useMessageStore(
+    (state) => state.resetUnreadMessageStatus
+  )
   const [loading, setLoading] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isNsfwDropdownOpen, setIsNsfwDropdownOpen] = useState(false)
@@ -239,26 +240,12 @@ export const UserDropdown = () => {
     }
   }, [clearDeferredParentClose])
 
-  useEffect(() => {
-    if (!isMounted) {
-      return
-    }
-    if (!user.uid) {
-      return
-    }
-
-    const getUserStatus = async () => {
-      const user = await kunFetchGet<UserState>('/user/status')
-      setUser(user)
-    }
-    getUserStatus()
-  }, [isMounted])
-
   const handleLogOut = async () => {
     setLoading(true)
     await kunFetchPost<KunResponse<{}>>('/user/status/logout')
     setLoading(false)
     logout()
+    resetUnreadMessageStatus()
     resetSettings()
     router.push('/login')
     toast.success('您已经成功登出!')

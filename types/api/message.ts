@@ -17,3 +17,8 @@ export interface CreateMessageType {
   sender_id?: number
   recipient_id?: number
 }
+
+export interface MessageUnreadStatus {
+  hasUnreadNotification: boolean
+  hasUnreadConversation: boolean
+}

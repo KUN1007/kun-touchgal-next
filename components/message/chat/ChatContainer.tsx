@@ -12,8 +12,10 @@ import { DeleteConversationButton } from './DeleteConversationButton'
 import { KunAvatar } from '~/components/kun/floating-card/KunAvatar'
 import { kunFetchGet, kunFetchPut } from '~/utils/kunFetch'
 import { useUserStore } from '~/store/userStore'
+import { useMessageStore } from '~/store/messageStore'
 import toast from 'react-hot-toast'
 import type { PrivateMessage } from '~/types/api/conversation'
+import type { MessageUnreadStatus } from '~/types/api/message'
 
 type MessageUpdateData =
   | { action: 'delete' }
@@ -48,6 +50,9 @@ export const ChatContainer = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const user = useUserStore((state) => state.user)
+  const setUnreadMessageStatus = useMessageStore(
+    (state) => state.setUnreadMessageStatus
+  )
   const isInitialMount = useRef(true)
 
   const scrollToBottom = useCallback(() => {
@@ -150,10 +155,15 @@ export const ChatContainer = ({
 
   useEffect(() => {
     const markAsRead = async () => {
-      await kunFetchPut(`/message/conversation/${conversationId}/read`)
+      const response = await kunFetchPut<KunResponse<MessageUnreadStatus>>(
+        `/message/conversation/${conversationId}/read`
+      )
+      if (typeof response !== 'string') {
+        setUnreadMessageStatus(response)
+      }
     }
     markAsRead()
-  }, [conversationId])
+  }, [conversationId, setUnreadMessageStatus])
 
   useEffect(() => {
     if (isInitialMount.current) {

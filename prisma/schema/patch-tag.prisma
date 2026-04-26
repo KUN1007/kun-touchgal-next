@@ -18,6 +18,8 @@ model patch_tag {
 
   created DateTime @default(now())
   updated DateTime @updatedAt
+
+  @@index([count])
 }
 
 model patch_tag_relation {

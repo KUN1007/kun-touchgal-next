@@ -48,6 +48,9 @@ model patch {
   @@index([content_limit])
   @@index([released(ops: raw("text_pattern_ops"))])
   @@index([favorite_count])
+  @@index([type], type: Gin)
+  @@index([language], type: Gin)
+  @@index([platform], type: Gin)
 }
 
 model patch_alias {

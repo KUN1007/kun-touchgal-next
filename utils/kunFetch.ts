@@ -15,9 +15,9 @@ const kunFetchRequest = async <T>(
 
     const queryString = query
       ? '?' +
-        Object.entries(query)
-          .map(([key, value]) => `${key}=${value}`)
-          .join('&')
+        new URLSearchParams(
+          Object.entries(query).map(([k, v]) => [k, String(v)])
+        ).toString()
       : ''
 
     const fetchAddress =

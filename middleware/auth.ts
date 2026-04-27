@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { parseCookies } from '~/utils/cookies'
+import { verifyKunTokenEdge } from '~/app/api/utils/jwtEdge'
 import type { NextRequest } from 'next/server'
 
 const protectedPaths = ['/admin', '/user', '/comment', '/edit']
@@ -25,9 +26,13 @@ const getToken = (request: NextRequest) => {
 
 export const kunAuthMiddleware = async (request: NextRequest) => {
   const { pathname } = request.nextUrl
-  const token = getToken(request)
 
-  if (isProtectedRoute(pathname) && !token) {
+  if (!isProtectedRoute(pathname)) {
+    return NextResponse.next()
+  }
+
+  const payload = await verifyKunTokenEdge(getToken(request) ?? '')
+  if (!payload) {
     return redirectToLogin(request)
   }
 

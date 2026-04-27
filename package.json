@@ -74,6 +74,7 @@
     "html-to-text": "^9.0.5",
     "ioredis": "^5.6.1",
     "isomorphic-dompurify": "^3.8.0",
+    "jose": "^6.2.2",
     "js-cookie": "^3.0.5",
     "jsdom": "^29.0.0",
     "jsonwebtoken": "^9.0.2",

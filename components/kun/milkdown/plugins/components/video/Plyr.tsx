@@ -14,7 +14,15 @@ export const KunPlyr = ({ src, className = '' }: VideoPlayerProps) => {
   const playerRef = useRef<Plyr | null>(null)
 
   useEffect(() => {
-    if (videoRef.current && !playerRef.current) {
+    if (!videoRef.current) {
+      return
+    }
+
+    let cancelled = false
+    const id = window.setTimeout(() => {
+      if (cancelled || !videoRef.current || playerRef.current) {
+        return
+      }
       playerRef.current = new Plyr(videoRef.current, {
         controls: [
           'play-large',
@@ -31,11 +39,14 @@ export const KunPlyr = ({ src, className = '' }: VideoPlayerProps) => {
         ],
         settings: ['captions', 'quality', 'speed']
       })
-    }
+    }, 0)
 
     return () => {
+      cancelled = true
+      window.clearTimeout(id)
       if (playerRef.current) {
         playerRef.current.destroy()
+        playerRef.current = null
       }
     }
   }, [])

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { Prisma } from '~/prisma/generated/prisma/client'
-import { markdownToHtml } from '~/app/api/utils/render/markdownToHtml'
+import { markdownToHtmlExtend } from '~/app/api/utils/render/markdownToHtmlExtend'
 import { getPatchCommentSchema } from '~/validations/patch'
 import type { PatchComment } from '~/types/api/patch'
 
@@ -175,7 +175,7 @@ export const getPatchComment = async (
             return {
               id: reply.id,
               uniqueId: reply.patch.unique_id,
-              content: await markdownToHtml(reply.content),
+              content: await markdownToHtmlExtend(reply.content),
               isLike: reply.like_by.length > 0,
               likeCount: reply._count.like_by,
               parentId: comment.id,
@@ -206,7 +206,7 @@ export const getPatchComment = async (
       return {
         id: comment.id,
         uniqueId: comment.patch.unique_id,
-        content: await markdownToHtml(comment.content),
+        content: await markdownToHtmlExtend(comment.content),
         isLike: comment.like_by.length > 0,
         likeCount: comment._count.like_by,
         parentId: null,

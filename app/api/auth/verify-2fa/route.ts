@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { kunParsePostBody } from '~/app/api/utils/parseQuery'
 import { generateKunToken } from '~/app/api/utils/jwt'
+import { kunCookieOptions } from '~/app/api/utils/cookieOptions'
 import { prisma } from '~/prisma/index'
 import { getRedirectConfig } from '~/app/api/admin/setting/redirect/getRedirectConfig'
 import { Totp } from 'time2fa'
@@ -56,7 +57,7 @@ const verifyLogin2FA = async (
   }
 
   const cookie = await cookies()
-  cookie.delete('kun-galgame-patch-moe-temp-token')
+  cookie.delete('kun-galgame-patch-moe-2fa-token')
 
   const accessToken = await generateKunToken(
     user.id,
@@ -64,11 +65,11 @@ const verifyLogin2FA = async (
     user.role,
     '30d'
   )
-  cookie.set('kun-galgame-patch-moe-token', accessToken, {
-    httpOnly: true,
-    sameSite: 'strict',
-    maxAge: 30 * 24 * 60 * 60 * 1000
-  })
+  cookie.set(
+    'kun-galgame-patch-moe-token',
+    accessToken,
+    kunCookieOptions(30 * 24 * 60 * 60)
+  )
 
   const redirectConfig = await getRedirectConfig()
   const responseData: UserState = {

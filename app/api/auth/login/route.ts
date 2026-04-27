@@ -12,6 +12,7 @@ import {
   generateKunStatelessToken,
   generateKunToken
 } from '~/app/api/utils/jwt'
+import { kunCookieOptions } from '~/app/api/utils/cookieOptions'
 import { loginSchema } from '~/validations/auth'
 import { prisma } from '~/prisma/index'
 import { checkKunCaptchaExist } from '~/app/api/utils/verifyKunCaptcha'
@@ -73,11 +74,11 @@ const login = async (
       10 * 60
     )
     const cookie = await cookies()
-    cookie.set('kun-galgame-patch-moe-2fa-token', tempToken, {
-      httpOnly: true,
-      sameSite: 'strict',
-      maxAge: 10 * 60 * 1000
-    })
+    cookie.set(
+      'kun-galgame-patch-moe-2fa-token',
+      tempToken,
+      kunCookieOptions(10 * 60)
+    )
     return {
       require2FA: true,
       id: user.id,
@@ -88,11 +89,11 @@ const login = async (
 
   const token = await generateKunToken(user.id, user.name, user.role, '30d')
   const cookie = await cookies()
-  cookie.set('kun-galgame-patch-moe-token', token, {
-    httpOnly: true,
-    sameSite: 'strict',
-    maxAge: 30 * 24 * 60 * 60 * 1000
-  })
+  cookie.set(
+    'kun-galgame-patch-moe-token',
+    token,
+    kunCookieOptions(30 * 24 * 60 * 60)
+  )
 
   const redirectConfig = await getRedirectConfig()
   const responseData: UserState = {

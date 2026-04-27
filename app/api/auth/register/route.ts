@@ -6,6 +6,7 @@ import { hashPassword } from '~/app/api/utils/algorithm'
 import { verifyVerificationCode } from '~/app/api/utils/verifyVerificationCode'
 import { getRemoteIp } from '~/app/api/utils/getRemoteIp'
 import { generateKunToken } from '~/app/api/utils/jwt'
+import { kunCookieOptions } from '~/app/api/utils/cookieOptions'
 import { registerSchema } from '~/validations/auth'
 import { prisma } from '~/prisma/index'
 import { getRedirectConfig } from '~/app/api/admin/setting/redirect/getRedirectConfig'
@@ -48,11 +49,11 @@ const register = async (input: z.infer<typeof registerSchema>, ip: string) => {
 
   const token = await generateKunToken(user.id, name, user.role, '30d')
   const cookie = await cookies()
-  cookie.set('kun-galgame-patch-moe-token', token, {
-    httpOnly: true,
-    sameSite: 'strict',
-    maxAge: 30 * 24 * 60 * 60 * 1000
-  })
+  cookie.set(
+    'kun-galgame-patch-moe-token',
+    token,
+    kunCookieOptions(30 * 24 * 60 * 60)
+  )
 
   const redirectConfig = await getRedirectConfig()
   const responseData: UserState = {

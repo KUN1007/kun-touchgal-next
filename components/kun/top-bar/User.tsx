@@ -8,8 +8,9 @@ import { Button } from '@heroui/button'
 import { Skeleton } from '@heroui/skeleton'
 import { useUserStore } from '~/store/userStore'
 import { useMessageStore } from '~/store/messageStore'
+import { useSettingStore } from '~/store/settingStore'
 import { useRouter } from '@bprogress/next'
-import { kunFetchGet } from '~/utils/kunFetch'
+import { kunFetchGet, kunFetchPost } from '~/utils/kunFetch'
 import { ThemeSwitcher } from './ThemeSwitcher'
 import { useMounted } from '~/hooks/useMounted'
 import { UserDropdown } from './UserDropdown'
@@ -21,13 +22,15 @@ import type { UserSession } from '~/types/api/session'
 
 export const KunTopBarUser = () => {
   const router = useRouter()
-  const { user, setUser } = useUserStore((state) => state)
+  const { user, setUser, logout } = useUserStore((state) => state)
   const {
     hasUnreadNotification,
     hasUnreadConversation,
     setHasUnreadNotification,
-    setUnreadMessageStatus
+    setUnreadMessageStatus,
+    resetUnreadMessageStatus
   } = useMessageStore((state) => state)
+  const resetSettings = useSettingStore((state) => state.resetData)
   const isMounted = useMounted()
 
   useEffect(() => {
@@ -42,6 +45,10 @@ export const KunTopBarUser = () => {
       const res = await kunFetchGet<KunResponse<UserSession>>('/user/session')
       if (typeof res === 'string') {
         toast.error(res)
+        kunFetchPost('/user/status/logout').catch(() => {})
+        logout()
+        resetUnreadMessageStatus()
+        resetSettings()
         router.push('/login')
       } else {
         setUser(res.user)

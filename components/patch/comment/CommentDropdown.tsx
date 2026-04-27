@@ -14,6 +14,7 @@ import {
   useDisclosure
 } from '@heroui/modal'
 import { Textarea } from '@heroui/input'
+import { KunMarkdownEditor } from '~/components/kun/editor/MarkdownEditor'
 import {
   kunFetchDelete,
   kunFetchGet,
@@ -167,17 +168,16 @@ export const CommentDropdown = ({ comment, setComments }: Props) => {
         </DropdownMenu>
       </Dropdown>
 
-      <Modal isOpen={isOpenEdit} onClose={onCloseEdit}>
+      <Modal isOpen={isOpenEdit} onClose={onCloseEdit} size="2xl">
         <ModalContent>
           <ModalHeader className="flex flex-col gap-1">
             重新编辑评论
           </ModalHeader>
           <ModalBody>
-            <Textarea
+            <KunMarkdownEditor
               value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              minRows={2}
-              maxRows={8}
+              onChange={setEditContent}
+              minHeight={160}
             />
           </ModalBody>
           <ModalFooter>

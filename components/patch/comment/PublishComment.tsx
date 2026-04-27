@@ -3,16 +3,13 @@
 import { useState } from 'react'
 import { Card, CardBody, CardHeader } from '@heroui/card'
 import { Button } from '@heroui/button'
-import { Chip } from '@heroui/chip'
 import { Send } from 'lucide-react'
 import { kunFetchPost } from '~/utils/kunFetch'
 import toast from 'react-hot-toast'
 import { useUserStore } from '~/store/userStore'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import { KunAvatar } from '~/components/kun/floating-card/KunAvatar'
-import { KunEditor } from '~/components/kun/milkdown/Editor'
-import { Markdown } from '~/components/kun/icons/Markdown'
-import { useKunMilkdownStore } from '~/store/milkdownStore'
+import { KunMarkdownEditor } from '~/components/kun/editor/MarkdownEditor'
 import type { PatchComment } from '~/types/api/patch'
 
 interface CreateCommentProps {
@@ -34,9 +31,6 @@ export const PublishComment = ({
 }: CreateCommentProps) => {
   const [loading, setLoading] = useState(false)
   const { user } = useUserStore((state) => state)
-  const refreshMilkdownContent = useKunMilkdownStore(
-    (state) => state.refreshMilkdownContent
-  )
   const [content, setContent] = useState('')
 
   const handlePublishComment = async () => {
@@ -56,7 +50,6 @@ export const PublishComment = ({
       })
       toast.success('评论发布成功')
       setContent('')
-      refreshMilkdownContent()
       onSuccess?.()
     })
 
@@ -82,18 +75,14 @@ export const PublishComment = ({
         </div>
       </CardHeader>
       <CardBody className="space-y-4">
-        <KunEditor valueMarkdown={content} saveMarkdown={setContent} />
+        <KunMarkdownEditor
+          value={content}
+          onChange={setContent}
+          minHeight={180}
+        />
 
         <div className="flex items-center justify-between">
-          <Chip
-            variant="light"
-            color="secondary"
-            size="sm"
-            endContent={<Markdown />}
-            className="select-none"
-          >
-            评论支持 Markdown
-          </Chip>
+          <div />
 
           <div className="flex gap-2">
             {onCancel && (

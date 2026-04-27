@@ -1,4 +1,4 @@
-import { jwtVerify } from 'jose'
+import { jwtVerify } from 'jose/jwt/verify'
 import type { KunGalgamePayload } from './jwt'
 
 const getSecret = () => new TextEncoder().encode(process.env.JWT_SECRET!)

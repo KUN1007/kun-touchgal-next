@@ -128,6 +128,10 @@
   margin: 0.75rem 0;
 }
 
+.kun-comment-content p {
+  white-space: pre-line;
+}
+
 .kun-prose figure {
   @apply my-8;
 }

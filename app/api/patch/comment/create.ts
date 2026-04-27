@@ -3,6 +3,7 @@ import { prisma } from '~/prisma/index'
 import { patchCommentCreateSchema } from '~/validations/patch'
 import { createDedupMessage } from '~/app/api/utils/message'
 import { createMentionMessage } from '~/app/api/utils/createMentionMessage'
+import { markdownToHtml } from '~/app/api/utils/render/markdownToHtml'
 import type { PatchComment } from '~/types/api/patch'
 
 export const createPatchComment = async (
@@ -59,7 +60,7 @@ export const createPatchComment = async (
   const newComment: Omit<PatchComment, 'user'> = {
     id: data.id,
     uniqueId: data.patch?.unique_id ?? '',
-    content: data.content,
+    content: await markdownToHtml(data.content),
     isLike: false,
     likeCount: 0,
     parentId: data.parent_id,

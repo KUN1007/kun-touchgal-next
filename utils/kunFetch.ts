@@ -31,6 +31,7 @@ const kunFetchRequest = async <T>(
       credentials: 'include',
       mode: 'cors',
       headers: {
+        'X-Requested-With': 'kun-fetch',
         ...headers
       }
     }

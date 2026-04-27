@@ -28,6 +28,22 @@ export const deletePatchResourceLink = async (
   await deleteFileFromS3(s3Key)
 }
 
+export const sanitizeResourceLinksForAuditLog = <
+  L extends {
+    content?: string
+    password?: string
+    code?: string
+    hash?: string
+  }
+>(
+  links: L[] | undefined | null
+): Omit<L, 'content' | 'password' | 'code' | 'hash'>[] => {
+  if (!links) {
+    return []
+  }
+  return links.map(({ content, password, code, hash, ...rest }) => rest)
+}
+
 export const recalcPatchType = async (
   patchId: number,
   tx: {

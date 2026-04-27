@@ -2,7 +2,8 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import {
   deletePatchResourceLink,
-  recalcPatchType
+  recalcPatchType,
+  sanitizeResourceLinksForAuditLog
 } from '~/app/api/patch/resource/_helper'
 
 const resourceIdSchema = z.object({
@@ -43,11 +44,15 @@ export const deleteResource = async (
     })
     await recalcPatchType(patchResource.patch_id, prisma)
 
+    const sanitizedResource = {
+      ...patchResource,
+      links: sanitizeResourceLinksForAuditLog(patchResource.links)
+    }
     await prisma.admin_log.create({
       data: {
         type: 'delete',
         user_id: uid,
-        content: `管理员 ${admin.name} 删除了一个资源\n\nGalgame 名:\n${patchResource.patch.name}\n\n资源信息:\n${JSON.stringify(patchResource)}`
+        content: `管理员 ${admin.name} 删除了一个资源\n\nGalgame 名:\n${patchResource.patch.name}\n\n资源信息:\n${JSON.stringify(sanitizedResource)}`
       }
     })
 

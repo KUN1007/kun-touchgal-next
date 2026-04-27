@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { updatePatchResource as updatePatchResourceByRole } from '~/app/api/patch/resource/update'
+import { sanitizeResourceLinksForAuditLog } from '~/app/api/patch/resource/_helper'
 import { patchResourceUpdateSchema } from '~/validations/patch'
 
 export const updatePatchResource = async (
@@ -25,12 +26,17 @@ export const updatePatchResource = async (
     return updatedResource
   }
 
+  const sanitizedUpdated = {
+    ...updatedResource,
+    links: sanitizeResourceLinksForAuditLog(updatedResource.links)
+  }
+
   return await prisma.$transaction(async (prisma) => {
     await prisma.admin_log.create({
       data: {
         type: 'update',
         user_id: uid,
-        content: `管理员 ${admin.name} 更新了一个资源信息\n\n原资源信息:\n${JSON.stringify(resource)}\n\n新资源信息:\n${JSON.stringify(updatedResource)}`
+        content: `管理员 ${admin.name} 更新了一个资源信息\n\n原资源信息:\n${JSON.stringify(resource)}\n\n新资源信息:\n${JSON.stringify(sanitizedUpdated)}`
       }
     })
 

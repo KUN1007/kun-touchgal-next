@@ -66,6 +66,21 @@ export interface AdminResource extends PatchResource {
 
 export type AdminComment = PatchComment
 
+export interface AdminRating {
+  id: number
+  uniqueId: string
+  user: KunUser
+  recommend: string
+  overall: number
+  playStatus: string
+  shortSummary: string
+  spoilerLevel: string
+  patchName: string
+  patchId: number
+  like: number
+  created: Date | string
+}
+
 export type AdminFeedback = Message
 
 export type AdminReportTargetType = 'comment' | 'rating'

@@ -11,6 +11,7 @@ export const keyLabelMap: Record<string, string> = {
   '/company': '游戏会社',
   '/company/[id]': '会社详情',
   '/admin/comment': '评论管理',
+  '/admin/rating': '评价管理',
   '/admin/creator': '创作者管理',
   '/admin/galgame': 'Galgame 管理',
   '/admin/log': '管理日志',

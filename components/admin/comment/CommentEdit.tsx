@@ -19,7 +19,7 @@ import {
 import { Textarea } from '@heroui/input'
 import { MoreVertical } from 'lucide-react'
 import { useUserStore } from '~/store/userStore'
-import { kunFetchDelete, kunFetchPut } from '~/utils/kunFetch'
+import { kunFetchDelete, kunFetchGet, kunFetchPut } from '~/utils/kunFetch'
 import type { AdminComment } from '~/types/api/admin'
 import toast from 'react-hot-toast'
 
@@ -62,6 +62,24 @@ export const CommentEdit = ({ initialComment, onSuccess }: Props) => {
   } = useDisclosure()
   const [editContent, setEditContent] = useState('')
   const [updating, setUpdating] = useState(false)
+  const [fetchingFull, setFetchingFull] = useState(false)
+  const handleOpenEdit = async () => {
+    setFetchingFull(true)
+    try {
+      const res = await kunFetchGet<{ content: string }>(
+        '/admin/comment/full',
+        { commentId: initialComment.id }
+      )
+      if (typeof res === 'string') {
+        toast.error(res)
+      } else {
+        setEditContent(res.content)
+        onOpenEdit()
+      }
+    } finally {
+      setFetchingFull(false)
+    }
+  }
   const handleUpdateComment = async () => {
     if (!editContent.trim()) {
       toast.error('评论内容不可为空')
@@ -103,13 +121,7 @@ export const CommentEdit = ({ initialComment, onSuccess }: Props) => {
           </Button>
         </DropdownTrigger>
         <DropdownMenu>
-          <DropdownItem
-            key="edit"
-            onPress={() => {
-              setEditContent(initialComment.content)
-              onOpenEdit()
-            }}
-          >
+          <DropdownItem key="edit" onPress={handleOpenEdit}>
             编辑
           </DropdownItem>
           <DropdownItem

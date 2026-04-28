@@ -161,6 +161,73 @@ export const adminHandleFeedbackSchema = z.object({
     .max(5000, { message: '回复内容不能超过 5000 个字符' })
 })
 
+export const adminRatingSearchTypeSchema = z.enum(['content', 'user'])
+const adminRatingDeleteLimit = 30
+
+export const adminRatingPaginationSchema = adminPaginationSchema.extend({
+  limit: z.coerce.number().min(1).max(500),
+  searchType: adminRatingSearchTypeSchema.default('content'),
+  userId: z.coerce.number().min(1).max(9999999).optional()
+})
+
+const adminRatingIdsSchema = z
+  .string()
+  .trim()
+  .min(1, { message: '至少选择一条评价' })
+  .refine(
+    (value) =>
+      value.split(',').every((item) => {
+        const trimmed = item.trim()
+        if (!/^\d+$/.test(trimmed)) {
+          return false
+        }
+
+        const ratingId = Number.parseInt(trimmed, 10)
+        return ratingId >= 1 && ratingId <= 9999999
+      }),
+    { message: '评价 ID 格式不正确' }
+  )
+  .transform((value) => [
+    ...new Set(
+      value
+        .split(',')
+        .map((item) => Number.parseInt(item.trim(), 10))
+        .filter((ratingId) => ratingId >= 1 && ratingId <= 9999999)
+    )
+  ])
+  .refine((ratingIds) => ratingIds.length <= adminRatingDeleteLimit, {
+    message: `单次最多删除 ${adminRatingDeleteLimit} 条评价`
+  })
+
+export const adminDeleteRatingSchema = z.union([
+  z
+    .object({
+      ratingId: z.coerce
+        .number({ message: '评价 ID 必须为数字' })
+        .min(1)
+        .max(9999999)
+    })
+    .transform(({ ratingId }) => ({
+      ratingIds: [ratingId]
+    })),
+  z
+    .object({
+      ratingIds: adminRatingIdsSchema
+    })
+    .transform(({ ratingIds }) => ({
+      ratingIds
+    }))
+])
+
+export const patchRatingUpdateSchema = z.object({
+  ratingId: z.coerce.number().min(1).max(9999999),
+  shortSummary: z
+    .string()
+    .trim()
+    .min(1, { message: '评价内容不可为空' })
+    .max(1314, { message: '评价内容不能超过 1314 个字符' })
+})
+
 export const adminHandleReportSchema = z.object({
   reportId: z.coerce.number().min(1).max(9999999),
   action: z.enum(['delete', 'reject']),
@@ -193,4 +260,12 @@ export const adminUpdateRedirectSchema = z.object({
 
 export const adminUpdateDisableRegisterSchema = z.object({
   disableRegister: z.boolean()
+})
+
+export const adminGetFullCommentSchema = z.object({
+  commentId: z.coerce.number().min(1).max(9999999)
+})
+
+export const adminGetFullRatingSchema = z.object({
+  ratingId: z.coerce.number().min(1).max(9999999)
 })

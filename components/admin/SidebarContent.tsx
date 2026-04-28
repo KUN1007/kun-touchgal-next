@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Puzzle,
   Settings,
+  Star,
   TriangleAlert,
   Users
 } from 'lucide-react'
@@ -51,6 +52,11 @@ const menuItems = [
     name: '评论管理',
     href: '/admin/comment',
     icon: MessageSquare
+  },
+  {
+    name: '评价管理',
+    href: '/admin/rating',
+    icon: Star
   },
   {
     name: 'Gal 反馈管理',

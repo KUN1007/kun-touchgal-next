@@ -22,6 +22,9 @@ export const KunMobileCard = ({ posts, currentSlide }: Props) => {
           alt={post.title}
           className="object-cover w-full rounded-2xl h-[200px]"
           src={post.banner}
+          fetchPriority={currentSlide === 0 ? 'high' : 'auto'}
+          loading="eager"
+          decoding="async"
         />
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent rounded-2xl" />

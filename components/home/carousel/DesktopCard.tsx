@@ -23,6 +23,9 @@ export const KunDesktopCard = ({ posts, currentSlide }: Props) => {
         alt={post.title}
         className="object-cover w-full h-full brightness-75 rounded-2xl"
         src={post.banner}
+        fetchPriority={currentSlide === 0 ? 'high' : 'auto'}
+        loading="eager"
+        decoding="async"
       />
       <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-black/30 via-black/10 to-transparent" />
 

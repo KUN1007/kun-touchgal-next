@@ -132,7 +132,13 @@ export const KunCarousel = ({ posts }: KunCarouselProps) => {
     >
       <div aria-hidden className="hidden">
         {posts.map((post, i) => (
-          <img key={i} src={post.banner} alt="" />
+          <img
+            key={i}
+            src={post.banner}
+            alt=""
+            fetchPriority={i === 0 ? 'high' : 'low'}
+            decoding="async"
+          />
         ))}
       </div>
 

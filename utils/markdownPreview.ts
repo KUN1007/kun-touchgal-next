@@ -84,11 +84,32 @@ export const markdownToPreviewHtml = (markdown: string): string => {
       continue
     }
 
-    if (/^> /.test(line)) {
+    if (/^>(\s|$)/.test(line)) {
       flushList()
-      const quoteContent = line.replace(/^> /, '')
-      const renderedQuote = renderInlineMarkdown(quoteContent)
-      result.push(`<blockquote><p>${renderedQuote}</p></blockquote>`)
+      const quoteParagraphs: string[] = []
+      let buffer: string[] = []
+      const flushBuffer = () => {
+        if (buffer.length) {
+          quoteParagraphs.push(
+            `<p>${buffer.map(renderInlineMarkdown).join('<br>')}</p>`
+          )
+          buffer = []
+        }
+      }
+      while (i < lines.length && /^>(\s|$)/.test(lines[i])) {
+        const quoteLine = lines[i].replace(/^>\s?/, '')
+        if (quoteLine.trim() === '') {
+          flushBuffer()
+        } else {
+          buffer.push(quoteLine)
+        }
+        i++
+      }
+      flushBuffer()
+      i--
+      if (quoteParagraphs.length) {
+        result.push(`<blockquote>${quoteParagraphs.join('')}</blockquote>`)
+      }
       continue
     }
 

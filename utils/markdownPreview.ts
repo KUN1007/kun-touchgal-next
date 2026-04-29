@@ -74,16 +74,6 @@ export const markdownToPreviewHtml = (markdown: string): string => {
       continue
     }
 
-    const videoMatch = line.match(/^::kun-video\{src="([^"]+)"\}$/)
-    if (videoMatch) {
-      flushList()
-      const src = escapeHtml(videoMatch[1])
-      result.push(
-        `<div class="bg-default-100 border-default-200 my-4 flex items-center gap-3 rounded-xl border p-4 shadow-sm"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary-500 shrink-0"><polygon points="5 3 19 12 5 21 5 3"/></svg><span class="text-default-600 text-sm">视频: ${src}</span></div>`
-      )
-      continue
-    }
-
     if (/^>(\s|$)/.test(line)) {
       flushList()
       const quoteParagraphs: string[] = []

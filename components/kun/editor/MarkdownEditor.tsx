@@ -15,7 +15,6 @@ import {
   List,
   ListOrdered,
   Minus,
-  Video,
   Eye,
   PenLine
 } from 'lucide-react'
@@ -84,14 +83,6 @@ const TOOLBAR_ACTIONS: ToolbarAction[] = [
     prefix: '![',
     suffix: '](url)',
     placeholder: '图片描述'
-  },
-  {
-    icon: Video,
-    label: 'Video',
-    title: '视频',
-    prefix: '::kun-video{src="',
-    suffix: '"}',
-    placeholder: '视频链接'
   },
   {
     icon: Quote,

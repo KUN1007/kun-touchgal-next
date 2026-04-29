@@ -5,7 +5,7 @@ import {
   MARKDOWN_HTML_CACHE_MAX_MARKDOWN_BYTES
 } from '~/config/cache'
 
-type MarkdownHtmlCacheVariant = 'standard' | 'extend'
+type MarkdownHtmlCacheVariant = 'standard' | 'extend' | 'comment'
 type MarkdownHtmlRenderer = () => Promise<string>
 type MarkdownHtmlCacheOptions = {
   enabled?: boolean

@@ -1,14 +1,7 @@
 'use client'
 
-import {
-  Button,
-  Dropdown,
-  DropdownItem,
-  DropdownMenu,
-  DropdownTrigger
-} from '@heroui/react'
-import { BreadcrumbItem, Breadcrumbs } from '@heroui/breadcrumbs'
 import { ChevronRight } from 'lucide-react'
+import Link from 'next/link'
 import { useParams, usePathname } from 'next/navigation'
 import {
   createBreadcrumbItem,
@@ -34,64 +27,46 @@ export const KunNavigationBreadcrumb = () => {
     '/friend-link'
   ]
 
+  if (hideBreadcrumbRoutes.includes(pathname)) {
+    return null
+  }
+
   return (
-    <>
-      {!hideBreadcrumbRoutes.includes(pathname) && (
-        <div className="w-full my-4 bg-background/60 backdrop-blur-lg">
-          <div className="px-3 mx-auto sm:px-6 max-w-7xl">
-            <Breadcrumbs
-              underline="hover"
-              separator={<ChevronRight className="size-4" />}
-              itemClasses={{
-                item: 'text-foreground/60 data-[current=true]:text-foreground'
-              }}
-              variant="light"
-              radius="lg"
-              renderEllipsis={({ items, ellipsisIcon, separator }) => (
-                <div key="id" className="flex items-center">
-                  <Dropdown>
-                    <DropdownTrigger>
-                      <Button
-                        isIconOnly
-                        className="size-6 min-w-6"
-                        size="sm"
-                        variant="flat"
-                      >
-                        {ellipsisIcon}
-                      </Button>
-                    </DropdownTrigger>
-                    <DropdownMenu aria-label="Routes">
-                      {items.map((item, index) => (
-                        <DropdownItem
-                          key={index}
-                          textValue={index.toString()}
-                          href={item.href}
-                        >
-                          <p className="break-all">{item.children}</p>
-                        </DropdownItem>
-                      ))}
-                    </DropdownMenu>
-                  </Dropdown>
-                  {separator}
-                </div>
-              )}
-            >
-              {items.map((item, index) => (
-                <BreadcrumbItem
-                  key={item.key}
-                  isCurrent={index === items.length - 1}
-                  href={item.href}
-                  classNames={{
-                    item: 'break-all whitespace-normal'
-                  }}
-                >
-                  {item.label}
-                </BreadcrumbItem>
-              ))}
-            </Breadcrumbs>
-          </div>
-        </div>
-      )}
-    </>
+    <div className="w-full my-4 bg-background/60 backdrop-blur-lg">
+      <nav aria-label="Breadcrumb" className="px-3 mx-auto sm:px-6 max-w-7xl">
+        <ol className="flex flex-wrap items-center gap-1 text-sm text-foreground/60">
+          {items.map((item, index) => {
+            const isCurrent = index === items.length - 1
+
+            return (
+              <li key={item.key} className="flex min-w-0 items-center gap-1">
+                {index > 0 && (
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="size-4 shrink-0 text-foreground/40"
+                  />
+                )}
+
+                {isCurrent ? (
+                  <span
+                    aria-current="page"
+                    className="min-w-0 break-all text-foreground"
+                  >
+                    {item.label}
+                  </span>
+                ) : (
+                  <Link
+                    className="min-w-0 break-all transition-colors hover:text-foreground"
+                    href={item.href}
+                  >
+                    {item.label}
+                  </Link>
+                )}
+              </li>
+            )
+          })}
+        </ol>
+      </nav>
+    </div>
   )
 }

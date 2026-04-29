@@ -29,8 +29,11 @@
   },
   "license": "AGPL-3.0-only",
   "browserslist": [
-    "> 1%",
-    "not ie 11",
+    "Chrome >= 93",
+    "Edge >= 93",
+    "Firefox >= 90",
+    "Safari >= 15.4",
+    "not dead",
     "not op_mini all"
   ],
   "dependencies": {

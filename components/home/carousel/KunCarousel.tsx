@@ -58,6 +58,24 @@ export const KunCarousel = ({ posts }: KunCarouselProps) => {
     return () => clearInterval(timer)
   }, [isHovered, isPageVisible, posts.length])
 
+  useEffect(() => {
+    if (posts.length < 2) {
+      return
+    }
+
+    const preloadRestImages = () => {
+      posts.slice(1).forEach((post) => {
+        const image = new window.Image()
+        image.decoding = 'async'
+        image.fetchPriority = 'low'
+        image.src = post.banner
+      })
+    }
+
+    const timeoutId = window.setTimeout(preloadRestImages, 1500)
+    return () => window.clearTimeout(timeoutId)
+  }, [posts])
+
   const slideVariants = {
     enter: (direction: number) => ({
       x: direction > 0 ? '100%' : '-100%',
@@ -130,24 +148,12 @@ export const KunCarousel = ({ posts }: KunCarouselProps) => {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div aria-hidden className="hidden">
-        {posts.map((post, i) => (
-          <img
-            key={i}
-            src={post.banner}
-            alt=""
-            fetchPriority={i === 0 ? 'high' : 'low'}
-            decoding="async"
-          />
-        ))}
-      </div>
-
       <AnimatePresence initial={false} custom={direction} mode="sync">
         <motion.div
           key={currentSlide}
           custom={direction}
           variants={slideVariants}
-          initial="enter"
+          initial={direction === 0 ? false : 'enter'}
           animate="center"
           exit="exit"
           transition={{

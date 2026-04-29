@@ -1,6 +1,7 @@
 'use client'
 
 import { Card, Chip, Link } from '@heroui/react'
+import Image from 'next/image'
 import { docDirectoryLabelMap } from '~/constants/doc'
 import { formatTimeDifference } from '~/utils/time'
 import type { HomeCarouselMetadata } from './mdx'
@@ -12,20 +13,22 @@ interface Props {
 
 export const KunDesktopCard = ({ posts, currentSlide }: Props) => {
   const post = posts[currentSlide]
+  const isPriorityImage = currentSlide === 0
 
   if (!post) {
     return null
   }
 
   return (
-    <div className="hidden h-full sm:block group">
-      <img
+    <div className="relative hidden h-full overflow-hidden sm:block group rounded-2xl">
+      <Image
         alt={post.title}
-        className="object-cover w-full h-full brightness-75 rounded-2xl"
+        className="object-cover brightness-75"
         src={post.banner}
-        fetchPriority={currentSlide === 0 ? 'high' : 'auto'}
-        loading="eager"
-        decoding="async"
+        fill
+        sizes="(min-width: 1280px) 616px, (min-width: 640px) 50vw, 100vw"
+        priority={isPriorityImage}
+        unoptimized
       />
       <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-black/30 via-black/10 to-transparent" />
 

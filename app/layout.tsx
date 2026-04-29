@@ -5,6 +5,8 @@ import { KunFooter } from '~/components/kun/Footer'
 import { KunNavigationBreadcrumb } from '~/components/kun/NavigationBreadcrumb'
 import { generateKunMetadata, kunViewport } from './metadata'
 import { KunBackToTop } from '~/components/kun/BackToTop'
+import { kunMoyuMoe } from '~/config/moyu-moe'
+import { preconnect, prefetchDNS } from 'react-dom'
 import type { Metadata, Viewport } from 'next'
 import '~/styles/index.css'
 import './actions'
@@ -17,6 +19,9 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  preconnect(kunMoyuMoe.domain.imageBed)
+  prefetchDNS(kunMoyuMoe.domain.imageBed)
+
   return (
     <html lang="zh-Hans" suppressHydrationWarning>
       {process.env.KUN_VISUAL_NOVEL_TEST_SITE_LABEL && (

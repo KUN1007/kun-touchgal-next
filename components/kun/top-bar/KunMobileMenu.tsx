@@ -13,7 +13,7 @@ export const KunMobileMenu = () => {
         <Link className="flex items-center" href="/">
           <Image
             src="/logo.webp"
-            alt={kunMoyuMoe.titleShort}
+            alt=""
             width={50}
             height={50}
             priority

@@ -9,7 +9,7 @@ export const KunTopBarBrand = () => {
       <Link className="flex items-center" href="/">
         <Image
           src="/logo.webp"
-          alt={kunMoyuMoe.titleShort}
+          alt=""
           width={32}
           height={32}
           priority

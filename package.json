@@ -60,7 +60,7 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@tailwindcss/postcss": "^4.1.11",
-    "@tanstack/react-query": "^5.83.0",
+
     "@types/mdx": "^2.0.13",
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^6.4.17",

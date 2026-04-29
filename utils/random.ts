@@ -1,5 +1,3 @@
-import { randomInt } from 'crypto'
-
 export const randomNum = (lowerValue: number, upperValue: number) => {
   return Math.floor(Math.random() * (upperValue - lowerValue + 1) + lowerValue)
 }
@@ -26,9 +24,11 @@ export const randomNormalInt = (min: number, max: number) => {
 
 export const generateRandomString = (length: number) => {
   const charset = '023456789abcdefghjkmnopqrstuvwxyz'
+  const array = new Uint8Array(length)
+  globalThis.crypto.getRandomValues(array)
   let code = ''
   for (let i = 0; i < length; i++) {
-    code += charset[randomInt(charset.length)]
+    code += charset[array[i] % charset.length]
   }
   return code.toUpperCase()
 }

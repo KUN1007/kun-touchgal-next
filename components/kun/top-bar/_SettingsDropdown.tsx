@@ -19,7 +19,7 @@ export const SettingsDropdown = () => {
   return (
     <Dropdown>
       <DropdownTrigger>
-        <Button variant="light" isIconOnly radius="full" className="w-10 h-10">
+        <Button variant="light" isIconOnly radius="full" className="w-10 h-10" aria-label="设置">
           <Settings className="size-6 text-default-500" />
         </Button>
       </DropdownTrigger>

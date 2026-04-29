@@ -200,6 +200,7 @@ export const KunCarousel = ({ posts }: KunCarouselProps) => {
       <button
         className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/20 hover:bg-background/40 p-1.5 rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 touch:opacity-100 z-10"
         onClick={() => paginate(-1)}
+        aria-label="上一张幻灯片"
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
@@ -207,6 +208,7 @@ export const KunCarousel = ({ posts }: KunCarouselProps) => {
       <button
         className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/20 hover:bg-background/40 p-1.5 rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 touch:opacity-100 z-10"
         onClick={() => paginate(1)}
+        aria-label="下一张幻灯片"
       >
         <ChevronRight className="w-4 h-4" />
       </button>
@@ -224,6 +226,7 @@ export const KunCarousel = ({ posts }: KunCarouselProps) => {
               setDirection(index > currentSlide ? 1 : -1)
               setCurrentSlide(index)
             }}
+            aria-label={`跳转到第 ${index + 1} 张幻灯片`}
           />
         ))}
       </div>

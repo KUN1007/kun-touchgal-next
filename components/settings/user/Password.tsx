@@ -9,13 +9,17 @@ import { Input } from '@heroui/input'
 import { Button } from '@heroui/button'
 import { Divider } from '@heroui/divider'
 import { Link } from '@heroui/link'
+import { useRouter } from '@bprogress/next'
 import toast from 'react-hot-toast'
 import { passwordSchema } from '~/validations/user'
 import { kunFetchPost } from '~/utils/kunFetch'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
+import { useUserStore } from '~/store/userStore'
 type PasswordFormData = z.infer<typeof passwordSchema>
 
 export const Password = () => {
+  const router = useRouter()
+  const { logout } = useUserStore((state) => state)
   const [loading, setLoading] = useState(false)
 
   const {
@@ -40,7 +44,9 @@ export const Password = () => {
     )
     kunErrorHandler(res, () => {
       reset()
-      toast.success('更改密码成功!')
+      logout()
+      toast.success('更改密码成功, 请使用新密码重新登录')
+      router.push('/login')
     })
 
     setLoading(false)

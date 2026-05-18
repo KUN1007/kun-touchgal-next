@@ -1,8 +1,10 @@
 import { prisma } from '~/prisma/index'
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { kunParsePostBody } from '~/app/api/utils/parseQuery'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { hashPassword, verifyPassword } from '~/app/api/utils/algorithm'
+import { deleteKunToken } from '~/app/api/utils/jwt'
 import { passwordSchema } from '~/validations/user'
 
 const updatePassword = async (req: NextRequest) => {
@@ -30,6 +32,10 @@ const updatePassword = async (req: NextRequest) => {
     where: { id: payload.uid },
     data: { password: hashedPassword }
   })
+
+  await deleteKunToken(payload.uid)
+  const cookie = await cookies()
+  cookie.delete('kun-galgame-patch-moe-token')
 }
 
 export const POST = async (req: NextRequest) => {

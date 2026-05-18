@@ -13,8 +13,11 @@ import {
   buildGalgameOrderBy,
   buildGalgameWhere
 } from '../utils/galgameQuery'
+import { buildVisibilityCacheKey } from '../utils/visibilityCacheKey'
 import { parseGalgameFilterArray } from '~/utils/galgameFilter'
 import type { Prisma } from '~/prisma/generated/prisma/client'
+
+const normalizeFilterValues = (values: string[]) => [...new Set(values)].sort()
 
 const GALGAME_LIST_CACHE_KEY_PREFIX = 'galgame:list'
 
@@ -39,23 +42,20 @@ const getGalgameListCacheKey = (
   months: string[],
   visibilityWhere: Prisma.patchWhereInput
 ) => {
-  const payload = {
-    selectedType: input.selectedType,
-    selectedLanguage: input.selectedLanguage,
-    selectedPlatform: input.selectedPlatform,
-    sortField: input.sortField,
-    sortOrder: input.sortOrder,
-    page: input.page,
-    limit: input.limit,
-    minRatingCount: input.minRatingCount,
-    years,
-    months,
-    visibility: visibilityWhere
-  }
-  const hash = createHash('sha1')
-    .update(JSON.stringify(payload))
-    .digest('hex')
-    .slice(0, 16)
+  const parts = [
+    input.selectedType,
+    input.selectedLanguage,
+    input.selectedPlatform,
+    input.sortField,
+    input.sortOrder,
+    String(input.page),
+    String(input.limit),
+    String(input.minRatingCount),
+    normalizeFilterValues(years).join(','),
+    normalizeFilterValues(months).join(','),
+    buildVisibilityCacheKey(visibilityWhere)
+  ].join('|')
+  const hash = createHash('sha1').update(parts).digest('hex').slice(0, 16)
   return `${GALGAME_LIST_CACHE_KEY_PREFIX}:${hash}`
 }
 

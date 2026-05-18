@@ -1,4 +1,3 @@
-import { createHash } from 'crypto'
 import { prisma } from '~/prisma/index'
 import { delKv, getKv, setKv } from '~/lib/redis'
 import { HOME_CACHE_DURATION } from '~/config/cache'
@@ -7,17 +6,13 @@ import {
   GalgameCardSelectField,
   toGalgameCardCount
 } from '~/constants/api/select'
+import { buildVisibilityCacheKey } from '../utils/visibilityCacheKey'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 
 const HOME_CACHE_KEY_PREFIX = 'home'
 
-const getHomeCacheKey = (visibilityWhere: Prisma.patchWhereInput) => {
-  const hash = createHash('sha1')
-    .update(JSON.stringify(visibilityWhere))
-    .digest('hex')
-    .slice(0, 16)
-  return `${HOME_CACHE_KEY_PREFIX}:${hash}`
-}
+const getHomeCacheKey = (visibilityWhere: Prisma.patchWhereInput) =>
+  `${HOME_CACHE_KEY_PREFIX}:${buildVisibilityCacheKey(visibilityWhere)}`
 
 interface HomeResponse {
   galgames: GalgameCard[]

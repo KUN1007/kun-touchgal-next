@@ -11,13 +11,7 @@ export const KunMobileMenu = () => {
     <NavbarMenu className="space-y-4">
       <NavbarMenuItem>
         <Link className="flex items-center" href="/">
-          <Image
-            src="/logo.webp"
-            alt=""
-            width={50}
-            height={50}
-            priority
-          />
+          <Image src="/logo.webp" alt="" width={50} height={50} priority />
           <p className="ml-4 mr-2 text-3xl font-bold">
             {kunMoyuMoe.creator.name}
           </p>

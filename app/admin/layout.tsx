@@ -20,9 +20,9 @@ export default async function Kun({ children }: Props) {
   return (
     <div className="container flex mx-auto my-4">
       <Sidebar />
-      <div className="flex w-full overflow-y-auto">
+      <div className="flex w-full min-w-0 overflow-y-auto">
         {/* <Navbar /> */}
-        <div className="w-full p-4">{children}</div>
+        <div className="w-full min-w-0 p-4">{children}</div>
       </div>
     </div>
   )

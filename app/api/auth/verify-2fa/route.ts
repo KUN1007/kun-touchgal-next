@@ -14,14 +14,9 @@ import type { UserState } from '~/store/userStore'
 
 const verifyLogin2FA = async (
   input: z.infer<typeof verifyLogin2FASchema>,
-  tempToken: string,
   uid: number
 ) => {
   const { token, isBackupCode } = input
-  const payload = verify2FA(tempToken)
-  if (!payload) {
-    return '2FA 临时令牌已过期, 时效为 10 分钟'
-  }
 
   const user = await prisma.user.findUnique({
     where: { id: uid }
@@ -34,17 +29,14 @@ const verifyLogin2FA = async (
   let isValid = false
 
   if (isBackupCode) {
-    if (user.two_factor_backup.includes(token)) {
-      isValid = true
-      await prisma.user.update({
-        where: { id: uid },
-        data: {
-          two_factor_backup: {
-            set: user.two_factor_backup.filter((code) => code !== token)
-          }
-        }
-      })
-    }
+    const affected = await prisma.$executeRaw`
+      UPDATE "user"
+      SET two_factor_backup = array_remove(two_factor_backup, ${token})
+      WHERE id = ${uid}
+        AND enable_2fa = true
+        AND ${token} = ANY(two_factor_backup)
+    `
+    isValid = affected === 1
   } else {
     isValid = Totp.validate({
       passcode: token,
@@ -107,6 +99,6 @@ export const POST = async (req: NextRequest) => {
     return NextResponse.json('2FA 临时令牌已过期, 时效为 10 分钟')
   }
 
-  const response = await verifyLogin2FA(input, tempToken, payload.id)
+  const response = await verifyLogin2FA(input, payload.id)
   return NextResponse.json(response)
 }

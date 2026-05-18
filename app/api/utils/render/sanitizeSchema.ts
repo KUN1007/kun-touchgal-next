@@ -1,3 +1,6 @@
+// 修改本文件中的 sanitize 策略后，必须在
+// app/api/utils/render/markdownToHtmlComment.ts 中递增 COMMENT_HTML_VERSION，
+// 并运行 `pnpm backfill:comment-html` 重新渲染所有评论，否则旧落库 HTML 仍按旧策略服务用户。
 import { defaultSchema } from 'rehype-sanitize'
 import {
   SAFE_LINK_PROTOCOL_NAMES,

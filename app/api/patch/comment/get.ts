@@ -1,7 +1,10 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { Prisma } from '~/prisma/generated/prisma/client'
-import { markdownToHtmlComment } from '~/app/api/utils/render/markdownToHtmlComment'
+import {
+  COMMENT_HTML_VERSION,
+  markdownToHtmlComment
+} from '~/app/api/utils/render/markdownToHtmlComment'
 import { getPatchCommentSchema } from '~/validations/patch'
 import type { PatchComment } from '~/types/api/patch'
 
@@ -69,6 +72,8 @@ export const getPatchComment = async (
   const commentSelect = {
     id: true,
     content: true,
+    content_html: true,
+    content_html_version: true,
     parent_id: true,
     user_id: true,
     patch_id: true,
@@ -169,74 +174,81 @@ export const getPatchComment = async (
     }
   }
 
-  const comments: PatchComment[] = await Promise.all(
-    rootComments.map(async (comment) => {
-      const replies = replyMap.get(comment.id) || []
-
-      const replyComments: PatchComment[] = await Promise.all(
-        replies
-          .sort(
-            (a, b) =>
-              new Date(a.created).getTime() - new Date(b.created).getTime()
-          )
-          .map(async (reply) => {
-            const directParent = commentMap.get(reply.parent_id!)
-            const isReplyToRoot = reply.parent_id === comment.id
-
-            return {
-              id: reply.id,
-              uniqueId: reply.patch.unique_id,
-              content: await markdownToHtmlComment(reply.content),
-              isLike: likedSet.has(reply.id),
-              likeCount: reply._count.like_by,
-              parentId: comment.id,
-              userId: reply.user_id,
-              patchId: reply.patch_id,
-              created: String(reply.created),
-              updated: String(reply.updated),
-              reply: [],
-              user: {
-                id: reply.user.id,
-                name: reply.user.name,
-                avatar: reply.user.avatar
-              },
-              quotedContent: null,
-              quotedUsername: null,
-              replyToUser:
-                !isReplyToRoot && directParent
-                  ? {
-                      id: directParent.user.id,
-                      name: directParent.user.name,
-                      avatar: directParent.user.avatar
-                    }
-                  : null
-            }
-          })
-      )
-
-      return {
-        id: comment.id,
-        uniqueId: comment.patch.unique_id,
-        content: await markdownToHtmlComment(comment.content),
-        isLike: likedSet.has(comment.id),
-        likeCount: comment._count.like_by,
-        parentId: null,
-        userId: comment.user_id,
-        patchId: comment.patch_id,
-        created: String(comment.created),
-        updated: String(comment.updated),
-        reply: replyComments,
-        user: {
-          id: comment.user.id,
-          name: comment.user.name,
-          avatar: comment.user.avatar
-        },
-        quotedContent: null,
-        quotedUsername: null,
-        replyToUser: null
-      }
+  const allComments = [...rootComments, ...descendantComments]
+  const htmlEntries = await Promise.all(
+    allComments.map(async (c) => {
+      const html =
+        c.content_html_version === COMMENT_HTML_VERSION && c.content_html
+          ? c.content_html
+          : await markdownToHtmlComment(c.content)
+      return [c.id, html] as const
     })
   )
+  const htmlMap = new Map<number, string>(htmlEntries)
+
+  const comments: PatchComment[] = rootComments.map((comment) => {
+    const replies = replyMap.get(comment.id) || []
+
+    const replyComments: PatchComment[] = replies
+      .sort(
+        (a, b) => new Date(a.created).getTime() - new Date(b.created).getTime()
+      )
+      .map((reply) => {
+        const directParent = commentMap.get(reply.parent_id!)
+        const isReplyToRoot = reply.parent_id === comment.id
+
+        return {
+          id: reply.id,
+          uniqueId: reply.patch.unique_id,
+          content: htmlMap.get(reply.id) ?? '',
+          isLike: likedSet.has(reply.id),
+          likeCount: reply._count.like_by,
+          parentId: comment.id,
+          userId: reply.user_id,
+          patchId: reply.patch_id,
+          created: String(reply.created),
+          updated: String(reply.updated),
+          reply: [],
+          user: {
+            id: reply.user.id,
+            name: reply.user.name,
+            avatar: reply.user.avatar
+          },
+          quotedContent: null,
+          quotedUsername: null,
+          replyToUser:
+            !isReplyToRoot && directParent
+              ? {
+                  id: directParent.user.id,
+                  name: directParent.user.name,
+                  avatar: directParent.user.avatar
+                }
+              : null
+        }
+      })
+
+    return {
+      id: comment.id,
+      uniqueId: comment.patch.unique_id,
+      content: htmlMap.get(comment.id) ?? '',
+      isLike: likedSet.has(comment.id),
+      likeCount: comment._count.like_by,
+      parentId: null,
+      userId: comment.user_id,
+      patchId: comment.patch_id,
+      created: String(comment.created),
+      updated: String(comment.updated),
+      reply: replyComments,
+      user: {
+        id: comment.user.id,
+        name: comment.user.name,
+        avatar: comment.user.avatar
+      },
+      quotedContent: null,
+      quotedUsername: null,
+      replyToUser: null
+    }
+  })
 
   return { comments, total, currentPage }
 }

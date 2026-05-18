@@ -3,16 +3,31 @@ import { prisma } from '~/prisma/index'
 import { patchCommentCreateSchema } from '~/validations/patch'
 import { createDedupMessage } from '~/app/api/utils/message'
 import { createMentionMessage } from '~/app/api/utils/createMentionMessage'
-import { markdownToHtmlComment } from '~/app/api/utils/render/markdownToHtmlComment'
+import {
+  COMMENT_HTML_VERSION,
+  markdownToHtmlComment
+} from '~/app/api/utils/render/markdownToHtmlComment'
 import type { PatchComment } from '~/types/api/patch'
 
 export const createPatchComment = async (
   input: z.infer<typeof patchCommentCreateSchema>,
   uid: number
 ) => {
+  let contentHtml = ''
+  let contentHtmlVersion = 0
+  try {
+    contentHtml = await markdownToHtmlComment(input.content)
+    contentHtmlVersion = COMMENT_HTML_VERSION
+  } catch {
+    contentHtml = ''
+    contentHtmlVersion = 0
+  }
+
   const data = await prisma.patch_comment.create({
     data: {
       content: input.content,
+      content_html: contentHtml,
+      content_html_version: contentHtmlVersion,
       user_id: uid,
       patch_id: input.patchId,
       parent_id: input.parentId
@@ -60,7 +75,10 @@ export const createPatchComment = async (
   const newComment: Omit<PatchComment, 'user'> = {
     id: data.id,
     uniqueId: data.patch?.unique_id ?? '',
-    content: await markdownToHtmlComment(data.content),
+    content:
+      contentHtmlVersion === COMMENT_HTML_VERSION && contentHtml
+        ? contentHtml
+        : await markdownToHtmlComment(data.content),
     isLike: false,
     likeCount: 0,
     parentId: data.parent_id,

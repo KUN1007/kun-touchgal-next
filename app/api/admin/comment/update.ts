@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { patchCommentUpdateSchema } from '~/validations/patch'
+import {
+  COMMENT_HTML_VERSION,
+  markdownToHtmlComment
+} from '~/app/api/utils/render/markdownToHtmlComment'
 
 export const updateComment = async (
   input: z.infer<typeof patchCommentUpdateSchema>,
@@ -19,11 +23,23 @@ export const updateComment = async (
 
   const { commentId, content } = input
 
+  let contentHtml = ''
+  let contentHtmlVersion = 0
+  try {
+    contentHtml = await markdownToHtmlComment(content)
+    contentHtmlVersion = COMMENT_HTML_VERSION
+  } catch {
+    contentHtml = ''
+    contentHtmlVersion = 0
+  }
+
   return await prisma.$transaction(async (prisma) => {
     await prisma.patch_comment.update({
       where: { id: commentId },
       data: {
         content,
+        content_html: contentHtml,
+        content_html_version: contentHtmlVersion,
         edit: Date.now().toString()
       },
       include: {

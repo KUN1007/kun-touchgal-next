@@ -31,6 +31,8 @@ const remarkDropDirectives: Plugin<[], Node> = () => {
   return (tree) => walk(tree)
 }
 
+export const COMMENT_HTML_VERSION = 1
+
 const markdownCommentProcessor = unified()
   .use(remarkParse)
   .use(remarkDirective)
@@ -44,10 +46,13 @@ const markdownCommentProcessor = unified()
   .use(rehypeStringify)
   .freeze()
 
-export const markdownToHtmlComment = async (markdown: string) => {
-  return renderMarkdownHtmlWithCache('comment', markdown, async () => {
-    const htmlVFile = await markdownCommentProcessor.process(markdown)
+export const renderCommentHtml = async (markdown: string) => {
+  const htmlVFile = await markdownCommentProcessor.process(markdown)
+  return String(htmlVFile)
+}
 
-    return String(htmlVFile)
-  })
+export const markdownToHtmlComment = async (markdown: string) => {
+  return renderMarkdownHtmlWithCache('comment', markdown, () =>
+    renderCommentHtml(markdown)
+  )
 }

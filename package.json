@@ -10,6 +10,7 @@
     "dev": "next dev --turbo --hostname=127.0.0.1 --port=3000",
     "build": "next build",
     "build:sitemap": "esno scripts/generateKunSitemap.ts",
+    "backfill:comment-html": "esno scripts/backfillCommentHtml.ts",
     "postbuild": "esno scripts/postbuild.ts",
     "format": "prettier . --write",
     "lint": "next lint",

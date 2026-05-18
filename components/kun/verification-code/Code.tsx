@@ -37,33 +37,32 @@ export const EmailVerification = ({ username, email, type }: Props) => {
       toast.error('请输入合法的邮箱格式')
       return
     }
+    if (type === 'register' && !username) {
+      toast.error('用户名不可为空')
+      return
+    }
     setLoading(true)
 
-    let res
+    try {
+      const res =
+        type === 'register'
+          ? await kunFetchPost<KunResponse<{}>>('/auth/send-register-code', {
+              name: username,
+              email,
+              captcha: code
+            })
+          : await kunFetchPost<KunResponse<{}>>(
+              '/user/setting/send-reset-email-code',
+              { email, captcha: code }
+            )
 
-    if (type === 'register') {
-      if (!username) {
-        toast.error('用户名不可为空')
-        return
-      }
-      res = await kunFetchPost<KunResponse<{}>>('/auth/send-register-code', {
-        name: username,
-        email,
-        captcha: code
+      kunErrorHandler(res, () => {
+        toast.success('发送成功, 验证码已发送到您的邮箱')
+        startCountdown()
       })
-    } else {
-      res = await kunFetchPost<KunResponse<{}>>(
-        '/user/setting/send-reset-email-code',
-        { email, captcha: code }
-      )
+    } finally {
+      setLoading(false)
     }
-
-    kunErrorHandler(res, () => {
-      toast.success('发送成功, 验证码已发送到您的邮箱')
-      startCountdown()
-    })
-
-    setLoading(false)
   }
 
   const handleCaptchaSuccess = async (code: string) => {

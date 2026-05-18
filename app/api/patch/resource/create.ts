@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { patchResourceCreateSchema } from '~/validations/patch'
 import { createMessage } from '~/app/api/utils/message'
-import { recalcPatchType, uploadPatchResource } from './_helper'
+import { bindUploadedResource, recalcPatchType } from './_helper'
 import type { PatchResource } from '~/types/api/patch'
 
 export const createPatchResource = async (
@@ -31,18 +31,24 @@ export const createPatchResource = async (
     code: string
     password: string
     hash: string
+    s3_key: string
     content: string
     sort_order: number
     download: number
   }> = []
   for (const [index, link] of links.entries()) {
     let content = link.content
+    let s3Key = ''
     if (link.storage === 's3') {
-      const result = await uploadPatchResource(patchId, link.hash)
+      if (!link.hash.trim()) {
+        return '请先上传资源文件'
+      }
+      const result = await bindUploadedResource(patchId, link.hash, uid)
       if (typeof result === 'string') {
         return result
       }
       content = result.downloadLink
+      s3Key = result.s3Key
     }
 
     preparedLinks.push({
@@ -50,7 +56,8 @@ export const createPatchResource = async (
       size: link.size,
       code: link.code,
       password: link.password,
-      hash: link.hash,
+      hash: link.storage === 's3' ? '' : link.hash,
+      s3_key: s3Key,
       content,
       sort_order: index,
       download: 0

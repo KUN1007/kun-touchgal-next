@@ -1,6 +1,6 @@
 'use client'
 
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
 import toast from 'react-hot-toast'
 import { Dispatch, SetStateAction, useState } from 'react'
 import { FileDropZone } from './FileDropZone'
@@ -8,7 +8,10 @@ import { FileUploadCard } from './FileUploadCard'
 import { KunCaptchaModal } from '~/components/kun/auth/CaptchaModal'
 import { useDisclosure } from '@heroui/modal'
 import { useUserStore } from '~/store/userStore'
-import type { KunUploadFileResponse } from '~/types/api/upload'
+import type {
+  KunUploadCompleteResponse,
+  KunUploadInitResponse
+} from '~/types/api/upload'
 import type { FileStatus } from '../share'
 
 interface Props {
@@ -22,6 +25,8 @@ interface Props {
   setUploadingResource: Dispatch<SetStateAction<boolean>>
 }
 
+const KUN_FETCH_HEADERS = { 'X-Requested-With': 'kun-fetch' }
+
 export const FileUploadContainer = ({
   onSuccess,
   handleRemoveFile,
@@ -29,9 +34,7 @@ export const FileUploadContainer = ({
 }: Props) => {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const currentUserRole = useUserStore((state) => state.user.role)
-  const currentUserMoemoepoint = useUserStore(
-    (state) => state.user.moemoepoint
-  )
+  const currentUserMoemoepoint = useUserStore((state) => state.user.moemoepoint)
   const [fileData, setFileData] = useState<FileStatus | null>(null)
 
   const handleCaptchaSuccess = async (
@@ -40,50 +43,91 @@ export const FileUploadContainer = ({
   ) => {
     onClose()
 
-    const fileForUpload = fileToUpload || fileData?.file
-
-    if (!fileForUpload) {
+    const file = fileToUpload || fileData?.file
+    if (!file) {
       toast.error('未找到资源文件, 请重试')
       return
     }
 
     setUploadingResource(true)
+    setFileData({ file, progress: 0 })
 
-    const formData = new FormData()
-    formData.append('file', fileForUpload)
-    formData.append('captcha', code)
+    try {
+      const initRes = await axios.post<KunUploadInitResponse | string>(
+        '/api/upload/init',
+        {
+          fileName: file.name,
+          fileSize: file.size,
+          captcha: code
+        },
+        { headers: KUN_FETCH_HEADERS }
+      )
+      if (typeof initRes.data === 'string') {
+        toast.error(initRes.data)
+        setFileData(null)
+        handleRemoveFile()
+        return
+      }
 
-    const res = await axios.post<KunUploadFileResponse | string>(
-      '/api/upload/resource',
-      formData,
-      {
-        headers: { 'X-Requested-With': 'kun-fetch' },
+      const { uploadUrl, token } = initRes.data
+
+      await axios.put(uploadUrl, file, {
+        headers: { 'Content-Type': 'application/octet-stream' },
         onUploadProgress: (progressEvent) => {
           const progress = Math.round(
-            (progressEvent.loaded * 100) / (progressEvent.total || 0)
+            (progressEvent.loaded * 100) / (progressEvent.total || file.size)
           )
           setFileData((prev) => (prev ? { ...prev, progress } : null))
         }
-      }
-    )
+      })
 
-    if (typeof res.data === 'string') {
+      const completeRes = await axios.post<KunUploadCompleteResponse | string>(
+        '/api/upload/complete',
+        { token },
+        { headers: KUN_FETCH_HEADERS }
+      )
+      if (typeof completeRes.data === 'string') {
+        toast.error(completeRes.data)
+        setFileData(null)
+        handleRemoveFile()
+        return
+      }
+
+      const { fileToken, fileSize, filetype } = completeRes.data
+      setFileData((prev) =>
+        prev ? { ...prev, hash: fileToken, filetype } : null
+      )
+      onSuccess(filetype, fileToken, '', fileSize)
+    } catch (err) {
+      if (err instanceof AxiosError) {
+        const status = err.response?.status
+        const data = err.response?.data
+        // eslint-disable-next-line no-console
+        console.error('[upload] failed', {
+          status,
+          data,
+          message: err.message,
+          code: err.code
+        })
+        const rawDetail =
+          typeof data === 'string' && data
+            ? data
+            : status
+              ? `HTTP ${status}`
+              : err.message
+        const detail =
+          rawDetail.length > 200 ? `${rawDetail.slice(0, 200)}…` : rawDetail
+        toast.error(`上传失败: ${detail}`)
+      } else {
+        // eslint-disable-next-line no-console
+        console.error('[upload] failed', err)
+        toast.error('上传失败, 请重试')
+      }
       setFileData(null)
       handleRemoveFile()
-      toast.error(res.data)
-      return
+    } finally {
+      setUploadingResource(false)
     }
-
-    const { filetype, fileHash, fileSize } = res.data
-    setFileData((prev) => (prev ? { ...prev, hash: fileHash, filetype } : null))
-    onSuccess(
-      filetype,
-      fileHash,
-      `${process.env.NEXT_PUBLIC_KUN_VISUAL_NOVEL_S3_STORAGE_URL}/${fileHash}`,
-      fileSize
-    )
-
-    setUploadingResource(false)
   }
 
   const handleFileUpload = async (file: File) => {

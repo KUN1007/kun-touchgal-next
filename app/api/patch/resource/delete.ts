@@ -48,7 +48,8 @@ export const deleteResource = async (
     await deletePatchResourceLink(
       link.content,
       patchResource.patch_id,
-      link.hash
+      link.hash,
+      link.s3_key
     )
   }
 

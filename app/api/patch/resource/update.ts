@@ -2,8 +2,8 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { patchResourceUpdateSchema } from '~/validations/patch'
 import {
+  bindUploadedResource,
   deletePatchResourceLink,
-  uploadPatchResource,
   recalcPatchType
 } from './_helper'
 import type { PatchResource } from '~/types/api/patch'
@@ -56,6 +56,7 @@ export const updatePatchResource = async (
     code: string
     password: string
     hash: string
+    s3_key: string
     content: string
     sort_order: number
     download: number
@@ -64,6 +65,7 @@ export const updatePatchResource = async (
     content: string
     patchId: number
     hash: string
+    s3Key: string
   }> = []
 
   for (const removedLink of linksToDelete) {
@@ -71,7 +73,8 @@ export const updatePatchResource = async (
       s3LinksToDelete.push({
         content: removedLink.content,
         patchId: resource.patch_id,
-        hash: removedLink.hash
+        hash: removedLink.hash,
+        s3Key: removedLink.s3_key
       })
     }
   }
@@ -81,32 +84,36 @@ export const updatePatchResource = async (
       typeof link.id === 'number' ? existingLinksById.get(link.id) : null
 
     let content = link.content
+    let s3Key = ''
+    let rebound = false
 
     if (link.storage === 's3') {
-      if (
-        existingLink &&
-        existingLink.storage === 's3' &&
-        existingLink.hash === link.hash
-      ) {
-        content = existingLink.content
-      } else {
-        const result = await uploadPatchResource(patchId, link.hash)
+      if (link.hash) {
+        const result = await bindUploadedResource(patchId, link.hash, uid)
         if (typeof result === 'string') {
           return result
         }
         content = result.downloadLink
+        s3Key = result.s3Key
+        rebound = true
+      } else if (existingLink && existingLink.storage === 's3') {
+        content = existingLink.content
+        s3Key = existingLink.s3_key
+      } else {
+        return '请先上传资源文件'
       }
     }
 
     if (
       existingLink &&
       existingLink.storage === 's3' &&
-      (link.storage !== 's3' || existingLink.hash !== link.hash)
+      (link.storage !== 's3' || rebound)
     ) {
       s3LinksToDelete.push({
         content: existingLink.content,
         patchId: resource.patch_id,
-        hash: existingLink.hash
+        hash: existingLink.hash,
+        s3Key: existingLink.s3_key
       })
     }
 
@@ -115,7 +122,8 @@ export const updatePatchResource = async (
       size: link.size,
       code: link.code,
       password: link.password,
-      hash: link.hash,
+      hash: link.storage === 's3' ? '' : link.hash,
+      s3_key: s3Key,
       content,
       sort_order: index,
       download: existingLink?.download ?? 0
@@ -196,7 +204,12 @@ export const updatePatchResource = async (
   })
 
   for (const link of s3LinksToDelete) {
-    await deletePatchResourceLink(link.content, link.patchId, link.hash)
+    await deletePatchResourceLink(
+      link.content,
+      link.patchId,
+      link.hash,
+      link.s3Key
+    )
   }
 
   return updatedResource

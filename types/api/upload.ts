@@ -1,8 +1,12 @@
-import { SUPPORTED_RESOURCE_LINK } from '~/constants/resource'
+export interface KunUploadInitResponse {
+  uploadUrl: string
+  token: string
+  expiresIn: number
+}
 
-export interface KunUploadFileResponse {
-  filetype: (typeof SUPPORTED_RESOURCE_LINK)[number]
-  fileHash: string
+export interface KunUploadCompleteResponse {
+  filetype: 's3'
+  fileToken: string
   fileSize: string
 }
 

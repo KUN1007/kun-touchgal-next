@@ -60,7 +60,12 @@ const declinePatchResource = async (
   })
 
   for (const link of s3Links) {
-    await deletePatchResourceLink(link.content, resource.patch_id, link.hash)
+    await deletePatchResourceLink(
+      link.content,
+      resource.patch_id,
+      link.hash,
+      link.s3_key
+    )
   }
 
   return response

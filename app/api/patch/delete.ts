@@ -29,7 +29,8 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
       .map((link) => ({
         content: link.content,
         patchId: resource.patch_id,
-        hash: link.hash
+        hash: link.hash,
+        s3Key: link.s3_key
       }))
   )
 
@@ -52,7 +53,12 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
   })
 
   for (const link of s3Links) {
-    await deletePatchResourceLink(link.content, link.patchId, link.hash)
+    await deletePatchResourceLink(
+      link.content,
+      link.patchId,
+      link.hash,
+      link.s3Key
+    )
   }
 
   return response

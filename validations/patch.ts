@@ -99,7 +99,9 @@ export const patchResourceCreateSchema = z.object({
         })
         .superRefine((link, ctx) => {
           if (link.storage === 's3') {
-            if (!link.hash.trim()) {
+            // 新建场景: 必须携带上传 token (走 link.hash 字段透传)
+            // 更新场景: 若已存在同 id 的 s3 link, 可不携带 token 表示未变更
+            if (!link.hash.trim() && typeof link.id !== 'number') {
               ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: '请先上传资源文件',

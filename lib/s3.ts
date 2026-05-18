@@ -2,7 +2,13 @@ import { createReadStream } from 'fs'
 import { dirname } from 'path'
 import { S3Client } from '@aws-sdk/client-s3'
 import { readFile, rm } from 'fs/promises'
-import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
+import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand
+} from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 export const s3 = new S3Client({
   endpoint: process.env.KUN_VISUAL_NOVEL_S3_STORAGE_ENDPOINT!,
@@ -11,8 +17,11 @@ export const s3 = new S3Client({
     accessKeyId: process.env.KUN_VISUAL_NOVEL_S3_STORAGE_ACCESS_KEY_ID!,
     secretAccessKey: process.env.KUN_VISUAL_NOVEL_S3_STORAGE_SECRET_ACCESS_KEY!
   },
+  forcePathStyle: true,
   requestChecksumCalculation: 'WHEN_REQUIRED'
 })
+
+const Bucket = process.env.KUN_VISUAL_NOVEL_S3_STORAGE_BUCKET_NAME!
 
 export const uploadVideoToS3 = async (
   filePath: string,
@@ -64,3 +73,31 @@ export const deleteFileFromS3 = async (key: string) => {
   })
   await s3.send(deleteCommand)
 }
+
+export const presignPutObject = (
+  key: string,
+  contentLength: number,
+  expiresIn = 2 * 60 * 60
+) =>
+  getSignedUrl(
+    s3,
+    new PutObjectCommand({
+      Bucket,
+      Key: key,
+      ContentLength: contentLength,
+      ContentType: 'application/octet-stream'
+    }),
+    { expiresIn }
+  )
+
+export const headObject = (key: string) =>
+  s3.send(new HeadObjectCommand({ Bucket, Key: key }))
+
+export const copyObject = (srcKey: string, dstKey: string) =>
+  s3.send(
+    new CopyObjectCommand({
+      Bucket,
+      CopySource: `${Bucket}/${encodeURI(srcKey)}`,
+      Key: dstKey
+    })
+  )

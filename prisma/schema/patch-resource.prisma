@@ -32,6 +32,7 @@ model patch_resource_link {
   code       String   @default("") @db.VarChar(1007)
   password   String   @default("") @db.VarChar(1007)
   hash       String   @default("")
+  s3_key     String   @default("") @db.VarChar(2048)
   content    String   @default("")
   sort_order Int      @default(0)
   download   Int      @default(0)

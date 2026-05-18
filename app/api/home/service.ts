@@ -98,7 +98,11 @@ export const getHomeData = async (
           }
         },
         user: {
-          include: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+            role: true,
             _count: {
               select: { patch_resource: true }
             }

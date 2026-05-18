@@ -66,27 +66,37 @@ export const getPatchComment = async (
     where: { patch_id: patchId, parent_id: null }
   })
 
+  const commentSelect = {
+    id: true,
+    content: true,
+    parent_id: true,
+    user_id: true,
+    patch_id: true,
+    created: true,
+    updated: true,
+    user: {
+      select: {
+        id: true,
+        name: true,
+        avatar: true
+      }
+    },
+    patch: {
+      select: {
+        unique_id: true
+      }
+    },
+    _count: {
+      select: { like_by: true }
+    }
+  } satisfies Prisma.patch_commentSelect
+
   const rootComments = await prisma.patch_comment.findMany({
     where: { patch_id: patchId, parent_id: null },
     orderBy: [{ created: 'desc' }, { id: 'desc' }],
     skip: (currentPage - 1) * limit,
     take: limit,
-    include: {
-      user: true,
-      patch: {
-        select: {
-          unique_id: true
-        }
-      },
-      like_by: {
-        where: {
-          user_id: uid
-        }
-      },
-      _count: {
-        select: { like_by: true }
-      }
-    }
+    select: commentSelect
   })
 
   const rootIds = rootComments.map((c) => c.id)
@@ -112,25 +122,26 @@ export const getPatchComment = async (
     if (descendantIds.length > 0) {
       descendantComments = await prisma.patch_comment.findMany({
         where: { id: { in: descendantIds } },
-        include: {
-          user: true,
-          patch: {
-            select: {
-              unique_id: true
-            }
-          },
-          like_by: {
-            where: {
-              user_id: uid
-            }
-          },
-          _count: {
-            select: { like_by: true }
-          }
-        }
+        select: commentSelect
       })
     }
   }
+
+  const allCommentIds = [
+    ...rootComments.map((c) => c.id),
+    ...descendantComments.map((c) => c.id)
+  ]
+  const likedSet =
+    uid > 0 && allCommentIds.length > 0
+      ? new Set(
+          (
+            await prisma.user_patch_comment_like_relation.findMany({
+              where: { user_id: uid, comment_id: { in: allCommentIds } },
+              select: { comment_id: true }
+            })
+          ).map((r) => r.comment_id)
+        )
+      : new Set<number>()
 
   const commentMap = new Map(
     [...rootComments, ...descendantComments].map((c) => [c.id, c])
@@ -176,7 +187,7 @@ export const getPatchComment = async (
               id: reply.id,
               uniqueId: reply.patch.unique_id,
               content: await markdownToHtmlComment(reply.content),
-              isLike: reply.like_by.length > 0,
+              isLike: likedSet.has(reply.id),
               likeCount: reply._count.like_by,
               parentId: comment.id,
               userId: reply.user_id,
@@ -207,7 +218,7 @@ export const getPatchComment = async (
         id: comment.id,
         uniqueId: comment.patch.unique_id,
         content: await markdownToHtmlComment(comment.content),
-        isLike: comment.like_by.length > 0,
+        isLike: likedSet.has(comment.id),
         likeCount: comment._count.like_by,
         parentId: null,
         userId: comment.user_id,

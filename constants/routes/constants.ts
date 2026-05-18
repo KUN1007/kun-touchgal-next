@@ -28,7 +28,6 @@ export const keyLabelMap: Record<string, string> = {
   '/apply/pending': '正在申请中',
   '/apply/success': '申请成功',
   '/auth/forgot': '忘记密码',
-  '/comment': '评论',
   '/edit/create': '创建 Galgame',
   '/galgame': 'Galgame',
   '/login': '登录',

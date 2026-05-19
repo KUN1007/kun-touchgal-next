@@ -4,10 +4,11 @@ import { kunParsePostBody, kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { patchTagChangeSchema } from '~/validations/patch'
+import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 
 const handleAddPatchTag = async (
   input: z.infer<typeof patchTagChangeSchema>
-) => {
+): Promise<boolean> => {
   const { patchId, tagId } = input
 
   return await prisma.$transaction(async (prisma) => {
@@ -19,7 +20,7 @@ const handleAddPatchTag = async (
     const toCreate = tagId.filter((id) => !existingIds.has(id))
 
     if (toCreate.length === 0) {
-      return {}
+      return false
     }
 
     await prisma.patch_tag_relation.createMany({
@@ -30,7 +31,7 @@ const handleAddPatchTag = async (
       where: { id: { in: toCreate } },
       data: { count: { increment: 1 } }
     })
-    return {}
+    return true
   })
 }
 
@@ -47,13 +48,28 @@ export const POST = async (req: NextRequest) => {
     return NextResponse.json('本页面仅管理员可访问')
   }
 
-  const response = await handleAddPatchTag(input)
-  return NextResponse.json(response)
+  const patch = await prisma.patch.findUnique({
+    where: { id: input.patchId },
+    select: { unique_id: true }
+  })
+  if (!patch) {
+    return NextResponse.json('未找到 Galgame')
+  }
+
+  const changed = await handleAddPatchTag(input)
+  if (changed) {
+    try {
+      await invalidatePatchContentCache(patch.unique_id)
+    } catch {
+      // 缓存失效失败不影响标签更新结果
+    }
+  }
+  return NextResponse.json({})
 }
 
 const handleRemovePatchTag = async (
   input: z.infer<typeof patchTagChangeSchema>
-) => {
+): Promise<boolean> => {
   const { patchId, tagId } = input
 
   return await prisma.$transaction(async (prisma) => {
@@ -64,7 +80,7 @@ const handleRemovePatchTag = async (
     const toDelete = existing.map((r) => r.tag_id)
 
     if (toDelete.length === 0) {
-      return {}
+      return false
     }
 
     await prisma.patch_tag_relation.deleteMany({
@@ -75,7 +91,7 @@ const handleRemovePatchTag = async (
       where: { id: { in: toDelete } },
       data: { count: { decrement: 1 } }
     })
-    return {}
+    return true
   })
 }
 
@@ -92,6 +108,21 @@ export const PUT = async (req: NextRequest) => {
     return NextResponse.json('本页面仅管理员可访问')
   }
 
-  const response = await handleRemovePatchTag(input)
-  return NextResponse.json(response)
+  const patch = await prisma.patch.findUnique({
+    where: { id: input.patchId },
+    select: { unique_id: true }
+  })
+  if (!patch) {
+    return NextResponse.json('未找到 Galgame')
+  }
+
+  const changed = await handleRemovePatchTag(input)
+  if (changed) {
+    try {
+      await invalidatePatchContentCache(patch.unique_id)
+    } catch {
+      // 缓存失效失败不影响标签更新结果
+    }
+  }
+  return NextResponse.json({})
 }

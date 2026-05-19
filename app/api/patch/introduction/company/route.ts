@@ -4,10 +4,13 @@ import { kunParsePostBody } from '~/app/api/utils/parseQuery'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { prisma } from '~/prisma'
 import { patchCompanyChangeSchema } from '~/validations/patch'
+import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 
 const handlePatchCompanyAction = (type: 'add' | 'delete') => {
   const isAdd = type === 'add'
-  return async (input: z.infer<typeof patchCompanyChangeSchema>) => {
+  return async (
+    input: z.infer<typeof patchCompanyChangeSchema>
+  ): Promise<boolean> => {
     const { patchId, companyId } = input
 
     return await prisma.$transaction(async (prisma) => {
@@ -22,7 +25,7 @@ const handlePatchCompanyAction = (type: 'add' | 'delete') => {
         : companyId.filter((id) => existingIds.has(id))
 
       if (affected.length === 0) {
-        return {}
+        return false
       }
 
       if (isAdd) {
@@ -43,7 +46,7 @@ const handlePatchCompanyAction = (type: 'add' | 'delete') => {
         data: { count: { increment: isAdd ? 1 : -1 } }
       })
 
-      return {}
+      return true
     })
   }
 }
@@ -62,8 +65,23 @@ export const POST = async (req: NextRequest) => {
     return NextResponse.json('本页面仅管理员可访问')
   }
 
-  const response = await handlePatchCompanyAction('add')(input)
-  return NextResponse.json(response)
+  const patch = await prisma.patch.findUnique({
+    where: { id: input.patchId },
+    select: { unique_id: true }
+  })
+  if (!patch) {
+    return NextResponse.json('未找到 Galgame')
+  }
+
+  const changed = await handlePatchCompanyAction('add')(input)
+  if (changed) {
+    try {
+      await invalidatePatchContentCache(patch.unique_id)
+    } catch {
+      // 缓存失效失败不影响所属会社更新结果
+    }
+  }
+  return NextResponse.json({})
 }
 
 export const PUT = async (req: NextRequest) => {
@@ -80,6 +98,21 @@ export const PUT = async (req: NextRequest) => {
     return NextResponse.json('本页面仅管理员可访问')
   }
 
-  const response = await handlePatchCompanyAction('delete')(input)
-  return NextResponse.json(response)
+  const patch = await prisma.patch.findUnique({
+    where: { id: input.patchId },
+    select: { unique_id: true }
+  })
+  if (!patch) {
+    return NextResponse.json('未找到 Galgame')
+  }
+
+  const changed = await handlePatchCompanyAction('delete')(input)
+  if (changed) {
+    try {
+      await invalidatePatchContentCache(patch.unique_id)
+    } catch {
+      // 缓存失效失败不影响所属会社更新结果
+    }
+  }
+  return NextResponse.json({})
 }

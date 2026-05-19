@@ -6,8 +6,8 @@ import { Modal } from '@heroui/modal'
 import { Button } from '@heroui/button'
 import { Switch } from '@heroui/switch'
 import { Plus } from 'lucide-react'
-import Masonry from 'react-masonry-css'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { KunMasonry } from '~/components/kun/KunMasonry'
 import { KunNull } from '~/components/kun/Null'
 import { RatingCard } from './RatingCard'
 import { RatingCardSkeleton } from './RatingCardSkeleton'
@@ -24,6 +24,12 @@ interface Props {
 }
 
 const RATINGS_PER_PAGE = 24
+
+const MASONRY_BREAKPOINTS = {
+  default: 3,
+  1024: 2,
+  640: 1
+}
 
 const hasShortSummary = (rating: KunPatchRating) =>
   Boolean(rating.shortSummary?.trim())
@@ -152,16 +158,42 @@ export const Ratings = ({ id }: Props) => {
       return
     }
 
-    targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    setHighlightedRatingId(targetRatingId)
+    let raf = 0
+    let attempts = 0
+    let lastTop = Number.NaN
+
+    const performScroll = () => {
+      targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setHighlightedRatingId(targetRatingId)
+    }
+
+    const waitForLayout = () => {
+      const top = targetElement.getBoundingClientRect().top
+      if (attempts > 0 && Math.abs(top - lastTop) < 1) {
+        performScroll()
+        return
+      }
+      if (attempts >= 30) {
+        performScroll()
+        return
+      }
+      lastTop = top
+      attempts += 1
+      raf = requestAnimationFrame(waitForLayout)
+    }
+
+    raf = requestAnimationFrame(waitForLayout)
 
     const timer = window.setTimeout(() => {
       setHighlightedRatingId((current) =>
         current === targetRatingId ? null : current
       )
-    }, 3000)
+    }, 3500)
 
-    return () => window.clearTimeout(timer)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.clearTimeout(timer)
+    }
   }, [ratings, loading, targetRatingId])
 
   const handleCreated = (rating?: KunPatchRating) => {
@@ -194,12 +226,6 @@ export const Ratings = ({ id }: Props) => {
     return <KunNull message="请登陆后查看游戏评价" />
   }
 
-  const breakpointColumns = {
-    default: 3,
-    1024: 2,
-    640: 1
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -220,44 +246,35 @@ export const Ratings = ({ id }: Props) => {
         </Button>
       </div>
 
-      <Masonry
-        breakpointCols={breakpointColumns}
-        className="flex w-auto -ml-4"
-        columnClassName="pl-4 bg-clip-padding"
-      >
-        {ratings.map((rating) => (
-          <div
-            key={rating.id}
-            id={`rating-${rating.id}`}
-            className={
-              highlightedRatingId === rating.id
-                ? 'mb-4 rounded-large ring-2 ring-primary ring-offset-2 ring-offset-background'
-                : 'mb-4'
-            }
-          >
-            <RatingCard
-              rating={rating}
-              patchId={id}
-              onRatingUpdated={handlePatchUpdated}
-              onDeleted={handleDeleted}
-            />
-          </div>
-        ))}
-      </Masonry>
-
-      {(!initialized || loading) && (
-        <Masonry
-          breakpointCols={breakpointColumns}
-          className="flex w-auto -ml-4"
-          columnClassName="pl-4 bg-clip-padding"
-        >
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={`skeleton-${index}`} className="mb-4">
-              <RatingCardSkeleton />
+      <KunMasonry breakpointCols={MASONRY_BREAKPOINTS} gap={16}>
+        {[
+          ...ratings.map((rating) => (
+            <div
+              key={`rating-${rating.id}`}
+              id={`rating-${rating.id}`}
+              className={
+                highlightedRatingId === rating.id
+                  ? 'rounded-large ring-2 ring-primary ring-offset-2 ring-offset-background'
+                  : undefined
+              }
+            >
+              <RatingCard
+                rating={rating}
+                patchId={id}
+                onRatingUpdated={handlePatchUpdated}
+                onDeleted={handleDeleted}
+              />
             </div>
-          ))}
-        </Masonry>
-      )}
+          )),
+          ...(!initialized || loading
+            ? Array.from({ length: 6 }).map((_, index) => (
+                <div key={`skeleton-${index}`}>
+                  <RatingCardSkeleton />
+                </div>
+              ))
+            : [])
+        ]}
+      </KunMasonry>
 
       <div ref={loadMoreRef} className="w-full h-4" />
 

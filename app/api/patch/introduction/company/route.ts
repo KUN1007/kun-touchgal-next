@@ -11,21 +11,35 @@ const handlePatchCompanyAction = (type: 'add' | 'delete') => {
     const { patchId, companyId } = input
 
     return await prisma.$transaction(async (prisma) => {
+      const existing = await prisma.patch_company_relation.findMany({
+        where: { patch_id: patchId, company_id: { in: companyId } },
+        select: { company_id: true }
+      })
+      const existingIds = new Set(existing.map((r) => r.company_id))
+
+      const affected = isAdd
+        ? companyId.filter((id) => !existingIds.has(id))
+        : companyId.filter((id) => existingIds.has(id))
+
+      if (affected.length === 0) {
+        return {}
+      }
+
       if (isAdd) {
         await prisma.patch_company_relation.createMany({
-          data: companyId.map((id) => ({
+          data: affected.map((id) => ({
             patch_id: patchId,
             company_id: id
           }))
         })
       } else {
         await prisma.patch_company_relation.deleteMany({
-          where: { patch_id: patchId, company_id: { in: companyId } }
+          where: { patch_id: patchId, company_id: { in: affected } }
         })
       }
 
       await prisma.patch_company.updateMany({
-        where: { id: { in: companyId } },
+        where: { id: { in: affected } },
         data: { count: { increment: isAdd ? 1 : -1 } }
       })
 

@@ -1,22 +1,39 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
+import type { Prisma } from '~/prisma/generated/prisma/client'
 import type { KunPatchRating } from '~/types/api/galgame'
 
 export const getPatchRatingSchema = z.object({
   patchId: z.coerce.number().min(1).max(9999999),
   page: z.coerce.number().min(1).max(9999999),
-  limit: z.coerce.number().min(1).max(50)
+  limit: z.coerce.number().min(1).max(50),
+  targetRatingId: z.coerce.number().min(1).max(9999999).optional(),
+  onlyWithShortSummary: z
+    .enum(['false', 'true'])
+    .optional()
+    .transform((value) => value === 'true')
 })
 
 export const getPatchRating = async (
   input: z.infer<typeof getPatchRatingSchema>,
   uid: number
 ) => {
-  const { patchId, page, limit } = input
+  const { patchId, page, limit, targetRatingId, onlyWithShortSummary } = input
+  const where: Prisma.patch_ratingWhereInput = {
+    patch_id: patchId,
+    ...(onlyWithShortSummary
+      ? {
+          OR: [
+            { short_summary: { not: '' } },
+            ...(targetRatingId ? [{ id: targetRatingId }] : [])
+          ]
+        }
+      : {})
+  }
 
   const [data, total] = await Promise.all([
     prisma.patch_rating.findMany({
-      where: { patch_id: patchId },
+      where,
       orderBy: { created: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
@@ -40,7 +57,7 @@ export const getPatchRating = async (
       }
     }),
     prisma.patch_rating.count({
-      where: { patch_id: patchId }
+      where
     })
   ])
 

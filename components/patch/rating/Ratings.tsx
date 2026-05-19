@@ -25,6 +25,9 @@ interface Props {
 
 const RATINGS_PER_PAGE = 24
 
+const hasShortSummary = (rating: KunPatchRating) =>
+  Boolean(rating.shortSummary?.trim())
+
 export const Ratings = ({ id }: Props) => {
   const searchParams = useSearchParams()
   const [ratings, setRatings] = useState<KunPatchRating[]>([])
@@ -41,6 +44,8 @@ export const Ratings = ({ id }: Props) => {
   const user = useUserStore((state) => state.user)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
+  const loadingRef = useRef(false)
+  const requestIdRef = useRef(0)
   const targetRatingId = useMemo(() => {
     const rawRatingId = searchParams.get('ratingId')
     if (!rawRatingId) {
@@ -55,41 +60,68 @@ export const Ratings = ({ id }: Props) => {
 
   const fetchRatings = useCallback(
     async (pageNum: number, reset = false) => {
-      if (loading) return
+      if (!reset && loadingRef.current) return
 
-      setLoading(true)
-      const res = await kunFetchGet<KunPatchRatingResponse>('/patch/rating', {
+      const query: Record<string, string | number> = {
         patchId: Number(id),
         page: pageNum,
-        limit: RATINGS_PER_PAGE
-      })
-
-      if (res && typeof res !== 'string') {
-        if (reset) {
-          setRatings(res.ratings)
-        } else {
-          setRatings((prev) => [...prev, ...res.ratings])
-        }
-        setTotal(res.total)
-        setHasMore(res.ratings.length === RATINGS_PER_PAGE)
+        limit: RATINGS_PER_PAGE,
+        onlyWithShortSummary: hideNoContent ? 'true' : 'false'
       }
-      setLoading(false)
-      setInitialized(true)
+      if (targetRatingId) {
+        query.targetRatingId = targetRatingId
+      }
+
+      const requestId = ++requestIdRef.current
+      loadingRef.current = true
+      setLoading(true)
+      try {
+        const res = await kunFetchGet<KunPatchRatingResponse>(
+          '/patch/rating',
+          query
+        )
+
+        if (requestId !== requestIdRef.current) {
+          return
+        }
+
+        if (res && typeof res !== 'string') {
+          if (reset) {
+            setRatings(res.ratings)
+          } else {
+            setRatings((prev) => [...prev, ...res.ratings])
+          }
+          setTotal(res.total)
+          setHasMore(pageNum * RATINGS_PER_PAGE < res.total)
+        }
+      } finally {
+        if (requestId === requestIdRef.current) {
+          loadingRef.current = false
+          setLoading(false)
+          setInitialized(true)
+        }
+      }
     },
-    [id, loading]
+    [hideNoContent, id, targetRatingId]
   )
 
   useEffect(() => {
     if (!user.uid) return
+
+    setPage(1)
+    setRatings([])
+    setTotal(0)
+    setHasMore(true)
+    setInitialized(false)
     fetchRatings(1, true)
-  }, [id, user.uid])
+  }, [fetchRatings, user.uid])
 
   useEffect(() => {
     if (!loadMoreRef.current || !hasMore || loading) return
 
     observerRef.current = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading) {
+        if (entries[0].isIntersecting && hasMore && !loadingRef.current) {
           setPage((prev) => prev + 1)
         }
       },
@@ -107,7 +139,7 @@ export const Ratings = ({ id }: Props) => {
     if (page > 1) {
       fetchRatings(page)
     }
-  }, [page])
+  }, [fetchRatings, page])
 
   useEffect(() => {
     if (loading || !targetRatingId) {
@@ -133,19 +165,29 @@ export const Ratings = ({ id }: Props) => {
   }, [ratings, loading, targetRatingId])
 
   const handleCreated = (rating?: KunPatchRating) => {
-    if (rating) {
+    if (rating && (!hideNoContent || hasShortSummary(rating))) {
       setRatings((prev) => [rating, ...prev])
       setTotal((prev) => prev + 1)
     }
   }
 
   const handlePatchUpdated = (rating: KunPatchRating) => {
+    if (
+      hideNoContent &&
+      !hasShortSummary(rating) &&
+      rating.id !== targetRatingId
+    ) {
+      setRatings((prev) => prev.filter((r) => r.id !== rating.id))
+      setTotal((prev) => Math.max(0, prev - 1))
+      return
+    }
+
     setRatings((prev) => prev.map((r) => (r.id === rating.id ? rating : r)))
   }
 
   const handleDeleted = (ratingId: number) => {
     setRatings((prev) => prev.filter((r) => r.id !== ratingId))
-    setTotal((prev) => prev - 1)
+    setTotal((prev) => Math.max(0, prev - 1))
   }
 
   if (!user.uid) {
@@ -157,13 +199,6 @@ export const Ratings = ({ id }: Props) => {
     1024: 2,
     640: 1
   }
-
-  const displayedRatings = hideNoContent
-    ? ratings.filter(
-        (r) =>
-          (r.shortSummary && r.shortSummary.trim()) || r.id === targetRatingId
-      )
-    : ratings
 
   return (
     <div className="space-y-4">
@@ -190,7 +225,7 @@ export const Ratings = ({ id }: Props) => {
         className="flex w-auto -ml-4"
         columnClassName="pl-4 bg-clip-padding"
       >
-        {displayedRatings.map((rating) => (
+        {ratings.map((rating) => (
           <div
             key={rating.id}
             id={`rating-${rating.id}`}
@@ -226,11 +261,11 @@ export const Ratings = ({ id }: Props) => {
 
       <div ref={loadMoreRef} className="w-full h-4" />
 
-      {initialized && !displayedRatings.length && !loading && (
+      {initialized && !ratings.length && !loading && (
         <KunNull
           message={
-            ratings.length
-              ? '所有评价均无正文，关闭过滤开关可查看全部'
+            hideNoContent
+              ? '暂无有短评的评价，关闭过滤开关可查看全部评价'
               : '这个游戏还没有评价'
           }
         />

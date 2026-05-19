@@ -1,12 +1,14 @@
 import { z } from 'zod'
 import { NextRequest, NextResponse } from 'next/server'
-import { getKv } from '~/lib/redis'
-import { headObject } from '~/lib/s3'
+import { delKv, getKv } from '~/lib/redis'
+import { deleteFileFromS3, headObject } from '~/lib/s3'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { verifyKunCsrf } from '~/middleware/_csrf'
 import { kunParsePostBody } from '~/app/api/utils/parseQuery'
-
-const MAX_FILE_SIZE = 100 * 1024 * 1024
+import {
+  OBJECT_STORAGE_MAX_FILE_SIZE_BYTES,
+  OBJECT_STORAGE_MAX_FILE_SIZE_ERROR
+} from '~/constants/resource'
 
 const completeSchema = z.object({
   token: z.string().min(8).max(128)
@@ -17,6 +19,11 @@ interface UploadTokenMeta {
   fileName: string
   declared: number
   uid: number
+}
+
+const cleanupRejectedUpload = async (token: string, s3Key: string) => {
+  await deleteFileFromS3(s3Key).catch(() => undefined)
+  await delKv(`upload:${token}`).catch(() => undefined)
 }
 
 export async function POST(req: NextRequest) {
@@ -52,10 +59,12 @@ export async function POST(req: NextRequest) {
 
   const actualSize = Number(info.ContentLength ?? 0)
   if (actualSize !== meta.declared) {
+    await cleanupRejectedUpload(input.token, meta.s3Key)
     return NextResponse.json('文件大小不一致, 请重新上传')
   }
-  if (actualSize > MAX_FILE_SIZE) {
-    return NextResponse.json('文件大小超过限制, 最大为 100 MB')
+  if (actualSize >= OBJECT_STORAGE_MAX_FILE_SIZE_BYTES) {
+    await cleanupRejectedUpload(input.token, meta.s3Key)
+    return NextResponse.json(OBJECT_STORAGE_MAX_FILE_SIZE_ERROR)
   }
 
   const fileSizeMB = actualSize / (1024 * 1024)

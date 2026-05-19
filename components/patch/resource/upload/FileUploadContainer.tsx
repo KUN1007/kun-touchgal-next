@@ -8,6 +8,10 @@ import { FileUploadCard } from './FileUploadCard'
 import { KunCaptchaModal } from '~/components/kun/auth/CaptchaModal'
 import { useDisclosure } from '@heroui/modal'
 import { useUserStore } from '~/store/userStore'
+import {
+  OBJECT_STORAGE_MAX_FILE_SIZE_BYTES,
+  OBJECT_STORAGE_MAX_FILE_SIZE_LABEL
+} from '~/constants/resource'
 import type {
   KunUploadCompleteResponse,
   KunUploadInitResponse
@@ -136,9 +140,9 @@ export const FileUploadContainer = ({
     }
 
     const fileSizeMB = file.size / (1024 * 1024)
-    if (fileSizeMB > 100) {
+    if (file.size >= OBJECT_STORAGE_MAX_FILE_SIZE_BYTES) {
       toast.error(
-        `文件大小超出限制: ${fileSizeMB.toFixed(3)} MB, 最大允许大小为 100 MB`
+        `文件大小超出限制: ${fileSizeMB.toFixed(3)} MB, 必须小于 ${OBJECT_STORAGE_MAX_FILE_SIZE_LABEL}`
       )
       return
     }

@@ -3,6 +3,11 @@ import { copyObject, deleteFileFromS3, headObject } from '~/lib/s3'
 import { acquireKvLock, delKv, getKv, releaseKvLock } from '~/lib/redis'
 import { prisma } from '~/prisma/index'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
+import {
+  OBJECT_STORAGE_MAX_FILE_SIZE_BYTES,
+  OBJECT_STORAGE_MAX_FILE_SIZE_ERROR,
+  RESOURCE_DAILY_UPLOAD_LIMIT_MB
+} from '~/constants/resource'
 
 interface UploadTokenMeta {
   s3Key: string
@@ -12,6 +17,11 @@ interface UploadTokenMeta {
 }
 
 const BIND_LOCK_TTL_SECONDS = 60
+
+const cleanupRejectedUpload = async (token: string, s3Key: string) => {
+  await deleteFileFromS3(s3Key).catch(() => undefined)
+  await delKv(`upload:${token}`).catch(() => undefined)
+}
 
 export const bindUploadedResource = async (
   patchId: number,
@@ -40,20 +50,46 @@ export const bindUploadedResource = async (
     }
     const actualSize = Number(info.ContentLength ?? 0)
     if (actualSize !== meta.declared) {
+      await cleanupRejectedUpload(token, meta.s3Key)
       return '文件大小不一致, 请重新上传'
+    }
+    if (actualSize >= OBJECT_STORAGE_MAX_FILE_SIZE_BYTES) {
+      await cleanupRejectedUpload(token, meta.s3Key)
+      return OBJECT_STORAGE_MAX_FILE_SIZE_ERROR
+    }
+    const fileSizeMB = Number((actualSize / (1024 * 1024)).toFixed(3))
+    const quota = await prisma.user.updateMany({
+      where: {
+        id: uid,
+        daily_upload_size: {
+          lte: RESOURCE_DAILY_UPLOAD_LIMIT_MB - fileSizeMB
+        }
+      },
+      data: { daily_upload_size: { increment: fileSizeMB } }
+    })
+    if (quota.count === 0) {
+      await cleanupRejectedUpload(token, meta.s3Key)
+      return '您今日的上传大小已达到 5GB 限额'
     }
 
     const segment = randomBytes(32).toString('hex')
     const finalKey = `patch/${patchId}/resource/${segment}/${meta.fileName}`
-    await copyObject(meta.s3Key, finalKey)
-    await deleteFileFromS3(meta.s3Key).catch(() => undefined)
-    await delKv(`upload:${token}`)
-
-    const fileSizeMB = Number((actualSize / (1024 * 1024)).toFixed(3))
-    await prisma.user.update({
-      where: { id: uid },
-      data: { daily_upload_size: { increment: fileSizeMB } }
-    })
+    try {
+      await copyObject(meta.s3Key, finalKey)
+      await deleteFileFromS3(meta.s3Key).catch(() => undefined)
+      await delKv(`upload:${token}`)
+    } catch (error) {
+      await prisma.user
+        .updateMany({
+          where: {
+            id: uid,
+            daily_upload_size: { gte: fileSizeMB }
+          },
+          data: { daily_upload_size: { decrement: fileSizeMB } }
+        })
+        .catch(() => undefined)
+      throw error
+    }
 
     const downloadLink = `${process.env.NEXT_PUBLIC_KUN_VISUAL_NOVEL_S3_STORAGE_URL!}/${finalKey}`
     return { downloadLink, s3Key: finalKey, size: actualSize }

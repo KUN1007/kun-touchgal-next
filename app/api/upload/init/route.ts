@@ -5,15 +5,18 @@ import { setKv } from '~/lib/redis'
 import { presignPutObject } from '~/lib/s3'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { verifyKunCsrf } from '~/middleware/_csrf'
-import { ALLOWED_EXTENSIONS } from '~/constants/resource'
+import {
+  ALLOWED_EXTENSIONS,
+  OBJECT_STORAGE_MAX_FILE_SIZE_BYTES,
+  OBJECT_STORAGE_MAX_FILE_SIZE_ERROR,
+  RESOURCE_DAILY_UPLOAD_LIMIT_MB
+} from '~/constants/resource'
 import { sanitizeFileName } from '~/utils/sanitizeFileName'
 import { prisma } from '~/prisma'
 import { checkKunCaptchaExist } from '~/app/api/utils/verifyKunCaptcha'
 import { kunParsePostBody } from '~/app/api/utils/parseQuery'
 
 const MIN_FILE_SIZE = 1024
-const MAX_FILE_SIZE = 100 * 1024 * 1024
-const DAILY_UPLOAD_LIMIT_MB = 5120
 const UPLOAD_TOKEN_TTL_SECONDS = 24 * 60 * 60
 const PRESIGN_TTL_SECONDS = 2 * 60 * 60
 
@@ -23,7 +26,10 @@ const initSchema = z.object({
     .number()
     .int()
     .min(MIN_FILE_SIZE, '文件过小, 您的文件小于 1 KB')
-    .max(MAX_FILE_SIZE, '文件大小超过限制, 最大为 100 MB'),
+    .max(
+      OBJECT_STORAGE_MAX_FILE_SIZE_BYTES - 1,
+      OBJECT_STORAGE_MAX_FILE_SIZE_ERROR
+    ),
   captcha: z.string().max(256).optional()
 })
 
@@ -71,7 +77,7 @@ export async function POST(req: NextRequest) {
   }
 
   const fileSizeInMB = input.fileSize / (1024 * 1024)
-  if (user.daily_upload_size + fileSizeInMB > DAILY_UPLOAD_LIMIT_MB) {
+  if (user.daily_upload_size + fileSizeInMB > RESOURCE_DAILY_UPLOAD_LIMIT_MB) {
     return NextResponse.json('您今日的上传大小已达到 5GB 限额')
   }
 

@@ -5,7 +5,12 @@ import { Upload } from 'lucide-react'
 import { Button, Input } from '@heroui/react'
 import { cn } from '~/utils/cn'
 import { useState } from 'react'
-import { ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES } from '~/constants/resource'
+import {
+  ALLOWED_EXTENSIONS,
+  ALLOWED_MIME_TYPES,
+  OBJECT_STORAGE_MAX_FILE_SIZE_BYTES,
+  OBJECT_STORAGE_MAX_FILE_SIZE_LABEL
+} from '~/constants/resource'
 
 interface Props {
   onFileUpload: (file: File) => Promise<void>
@@ -37,9 +42,9 @@ const handleFileInput = (file: File | undefined) => {
     toast.error('文件过小, 您的文件小于 0.001 MB')
     return
   }
-  if (fileSizeMB > 100) {
+  if (file.size >= OBJECT_STORAGE_MAX_FILE_SIZE_BYTES) {
     toast.error(
-      `文件大小超出限制: ${fileSizeMB.toFixed(3)} MB, 最大允许大小为 100 MB`
+      `文件大小超出限制: ${fileSizeMB.toFixed(3)} MB, 必须小于 ${OBJECT_STORAGE_MAX_FILE_SIZE_LABEL}`
     )
     return
   }

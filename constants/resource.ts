@@ -111,6 +111,11 @@ export const SUPPORTED_PLATFORM_MAP: Record<string, string> = {
 
 export const SUPPORTED_RESOURCE_LINK = ['touchgal', 's3', 'user']
 
+export const OBJECT_STORAGE_MAX_FILE_SIZE_BYTES = 1024 * 1024 * 1024
+export const OBJECT_STORAGE_MAX_FILE_SIZE_LABEL = '1GB'
+export const OBJECT_STORAGE_MAX_FILE_SIZE_ERROR = `文件大小超过限制, 必须小于 ${OBJECT_STORAGE_MAX_FILE_SIZE_LABEL}`
+export const RESOURCE_DAILY_UPLOAD_LIMIT_MB = 5120
+
 export const storageTypes = [
   {
     value: 'touchgal',
@@ -119,13 +124,13 @@ export const storageTypes = [
   },
   {
     value: 's3',
-    label: '对象存储 (<100MB, 创作者可用)',
-    description: '此选项适合 <100MB 的资源, 稳定, 永远不会失效过期'
+    label: `对象存储 (<${OBJECT_STORAGE_MAX_FILE_SIZE_LABEL}, 创作者可用)`,
+    description: `此选项适合 <${OBJECT_STORAGE_MAX_FILE_SIZE_LABEL} 的资源, 稳定, 永远不会失效过期`
   },
   {
     value: 'user',
-    label: '自定义链接 (>100MB)',
-    description: '此选项适合 >100MB 的资源, 这需要您自行提供下载链接'
+    label: `自定义链接 (>=${OBJECT_STORAGE_MAX_FILE_SIZE_LABEL})`,
+    description: `此选项适合 >=${OBJECT_STORAGE_MAX_FILE_SIZE_LABEL} 的资源, 这需要您自行提供下载链接`
   }
 ]
 

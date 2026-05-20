@@ -54,7 +54,7 @@ export const ResourceDownload = ({ resource }: Props) => {
             <h3 className="font-medium">
               {resource.name ? resource.name : '资源备注'}
             </h3>
-            <p className="text-sm text-default-5000">
+            <p className="text-sm text-default-500">
               该资源创建于 {formatTimeDifference(resource.created)}
             </p>
           </div>

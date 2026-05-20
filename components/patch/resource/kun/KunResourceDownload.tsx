@@ -70,7 +70,7 @@ export const KunResourceDownload = ({ resource }: Props) => {
             <h3 className="font-medium">
               {resource.name ? resource.name : '资源备注'}
             </h3>
-            <p className="text-sm text-default-5000">
+            <p className="text-sm text-default-500">
               该补丁资源最后更新于 {formatTimeDifference(resource.update_time)}
             </p>
           </div>

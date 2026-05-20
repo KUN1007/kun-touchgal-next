@@ -1,14 +1,13 @@
 'use client'
 
 import DOMPurify from 'isomorphic-dompurify'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@heroui/react'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
 import { ChevronDown, ChevronUp, Download } from 'lucide-react'
 import { formatTimeDifference } from '~/utils/time'
 import { ResourceLikeButton } from './ResourceLike'
 import { ResourceDownloadCard } from './DownloadCard'
-import { markdownToHtml } from './kun/markdownToHtml'
 import type { PatchResource } from '~/types/api/patch'
 
 interface Props {
@@ -20,10 +19,14 @@ const COLLAPSED_HEIGHT_PX = 96
 export const ResourceDownload = ({ resource }: Props) => {
   const [showLinks, setShowLinks] = useState<Record<number, boolean>>({})
 
-  const [note, setNote] = useState('')
   const [isNoteExpanded, setIsNoteExpanded] = useState(false)
   const [isNoteOverflowing, setIsNoteOverflowing] = useState(false)
   const noteContentRef = useRef<HTMLDivElement>(null)
+
+  const note = useMemo(
+    () => DOMPurify.sanitize(resource.noteHtml),
+    [resource.noteHtml]
+  )
 
   const toggleLinks = (resourceId: number) => {
     setShowLinks((prev) => ({
@@ -31,16 +34,6 @@ export const ResourceDownload = ({ resource }: Props) => {
       [resourceId]: !prev[resourceId]
     }))
   }
-
-  const getResourceNoteHtml = async () => {
-    const html = await markdownToHtml(resource.note)
-    const safeHtml = DOMPurify.sanitize(html)
-    setNote(safeHtml)
-  }
-
-  useEffect(() => {
-    getResourceNoteHtml()
-  }, [])
 
   useLayoutEffect(() => {
     const element = noteContentRef.current

@@ -92,6 +92,7 @@ export interface PatchResource {
   type: string[]
   language: string[]
   note: string
+  noteHtml: string
   platform: string[]
   links: PatchResourceLink[]
   likeCount: number

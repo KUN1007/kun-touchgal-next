@@ -6,7 +6,6 @@ import { Button, User } from '@heroui/react'
 import { ChevronDown, ChevronUp, Download } from 'lucide-react'
 import { formatTimeDifference } from '~/utils/time'
 import { KunResourceDownloadCard } from './KunDownloadCard'
-import { markdownToHtml } from './markdownToHtml'
 import Link from 'next/link'
 import type { KunPatchResourceResponse } from '~/types/api/kun/moyu-moe'
 
@@ -32,15 +31,21 @@ export const KunResourceDownload = ({ resource }: Props) => {
     }))
   }
 
-  const getResourceNoteHtml = async () => {
-    const html = await markdownToHtml(resource.note)
-    const safeHtml = DOMPurify.sanitize(html)
-    setNote(safeHtml)
-  }
-
   useEffect(() => {
+    let cancelled = false
+    const getResourceNoteHtml = async () => {
+      const { markdownToHtml } = await import('./markdownToHtml')
+      const html = await markdownToHtml(resource.note)
+      if (cancelled) {
+        return
+      }
+      setNote(DOMPurify.sanitize(html))
+    }
     getResourceNoteHtml()
-  }, [])
+    return () => {
+      cancelled = true
+    }
+  }, [resource.note])
 
   useLayoutEffect(() => {
     const element = noteContentRef.current

@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { patchResourceCreateSchema } from '~/validations/patch'
 import { createMessage } from '~/app/api/utils/message'
+import { markdownToHtml } from '~/app/api/utils/render/markdownToHtml'
 import { bindUploadedResource, recalcPatchType } from './_helper'
 import type { PatchResource } from '~/types/api/patch'
 
@@ -113,6 +114,7 @@ export const createPatchResource = async (
       type: newResource.type,
       language: newResource.language,
       note: newResource.note,
+      noteHtml: newResource.note ? await markdownToHtml(newResource.note) : '',
       platform: newResource.platform,
       links: newResource.links.map((link) => ({
         id: link.id,

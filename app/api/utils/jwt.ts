@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import jwt from 'jsonwebtoken'
 import { delKv, getKv, setKv } from '~/lib/redis'
+import { prisma } from '~/prisma/index'
 
 export interface KunGalgameStatelessPayload {
   require2FA: boolean
@@ -49,7 +50,7 @@ export const generateKunStatelessToken = (
   return token
 }
 
-export const verifyKunToken = async (refreshToken: string) => {
+const verifyAndLoadUser = async (refreshToken: string) => {
   try {
     const payload = jwt.verify(refreshToken, process.env.JWT_SECRET!, {
       issuer: process.env.JWT_ISS!,
@@ -61,10 +62,36 @@ export const verifyKunToken = async (refreshToken: string) => {
       return null
     }
 
-    return payload
+    const user = await prisma.user.findUnique({
+      where: { id: payload.uid },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        status: true,
+        blocked_tag_ids: true
+      }
+    })
+    if (!user || user.status === 2) {
+      await delKv(`access:token:${payload.uid}`)
+      return null
+    }
+
+    return {
+      payload: { ...payload, name: user.name, role: user.role },
+      user
+    }
   } catch (error) {
     return null
   }
+}
+
+export const verifyKunToken = async (refreshToken: string) => {
+  return (await verifyAndLoadUser(refreshToken))?.payload ?? null
+}
+
+export const verifyKunTokenWithUser = async (refreshToken: string) => {
+  return verifyAndLoadUser(refreshToken)
 }
 
 export const deleteKunToken = async (uid: number) => {

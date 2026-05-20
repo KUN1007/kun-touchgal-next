@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
+import { deleteKunToken } from '~/app/api/utils/jwt'
 import { deleteResource } from '../resource/delete'
 
 const userIdSchema = z.object({
@@ -42,7 +43,7 @@ export const deleteUser = async (
   })
   const resourceIds = patchResourceS3Ids.map((s) => s.id)
 
-  return prisma.$transaction(
+  const result = await prisma.$transaction(
     async (prisma) => {
       if (resourceIds.length) {
         for (const res of resourceIds) {
@@ -66,4 +67,7 @@ export const deleteUser = async (
     },
     { timeout: 60000 }
   )
+
+  await deleteKunToken(input.uid)
+  return result
 }

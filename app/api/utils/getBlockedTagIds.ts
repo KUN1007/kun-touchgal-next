@@ -1,7 +1,6 @@
 import { parseCookies } from '~/utils/cookies'
 import { parseBlockedTagIds } from '~/utils/blockedTag'
-import { verifyKunToken } from './jwt'
-import { prisma } from '~/prisma'
+import { verifyKunTokenWithUser } from './jwt'
 import type { NextRequest } from 'next/server'
 
 export const getBlockedTagIds = async (req: NextRequest) => {
@@ -17,15 +16,10 @@ export const getBlockedTagIds = async (req: NextRequest) => {
     return parseBlockedTagIds(cachedBlockedTagIds)
   }
 
-  const payload = await verifyKunToken(token)
-  if (!payload) {
+  const result = await verifyKunTokenWithUser(token)
+  if (!result) {
     return []
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: payload.uid },
-    select: { blocked_tag_ids: true }
-  })
-
-  return user?.blocked_tag_ids ?? []
+  return result.user.blocked_tag_ids
 }

@@ -60,9 +60,7 @@ export const updateUser = async (
     ...(password ? { password: '[REDACTED]' } : {})
   }
 
-  await deleteKunToken(uid)
-
-  return prisma.$transaction(async (prisma) => {
+  const result = await prisma.$transaction(async (prisma) => {
     await prisma.user.update({
       where: { id: uid },
       data: {
@@ -82,4 +80,7 @@ export const updateUser = async (
 
     return {}
   })
+
+  await deleteKunToken(uid)
+  return result
 }

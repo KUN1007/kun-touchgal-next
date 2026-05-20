@@ -3,7 +3,13 @@
 import { SetStateAction, useState } from 'react'
 import { Button } from '@heroui/button'
 import { Dropdown, DropdownMenu, DropdownTrigger } from '@heroui/dropdown'
-import { MoreHorizontal, Pencil, Trash2, TriangleAlert } from 'lucide-react'
+import {
+  EyeOff,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  TriangleAlert
+} from 'lucide-react'
 import { DropdownItem } from '@heroui/dropdown'
 import {
   Modal,
@@ -14,6 +20,7 @@ import {
   useDisclosure
 } from '@heroui/modal'
 import { Textarea } from '@heroui/input'
+import { Switch } from '@heroui/switch'
 import { KunMarkdownEditor } from '~/components/kun/editor/MarkdownEditor'
 import {
   kunFetchDelete,
@@ -36,6 +43,7 @@ export const CommentDropdown = ({ comment, setComments }: Props) => {
   const { user } = useUserStore((state) => state)
 
   const [editContent, setEditContent] = useState('')
+  const [editIsSpoiler, setEditIsSpoiler] = useState(false)
   const [updating, setUpdating] = useState(false)
   const {
     isOpen: isOpenEdit,
@@ -43,15 +51,15 @@ export const CommentDropdown = ({ comment, setComments }: Props) => {
     onClose: onCloseEdit
   } = useDisclosure()
   const handleStartEdit = async () => {
-    const res = await kunFetchGet<KunResponse<{ content: string }>>(
-      '/patch/comment/markdown',
-      { commentId: comment.id }
-    )
+    const res = await kunFetchGet<
+      KunResponse<{ content: string; isSpoiler: boolean }>
+    >('/patch/comment/markdown', { commentId: comment.id })
     if (typeof res === 'string') {
       toast.error(res)
       return
     } else {
       setEditContent(res.content)
+      setEditIsSpoiler(res.isSpoiler ?? comment.isSpoiler ?? false)
       onOpenEdit()
     }
   }
@@ -64,16 +72,28 @@ export const CommentDropdown = ({ comment, setComments }: Props) => {
     setUpdating(true)
     const res = await kunFetchPut<KunResponse<PatchComment>>('/patch/comment', {
       commentId,
-      content: editContent.trim()
+      content: editContent.trim(),
+      isSpoiler: editIsSpoiler
     })
     kunErrorHandler(res, () => {
       setEditContent('')
       setComments((prev) =>
-        prev.map((comment) =>
-          comment.id === commentId
-            ? { ...comment, content: editContent }
-            : comment
-        )
+        prev.map((c) => {
+          if (c.id === commentId) {
+            return { ...c, content: editContent, isSpoiler: editIsSpoiler }
+          }
+          if (c.reply.some((r) => r.id === commentId)) {
+            return {
+              ...c,
+              reply: c.reply.map((r) =>
+                r.id === commentId
+                  ? { ...r, content: editContent, isSpoiler: editIsSpoiler }
+                  : r
+              )
+            }
+          }
+          return c
+        })
       )
       onCloseEdit()
       toast.success('更新评论成功!')
@@ -179,6 +199,15 @@ export const CommentDropdown = ({ comment, setComments }: Props) => {
               onChange={setEditContent}
               minHeight={160}
             />
+            <Switch
+              isSelected={editIsSpoiler}
+              onValueChange={setEditIsSpoiler}
+              color="warning"
+              size="sm"
+              thumbIcon={<EyeOff className="size-3" />}
+            >
+              <span className="text-sm text-default-600">剧透评论</span>
+            </Switch>
           </ModalBody>
           <ModalFooter>
             <Button variant="light" onPress={onCloseEdit}>

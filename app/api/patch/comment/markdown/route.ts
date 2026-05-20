@@ -16,11 +16,15 @@ const getCommentMarkdown = async (input: z.infer<typeof commentIdSchema>) => {
   const comment = await prisma.patch_comment.findUnique({
     where: { id: commentId },
     select: {
-      content: true
+      content: true,
+      is_spoiler: true
     }
   })
 
-  return { content: comment?.content ?? '' }
+  return {
+    content: comment?.content ?? '',
+    isSpoiler: comment?.is_spoiler ?? false
+  }
 }
 
 export const GET = async (req: NextRequest) => {

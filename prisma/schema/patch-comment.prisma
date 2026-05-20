@@ -1,9 +1,10 @@
 model patch_comment {
   id                   Int    @id @default(autoincrement())
-  content              String @default("") @db.VarChar(10007)
-  content_html         String @default("") @db.Text
-  content_html_version Int    @default(0)
-  edit                 String @default("")
+  content              String  @default("") @db.VarChar(10007)
+  content_html         String  @default("") @db.Text
+  content_html_version Int     @default(0)
+  edit                 String  @default("")
+  is_spoiler           Boolean @default(false)
 
   like_by user_patch_comment_like_relation[]
   report  patch_report[]

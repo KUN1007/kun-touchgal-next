@@ -11,7 +11,7 @@ export const updateComment = async (
   uid: number,
   userRole: number
 ) => {
-  const { commentId, content } = input
+  const { commentId, content, isSpoiler } = input
 
   const comment = await prisma.patch_comment.findUnique({
     where: { id: commentId }
@@ -40,6 +40,7 @@ export const updateComment = async (
       content,
       content_html: contentHtml,
       content_html_version: contentHtmlVersion,
+      is_spoiler: isSpoiler,
       edit: Date.now().toString()
     },
     include: {

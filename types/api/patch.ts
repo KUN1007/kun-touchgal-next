@@ -112,6 +112,7 @@ export interface PatchComment {
   uniqueId: string
   content: string
   isLike: boolean
+  isSpoiler: boolean
   likeCount: number
   parentId: number | null
   userId: number

@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { Card, CardBody, CardHeader } from '@heroui/card'
 import { Button } from '@heroui/button'
-import { Send } from 'lucide-react'
+import { Switch } from '@heroui/switch'
+import { EyeOff, Send } from 'lucide-react'
 import { kunFetchPost } from '~/utils/kunFetch'
 import toast from 'react-hot-toast'
 import { useUserStore } from '~/store/userStore'
@@ -32,6 +33,7 @@ export const PublishComment = ({
   const [loading, setLoading] = useState(false)
   const { user } = useUserStore((state) => state)
   const [content, setContent] = useState('')
+  const [isSpoiler, setIsSpoiler] = useState(false)
 
   const handlePublishComment = async () => {
     setLoading(true)
@@ -40,7 +42,8 @@ export const PublishComment = ({
       {
         patchId,
         parentId,
-        content: content.trim()
+        content: content.trim(),
+        isSpoiler
       }
     )
     kunErrorHandler(res, (value) => {
@@ -50,6 +53,7 @@ export const PublishComment = ({
       })
       toast.success('评论发布成功')
       setContent('')
+      setIsSpoiler(false)
       onSuccess?.()
     })
 
@@ -81,8 +85,16 @@ export const PublishComment = ({
           minHeight={180}
         />
 
-        <div className="flex items-center justify-between">
-          <div />
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <Switch
+            isSelected={isSpoiler}
+            onValueChange={setIsSpoiler}
+            color="warning"
+            size="sm"
+            thumbIcon={<EyeOff className="size-3" />}
+          >
+            <span className="text-sm text-default-600">剧透评论</span>
+          </Switch>
 
           <div className="flex gap-2">
             {onCancel && (

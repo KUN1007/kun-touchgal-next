@@ -28,6 +28,7 @@ export const createPatchComment = async (
       content: input.content,
       content_html: contentHtml,
       content_html_version: contentHtmlVersion,
+      is_spoiler: input.isSpoiler,
       user_id: uid,
       patch_id: input.patchId,
       parent_id: input.parentId
@@ -80,6 +81,7 @@ export const createPatchComment = async (
         ? contentHtml
         : await markdownToHtmlComment(data.content),
     isLike: false,
+    isSpoiler: data.is_spoiler,
     likeCount: 0,
     parentId: data.parent_id,
     userId: data.user_id,

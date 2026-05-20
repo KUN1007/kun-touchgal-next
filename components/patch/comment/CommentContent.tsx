@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '@heroui/button'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react'
 import { createRoot } from 'react-dom/client'
 import DOMPurify from 'isomorphic-dompurify'
 import { useMounted } from '~/hooks/useMounted'
@@ -31,6 +31,7 @@ export const CommentContent = ({ comment }: Props) => {
   )
   const [isExpanded, setIsExpanded] = useState(false)
   const [isOverflowing, setIsOverflowing] = useState(false)
+  const [isSpoilerRevealed, setIsSpoilerRevealed] = useState(false)
 
   useEffect(() => {
     if (previousContentRef.current === comment.content) {
@@ -41,6 +42,10 @@ export const CommentContent = ({ comment }: Props) => {
     setSanitizedContent(DOMPurify.sanitize(comment.content))
     setIsExpanded(false)
   }, [comment.content])
+
+  useEffect(() => {
+    setIsSpoilerRevealed(false)
+  }, [comment.id, comment.isSpoiler])
 
   useEffect(() => {
     if (!contentRef.current || !isMounted) {
@@ -63,7 +68,7 @@ export const CommentContent = ({ comment }: Props) => {
       const linkRoot = createRoot(root)
       linkRoot.render(<KunExternalLink link={safeHref}>{text}</KunExternalLink>)
     })
-  }, [sanitizedContent, isMounted])
+  }, [sanitizedContent, isMounted, isSpoilerRevealed])
 
   useLayoutEffect(() => {
     if (!contentRef.current || !isMounted) {
@@ -103,7 +108,7 @@ export const CommentContent = ({ comment }: Props) => {
       })
       mutationObserver.disconnect()
     }
-  }, [sanitizedContent, isMounted])
+  }, [sanitizedContent, isMounted, isSpoilerRevealed])
 
   useEffect(() => {
     if (!isOverflowing) {
@@ -111,8 +116,36 @@ export const CommentContent = ({ comment }: Props) => {
     }
   }, [isOverflowing])
 
+  const isHidden = comment.isSpoiler && !isSpoilerRevealed
+
+  if (isHidden) {
+    return (
+      <div
+        className="relative p-2 rounded-lg bg-warning-50 dark:bg-warning-100/10 border border-warning-200 dark:border-warning-500/20 cursor-pointer hover:bg-warning-100 dark:hover:bg-warning-100/20 transition-colors"
+        onClick={() => setIsSpoilerRevealed(true)}
+      >
+        <div className="flex items-center gap-1.5 text-warning-600 dark:text-warning-500">
+          <EyeOff className="size-3.5" />
+          <span className="text-xs font-medium">此评论包含剧透 — 点击显示</span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-2">
+      {comment.isSpoiler && (
+        <div
+          className="relative p-2 rounded-lg bg-warning-50 dark:bg-warning-100/10 border border-warning-200 dark:border-warning-500/20 cursor-pointer hover:bg-warning-100 dark:hover:bg-warning-100/20 transition-colors"
+          onClick={() => setIsSpoilerRevealed(false)}
+        >
+          <div className="flex items-center gap-1.5 text-warning-600 dark:text-warning-500">
+            <Eye className="size-3.5" />
+            <span className="text-xs font-medium">剧透评论 — 点击隐藏</span>
+          </div>
+        </div>
+      )}
+
       <div className="relative">
         <div
           ref={contentRef}

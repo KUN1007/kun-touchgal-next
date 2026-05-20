@@ -44,7 +44,8 @@ export const patchCommentCreateSchema = z.object({
     .string()
     .trim()
     .min(1, { message: '评论的内容最少为 1 个字符' })
-    .max(10007, { message: '评论的内容最多为 10007 个字符' })
+    .max(10007, { message: '评论的内容最多为 10007 个字符' }),
+  isSpoiler: z.boolean().optional().default(false)
 })
 
 export const patchCommentUpdateSchema = z.object({
@@ -53,7 +54,8 @@ export const patchCommentUpdateSchema = z.object({
     .string()
     .trim()
     .min(1, { message: '评论的内容最少为 1 个字符' })
-    .max(10007, { message: '评论的内容最多为 10007 个字符' })
+    .max(10007, { message: '评论的内容最多为 10007 个字符' }),
+  isSpoiler: z.boolean().optional().default(false)
 })
 
 export const getPatchCommentSchema = z.object({

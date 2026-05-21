@@ -36,12 +36,9 @@ export const createCroppedImage = async (
   const scaleX = image.naturalWidth / image.width
   const scaleY = image.naturalHeight / image.height
 
-  const pixelRatio = window.devicePixelRatio
+  canvas.width = Math.floor(crop.width * scaleX)
+  canvas.height = Math.floor(crop.height * scaleY)
 
-  canvas.width = Math.floor(crop.width * scaleX * pixelRatio)
-  canvas.height = Math.floor(crop.height * scaleY * pixelRatio)
-
-  ctx.scale(pixelRatio, pixelRatio)
   ctx.imageSmoothingQuality = 'high'
 
   const cropX = crop.x * scaleX

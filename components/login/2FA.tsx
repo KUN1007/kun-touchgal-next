@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { type FormEvent, useEffect, useState, useTransition } from 'react'
 import { useRouter } from '@bprogress/next'
-import { Button, Input, Link } from '@heroui/react'
+import { Button, Input } from '@heroui/react'
 import toast from 'react-hot-toast'
 import { useUserStore } from '~/store/userStore'
 import { kunFetchGet, kunFetchPost } from '~/utils/kunFetch'
@@ -52,8 +52,13 @@ export const TwoFactor = () => {
     })
   }
 
+  const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    void handleSubmit()
+  }
+
   return (
-    <div className="space-y-4 w-72">
+    <form className="space-y-4 w-72" noValidate onSubmit={handleFormSubmit}>
       <p className="text-default-500">
         {isUsingBackupCode
           ? '请输入您的备用验证码'
@@ -75,7 +80,6 @@ export const TwoFactor = () => {
         className="w-full"
         isLoading={isPending}
         isDisabled={isPending}
-        onPress={handleSubmit}
       >
         {isPending ? '验证中...' : '验证'}
       </Button>
@@ -83,6 +87,7 @@ export const TwoFactor = () => {
       <KunTextDivider dividerClass="my-4" text="或" />
 
       <Button
+        type="button"
         color="primary"
         variant="bordered"
         className="w-full"
@@ -90,6 +95,6 @@ export const TwoFactor = () => {
       >
         {isUsingBackupCode ? '使用身份验证器应用' : '使用备用验证码'}
       </Button>
-    </div>
+    </form>
   )
 }

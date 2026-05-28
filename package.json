@@ -79,7 +79,7 @@
     "ioredis": "^5.6.1",
     "isomorphic-dompurify": "^3.8.0",
     "jose": "^6.2.2",
-    "js-cookie": "^3.0.5",
+    "js-cookie": "^3.0.7",
     "jsdom": "^29.0.0",
     "jsonwebtoken": "^9.0.2",
     "localforage": "^1.10.0",

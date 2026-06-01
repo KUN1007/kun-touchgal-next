@@ -1,15 +1,20 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Lightbox from 'yet-another-react-lightbox'
-import Zoom from 'yet-another-react-lightbox/plugins/zoom'
-import Download from 'yet-another-react-lightbox/plugins/download'
-import 'yet-another-react-lightbox/styles.css'
+import dynamic from 'next/dynamic'
 import { useMounted } from '~/hooks/useMounted'
 
 const shouldSkipLightbox = (img: HTMLImageElement) => {
   return Boolean(img.closest('[data-no-lightbox], .yarl__portal'))
 }
+
+const KunImageLightbox = dynamic(
+  () =>
+    import('~/components/kun/image-viewer/ImageLightbox').then(
+      (mod) => mod.KunImageLightbox
+    ),
+  { ssr: false }
+)
 
 export const KunAutoImageViewer = () => {
   const [openImage, setOpenImage] = useState<string | null>(null)
@@ -114,36 +119,19 @@ export const KunAutoImageViewer = () => {
   const currentImageIndex = openImage
     ? images.findIndex((img) => img.src === openImage)
     : -1
+  const visibleImages =
+    openImage && currentImageIndex < 0 ? [{ src: openImage }] : images
+
+  if (!openImage) {
+    return null
+  }
 
   return (
-    <Lightbox
-      index={currentImageIndex}
-      slides={images}
-      open={currentImageIndex >= 0}
-      close={() => setOpenImage(null)}
-      plugins={[Zoom, Download]}
-      animation={{ fade: 300 }}
-      carousel={{
-        finite: true,
-        preload: 2,
-        imageProps: {
-          style: {
-            maxWidth: 'none',
-            maxHeight: 'none',
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain'
-          }
-        }
-      }}
-      zoom={{
-        maxZoomPixelRatio: 3,
-        scrollToZoom: true
-      }}
-      controller={{
-        closeOnBackdropClick: true
-      }}
-      styles={{ container: { backgroundColor: 'rgba(0, 0, 0, .7)' } }}
+    <KunImageLightbox
+      index={Math.max(currentImageIndex, 0)}
+      slides={visibleImages}
+      open={true}
+      onClose={() => setOpenImage(null)}
     />
   )
 }

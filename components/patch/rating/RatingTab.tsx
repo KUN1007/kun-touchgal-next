@@ -1,3 +1,5 @@
+'use client'
+
 import { Card, CardBody, CardHeader } from '@heroui/card'
 import { Ratings } from '~/components/patch/rating/Ratings'
 

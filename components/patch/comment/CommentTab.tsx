@@ -1,3 +1,5 @@
+'use client'
+
 import { Card, CardBody, CardHeader } from '@heroui/card'
 import { Comments } from '~/components/patch/comment/Comments'
 

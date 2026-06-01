@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button, Tooltip } from '@heroui/react'
 import { Download, Pencil, Share2, Trash2 } from 'lucide-react'
 import { useRouter } from '@bprogress/next'
+import { usePathname, useSearchParams } from 'next/navigation'
 import {
   Modal,
   ModalBody,
@@ -24,18 +25,25 @@ import type { Patch } from '~/types/api/patch'
 
 interface PatchHeaderActionsProps {
   patch: Patch
-  handleClickDownloadNav: () => void
 }
 
-export const PatchHeaderActions = ({
-  patch,
-  handleClickDownloadNav
-}: PatchHeaderActionsProps) => {
+export const PatchHeaderActions = ({ patch }: PatchHeaderActionsProps) => {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { user } = useUserStore((state) => state)
 
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [deleting, setDeleting] = useState(false)
+
+  const handleClickDownloadNav = () => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', 'resources')
+    params.delete('commentId')
+    params.delete('ratingId')
+    const query = params.toString()
+    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
 
   const handleShareLink = () => {
     const text = `${patch.name} - ${kunMoyuMoe.domain.main}/patch/${patch.id}/introduction`

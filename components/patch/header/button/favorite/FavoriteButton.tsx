@@ -1,12 +1,35 @@
 'use client'
 
-import { Button, useDisclosure } from '@heroui/react'
+import dynamic from 'next/dynamic'
+import {
+  Button,
+  Modal,
+  ModalBody,
+  ModalContent,
+  useDisclosure
+} from '@heroui/react'
 import { Tooltip } from '@heroui/tooltip'
 import { Heart } from 'lucide-react'
 import { useUserStore } from '~/store/userStore'
 import toast from 'react-hot-toast'
 import { cn } from '~/utils/cn'
-import { FavoriteModal } from './FavoriteModal'
+import { KunLoading } from '~/components/kun/Loading'
+
+const FavoriteModal = dynamic(
+  () => import('./FavoriteModal').then((mod) => mod.FavoriteModal),
+  {
+    ssr: false,
+    loading: () => (
+      <Modal isOpen={true} isDismissable={false}>
+        <ModalContent>
+          <ModalBody className="py-6">
+            <KunLoading className="min-h-48" hint="正在加载收藏夹..." />
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+    )
+  }
+)
 
 interface Props {
   patchId: number
@@ -45,7 +68,9 @@ export const FavoriteButton = ({ patchId, isFavorite }: Props) => {
         </Button>
       </Tooltip>
 
-      <FavoriteModal patchId={patchId} isOpen={isOpen} onClose={onClose} />
+      {isOpen && (
+        <FavoriteModal patchId={patchId} isOpen={isOpen} onClose={onClose} />
+      )}
     </>
   )
 }

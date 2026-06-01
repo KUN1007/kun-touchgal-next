@@ -1,10 +1,24 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { Button } from '@heroui/button'
 import { Modal, ModalContent, ModalHeader, useDisclosure } from '@heroui/modal'
-import { RewritePatchBanner } from '~/components/edit/rewrite/RewritePatchBanner'
 import { useUserStore } from '~/store/userStore'
 import type { Patch } from '~/types/api/patch'
+import { KunLoading } from '~/components/kun/Loading'
+
+const RewritePatchBanner = dynamic(
+  () =>
+    import('~/components/edit/rewrite/RewritePatchBanner').then(
+      (mod) => mod.RewritePatchBanner
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <KunLoading className="min-h-48" hint="正在加载图片编辑器..." />
+    )
+  }
+)
 
 interface PatchHeaderBannerProps {
   patch: Patch
@@ -33,7 +47,9 @@ export const EditBanner = ({ patch }: PatchHeaderBannerProps) => {
           <ModalHeader className="flex flex-col gap-1">
             更改预览图片
           </ModalHeader>
-          <RewritePatchBanner patchId={patch.id} onClose={onClose} />
+          {isOpen && (
+            <RewritePatchBanner patchId={patch.id} onClose={onClose} />
+          )}
         </ModalContent>
       </Modal>
     </>

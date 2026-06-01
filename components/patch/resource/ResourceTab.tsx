@@ -1,3 +1,5 @@
+'use client'
+
 import { Card, CardBody, CardHeader } from '@heroui/card'
 import { Resources } from '~/components/patch/resource/Resource'
 

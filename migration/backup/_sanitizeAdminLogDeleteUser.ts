@@ -1,4 +1,4 @@
-import { prisma } from '../prisma'
+import { prisma } from '../../prisma/index'
 
 // One-shot cleanup for admin_log records produced by the legacy
 // app/api/admin/user/delete.ts, which serialized the entire user row

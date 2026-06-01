@@ -1,4 +1,4 @@
-import { prisma } from '../prisma'
+import { prisma } from '../../prisma/index'
 
 const run = async () => {
   // Legacy report records used type='report' with recipient_id=null to mean

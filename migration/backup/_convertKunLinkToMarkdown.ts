@@ -1,4 +1,4 @@
-import { prisma } from '../prisma'
+import { prisma } from '../../prisma/index'
 
 const kunLinkPattern1 = /::kun-link\{href="([^"]*)" text="([^"]*)"\}/g
 const kunLinkPattern2 = /::kun-link\{text="([^"]*)" href="([^"]*)"\}/g

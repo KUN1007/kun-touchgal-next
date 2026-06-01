@@ -9,6 +9,7 @@ import {
   deletePatchResourceLink,
   recalcPatchType
 } from '~/app/api/patch/resource/_helper'
+import { invalidateResourceListCache } from '~/app/api/resource/cache'
 
 const declinePatchResource = async (
   input: z.infer<typeof declinePatchResourceSchema>,
@@ -58,6 +59,10 @@ const declinePatchResource = async (
 
     return {}
   })
+
+  if (resource.section === 'patch' && resource.status === 0) {
+    await invalidateResourceListCache()
+  }
 
   for (const link of s3Links) {
     await deletePatchResourceLink(

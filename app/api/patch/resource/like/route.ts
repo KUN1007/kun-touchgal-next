@@ -4,6 +4,7 @@ import { kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { createDedupMessage } from '~/app/api/utils/message'
+import { invalidateResourceStatsListCache } from '~/app/api/resource/cache'
 
 const resourceIdSchema = z.object({
   resourceId: z.coerce
@@ -41,7 +42,7 @@ const toggleResourceLike = async (
       }
     })
 
-  return await prisma.$transaction(async (tx) => {
+  const response = await prisma.$transaction(async (tx) => {
     if (existingLike) {
       await tx.user_patch_resource_like_relation.delete({
         where: {
@@ -78,6 +79,9 @@ const toggleResourceLike = async (
 
     return !existingLike
   })
+
+  await invalidateResourceStatsListCache()
+  return response
 }
 
 export const PUT = async (req: NextRequest) => {

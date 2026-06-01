@@ -1,4 +1,6 @@
-import type { PatchResourceLink } from './patch'
+export interface PatchResourceLinkSummary {
+  size: string
+}
 
 export interface PatchResource {
   id: number
@@ -8,8 +10,8 @@ export interface PatchResource {
   type: string[]
   language: string[]
   platform: string[]
-  note: string
-  links: PatchResourceLink[]
+  primaryLink: PatchResourceLinkSummary | null
+  linkCount: number
   likeCount: number
   download: number
   patchId: number
@@ -19,4 +21,9 @@ export interface PatchResource {
     patchCount: number
     role: number
   }
+}
+
+export interface ResourceListResponse {
+  resources: PatchResource[]
+  total: number
 }

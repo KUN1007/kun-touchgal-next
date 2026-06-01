@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { deletePatchResourceLink } from './resource/_helper'
+import { invalidateResourceListCache } from '~/app/api/resource/cache'
 
 const patchIdSchema = z.object({
   patchId: z.coerce.number().min(1).max(9999999)
@@ -51,6 +52,14 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
 
     return {}
   })
+
+  if (
+    patchResources.some(
+      (resource) => resource.status === 0 && resource.section === 'patch'
+    )
+  ) {
+    await invalidateResourceListCache()
+  }
 
   for (const link of s3Links) {
     await deletePatchResourceLink(

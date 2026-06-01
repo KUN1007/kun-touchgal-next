@@ -6,6 +6,7 @@ import { createMessage } from '~/app/api/utils/message'
 import { kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { approvePatchResourceSchema } from '~/validations/admin'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
+import { invalidateResourceListCache } from '~/app/api/resource/cache'
 
 const approvePatchResource = async (
   input: z.infer<typeof approvePatchResourceSchema>,
@@ -32,7 +33,7 @@ const approvePatchResource = async (
     return '管理员不存在'
   }
 
-  return prisma.$transaction(async (prisma) => {
+  const response = await prisma.$transaction(async (prisma) => {
     await prisma.patch_resource.update({
       where: { id: resourceId },
       data: { status: { set: 0 } }
@@ -56,6 +57,12 @@ const approvePatchResource = async (
 
     return {}
   })
+
+  if (resource.section === 'patch') {
+    await invalidateResourceListCache()
+  }
+
+  return response
 }
 
 export const PUT = async (req: NextRequest) => {

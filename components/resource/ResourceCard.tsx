@@ -12,7 +12,7 @@ interface Props {
 }
 
 export const ResourceCard = ({ resource }: Props) => {
-  const primaryLink = resource.links[0]
+  const primaryLink = resource.primaryLink
 
   return (
     <Card
@@ -71,9 +71,9 @@ export const ResourceCard = ({ resource }: Props) => {
                 {primaryLink.size}
               </Chip>
             )}
-            {resource.links.length > 1 && (
+            {resource.linkCount > 1 && (
               <Chip size="sm" variant="flat" color="primary">
-                {resource.links.length} 个链接
+                {resource.linkCount} 个链接
               </Chip>
             )}
           </div>

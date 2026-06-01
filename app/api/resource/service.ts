@@ -1,18 +1,29 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { resourceSchema } from '~/validations/resource'
+import {
+  getCachedResourceList,
+  getResourceListCacheKey,
+  setResourceListCache
+} from './cache'
 import type { Prisma } from '~/prisma/generated/prisma/client'
-import type { PatchResource } from '~/types/api/resource'
+import type { PatchResource, ResourceListResponse } from '~/types/api/resource'
 
 export const getPatchResource = async (
   input: z.infer<typeof resourceSchema>,
   visibilityWhere: Prisma.patchWhereInput
-) => {
+): Promise<ResourceListResponse> => {
   const { sortField, sortOrder, page, limit } = input
+  const cacheKey = await getResourceListCacheKey(input, visibilityWhere)
+
+  const cached = await getCachedResourceList(cacheKey)
+  if (cached.response) {
+    return cached.response
+  }
 
   const offset = (page - 1) * limit
 
-  const orderByField =
+  const orderByField: Prisma.patch_resourceOrderByWithRelationInput =
     sortField === 'like'
       ? { like_by: { _count: sortOrder } }
       : { [sortField]: sortOrder }
@@ -23,7 +34,16 @@ export const getPatchResource = async (
       skip: offset,
       orderBy: orderByField,
       where: { patch: visibilityWhere, section: 'patch', status: 0 },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        section: true,
+        type: true,
+        language: true,
+        platform: true,
+        download: true,
+        patch_id: true,
+        created: true,
         patch: {
           select: {
             name: true,
@@ -31,18 +51,27 @@ export const getPatchResource = async (
           }
         },
         user: {
-          include: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+            role: true,
             _count: {
               select: { patch_resource: true }
             }
           }
         },
         links: {
-          orderBy: { sort_order: 'asc' }
+          orderBy: { sort_order: 'asc' },
+          take: 1,
+          select: {
+            size: true
+          }
         },
         _count: {
           select: {
-            like_by: true
+            like_by: true,
+            links: true
           }
         }
       }
@@ -59,19 +88,9 @@ export const getPatchResource = async (
     uniqueId: resource.patch.unique_id,
     type: resource.type,
     language: resource.language,
-    note: resource.note.slice(0, 233),
     platform: resource.platform,
-    links: resource.links.map((link) => ({
-      id: link.id,
-      storage: link.storage,
-      size: link.size,
-      code: link.code,
-      password: link.password,
-      hash: link.hash,
-      content: link.content,
-      sortOrder: link.sort_order,
-      download: link.download
-    })),
+    primaryLink: resource.links[0] ? { size: resource.links[0].size } : null,
+    linkCount: resource._count.links,
     likeCount: resource._count.like_by,
     download: resource.download,
     patchId: resource.patch_id,
@@ -86,5 +105,10 @@ export const getPatchResource = async (
     }
   }))
 
-  return { resources, total }
+  const response = { resources, total }
+  if (cached.canWrite && cacheKey) {
+    await setResourceListCache(cacheKey, response)
+  }
+
+  return response
 }

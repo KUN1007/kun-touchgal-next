@@ -3,11 +3,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { prisma } from '~/prisma/index'
 import { updatePatchResourceStatsSchema } from '~/validations/patch'
+import { invalidateResourceStatsListCache } from '~/app/api/resource/cache'
 
 const downloadStats = async (
   input: z.infer<typeof updatePatchResourceStatsSchema>
 ) => {
-  return await prisma.$transaction(async (prisma) => {
+  const response = await prisma.$transaction(async (prisma) => {
     await prisma.patch.update({
       where: { id: input.patchId },
       data: { download: { increment: 1 } }
@@ -24,6 +25,9 @@ const downloadStats = async (
     })
     return {}
   })
+
+  await invalidateResourceStatsListCache()
+  return response
 }
 
 export const PUT = async (req: NextRequest) => {

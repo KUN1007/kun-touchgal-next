@@ -7,6 +7,7 @@ import {
   deletePatchResourceLink,
   recalcPatchType
 } from './_helper'
+import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import type { PatchResource } from '~/types/api/patch'
 
 export const updatePatchResource = async (
@@ -204,6 +205,13 @@ export const updatePatchResource = async (
 
     return resourceResponse
   })
+
+  const wasListed = resource.status === 0 && resource.section === 'patch'
+  const isListed =
+    updatedResource.status === 0 && updatedResource.section === 'patch'
+  if (wasListed || isListed) {
+    await invalidateResourceListCache()
+  }
 
   for (const link of s3LinksToDelete) {
     await deletePatchResourceLink(

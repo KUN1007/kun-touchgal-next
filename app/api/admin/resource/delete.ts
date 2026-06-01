@@ -5,6 +5,7 @@ import {
   recalcPatchType,
   sanitizeResourceLinksForAuditLog
 } from '~/app/api/patch/resource/_helper'
+import { invalidateResourceListCache } from '~/app/api/resource/cache'
 
 const resourceIdSchema = z.object({
   resourceId: z.coerce
@@ -58,6 +59,10 @@ export const deleteResource = async (
 
     return {}
   })
+
+  if (patchResource.status === 0 && patchResource.section === 'patch') {
+    await invalidateResourceListCache()
+  }
 
   for (const link of s3Links) {
     await deletePatchResourceLink(

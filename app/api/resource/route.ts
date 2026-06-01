@@ -1,11 +1,9 @@
-import { z } from 'zod'
 import { NextRequest, NextResponse } from 'next/server'
 import { kunParseGetQuery } from '../utils/parseQuery'
-import { prisma } from '~/prisma/index'
 import { resourceSchema } from '~/validations/resource'
 import { getPatchVisibilityWhere } from '~/app/api/utils/getPatchVisibilityWhere'
-import type { PatchResource } from '~/types/api/resource'
 import { getPatchResource } from './service'
+
 export const GET = async (req: NextRequest) => {
   const input = kunParseGetQuery(req, resourceSchema)
   if (typeof input === 'string') {

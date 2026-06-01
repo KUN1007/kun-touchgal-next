@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { deleteKunToken } from '~/app/api/utils/jwt'
 import { deleteResource } from '../resource/delete'
+import { invalidateResourceListCache } from '~/app/api/resource/cache'
 
 const userIdSchema = z.object({
   uid: z.coerce.number({ message: '用户 ID 必须为数字' }).min(1).max(9999999)
@@ -42,6 +43,13 @@ export const deleteUser = async (
     select: { id: true }
   })
   const resourceIds = patchResourceS3Ids.map((s) => s.id)
+  const publicResourceCount = await prisma.patch_resource.count({
+    where: {
+      user_id: input.uid,
+      section: 'patch',
+      status: 0
+    }
+  })
 
   const result = await prisma.$transaction(
     async (prisma) => {
@@ -69,5 +77,9 @@ export const deleteUser = async (
   )
 
   await deleteKunToken(input.uid)
+  if (publicResourceCount > 0) {
+    await invalidateResourceListCache()
+  }
+
   return result
 }

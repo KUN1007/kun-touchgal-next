@@ -4,6 +4,7 @@ import { patchResourceCreateSchema } from '~/validations/patch'
 import { createMessage } from '~/app/api/utils/message'
 import { markdownToHtml } from '~/app/api/utils/render/markdownToHtml'
 import { bindUploadedResource, recalcPatchType } from './_helper'
+import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import type { PatchResource } from '~/types/api/patch'
 
 export const createPatchResource = async (
@@ -144,6 +145,10 @@ export const createPatchResource = async (
 
     return resource
   })
+
+  if (resource.status === 0 && resource.section === 'patch') {
+    await invalidateResourceListCache()
+  }
 
   if (needApproval) {
     await createMessage({

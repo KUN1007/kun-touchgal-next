@@ -1,10 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
 import { GalgameCard } from './Card'
 import { FilterBar } from './FilterBar'
-import { useMounted } from '~/hooks/useMounted'
 import { KunHeader } from '../kun/Header'
 import { KunPagination } from '../kun/Pagination'
 import type { SortField, SortOrder } from './_sort'
@@ -16,7 +15,7 @@ interface Props {
 }
 
 export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
-  const isMounted = useMounted()
+  const didSkipInitialFetch = useRef(false)
 
   const [galgames, setGalgames] = useState<GalgameCard[]>(initialGalgames)
   const [total, setTotal] = useState(initialTotal)
@@ -58,9 +57,11 @@ export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
   }
 
   useEffect(() => {
-    if (!isMounted) {
+    if (!didSkipInitialFetch.current) {
+      didSkipInitialFetch.current = true
       return
     }
+
     fetchPatches()
   }, [
     sortField,

@@ -1,10 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
 import { ResourceCard } from './ResourceCard'
 import { FilterBar } from './FilterBar'
-import { useMounted } from '~/hooks/useMounted'
 import { KunLoading } from '~/components/kun/Loading'
 import { KunHeader } from '../kun/Header'
 import { useSearchParams } from 'next/navigation'
@@ -18,19 +17,19 @@ interface Props {
 }
 
 export const CardContainer = ({ initialResources, initialTotal }: Props) => {
+  const didSkipInitialFetch = useRef(false)
   const [resources, setResources] = useState<PatchResource[]>(initialResources)
   const [total, setTotal] = useState(initialTotal)
   const [loading, setLoading] = useState(false)
   const [sortField, setSortField] = useState<SortOption>('created')
   const [sortOrder, setSortOrder] = useState<SortDirection>('desc')
-  const isMounted = useMounted()
   const searchParams = useSearchParams()
   const [page, setPage] = useState(Number(searchParams.get('page')) || 1)
 
   const fetchData = async () => {
     setLoading(true)
 
-    const { resources } = await kunFetchGet<{
+    const { resources, total: nextTotal } = await kunFetchGet<{
       resources: PatchResource[]
       total: number
     }>('/resource', {
@@ -41,14 +40,16 @@ export const CardContainer = ({ initialResources, initialTotal }: Props) => {
     })
 
     setResources(resources)
-    setTotal(total)
+    setTotal(nextTotal)
     setLoading(false)
   }
 
   useEffect(() => {
-    if (!isMounted) {
+    if (!didSkipInitialFetch.current) {
+      didSkipInitialFetch.current = true
       return
     }
+
     fetchData()
   }, [sortField, sortOrder, page])
 

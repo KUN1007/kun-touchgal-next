@@ -12,6 +12,7 @@ const REDIS_RETRY_MAX_DELAY_MS = 2000
 const redisOptions: RedisOptions = {
   port: parseInt(process.env.REDIS_PORT!),
   host: process.env.REDIS_HOST,
+  password: process.env.REDIS_PASSWORD || undefined,
   lazyConnect: true,
   enableOfflineQueue: false,
   maxRetriesPerRequest: 1,

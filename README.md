@@ -36,9 +36,10 @@ KUN_VISUAL_NOVEL_SITE_URL = "https://www.touchgal.ink"
 NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV = "http://127.0.0.1:3000"
 NEXT_PUBLIC_KUN_PATCH_ADDRESS_PROD = "https://image.touchgal.moyu.moe"
 
-# 本地 Redis 端口和地址, 一般无需变动
+# 本地 Redis 端口、地址和密码, 无密码时留空
 REDIS_HOST = '127.0.0.1'
 REDIS_PORT = '6379'
+REDIS_PASSWORD = ''
 
 # jwt 配置, 开发环境无需变动
 JWT_ISS = 'touchgal'

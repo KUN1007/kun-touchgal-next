@@ -13,7 +13,7 @@ interface DuplicateResponse {
 }
 
 export const DuplicateCheckButton = () => {
-  const { data } = useCreatePatchStore()
+  const data = useCreatePatchStore((state) => state.data)
   const [checking, setChecking] = useState(false)
   const [duplicateUniqueId, setDuplicateUniqueId] = useState<string | null>(
     null

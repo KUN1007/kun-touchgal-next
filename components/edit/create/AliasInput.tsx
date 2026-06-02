@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import { useState } from 'react'
 import { Button, Input } from '@heroui/react'
 import { Plus } from 'lucide-react'
@@ -12,7 +13,9 @@ interface Props {
 }
 
 export const AliasInput = ({ errors }: Props) => {
-  const { data, setData } = useCreatePatchStore()
+  const { data, setData } = useCreatePatchStore(
+    useShallow((state) => ({ data: state.data, setData: state.setData }))
+  )
   const [newAlias, setNewAlias] = useState<string>('')
 
   const addAlias = () => {

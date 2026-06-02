@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import { useEffect, useState } from 'react'
 import { Button, Input } from '@heroui/react'
 import toast from 'react-hot-toast'
@@ -32,7 +33,9 @@ const parseTags = (raw?: string) =>
   normalizeStringArray(raw?.split(/[,，]/) ?? [])
 
 export const DLSiteInput = ({ errors }: { errors?: string }) => {
-  const { data, setData } = useRewritePatchStore()
+  const { data, setData } = useRewritePatchStore(
+    useShallow((state) => ({ data: state.data, setData: state.setData }))
+  )
   const [preview, setPreview] = useState<PreviewData | null>(null)
 
   useEffect(() => {

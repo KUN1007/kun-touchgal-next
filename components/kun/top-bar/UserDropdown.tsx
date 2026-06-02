@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import {
   Dropdown,
   DropdownItem,
@@ -48,7 +49,13 @@ interface OutsidePointerContext {
 
 export const UserDropdown = () => {
   const router = useRouter()
-  const { user, setUser, logout } = useUserStore((state) => state)
+  const { user, setUser, logout } = useUserStore(
+    useShallow((state) => ({
+      user: state.user,
+      setUser: state.setUser,
+      logout: state.logout
+    }))
+  )
   const resetSettings = useSettingStore((state) => state.resetData)
   const resetUnreadMessageStatus = useMessageStore(
     (state) => state.resetUnreadMessageStatus

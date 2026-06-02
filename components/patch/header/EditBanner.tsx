@@ -26,7 +26,7 @@ interface PatchHeaderBannerProps {
 
 export const EditBanner = ({ patch }: PatchHeaderBannerProps) => {
   const { isOpen, onOpen, onClose } = useDisclosure()
-  const { user } = useUserStore((state) => state)
+  const user = useUserStore((state) => state.user)
 
   return (
     <>

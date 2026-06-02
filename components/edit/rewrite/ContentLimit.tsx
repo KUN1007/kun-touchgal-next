@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import { Switch } from '@heroui/react'
 import { useRewritePatchStore } from '~/store/rewriteStore'
 import { GALGAME_AGE_LIMIT_MAP } from '~/constants/galgame'
@@ -9,7 +10,9 @@ interface Props {
 }
 
 export const ContentLimit = ({ errors }: Props) => {
-  const { data, setData } = useRewritePatchStore()
+  const { data, setData } = useRewritePatchStore(
+    useShallow((state) => ({ data: state.data, setData: state.setData }))
+  )
 
   return (
     <div className="space-y-2">

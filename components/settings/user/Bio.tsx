@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import { Card, CardBody, CardFooter, CardHeader } from '@heroui/card'
 import { Textarea } from '@heroui/input'
 import { Button } from '@heroui/button'
@@ -10,7 +11,9 @@ import { bioSchema } from '~/validations/user'
 import toast from 'react-hot-toast'
 
 export const Bio = () => {
-  const { user, setUser } = useUserStore((state) => state)
+  const { user, setUser } = useUserStore(
+    useShallow((state) => ({ user: state.user, setUser: state.setUser }))
+  )
   const [bio, setBio] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)

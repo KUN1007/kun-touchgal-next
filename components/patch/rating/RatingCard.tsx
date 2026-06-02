@@ -65,7 +65,7 @@ export const RatingCard = ({
   onDeleted
 }: Props) => {
   const { isOpen, onOpen, onClose } = useDisclosure()
-  const { user } = useUserStore((state) => state)
+  const user = useUserStore((state) => state.user)
   const [isShowSummary, setIsShowSummary] = useState(
     rating.spoilerLevel === 'none'
   )

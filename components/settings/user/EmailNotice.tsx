@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import { Card, CardBody, CardFooter, CardHeader } from '@heroui/card'
 import { useUserStore } from '~/store/userStore'
 import { kunFetchPost } from '~/utils/kunFetch'
@@ -7,7 +8,9 @@ import toast from 'react-hot-toast'
 import { Switch } from '@heroui/react'
 
 export const EmailNotice = () => {
-  const { user, setUser } = useUserStore((state) => state)
+  const { user, setUser } = useUserStore(
+    useShallow((state) => ({ user: state.user, setUser: state.setUser }))
+  )
 
   const handleToggleEmailNotice = async (value: boolean) => {
     if (!user.uid) {

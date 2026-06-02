@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import toast from 'react-hot-toast'
 import { useEffect, useRef, useState } from 'react'
 import { NavbarContent, NavbarItem } from '@heroui/navbar'
@@ -27,14 +28,28 @@ interface Props {
 
 export const KunTopBarUser = ({ initialSession, isSessionPending }: Props) => {
   const router = useRouter()
-  const { user, setUser, logout } = useUserStore((state) => state)
+  const { user, setUser, logout } = useUserStore(
+    useShallow((state) => ({
+      user: state.user,
+      setUser: state.setUser,
+      logout: state.logout
+    }))
+  )
   const {
     hasUnreadNotification,
     hasUnreadConversation,
     setHasUnreadNotification,
     setUnreadMessageStatus,
     resetUnreadMessageStatus
-  } = useMessageStore((state) => state)
+  } = useMessageStore(
+    useShallow((state) => ({
+      hasUnreadNotification: state.hasUnreadNotification,
+      hasUnreadConversation: state.hasUnreadConversation,
+      setHasUnreadNotification: state.setHasUnreadNotification,
+      setUnreadMessageStatus: state.setUnreadMessageStatus,
+      resetUnreadMessageStatus: state.resetUnreadMessageStatus
+    }))
+  )
   const resetSettings = useSettingStore((state) => state.resetData)
   const isMounted = useMounted()
   const missingSessionCheckedRef = useRef(false)

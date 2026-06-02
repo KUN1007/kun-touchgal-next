@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import { useState } from 'react'
 import { Button } from '@heroui/react'
 import localforage from 'localforage'
@@ -23,7 +24,9 @@ interface Props {
 
 export const PublishButton = ({ setErrors, className }: Props) => {
   const router = useRouter()
-  const { data, resetData } = useCreatePatchStore()
+  const { data, resetData } = useCreatePatchStore(
+    useShallow((state) => ({ data: state.data, resetData: state.resetData }))
+  )
 
   const [creating, setCreating] = useState(false)
   const handleSubmit = async () => {

@@ -14,7 +14,7 @@ export const TwoFactor = () => {
   const [token, setToken] = useState('')
   const [isUsingBackupCode, setIsUsingBackupCode] = useState(false)
   const router = useRouter()
-  const { setUser } = useUserStore()
+  const setUser = useUserStore((state) => state.setUser)
   const [isPending, startTransition] = useTransition()
 
   useEffect(() => {

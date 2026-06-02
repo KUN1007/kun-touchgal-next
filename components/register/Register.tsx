@@ -27,7 +27,7 @@ import type { UserState } from '~/store/userStore'
 type RegisterFormData = z.infer<typeof registerSchema>
 
 export const RegisterForm = () => {
-  const { setUser } = useUserStore((state) => state)
+  const setUser = useUserStore((state) => state.setUser)
   const router = useRouter()
   const [isAgree, setIsAgree] = useState(false)
   const [loading, setLoading] = useState(false)

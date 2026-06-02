@@ -56,7 +56,7 @@ export const ResourceTabs = ({
   setDeleteResourceId
 }: Props) => {
   const searchParams = useSearchParams()
-  const { user } = useUserStore((state) => state)
+  const user = useUserStore((state) => state.user)
   const [selectedSection, setSelectedSection] =
     useState<ResourceSection>('galgame')
   const [highlightedResourceId, setHighlightedResourceId] = useState<

@@ -40,7 +40,7 @@ interface Props {
 }
 
 export const CommentDropdown = ({ comment, setComments }: Props) => {
-  const { user } = useUserStore((state) => state)
+  const user = useUserStore((state) => state.user)
 
   const [editContent, setEditContent] = useState('')
   const [editIsSpoiler, setEditIsSpoiler] = useState(false)

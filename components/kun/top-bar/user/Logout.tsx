@@ -19,7 +19,7 @@ import toast from 'react-hot-toast'
 
 export const UserDropdown = () => {
   const router = useRouter()
-  const { logout } = useUserStore((state) => state)
+  const logout = useUserStore((state) => state.logout)
   const [loading, setLoading] = useState(false)
   const { isOpen, onOpen, onOpenChange } = useDisclosure()
 

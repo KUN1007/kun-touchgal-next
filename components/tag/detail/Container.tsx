@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import { useEffect, useState } from 'react'
 import { useDebounce } from 'use-debounce'
 import { kunFetchDelete, kunFetchGet, kunFetchPost } from '~/utils/kunFetch'
@@ -50,7 +51,9 @@ export const TagDetailContainer = ({
   total
 }: Props) => {
   const isMounted = useMounted()
-  const { user, setUser } = useUserStore((state) => state)
+  const { user, setUser } = useUserStore(
+    useShallow((state) => ({ user: state.user, setUser: state.setUser }))
+  )
   const searchParams = useSearchParams()
   const [page, setPage] = useState(
     parsePositiveIntParam(searchParams.get('page'), 1)

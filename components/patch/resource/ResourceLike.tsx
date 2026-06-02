@@ -14,7 +14,7 @@ interface Props {
 }
 
 export const ResourceLikeButton = ({ resource }: Props) => {
-  const { user } = useUserStore((state) => state)
+  const user = useUserStore((state) => state.user)
 
   const [liked, setLiked] = useState(resource.isLike)
   const [likeCount, setLikeCount] = useState(resource.likeCount)

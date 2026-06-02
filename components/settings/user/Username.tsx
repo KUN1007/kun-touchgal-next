@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import { Card, CardBody, CardFooter, CardHeader } from '@heroui/card'
 import { Input } from '@heroui/input'
 import { Button } from '@heroui/button'
@@ -19,7 +20,9 @@ import {
 import toast from 'react-hot-toast'
 
 export const Username = () => {
-  const { user, setUser } = useUserStore((state) => state)
+  const { user, setUser } = useUserStore(
+    useShallow((state) => ({ user: state.user, setUser: state.setUser }))
+  )
   const [username, setUsername] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)

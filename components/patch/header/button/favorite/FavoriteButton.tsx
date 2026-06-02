@@ -37,7 +37,7 @@ interface Props {
 }
 
 export const FavoriteButton = ({ patchId, isFavorite }: Props) => {
-  const { user } = useUserStore((state) => state)
+  const user = useUserStore((state) => state.user)
   const { isOpen, onOpen, onClose } = useDisclosure()
 
   const toggleLike = async () => {

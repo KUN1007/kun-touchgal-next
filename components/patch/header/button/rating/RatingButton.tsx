@@ -36,7 +36,7 @@ interface Props {
 }
 
 export const RatingButton = ({ patchId }: Props) => {
-  const { user } = useUserStore((state) => state)
+  const user = useUserStore((state) => state.user)
   const { isOpen, onOpen, onClose } = useDisclosure()
 
   const onPress = () => {

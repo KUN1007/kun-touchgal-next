@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import { DropdownItem } from '@heroui/dropdown'
 import { CalendarCheck, Sparkles } from 'lucide-react'
 import { useUserStore } from '~/store/userStore'
@@ -9,7 +10,9 @@ import { showKunSooner } from '~/components/kun/Sooner'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
 
 export const UserCheckIn = () => {
-  const { user, setUser } = useUserStore((state) => state)
+  const { user, setUser } = useUserStore(
+    useShallow((state) => ({ user: state.user, setUser: state.setUser }))
+  )
 
   const [checking, setChecking] = useState(false)
   const handleCheckIn = async () => {

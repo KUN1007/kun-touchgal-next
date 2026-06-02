@@ -19,7 +19,7 @@ type PasswordFormData = z.infer<typeof passwordSchema>
 
 export const Password = () => {
   const router = useRouter()
-  const { logout } = useUserStore((state) => state)
+  const logout = useUserStore((state) => state.logout)
   const [loading, setLoading] = useState(false)
 
   const {

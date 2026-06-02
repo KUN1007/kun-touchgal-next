@@ -31,7 +31,7 @@ export const PublishComment = ({
   onCancel
 }: CreateCommentProps) => {
   const [loading, setLoading] = useState(false)
-  const { user } = useUserStore((state) => state)
+  const user = useUserStore((state) => state.user)
   const [content, setContent] = useState('')
   const [isSpoiler, setIsSpoiler] = useState(false)
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import { useState } from 'react'
 import { Card, CardBody, CardHeader, Input } from '@heroui/react'
 import { useCreatePatchStore } from '~/store/editStore'
@@ -20,7 +21,9 @@ import { CompanySummary } from '../components/CompanySummary'
 import type { CreatePatchRequestData } from '~/store/editStore'
 
 export const CreatePatch = () => {
-  const { data, setData } = useCreatePatchStore()
+  const { data, setData } = useCreatePatchStore(
+    useShallow((state) => ({ data: state.data, setData: state.setData }))
+  )
   const [errors, setErrors] = useState<
     Partial<Record<keyof CreatePatchRequestData, string>>
   >({})

@@ -16,7 +16,7 @@ interface Props {
 }
 
 export const RatingLikeButton = ({ rating }: Props) => {
-  const { user } = useUserStore((state) => state)
+  const user = useUserStore((state) => state.user)
   const [liked, setLiked] = useState(rating.isLike)
   const [likeCount, setLikeCount] = useState(rating.likeCount)
   const [loading, setLoading] = useState(false)

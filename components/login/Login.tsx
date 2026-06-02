@@ -20,7 +20,7 @@ type LoginFormData = z.infer<typeof loginSchema>
 export const LoginForm = () => {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [isPending, startTransition] = useTransition()
-  const { setUser } = useUserStore((state) => state)
+  const setUser = useUserStore((state) => state.setUser)
   const router = useRouter()
 
   const { control, watch, reset } = useForm<LoginFormData>({

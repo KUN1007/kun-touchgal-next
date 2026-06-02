@@ -14,7 +14,7 @@ interface Props {
 }
 
 export const CommentLikeButton = ({ comment }: Props) => {
-  const { user } = useUserStore((state) => state)
+  const user = useUserStore((state) => state.user)
   const [liked, setLiked] = useState(comment.isLike)
   const [likeCount, setLikeCount] = useState(comment.likeCount)
   const [loading, setLoading] = useState(false)

@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import { useState } from 'react'
 import { Button, Card, CardBody, CardHeader } from '@heroui/react'
 import { useRewritePatchStore } from '~/store/rewriteStore'
@@ -22,7 +23,9 @@ import { DLSiteInput } from '../create/DLSiteInput'
 import type { RewritePatchData } from '~/store/rewriteStore'
 
 export const RewritePatch = () => {
-  const { data, setData } = useRewritePatchStore()
+  const { data, setData } = useRewritePatchStore(
+    useShallow((state) => ({ data: state.data, setData: state.setData }))
+  )
   const [errors, setErrors] = useState<
     Partial<Record<keyof RewritePatchData, string>>
   >({})

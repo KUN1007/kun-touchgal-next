@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import { useEffect } from 'react'
 import { kunFetchPut } from '~/utils/kunFetch'
 import { Button } from '@heroui/react'
@@ -42,7 +43,13 @@ export const MessageNav = () => {
     hasUnreadNotification,
     hasUnreadConversation,
     setUnreadMessageStatus
-  } = useMessageStore((state) => state)
+  } = useMessageStore(
+    useShallow((state) => ({
+      hasUnreadNotification: state.hasUnreadNotification,
+      hasUnreadConversation: state.hasUnreadConversation,
+      setUnreadMessageStatus: state.setUnreadMessageStatus
+    }))
+  )
 
   useEffect(() => {
     if (!isNotificationSection) {

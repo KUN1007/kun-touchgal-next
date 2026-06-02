@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import ReactCrop, { type Crop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
 import {
@@ -19,7 +20,9 @@ import toast from 'react-hot-toast'
 import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 
 export const AvatarCrop = () => {
-  const { user, setUser } = useUserStore((state) => state)
+  const { user, setUser } = useUserStore(
+    useShallow((state) => ({ user: state.user, setUser: state.setUser }))
+  )
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [crop, setCrop] = useState<Crop>({
     unit: '%',

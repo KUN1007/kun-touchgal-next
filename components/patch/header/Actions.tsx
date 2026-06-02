@@ -31,7 +31,7 @@ export const PatchHeaderActions = ({ patch }: PatchHeaderActionsProps) => {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const { user } = useUserStore((state) => state)
+  const user = useUserStore((state) => state.user)
 
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [deleting, setDeleting] = useState(false)

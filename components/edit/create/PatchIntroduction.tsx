@@ -9,7 +9,7 @@ interface Props {
 }
 
 export const PatchIntroduction = ({ errors }: Props) => {
-  const { data } = useCreatePatchStore()
+  const data = useCreatePatchStore((state) => state.data)
 
   return (
     <div className="space-y-2">

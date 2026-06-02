@@ -50,7 +50,7 @@ const getPatchByFolder = async (
     },
     skip: offset,
     take: limit,
-    orderBy: { created: 'desc' }
+    orderBy: [{ created: 'desc' }, { id: 'asc' }]
   })
 
   const patches: GalgameCard[] = relations.map((relation) => ({

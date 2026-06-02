@@ -110,4 +110,6 @@ model user_patch_favorite_folder_relation {
   updated   DateTime                   @updatedAt
 
   @@unique([folder_id, patch_id])
+  @@index([patch_id], map: "upffr_patch_id_idx")
+  @@index([folder_id, created(sort: Desc), id], map: "upffr_folder_created_id_idx")
 }

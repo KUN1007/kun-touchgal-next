@@ -44,7 +44,6 @@ try {
     NODE_ENV: 'production',
     KUN_DEPLOY_BUILD_SKIP_CHECKS: 'true'
   })
-  runCommand('pnpm stop')
   runCommand('pnpm start')
 } catch (e) {
   console.error('Invalid environment variables')

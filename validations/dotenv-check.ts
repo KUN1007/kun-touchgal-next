@@ -54,6 +54,7 @@ export const envSchema = z.object({
 
   KUN_VISUAL_NOVEL_INDEX_NOW_KEY: z.string(),
 
+  KUN_ENABLE_CRON: z.enum(['true', 'false']).optional(),
   KUN_VISUAL_NOVEL_TEST_SITE_LABEL: z.string().optional()
 })
 

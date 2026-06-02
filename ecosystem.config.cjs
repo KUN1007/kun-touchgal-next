@@ -1,21 +1,44 @@
 const path = require('path')
 
+const cwd = path.join(__dirname)
+const standaloneServer = './.next/standalone/server.js'
+const commonEnv = {
+  NODE_ENV: 'production',
+  HOSTNAME: '127.0.0.1'
+}
+
 module.exports = {
   apps: [
     {
       name: 'kun-touchgal-next',
       port: 3000,
-      cwd: path.join(__dirname),
+      cwd,
       instances: 16,
+      exec_mode: 'cluster',
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',
-      script: './.next/standalone/server.js',
+      script: standaloneServer,
       // https://nextjs.org/docs/pages/api-reference/config/next-config-js/output
       env: {
-        NODE_ENV: 'production',
-        HOSTNAME: '127.0.0.1',
-        PORT: 3000
+        ...commonEnv,
+        PORT: 3000,
+        KUN_ENABLE_CRON: 'false'
+      }
+    },
+    {
+      name: 'kun-touchgal-next-cron',
+      port: 3001,
+      cwd,
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '1G',
+      script: standaloneServer,
+      env: {
+        ...commonEnv,
+        PORT: 3001,
+        KUN_ENABLE_CRON: 'true'
       }
     }
   ]

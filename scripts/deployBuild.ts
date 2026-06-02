@@ -41,6 +41,7 @@ try {
   runCommand('pnpm prisma:push')
   runCommand('pnpm build', {
     ...process.env,
+    NODE_ENV: 'production',
     KUN_DEPLOY_BUILD_SKIP_CHECKS: 'true'
   })
   runCommand('pnpm stop')

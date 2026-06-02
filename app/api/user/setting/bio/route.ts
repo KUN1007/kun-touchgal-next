@@ -3,6 +3,7 @@ import { kunParsePostBody } from '~/app/api/utils/parseQuery'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { prisma } from '~/prisma/index'
 import { bioSchema } from '~/validations/user'
+import { invalidateUserSession } from '~/app/api/user/session/cache'
 
 export const POST = async (req: NextRequest) => {
   const input = await kunParsePostBody(req, bioSchema)
@@ -18,6 +19,7 @@ export const POST = async (req: NextRequest) => {
     where: { id: payload.uid },
     data: { bio: input.bio }
   })
+  await invalidateUserSession(payload.uid)
 
   return NextResponse.json({})
 }

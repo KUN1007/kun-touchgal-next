@@ -43,7 +43,8 @@ const register = async (input: z.infer<typeof registerSchema>, ip: string) => {
       name,
       email,
       password: hashedPassword,
-      ip
+      ip,
+      last_login_time: Date.now().toString()
     }
   })
 

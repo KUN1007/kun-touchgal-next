@@ -6,6 +6,7 @@ import { patchCreateSchema } from '~/validations/edit'
 import { kunMoyuMoe } from '~/config/moyu-moe'
 import { postToIndexNow } from './_postToIndexNow'
 import { processSubmittedExternalData } from './processExternalData'
+import { invalidateUserSession } from '~/app/api/user/session/cache'
 
 type CreateGalgameInput = Omit<
   z.infer<typeof patchCreateSchema>,
@@ -143,6 +144,7 @@ export const createGalgame = async (input: CreateGalgameInput, uid: number) => {
   if (typeof res === 'string') {
     return res
   }
+  await invalidateUserSession(uid)
 
   await processSubmittedExternalData(
     res.patchId,

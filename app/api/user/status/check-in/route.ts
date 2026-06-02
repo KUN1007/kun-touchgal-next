@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { randomNormalInt } from '~/utils/random'
+import { invalidateUserSession } from '~/app/api/user/session/cache'
 
 const checkIn = async (uid: number) => {
   const user = await prisma.user.findUnique({
@@ -23,6 +24,7 @@ const checkIn = async (uid: number) => {
       daily_check_in: { set: 1 }
     }
   })
+  await invalidateUserSession(uid)
 
   return { randomMoemoepoints }
 }

@@ -4,6 +4,7 @@ import { prisma } from '~/prisma/index'
 import { NextRequest, NextResponse } from 'next/server'
 import { kunParsePostBody } from '~/app/api/utils/parseQuery'
 import { disableEmailNoticeSchema } from '~/validations/auth'
+import { invalidateUserSession } from '~/app/api/user/session/cache'
 
 const CACHE_KEY = 'auth:mail:notice'
 
@@ -27,6 +28,7 @@ const disableEmailNotice = async (
     where: { id: user.id },
     data: { enable_email_notice: false }
   })
+  await invalidateUserSession(user.id)
   return {}
 }
 

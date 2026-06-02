@@ -5,6 +5,7 @@ import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { createDedupMessage } from '~/app/api/utils/message'
 import { invalidateResourceStatsListCache } from '~/app/api/resource/cache'
+import { invalidateUserSession } from '~/app/api/user/session/cache'
 
 const resourceIdSchema = z.object({
   resourceId: z.coerce
@@ -80,6 +81,7 @@ const toggleResourceLike = async (
     return !existingLike
   })
 
+  await invalidateUserSession(resource.user_id)
   await invalidateResourceStatsListCache()
   return response
 }

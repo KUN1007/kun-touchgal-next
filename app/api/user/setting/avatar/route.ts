@@ -5,6 +5,7 @@ import { prisma } from '~/prisma/index'
 import { avatarSchema } from '~/validations/user'
 import { purgeCloudflareCache } from '~/app/api/utils/purgeCloudflareCache'
 import { uploadUserAvatar } from '../_upload'
+import { invalidateUserSession } from '~/app/api/user/session/cache'
 
 const getAvatarUrls = (uid: number) => {
   const imageBedUrl = process.env.KUN_VISUAL_NOVEL_IMAGE_BED_URL
@@ -45,6 +46,7 @@ const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
     where: { id: uid },
     data: { avatar: imageLink }
   })
+  await invalidateUserSession(uid)
   await purgeCache(uid)
 
   return { avatar: imageLink }

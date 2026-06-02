@@ -1,6 +1,7 @@
 import { prisma } from '~/prisma'
 import cron from 'node-cron'
 import { withTaskLock } from './withTaskLock'
+import { invalidateAllUserSessions } from '~/app/api/user/session/cache'
 
 const RESET_DAILY_LOCK_KEY = 'cron:reset-daily:lock'
 const RESET_DAILY_LOCK_TTL_SECONDS = 60 * 60
@@ -13,6 +14,7 @@ const resetDailyStats = async () => {
       daily_upload_size: 0
     }
   })
+  await invalidateAllUserSessions()
 }
 
 export const resetDailyTask = cron.createTask('0 0 * * *', async () => {

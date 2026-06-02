@@ -4,6 +4,7 @@ import { kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { createDedupMessage } from '~/app/api/utils/message'
+import { invalidateUserSession } from '~/app/api/user/session/cache'
 
 const ratingIdSchema = z.object({
   ratingId: z.coerce.number({ message: 'ID 不正确' }).min(1).max(9999999)
@@ -35,7 +36,7 @@ const toggleRatingLike = async (
     }
   })
 
-  return await prisma.$transaction(async (tx) => {
+  const response = await prisma.$transaction(async (tx) => {
     if (existingLike) {
       await tx.patch_rating_like.delete({
         where: {
@@ -72,6 +73,9 @@ const toggleRatingLike = async (
 
     return !existingLike
   })
+
+  await invalidateUserSession(rating.user_id)
+  return response
 }
 
 export const PUT = async (req: NextRequest) => {

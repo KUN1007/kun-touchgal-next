@@ -4,6 +4,7 @@ import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { prisma } from '~/prisma/index'
 import { uploadIntroductionImage } from './_upload'
 import { imageSchema } from '~/validations/edit'
+import { invalidateUserSession } from '~/app/api/user/session/cache'
 
 const uploadImage = async (uid: number, image: ArrayBuffer) => {
   const user = await prisma.user.findUnique({
@@ -27,6 +28,7 @@ const uploadImage = async (uid: number, image: ArrayBuffer) => {
     where: { id: uid },
     data: { daily_image_count: { increment: 1 } }
   })
+  await invalidateUserSession(uid)
 
   const imageLink = `${process.env.KUN_VISUAL_NOVEL_IMAGE_BED_URL}/user/image/${uid}/${newFileName}.avif`
   return { imageLink }

@@ -1,7 +1,7 @@
 'use client'
 
 import toast from 'react-hot-toast'
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavbarContent, NavbarItem } from '@heroui/navbar'
 import Link from 'next/link'
 import { Button } from '@heroui/button'
@@ -10,7 +10,7 @@ import { useUserStore } from '~/store/userStore'
 import { useMessageStore } from '~/store/messageStore'
 import { useSettingStore } from '~/store/settingStore'
 import { useRouter } from '@bprogress/next'
-import { kunFetchGet, kunFetchPost } from '~/utils/kunFetch'
+import { kunFetchPost } from '~/utils/kunFetch'
 import { ThemeSwitcher } from './ThemeSwitcher'
 import { useMounted } from '~/hooks/useMounted'
 import { UserDropdown } from './UserDropdown'
@@ -20,7 +20,12 @@ import { Tooltip } from '@heroui/tooltip'
 import { RandomGalgameButton } from '~/components/home/carousel/RandomGalgameButton'
 import type { UserSession } from '~/types/api/session'
 
-export const KunTopBarUser = () => {
+interface Props {
+  initialSession: UserSession | null
+  isSessionPending?: boolean
+}
+
+export const KunTopBarUser = ({ initialSession, isSessionPending }: Props) => {
   const router = useRouter()
   const { user, setUser, logout } = useUserStore((state) => state)
   const {
@@ -32,38 +37,63 @@ export const KunTopBarUser = () => {
   } = useMessageStore((state) => state)
   const resetSettings = useSettingStore((state) => state.resetData)
   const isMounted = useMounted()
+  const missingSessionCheckedRef = useRef(false)
+  const [isMissingSessionChecked, setIsMissingSessionChecked] = useState(
+    !!initialSession || isSessionPending
+  )
 
   useEffect(() => {
-    if (!isMounted) {
-      return
-    }
-    if (!user.uid) {
+    if (!isMounted || !initialSession) {
       return
     }
 
-    const getUserSession = async () => {
-      const res = await kunFetchGet<KunResponse<UserSession>>('/user/session')
-      if (typeof res === 'string') {
-        toast.error(res)
-        kunFetchPost('/user/status/logout').catch(() => {})
-        logout()
-        resetUnreadMessageStatus()
-        resetSettings()
-        router.push('/login')
-      } else {
-        setUser(res.user)
-        setUnreadMessageStatus(res.unread)
-      }
+    setUser(initialSession.user)
+    setUnreadMessageStatus(initialSession.unread)
+    setIsMissingSessionChecked(true)
+  }, [initialSession, isMounted, setUnreadMessageStatus, setUser])
+
+  useEffect(() => {
+    if (
+      !isMounted ||
+      isSessionPending ||
+      initialSession ||
+      missingSessionCheckedRef.current
+    ) {
+      return
     }
 
-    getUserSession()
-  }, [isMounted])
+    missingSessionCheckedRef.current = true
+    const currentUser = useUserStore.getState().user
+    if (currentUser.uid) {
+      toast.error('用户登陆失效')
+      kunFetchPost('/user/status/logout').catch(() => {})
+      logout()
+      resetUnreadMessageStatus()
+      resetSettings()
+      router.push('/login')
+    }
+    setIsMissingSessionChecked(true)
+  }, [
+    initialSession,
+    isSessionPending,
+    isMounted,
+    logout,
+    resetSettings,
+    resetUnreadMessageStatus,
+    router
+  ])
+
+  const isSessionReady = isSessionPending
+    ? false
+    : initialSession
+      ? user.uid === initialSession.user.uid
+      : isMissingSessionChecked
 
   const hasUnread = hasUnreadNotification || hasUnreadConversation
 
   return (
     <NavbarContent as="div" className="items-center" justify="end">
-      {!isMounted && (
+      {(!isMounted || !isSessionReady) && (
         <>
           <Skeleton className="hidden rounded-lg lg:flex">
             <div className="w-32 h-10 rounded-lg bg-default-300" />
@@ -74,7 +104,7 @@ export const KunTopBarUser = () => {
         </>
       )}
 
-      {isMounted && !user.name && (
+      {isMounted && isSessionReady && !user.name && (
         <NavbarContent justify="end">
           <NavbarItem className="hidden lg:flex">
             <Link href="/login">登录</Link>
@@ -106,7 +136,7 @@ export const KunTopBarUser = () => {
 
       <ThemeSwitcher />
 
-      {isMounted && user.name && (
+      {isMounted && isSessionReady && user.name && (
         <>
           <UserMessageBell
             hasUnreadMessages={hasUnread}

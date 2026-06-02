@@ -3,6 +3,7 @@ import { copyObject, deleteFileFromS3, headObject } from '~/lib/s3'
 import { acquireKvLock, delKv, getKv, releaseKvLock } from '~/lib/redis'
 import { prisma } from '~/prisma/index'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
+import { invalidateUserSession } from '~/app/api/user/session/cache'
 import {
   OBJECT_STORAGE_MAX_FILE_SIZE_BYTES,
   OBJECT_STORAGE_MAX_FILE_SIZE_ERROR,
@@ -90,6 +91,7 @@ export const bindUploadedResource = async (
         .catch(() => undefined)
       throw error
     }
+    await invalidateUserSession(uid)
 
     const downloadLink = `${process.env.NEXT_PUBLIC_KUN_VISUAL_NOVEL_S3_STORAGE_URL!}/${finalKey}`
     return { downloadLink, s3Key: finalKey, size: actualSize }

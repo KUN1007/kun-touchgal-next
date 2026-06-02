@@ -3,6 +3,7 @@ import { kunParsePostBody } from '~/app/api/utils/parseQuery'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { prisma } from '~/prisma/index'
 import { usernameSchema } from '~/validations/user'
+import { invalidateUserSession } from '~/app/api/user/session/cache'
 
 const updateUsername = async (username: string, uid: number) => {
   const user = await prisma.user.findUnique({ where: { id: uid } })
@@ -25,6 +26,7 @@ const updateUsername = async (username: string, uid: number) => {
     where: { id: uid },
     data: { name: username, moemoepoint: { increment: -30 } }
   })
+  await invalidateUserSession(uid)
 }
 
 export const POST = async (req: NextRequest) => {

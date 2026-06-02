@@ -13,8 +13,14 @@ import { KunTopBarUser } from './User'
 import { usePathname } from 'next/navigation'
 import { kunNavItem } from '~/constants/top-bar'
 import { KunMobileMenu } from './KunMobileMenu'
+import type { UserSession } from '~/types/api/session'
 
-export const KunTopBar = () => {
+interface Props {
+  initialSession: UserSession | null
+  isSessionPending?: boolean
+}
+
+export const KunTopBar = ({ initialSession, isSessionPending }: Props) => {
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
@@ -54,7 +60,10 @@ export const KunTopBar = () => {
         </NavbarContent>
       </div>
 
-      <KunTopBarUser />
+      <KunTopBarUser
+        initialSession={initialSession}
+        isSessionPending={isSessionPending}
+      />
 
       <KunMobileMenu />
     </Navbar>

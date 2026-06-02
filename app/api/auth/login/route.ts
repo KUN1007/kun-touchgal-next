@@ -17,6 +17,7 @@ import { loginSchema } from '~/validations/auth'
 import { prisma } from '~/prisma/index'
 import { checkKunCaptchaExist } from '~/app/api/utils/verifyKunCaptcha'
 import { getRedirectConfig } from '~/app/api/admin/setting/redirect/getRedirectConfig'
+import { updateUserLastLoginTime } from '~/app/api/user/status/service'
 import type { UserState } from '~/store/userStore'
 
 const upgradePasswordHash = async (
@@ -94,6 +95,7 @@ const login = async (
     token,
     kunCookieOptions(30 * 24 * 60 * 60)
   )
+  await updateUserLastLoginTime(user.id)
 
   const redirectConfig = await getRedirectConfig()
   const responseData: UserState = {

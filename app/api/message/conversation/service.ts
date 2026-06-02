@@ -4,6 +4,7 @@ import {
   getConversationsSchema,
   createConversationSchema
 } from '~/validations/conversation'
+import { invalidateUserSession } from '~/app/api/user/session/cache'
 import type { Conversation } from '~/types/api/conversation'
 
 export const getConversations = async (
@@ -193,6 +194,7 @@ export const getOrCreateConversation = async (
           data: { user_a_id: userAId, user_b_id: userBId }
         })
       })
+      await invalidateUserSession(uid)
     } else {
       conversation = await prisma.user_conversation.create({
         data: { user_a_id: userAId, user_b_id: userBId }

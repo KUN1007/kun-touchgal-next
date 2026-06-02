@@ -7,6 +7,7 @@ import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { blockedTagSchema } from '~/validations/user'
 import { appendBlockedTagId, removeBlockedTagId } from '~/utils/blockedTag'
+import { invalidateUserSession } from '~/app/api/user/session/cache'
 
 const getBlockedTags = async (uid: number) => {
   const user = await prisma.user.findUnique({
@@ -66,6 +67,7 @@ const addBlockedTag = async (uid: number, tagId: number) => {
       blocked_tag_ids: true
     }
   })
+  await invalidateUserSession(uid)
 
   return { blockedTagIds: updatedUser.blocked_tag_ids }
 }
@@ -90,6 +92,7 @@ const deleteBlockedTag = async (uid: number, tagId: number) => {
       blocked_tag_ids: true
     }
   })
+  await invalidateUserSession(uid)
 
   return { blockedTagIds: updatedUser.blocked_tag_ids }
 }

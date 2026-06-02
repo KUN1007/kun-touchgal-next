@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { deletePatchResourceLink, recalcPatchType } from './_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { invalidateUserSession } from '~/app/api/user/session/cache'
 
 const resourceIdSchema = z.object({
   resourceId: z.coerce
@@ -44,6 +45,7 @@ export const deleteResource = async (
     await recalcPatchType(patchResource.patch_id, prisma)
     return {}
   })
+  await invalidateUserSession(resourceUserUid)
 
   if (patchResource.status === 0 && patchResource.section === 'patch') {
     await invalidateResourceListCache()

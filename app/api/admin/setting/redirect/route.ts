@@ -4,6 +4,7 @@ import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { adminUpdateRedirectSchema } from '~/validations/admin'
 import { setKv } from '~/lib/redis'
 import { getRedirectConfig } from './getRedirectConfig'
+import { invalidateAllUserSessions } from '~/app/api/user/session/cache'
 import type { AdminRedirectConfig } from '~/types/api/admin'
 
 const REDIS_KEY = 'admin:config:redirect'
@@ -40,5 +41,6 @@ export const PUT = async (req: NextRequest) => {
     JSON.stringify(input as AdminRedirectConfig),
     365 * 24 * 60 * 60
   )
+  await invalidateAllUserSessions()
   return NextResponse.json({})
 }

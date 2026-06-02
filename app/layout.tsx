@@ -1,12 +1,15 @@
 import { Toaster } from 'react-hot-toast'
+import { Suspense } from 'react'
 import { Providers } from './providers'
 import { KunTopBar } from '~/components/kun/top-bar/TopBar'
+import { KunTopBarSession } from '~/components/kun/top-bar/TopBarSession'
 import { KunFooter } from '~/components/kun/Footer'
 import { KunNavigationBreadcrumb } from '~/components/kun/NavigationBreadcrumb'
 import { generateKunMetadata, kunViewport } from './metadata'
 import { KunBackToTop } from '~/components/kun/BackToTop'
 import { kunMoyuMoe } from '~/config/moyu-moe'
 import { preconnect, prefetchDNS } from 'react-dom'
+import { getServerUserSession } from '~/app/api/user/session/service'
 import type { Metadata, Viewport } from 'next'
 import '~/styles/index.css'
 import './actions'
@@ -21,7 +24,7 @@ export default function RootLayout({
 }) {
   preconnect(kunMoyuMoe.domain.imageBed)
   prefetchDNS(kunMoyuMoe.domain.imageBed)
-
+  const initialSession = getServerUserSession()
   return (
     <html lang="zh-Hans" suppressHydrationWarning>
       {process.env.KUN_VISUAL_NOVEL_TEST_SITE_LABEL && (
@@ -34,7 +37,13 @@ export default function RootLayout({
       <body>
         <Providers>
           <div className="relative flex flex-col items-center justify-center min-h-screen bg-radial">
-            <KunTopBar />
+            <Suspense
+              fallback={
+                <KunTopBar initialSession={null} isSessionPending={true} />
+              }
+            >
+              <KunTopBarSession initialSession={initialSession} />
+            </Suspense>
             <KunNavigationBreadcrumb />
             <div className="flex min-h-[calc(100dvh-256px)] w-full max-w-7xl grow px-3 sm:px-6">
               {children}

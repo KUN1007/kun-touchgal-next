@@ -4,6 +4,7 @@ import { kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { createDedupMessage } from '~/app/api/utils/message'
+import { invalidateUserSession } from '~/app/api/user/session/cache'
 
 const commentIdSchema = z.object({
   commentId: z.coerce
@@ -40,7 +41,7 @@ const toggleCommentLike = async (
     }
   )
 
-  return await prisma.$transaction(async (tx) => {
+  const response = await prisma.$transaction(async (tx) => {
     if (existingLike) {
       await tx.user_patch_comment_like_relation.delete({
         where: {
@@ -77,6 +78,9 @@ const toggleCommentLike = async (
 
     return !existingLike
   })
+
+  await invalidateUserSession(comment.user_id)
+  return response
 }
 
 export const PUT = async (req: NextRequest) => {

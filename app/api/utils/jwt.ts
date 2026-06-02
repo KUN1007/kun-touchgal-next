@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import jwt from 'jsonwebtoken'
 import { delKv, getKv, setKv } from '~/lib/redis'
 import { prisma } from '~/prisma/index'
+import { invalidateUserSession } from '~/app/api/user/session/cache'
 
 export interface KunGalgameStatelessPayload {
   require2FA: boolean
@@ -35,7 +36,10 @@ export const generateKunToken = async (
   const token = jwt.sign(payload, process.env.JWT_SECRET!, {
     expiresIn: expire
   } as jwt.SignOptions)
-  await setKv(`access:token:${payload.uid}`, token, 30 * 24 * 60 * 60)
+  await Promise.all([
+    setKv(`access:token:${payload.uid}`, token, 30 * 24 * 60 * 60),
+    invalidateUserSession(payload.uid)
+  ])
 
   return token
 }
@@ -50,7 +54,11 @@ export const generateKunStatelessToken = (
   return token
 }
 
-const verifyAndLoadUser = async (refreshToken: string) => {
+export const verifyKunTokenPayload = async (refreshToken: string) => {
+  if (!refreshToken) {
+    return null
+  }
+
   try {
     const payload = jwt.verify(refreshToken, process.env.JWT_SECRET!, {
       issuer: process.env.JWT_ISS!,
@@ -58,10 +66,19 @@ const verifyAndLoadUser = async (refreshToken: string) => {
     }) as KunGalgamePayload
     const redisToken = await getKv(`access:token:${payload.uid}`)
 
-    if (!redisToken || redisToken !== refreshToken) {
+    return redisToken === refreshToken ? payload : null
+  } catch (error) {
+    return null
+  }
+}
+
+const verifyAndLoadUser = async (refreshToken: string) => {
+  try {
+    const payload = await verifyKunTokenPayload(refreshToken)
+
+    if (!payload) {
       return null
     }
-
     const user = await prisma.user.findUnique({
       where: { id: payload.uid },
       select: {
@@ -73,7 +90,7 @@ const verifyAndLoadUser = async (refreshToken: string) => {
       }
     })
     if (!user || user.status === 2) {
-      await delKv(`access:token:${payload.uid}`)
+      await deleteKunToken(payload.uid)
       return null
     }
 
@@ -95,5 +112,5 @@ export const verifyKunTokenWithUser = async (refreshToken: string) => {
 }
 
 export const deleteKunToken = async (uid: number) => {
-  await delKv(`access:token:${uid}`)
+  await Promise.all([delKv(`access:token:${uid}`), invalidateUserSession(uid)])
 }

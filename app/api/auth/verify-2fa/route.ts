@@ -6,6 +6,7 @@ import { generateKunToken } from '~/app/api/utils/jwt'
 import { kunCookieOptions } from '~/app/api/utils/cookieOptions'
 import { prisma } from '~/prisma/index'
 import { getRedirectConfig } from '~/app/api/admin/setting/redirect/getRedirectConfig'
+import { updateUserLastLoginTime } from '~/app/api/user/status/service'
 import { Totp } from 'time2fa'
 import { parseCookies } from '~/utils/cookies'
 import { verify2FA } from '~/app/api/utils/verify2FA'
@@ -62,6 +63,7 @@ const verifyLogin2FA = async (
     accessToken,
     kunCookieOptions(30 * 24 * 60 * 60)
   )
+  await updateUserLastLoginTime(user.id)
 
   const redirectConfig = await getRedirectConfig()
   const responseData: UserState = {

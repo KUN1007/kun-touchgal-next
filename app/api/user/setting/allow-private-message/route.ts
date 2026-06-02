@@ -1,6 +1,7 @@
 import { prisma } from '~/prisma/index'
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
+import { invalidateUserSession } from '~/app/api/user/session/cache'
 
 const toggleAllowPrivateMessage = async (uid: number) => {
   const user = await prisma.user.findUnique({
@@ -14,6 +15,7 @@ const toggleAllowPrivateMessage = async (uid: number) => {
     where: { id: uid },
     data: { allow_private_message: !user.allow_private_message }
   })
+  await invalidateUserSession(uid)
   return {}
 }
 

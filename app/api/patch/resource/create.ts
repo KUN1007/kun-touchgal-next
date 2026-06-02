@@ -5,6 +5,7 @@ import { createMessage } from '~/app/api/utils/message'
 import { markdownToHtml } from '~/app/api/utils/render/markdownToHtml'
 import { bindUploadedResource, recalcPatchType } from './_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { invalidateUserSession } from '~/app/api/user/session/cache'
 import type { PatchResource } from '~/types/api/patch'
 
 export const createPatchResource = async (
@@ -145,6 +146,7 @@ export const createPatchResource = async (
 
     return resource
   })
+  await invalidateUserSession(uid)
 
   if (resource.status === 0 && resource.section === 'patch') {
     await invalidateResourceListCache()

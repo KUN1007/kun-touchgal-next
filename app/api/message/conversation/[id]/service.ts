@@ -52,7 +52,7 @@ export const getConversationMessages = async (
           select: { id: true, name: true, avatar: true }
         }
       },
-      orderBy: { created: 'desc' },
+      orderBy: [{ created: 'desc' }, { id: 'desc' }],
       skip: offset,
       take: limit
     }),

@@ -18,6 +18,8 @@ model user_conversation {
   updated DateTime @updatedAt
 
   @@unique([user_a_id, user_b_id])
+  @@index([user_a_id, last_message_time(sort: Desc), id(sort: Desc)])
+  @@index([user_b_id, last_message_time(sort: Desc), id(sort: Desc)])
 }
 
 model user_private_message {
@@ -35,4 +37,5 @@ model user_private_message {
 
   created DateTime @default(now())
   updated DateTime @updatedAt
+  @@index([conversation_id, created(sort: Desc), id(sort: Desc)])
 }

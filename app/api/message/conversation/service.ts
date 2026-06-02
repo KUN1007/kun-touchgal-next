@@ -27,12 +27,12 @@ export const getConversations = async (
           select: { id: true, name: true, avatar: true }
         },
         messages: {
-          orderBy: { created: 'desc' },
+          orderBy: [{ created: 'desc' }, { id: 'desc' }],
           take: 1,
           select: { content: true }
         }
       },
-      orderBy: { last_message_time: 'desc' },
+      orderBy: [{ last_message_time: 'desc' }, { id: 'desc' }],
       skip: offset,
       take: limit
     }),

@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import { PATCH_FAVORITE_CACHE_DURATION } from '~/config/cache'
+import { PATCH_INTRODUCTION_HTML_VERSION } from '~/app/api/utils/render/htmlVersion'
 import { delKv, delKvs, getKv, getKvs, setKv } from '~/lib/redis'
 
 const PATCH_CACHE_KEY = 'patch'
@@ -12,7 +13,7 @@ export const getPatchCacheKey = (uniqueId: string) =>
   `${PATCH_CACHE_KEY}:${uniqueId}`
 
 export const getPatchIntroductionCacheKey = (uniqueId: string) =>
-  `${PATCH_INTRODUCTION_CACHE_KEY}:${uniqueId}`
+  `${PATCH_INTRODUCTION_CACHE_KEY}:v${PATCH_INTRODUCTION_HTML_VERSION}:${uniqueId}`
 
 const getPatchFavoriteCacheKey = (uniqueId: string, uid: number) =>
   `${PATCH_FAVORITE_CACHE_KEY}:${uid}:${uniqueId}`

@@ -13,6 +13,7 @@ import { remarkKunExternalLinks } from './remarkKunExternalLinks'
 import { remarkKunWrapImage } from './remarkKunWrapImage'
 import { renderMarkdownHtmlWithCache } from './markdownHtmlCache'
 import { markdownExtendSanitizeSchema } from './sanitizeSchema'
+import { PATCH_INTRODUCTION_HTML_VERSION } from './htmlVersion'
 
 const markdownExtendProcessor = unified()
   .use(remarkParse)
@@ -30,9 +31,13 @@ const markdownExtendProcessor = unified()
   .freeze()
 
 export const markdownToHtmlExtend = async (markdown: string) => {
-  return renderMarkdownHtmlWithCache('extend', markdown, async () => {
-    const htmlVFile = await markdownExtendProcessor.process(markdown)
+  return renderMarkdownHtmlWithCache(
+    `extend-v${PATCH_INTRODUCTION_HTML_VERSION}`,
+    markdown,
+    async () => {
+      const htmlVFile = await markdownExtendProcessor.process(markdown)
 
-    return String(htmlVFile)
-  })
+      return String(htmlVFile)
+    }
+  )
 }

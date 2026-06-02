@@ -21,6 +21,20 @@ const linkAttributes = [
 ]
 
 const imageAttributes = ['src', 'alt', 'title', 'class', 'loading']
+const svgAttributes = [
+  'aria-hidden',
+  'className',
+  'fill',
+  'height',
+  'shapeRendering',
+  'stroke',
+  'strokeLinecap',
+  'strokeLinejoin',
+  'strokeWidth',
+  'viewBox',
+  'width'
+]
+const pathAttributes = ['d']
 
 const safeProtocols = {
   ...defaultProtocols,
@@ -41,6 +55,7 @@ export const markdownSanitizeSchema: RehypeSanitizeOptions = {
 
 export const markdownExtendSanitizeSchema: RehypeSanitizeOptions = {
   ...markdownSanitizeSchema,
+  tagNames: [...(defaultSchema.tagNames || []), 'svg', 'path'],
   attributes: {
     div: [
       'data-video-player',
@@ -49,9 +64,14 @@ export const markdownExtendSanitizeSchema: RehypeSanitizeOptions = {
       'data-href',
       'data-text',
       'data-kun-img-container',
+      'role',
+      'tabIndex',
+      'aria-label',
       'className'
     ],
     img: imageAttributes,
-    a: linkAttributes
+    a: linkAttributes,
+    svg: svgAttributes,
+    path: pathAttributes
   }
 }

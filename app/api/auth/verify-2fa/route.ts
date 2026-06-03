@@ -11,11 +11,13 @@ import { Totp } from 'time2fa'
 import { parseCookies } from '~/utils/cookies'
 import { verify2FA } from '~/app/api/utils/verify2FA'
 import { verifyLogin2FASchema } from '~/validations/auth'
+import { getRemoteIp } from '~/app/api/utils/getRemoteIp'
 import type { UserState } from '~/store/userStore'
 
 const verifyLogin2FA = async (
   input: z.infer<typeof verifyLogin2FASchema>,
-  uid: number
+  uid: number,
+  context: { ip: string; userAgent: string }
 ) => {
   const { token, isBackupCode } = input
 
@@ -56,7 +58,8 @@ const verifyLogin2FA = async (
     user.id,
     user.name,
     user.role,
-    '30d'
+    '30d',
+    context
   )
   cookie.set(
     'kun-galgame-patch-moe-token',
@@ -101,6 +104,9 @@ export const POST = async (req: NextRequest) => {
     return NextResponse.json('2FA 临时令牌已过期, 时效为 10 分钟')
   }
 
-  const response = await verifyLogin2FA(input, payload.id)
+  const response = await verifyLogin2FA(input, payload.id, {
+    ip: getRemoteIp(req.headers),
+    userAgent: req.headers.get('user-agent') ?? ''
+  })
   return NextResponse.json(response)
 }

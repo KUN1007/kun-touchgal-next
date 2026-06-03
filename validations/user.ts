@@ -98,7 +98,6 @@ export const getUserFollowStatusSchema = z.object({
   limit: z.coerce.number().min(1).max(100)
 })
 
-
 export const enableUser2FASchema = z.object({
   token: z
     .string()
@@ -113,4 +112,8 @@ export const disableUser2FASchema = enableUser2FASchema.extend({
 
 export const blockedTagSchema = z.object({
   tagId: z.coerce.number().min(1).max(9999999)
+})
+
+export const revokeLoginSessionSchema = z.object({
+  sessionId: z.string().uuid({ message: '登录会话 ID 无效' })
 })

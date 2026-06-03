@@ -18,6 +18,7 @@ import { prisma } from '~/prisma/index'
 import { checkKunCaptchaExist } from '~/app/api/utils/verifyKunCaptcha'
 import { getRedirectConfig } from '~/app/api/admin/setting/redirect/getRedirectConfig'
 import { updateUserLastLoginTime } from '~/app/api/user/status/service'
+import { getRemoteIp } from '~/app/api/utils/getRemoteIp'
 import type { UserState } from '~/store/userStore'
 
 const upgradePasswordHash = async (
@@ -36,7 +37,8 @@ const upgradePasswordHash = async (
 }
 
 const login = async (
-  input: z.infer<typeof loginSchema>
+  input: z.infer<typeof loginSchema>,
+  context: { ip: string; userAgent: string }
 ): Promise<UserState | ({ require2FA: boolean } & KunUser) | string> => {
   const { name, password, captcha } = input
   const res = await checkKunCaptchaExist(captcha)
@@ -88,7 +90,13 @@ const login = async (
     }
   }
 
-  const token = await generateKunToken(user.id, user.name, user.role, '30d')
+  const token = await generateKunToken(
+    user.id,
+    user.name,
+    user.role,
+    '30d',
+    context
+  )
   const cookie = await cookies()
   cookie.set(
     'kun-galgame-patch-moe-token',
@@ -123,6 +131,9 @@ export const POST = async (req: NextRequest) => {
     return NextResponse.json(input)
   }
 
-  const response = await login(input)
+  const response = await login(input, {
+    ip: getRemoteIp(req.headers),
+    userAgent: req.headers.get('user-agent') ?? ''
+  })
   return NextResponse.json(response)
 }

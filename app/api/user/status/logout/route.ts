@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
-import { deleteKunToken } from '~/app/api/utils/jwt'
+import { deleteKunTokenSession } from '~/app/api/utils/jwt'
 
 export async function POST(req: NextRequest) {
   const payload = await verifyHeaderCookie(req)
@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json('用户未登录')
   }
 
-  await deleteKunToken(payload.uid)
+  await deleteKunTokenSession(payload.uid, payload.jti)
   const cookie = await cookies()
   cookie.delete('kun-galgame-patch-moe-token')
 

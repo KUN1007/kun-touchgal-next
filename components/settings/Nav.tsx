@@ -7,7 +7,7 @@ export const userSettingsNavItems = [
   {
     id: 'security',
     title: '账号安全',
-    description: '邮箱、密码、两步验证与数据清理'
+    description: '邮箱、密码、登录会话、两步验证与数据清理'
   },
   {
     id: 'notification-privacy',

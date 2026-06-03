@@ -12,7 +12,11 @@ import { prisma } from '~/prisma/index'
 import { getRedirectConfig } from '~/app/api/admin/setting/redirect/getRedirectConfig'
 import type { UserState } from '~/store/userStore'
 
-const register = async (input: z.infer<typeof registerSchema>, ip: string) => {
+const register = async (
+  input: z.infer<typeof registerSchema>,
+  ip: string,
+  userAgent: string
+) => {
   const { name, email, code, password } = input
 
   const isCodeValid = await verifyVerificationCode(email, code)
@@ -48,7 +52,10 @@ const register = async (input: z.infer<typeof registerSchema>, ip: string) => {
     }
   })
 
-  const token = await generateKunToken(user.id, name, user.role, '30d')
+  const token = await generateKunToken(user.id, name, user.role, '30d', {
+    ip,
+    userAgent
+  })
   const cookie = await cookies()
   cookie.set(
     'kun-galgame-patch-moe-token',
@@ -92,6 +99,10 @@ export const POST = async (req: NextRequest) => {
 
   const ip = getRemoteIp(req.headers)
 
-  const response = await register(input, ip)
+  const response = await register(
+    input,
+    ip,
+    req.headers.get('user-agent') ?? ''
+  )
   return NextResponse.json(response)
 }

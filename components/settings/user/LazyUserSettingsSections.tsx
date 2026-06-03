@@ -1,21 +1,34 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useEffect, useRef, useState } from 'react'
-import type { ComponentType } from 'react'
+import {
+  userSettingsNavItems,
+  type UserSettingsSectionId
+} from '~/components/settings/Nav'
+import { SettingsGroup } from './SettingsGroup'
 
-interface LazySettingsSectionProps {
+type LazyUserSettingsSectionId = Exclude<UserSettingsSectionId, 'profile'>
+
+interface LazyUserSettingsSectionsProps {
+  activeSectionId: LazyUserSettingsSectionId
+  isActive: boolean
+}
+
+interface LazySectionPlaceholderProps {
   title: string
   description: string
   minHeight: string
-  Component: ComponentType
 }
+
+const securitySettings = userSettingsNavItems[1]
+const privacySettings = userSettingsNavItems[2]
+const contentControlSettings = userSettingsNavItems[3]
 
 const LazySectionPlaceholder = ({
   title,
   description,
   minHeight
-}: Omit<LazySettingsSectionProps, 'Component'>) => {
+}: LazySectionPlaceholderProps) => {
   return (
     <div
       className="flex w-full flex-col justify-center rounded-2xl border border-default-200 bg-content1 px-6 py-5 text-sm text-default-500"
@@ -54,78 +67,56 @@ const NotificationPrivacySettings = dynamic(
     loading: () => (
       <LazySectionPlaceholder
         title="通知与隐私"
-        description="正在加载邮件通知、私信和屏蔽标签设置。"
-        minHeight="640px"
+        description="正在加载邮件通知和私信设置。"
+        minHeight="360px"
       />
     )
   }
 )
 
-const LazySettingsSection = ({
-  title,
-  description,
-  minHeight,
-  Component
-}: LazySettingsSectionProps) => {
-  const sectionRef = useRef<HTMLDivElement>(null)
-  const [shouldRender, setShouldRender] = useState(false)
-
-  useEffect(() => {
-    if (shouldRender) return
-
-    const element = sectionRef.current
-    if (!element) return
-
-    if (!('IntersectionObserver' in window)) {
-      setShouldRender(true)
-      return
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setShouldRender(true)
-          observer.disconnect()
-        }
-      },
-      { rootMargin: '400px 0px' }
+const ContentControlSettings = dynamic<{ isActive: boolean }>(
+  () => import('./BlockedTags').then((mod) => mod.BlockedTags),
+  {
+    ssr: false,
+    loading: () => (
+      <LazySectionPlaceholder
+        title="内容控制"
+        description="正在加载标签屏蔽设置。"
+        minHeight="520px"
+      />
     )
+  }
+)
 
-    observer.observe(element)
+const getSettingsSectionId = (
+  activeSectionId: LazyUserSettingsSectionId
+): LazyUserSettingsSectionId => {
+  if (activeSectionId === securitySettings.id) {
+    return securitySettings.id
+  }
 
-    return () => observer.disconnect()
-  }, [shouldRender])
+  if (activeSectionId === privacySettings.id) {
+    return privacySettings.id
+  }
 
-  return (
-    <div ref={sectionRef} className="space-y-8">
-      {shouldRender ? (
-        <Component />
-      ) : (
-        <LazySectionPlaceholder
-          title={title}
-          description={description}
-          minHeight={minHeight}
-        />
-      )}
-    </div>
-  )
+  return contentControlSettings.id
 }
 
-export const LazyUserSettingsSections = () => {
+export const LazyUserSettingsSections = ({
+  activeSectionId,
+  isActive
+}: LazyUserSettingsSectionsProps) => {
+  const sectionId = getSettingsSectionId(activeSectionId)
+
   return (
-    <>
-      <LazySettingsSection
-        title="账号安全"
-        description="滚动到此分区后再加载邮箱、密码、两步验证和清除数据设置。"
-        minHeight="920px"
-        Component={AccountSecuritySettings}
-      />
-      <LazySettingsSection
-        title="通知与隐私"
-        description="滚动到此分区后再加载邮件通知、私信和屏蔽标签设置。"
-        minHeight="640px"
-        Component={NotificationPrivacySettings}
-      />
-    </>
+    <SettingsGroup id={sectionId} isActive={isActive}>
+      {sectionId === securitySettings.id ? (
+        <AccountSecuritySettings />
+      ) : sectionId === privacySettings.id ? (
+        <NotificationPrivacySettings />
+      ) : (
+        <ContentControlSettings isActive={isActive} />
+      )}
+    </SettingsGroup>
   )
 }

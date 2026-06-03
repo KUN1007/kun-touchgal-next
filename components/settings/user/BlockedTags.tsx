@@ -24,7 +24,11 @@ interface DropdownRect {
   width: number
 }
 
-export const BlockedTags = () => {
+interface BlockedTagsProps {
+  isActive?: boolean
+}
+
+export const BlockedTags = ({ isActive = true }: BlockedTagsProps) => {
   const { user, setUser } = useUserStore(
     useShallow((state) => ({ user: state.user, setUser: state.setUser }))
   )
@@ -75,6 +79,16 @@ export const BlockedTags = () => {
   }
 
   useEffect(() => {
+    if (!isActive) {
+      setDropdownOpen(false)
+    }
+  }, [isActive])
+
+  useEffect(() => {
+    if (!isActive) {
+      setDropdownOpen(false)
+      return
+    }
     if (!debouncedQuery.trim()) {
       setSearchResults([])
       setDropdownOpen(false)
@@ -97,7 +111,7 @@ export const BlockedTags = () => {
         }
       })
       .finally(() => setSearching(false))
-  }, [debouncedQuery])
+  }, [debouncedQuery, isActive])
 
   useEffect(() => {
     if (!dropdownOpen) return

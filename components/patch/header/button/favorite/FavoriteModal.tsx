@@ -140,3 +140,5 @@ export const FavoriteModal = ({ patchId, isOpen, onClose }: Props) => {
     </Modal>
   )
 }
+
+export default FavoriteModal

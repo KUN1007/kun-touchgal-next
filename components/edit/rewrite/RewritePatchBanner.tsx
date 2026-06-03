@@ -106,3 +106,5 @@ export const RewritePatchBanner = ({ patchId, onClose }: Props) => {
     </>
   )
 }
+
+export default RewritePatchBanner

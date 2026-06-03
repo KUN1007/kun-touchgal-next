@@ -1,27 +1,23 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Tooltip } from '@heroui/react'
+import dynamic from 'next/dynamic'
+import { Button } from '@heroui/button'
 import { Download, Pencil, Share2, Trash2 } from 'lucide-react'
 import { useRouter } from '@bprogress/next'
 import { usePathname, useSearchParams } from 'next/navigation'
-import {
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  useDisclosure
-} from '@heroui/modal'
 import { useUserStore } from '~/store/userStore'
-import { kunFetchDelete } from '~/utils/kunFetch'
 import { kunCopy } from '~/utils/kunCopy'
 import { kunMoyuMoe } from '~/config/moyu-moe'
-import toast from 'react-hot-toast'
 import { FavoriteButton } from './button/favorite/FavoriteButton'
 import { RatingButton } from './button/rating/RatingButton'
 import { FeedbackButton } from './button/FeedbackButton'
 import type { Patch } from '~/types/api/patch'
+
+const DeletePatchDialog = dynamic(() => import('./DeletePatchDialog'), {
+  ssr: false,
+  loading: () => null
+})
 
 interface PatchHeaderActionsProps {
   patch: Patch
@@ -33,8 +29,7 @@ export const PatchHeaderActions = ({ patch }: PatchHeaderActionsProps) => {
   const searchParams = useSearchParams()
   const user = useUserStore((state) => state.user)
 
-  const { isOpen, onOpen, onClose } = useDisclosure()
-  const [deleting, setDeleting] = useState(false)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
 
   const handleClickDownloadNav = () => {
     const params = new URLSearchParams(searchParams.toString())
@@ -50,88 +45,59 @@ export const PatchHeaderActions = ({ patch }: PatchHeaderActionsProps) => {
     kunCopy(text)
   }
 
-  const handleDelete = async () => {
-    setDeleting(true)
-    const res = await kunFetchDelete<KunResponse<{}>>('/patch', {
-      patchId: patch.id
-    })
-
-    if (typeof res === 'string') {
-      toast.error(res)
-    } else {
-      toast.success('删除 Galgame 成功')
-      router.push('/')
-    }
-
-    onClose()
-    setDeleting(false)
-  }
-
-  const handlePressDeleteButton = () => {
-    if (user.role < 4) {
-      toast.error('仅超级管理员可删除该游戏')
-      return
-    }
-    onOpen()
-  }
-
   return (
     <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
       <div className="flex flex-wrap gap-2">
-        <Tooltip content="下载游戏">
-          <Button
-            color="primary"
-            variant="shadow"
-            startContent={<Download className="size-4" />}
-            onPress={handleClickDownloadNav}
-            size="sm"
-          >
-            下载
-          </Button>
-        </Tooltip>
+        <Button
+          color="primary"
+          variant="shadow"
+          startContent={<Download className="size-4" />}
+          onPress={handleClickDownloadNav}
+          size="sm"
+          title="下载游戏"
+        >
+          下载
+        </Button>
 
         <RatingButton patchId={patch.id} />
 
         <FavoriteButton patchId={patch.id} isFavorite={patch.isFavorite} />
 
-        <Tooltip content="复制分享链接">
-          <Button
-            variant="bordered"
-            isIconOnly
-            size="sm"
-            onPress={handleShareLink}
-            aria-label="复制分享链接"
-          >
-            <Share2 className="size-4" />
-          </Button>
-        </Tooltip>
+        <Button
+          variant="bordered"
+          isIconOnly
+          size="sm"
+          onPress={handleShareLink}
+          aria-label="复制分享链接"
+          title="复制分享链接"
+        >
+          <Share2 className="size-4" />
+        </Button>
 
         {user.role > 2 ? (
           <>
-            <Tooltip content="编辑游戏信息">
+            <Button
+              variant="bordered"
+              isIconOnly
+              size="sm"
+              onPress={() => router.push('/edit/rewrite')}
+              aria-label="编辑游戏信息"
+              title="编辑游戏信息"
+            >
+              <Pencil className="size-4" />
+            </Button>
+
+            {user.role > 3 && (
               <Button
                 variant="bordered"
                 isIconOnly
                 size="sm"
-                onPress={() => router.push('/edit/rewrite')}
-                aria-label="编辑游戏信息"
+                onPress={() => setIsDeleteOpen(true)}
+                aria-label="删除游戏"
+                title="删除游戏"
               >
-                <Pencil className="size-4" />
+                <Trash2 className="size-4" />
               </Button>
-            </Tooltip>
-
-            {user.role > 3 && (
-              <Tooltip content="删除游戏">
-                <Button
-                  variant="bordered"
-                  isIconOnly
-                  size="sm"
-                  onPress={handlePressDeleteButton}
-                  aria-label="删除游戏"
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </Tooltip>
             )}
 
             <FeedbackButton patch={patch} />
@@ -145,30 +111,13 @@ export const PatchHeaderActions = ({ patch }: PatchHeaderActionsProps) => {
         收藏后, 有新资源发布时, 您将收到通知
       </p>
 
-      <Modal isOpen={isOpen} onClose={onClose} placement="center">
-        <ModalContent>
-          <ModalHeader className="flex flex-col gap-1">
-            永久删除 Galgame
-          </ModalHeader>
-          <ModalBody>
-            严重警告, 删除 Galgame 将会删除这个 Galgame 下面所有的评论,
-            所有的资源链接, 所有的贡献历史记录, 您确定要删除吗
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="light" onPress={onClose}>
-              取消
-            </Button>
-            <Button
-              color="danger"
-              onPress={handleDelete}
-              isDisabled={deleting}
-              isLoading={deleting}
-            >
-              删除
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      {isDeleteOpen && (
+        <DeletePatchDialog
+          patchId={patch.id}
+          isOpen={isDeleteOpen}
+          onClose={() => setIsDeleteOpen(false)}
+        />
+      )}
     </div>
   )
 }

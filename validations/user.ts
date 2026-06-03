@@ -98,12 +98,6 @@ export const getUserFollowStatusSchema = z.object({
   limit: z.coerce.number().min(1).max(100)
 })
 
-export const saveUser2FASecretSchema = z.object({
-  secret: z
-    .string()
-    .min(16, { message: '2FA 密钥格式错误, 应为 16 个字符' })
-    .max(16, { message: '2FA 密钥格式错误, 应为 16 个字符' })
-})
 
 export const enableUser2FASchema = z.object({
   token: z

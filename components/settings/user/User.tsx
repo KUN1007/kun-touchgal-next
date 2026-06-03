@@ -2,13 +2,7 @@ import { KunHeader } from '~/components/kun/Header'
 import { UserAvatar } from './Avatar'
 import { Username } from './Username'
 import { Bio } from './Bio'
-import { Email } from './Email'
-import { Password } from './Password'
-import { EmailNotice } from './EmailNotice'
-import { AllowPrivateMessage } from './AllowPrivateMessage'
-import { TwoFactorAuth } from './TwoFactorAuth'
-import { Reset } from './Reset'
-import { BlockedTags } from './BlockedTags'
+import { LazyUserSettingsSections } from './LazyUserSettingsSections'
 
 export const UserSettings = () => {
   return (
@@ -19,13 +13,7 @@ export const UserSettings = () => {
         <UserAvatar />
         <Username />
         <Bio />
-        <Email />
-        <Password />
-        <EmailNotice />
-        <AllowPrivateMessage />
-        <BlockedTags />
-        <TwoFactorAuth />
-        <Reset />
+        <LazyUserSettingsSections />
       </div>
     </div>
   )

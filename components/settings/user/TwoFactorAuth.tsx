@@ -20,9 +20,6 @@ import {
 import { useUserStore } from '~/store/userStore'
 import { kunFetchGet, kunFetchPost } from '~/utils/kunFetch'
 import toast from 'react-hot-toast'
-import { kunMoyuMoe } from '~/config/moyu-moe'
-import * as QRCode from 'qrcode'
-import { Totp } from 'time2fa'
 import { useMounted } from '~/hooks/useMounted'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
 
@@ -75,30 +72,18 @@ export const TwoFactorAuth = () => {
         hasSecret: boolean
         backupCodeLength: number
       }>('/user/setting/2fa/status')
-      setAuthStatus({
-        ...authStatus,
+      setAuthStatus((current) => ({
+        ...current,
         isEnabled2FA: response.enabled,
         hasSecret: response.hasSecret,
         backupCodeLength: response.backupCodeLength
-      })
+      }))
     }
 
     if (isMounted) {
       check2FAStatus()
     }
   }, [isMounted])
-
-  useEffect(() => {
-    if (authStatus.authUrl) {
-      QRCode.toDataURL(authStatus.authUrl)
-        .then((url) => {
-          setAuthStatus({ ...authStatus, qrCodeUrl: url })
-        })
-        .catch((err) => {
-          throw err
-        })
-    }
-  }, [authStatus.authUrl])
 
   const generateSecret = async () => {
     if (!user.uid) {
@@ -107,23 +92,23 @@ export const TwoFactorAuth = () => {
     }
 
     startTransition(async () => {
-      const key = Totp.generateKey({
-        issuer: kunMoyuMoe.titleShort,
-        user: user.name || user.uid.toString()
-      })
+      const res = await kunFetchPost<
+        KunResponse<{
+          secret: string
+          authUrl: string
+          qrCodeUrl: string
+        }>
+      >('/user/setting/2fa/save-secret')
 
-      const res = await kunFetchPost<KunResponse<{}>>(
-        '/user/setting/2fa/save-secret',
-        { secret: key.secret }
-      )
-
-      kunErrorHandler(res, () => {
-        setAuthStatus({
-          ...authStatus,
-          secret: key.secret,
-          authUrl: key.url,
-          hasSecret: true
-        })
+      kunErrorHandler(res, (value) => {
+        setAuthStatus((current) => ({
+          ...current,
+          secret: value.secret,
+          authUrl: value.authUrl,
+          qrCodeUrl: value.qrCodeUrl,
+          hasSecret: true,
+          backupCodeLength: 0
+        }))
         onOpen()
         toast.success('密钥已生成，请使用身份验证器应用扫描二维码')
       })
@@ -137,26 +122,18 @@ export const TwoFactorAuth = () => {
     }
 
     startTransition(async () => {
-      const isValid = Totp.validate({
-        passcode: authStatus.token,
-        secret: authStatus.secret
-      })
-      if (!isValid) {
-        toast.error('验证码无效，请重试')
-        return
-      }
-
       const res = await kunFetchPost<KunResponse<{ backupCode: string[] }>>(
         '/user/setting/2fa/enable',
         { token: authStatus.token }
       )
 
       kunErrorHandler(res, (value) => {
-        setAuthStatus({
-          ...authStatus,
+        setAuthStatus((current) => ({
+          ...current,
           isEnabled2FA: true,
+          backupCodeLength: value.backupCode.length,
           backupCode: value.backupCode
-        })
+        }))
         onClose()
         onBackupOpen()
         toast.success('两步验证已启用')

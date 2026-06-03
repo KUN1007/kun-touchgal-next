@@ -58,7 +58,7 @@ export const Password = () => {
         <CardHeader>
           <h2 className="text-xl font-medium">密码</h2>
         </CardHeader>
-        <CardBody className="py-0 space-y-4">
+        <CardBody className="overflow-visible py-0 space-y-4">
           <div>
             <p>这是您的密码设置, 您需要输入旧密码以更改新密码</p>
           </div>

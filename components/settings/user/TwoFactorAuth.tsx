@@ -177,7 +177,7 @@ export const TwoFactorAuth = () => {
         <CardHeader>
           <h2 className="text-xl font-medium">两步验证</h2>
         </CardHeader>
-        <CardBody className="py-0 space-y-4">
+        <CardBody className="overflow-visible py-0 space-y-4">
           <div>
             <p>
               两步验证可以为您的账户提供额外的安全保护。启用后，每次登录时除了密码外，

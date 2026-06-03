@@ -32,7 +32,7 @@ export const AllowPrivateMessage = () => {
       <CardHeader>
         <h2 className="text-xl font-medium">私信设置</h2>
       </CardHeader>
-      <CardBody className="py-0 space-y-4">
+      <CardBody className="overflow-visible py-0 space-y-4">
         <div>
           <p>控制其他用户是否可以向您发送私信</p>
         </div>

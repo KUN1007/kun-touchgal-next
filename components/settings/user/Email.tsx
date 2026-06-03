@@ -92,7 +92,7 @@ export const Email = () => {
           <CardHeader>
             <h2 className="text-xl font-medium">邮箱</h2>
           </CardHeader>
-          <CardBody className="py-0 space-y-4">
+          <CardBody className="overflow-visible py-0 space-y-4">
             <div>
               <p>这是您的邮箱设置, 您的邮箱将会被用于恢复您的密码</p>
               <p>

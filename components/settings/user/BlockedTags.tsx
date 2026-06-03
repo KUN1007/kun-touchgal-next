@@ -246,7 +246,7 @@ export const BlockedTags = ({ isActive = true }: BlockedTagsProps) => {
         <h2 className="text-xl font-medium">标签屏蔽</h2>
       </CardHeader>
 
-      <CardBody className="space-y-4 py-0 pb-4">
+      <CardBody className="space-y-4 overflow-visible py-0 pb-4">
         <p>屏蔽某个标签后，带有该标签的游戏将不会出现在公开列表中。</p>
 
         <div className="space-y-2">

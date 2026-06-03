@@ -6,7 +6,7 @@ import { AvatarCrop } from './AvatarCrop'
 export const UserAvatar = () => {
   return (
     <Card className="w-full text-sm">
-      <CardBody className="flex flex-row items-center justify-between gap-4 pb-0">
+      <CardBody className="flex flex-row items-center justify-between gap-4 overflow-visible pb-0">
         <div>
           <h2 className="mb-4 text-xl font-medium">头像</h2>
           <p>这是您的头像设置</p>

@@ -45,7 +45,7 @@ export const Reset = () => {
       <CardHeader>
         <h2 className="text-xl font-medium">清除网站数据</h2>
       </CardHeader>
-      <CardBody className="py-0 space-y-4">
+      <CardBody className="overflow-visible py-0 space-y-4">
         <div>
           <p>
             如果您的网站出现任何报错, 例如搜索页面报错,

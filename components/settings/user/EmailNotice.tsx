@@ -32,7 +32,7 @@ export const EmailNotice = () => {
       <CardHeader>
         <h2 className="text-xl font-medium">邮件通知</h2>
       </CardHeader>
-      <CardBody className="py-0 space-y-4">
+      <CardBody className="overflow-visible py-0 space-y-4">
         <div>
           <p>当网站有通知时, 会通过邮件的形式提醒您</p>
         </div>

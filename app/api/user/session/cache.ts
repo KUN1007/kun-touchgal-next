@@ -16,6 +16,11 @@ interface UserSessionCacheScope {
 
 const getUserSessionVersionKey = (uid: number) => `session:user:version:${uid}`
 
+export const getUserSessionInvalidationKv = (uid: number) => ({
+  key: getUserSessionVersionKey(uid),
+  value: randomUUID()
+})
+
 const getUserSessionCacheKey = (
   uid: number,
   { generation, version }: UserSessionCacheScope

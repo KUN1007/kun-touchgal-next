@@ -14,7 +14,10 @@ import {
   setKvsAndAddKvSetMembers
 } from '~/lib/redis'
 import { prisma } from '~/prisma/index'
-import { invalidateUserSession } from '~/app/api/user/session/cache'
+import {
+  getUserSessionInvalidationKv,
+  invalidateUserSession
+} from '~/app/api/user/session/cache'
 import type { LoginSession } from '~/types/api/session'
 
 export interface KunGalgameStatelessPayload {
@@ -44,6 +47,12 @@ export interface LoginSessionMetadata {
 export interface LoginSessionContext {
   userAgent?: string | null
   ip?: string | null
+}
+
+interface KunTokenSessionExtraValue {
+  key: string
+  value: string
+  time?: number
 }
 
 const KUN_ACCESS_TOKEN_EXPIRES_SECONDS = 30 * 24 * 60 * 60
@@ -140,21 +149,27 @@ const setKunTokenSession = async (
   payload: KunGalgamePayload,
   token: string,
   metadata: LoginSessionMetadata,
-  ttlSeconds: number
+  ttlSeconds: number,
+  extraValue?: KunTokenSessionExtraValue
 ) => {
+  const values: KunTokenSessionExtraValue[] = [
+    {
+      key: getAccessTokenKey(payload.uid, payload.jti),
+      value: token,
+      time: ttlSeconds
+    },
+    {
+      key: getLoginSessionKey(payload.uid, payload.jti),
+      value: JSON.stringify(metadata),
+      time: ttlSeconds
+    }
+  ]
+  if (extraValue) {
+    values.push(extraValue)
+  }
+
   await setKvsAndAddKvSetMembers(
-    [
-      {
-        key: getAccessTokenKey(payload.uid, payload.jti),
-        value: token,
-        time: ttlSeconds
-      },
-      {
-        key: getLoginSessionKey(payload.uid, payload.jti),
-        value: JSON.stringify(metadata),
-        time: ttlSeconds
-      }
-    ],
+    values,
     getLoginSessionsKey(payload.uid),
     [payload.jti],
     ttlSeconds
@@ -274,15 +289,13 @@ export const generateKunToken = async (
     expiresIn: expire
   } as jwt.SignOptions)
   await pruneStaleLoginSessions(payload.uid)
-  await Promise.all([
-    setKunTokenSession(
-      payload,
-      token,
-      createLoginSessionMetadata(payload.jti, context),
-      KUN_ACCESS_TOKEN_EXPIRES_SECONDS
-    ),
-    invalidateUserSession(payload.uid)
-  ])
+  await setKunTokenSession(
+    payload,
+    token,
+    createLoginSessionMetadata(payload.jti, context),
+    KUN_ACCESS_TOKEN_EXPIRES_SECONDS,
+    getUserSessionInvalidationKv(payload.uid)
+  )
 
   return token
 }

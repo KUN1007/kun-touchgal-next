@@ -228,7 +228,7 @@ const touchLoginSession = async (
         }
       ],
       getLoginSessionsKey(uid),
-      [],
+      [jti],
       ttlSeconds
     )
   } finally {

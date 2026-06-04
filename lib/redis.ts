@@ -8,6 +8,38 @@ const REDIS_CONNECT_TIMEOUT_MS = 2000
 const REDIS_COMMAND_TIMEOUT_MS = 2000
 const REDIS_RETRY_BASE_DELAY_MS = 100
 const REDIS_RETRY_MAX_DELAY_MS = 2000
+const SET_KVS_AND_ADD_SET_MEMBERS_EXTEND_TTL_SCRIPT = `
+  local valueCount = tonumber(ARGV[1])
+  local setTtl = tonumber(ARGV[2])
+  local argIndex = 3
+
+  for i = 1, valueCount do
+    local value = ARGV[argIndex]
+    local keyTtl = tonumber(ARGV[argIndex + 1])
+    if keyTtl and keyTtl > 0 then
+      redis.call("setex", KEYS[i], keyTtl, value)
+    else
+      redis.call("set", KEYS[i], value)
+    end
+    argIndex = argIndex + 2
+  end
+
+  local setKey = KEYS[valueCount + 1]
+  local memberCount = tonumber(ARGV[argIndex])
+  argIndex = argIndex + 1
+
+  for i = 1, memberCount do
+    redis.call("sadd", setKey, ARGV[argIndex])
+    argIndex = argIndex + 1
+  end
+
+  local currentTtl = redis.call("ttl", setKey)
+  if currentTtl < 0 or currentTtl < setTtl then
+    redis.call("expire", setKey, setTtl)
+  end
+
+  return 1
+`
 
 const redisOptions: RedisOptions = {
   port: parseInt(process.env.REDIS_PORT!),
@@ -139,6 +171,27 @@ export const setKvsAndAddKvSetMembers = async (
   }
 
   const setKeyString = `${KUN_PATCH_REDIS_PREFIX}:${setKey}`
+  if (members.length > 0 && time) {
+    const keys = [
+      ...values.map(({ key }) => `${KUN_PATCH_REDIS_PREFIX}:${key}`),
+      setKeyString
+    ]
+    const args = [values.length.toString(), time.toString()]
+    for (const { value, time: keyTime } of values) {
+      args.push(value, (keyTime ?? 0).toString())
+    }
+    args.push(members.length.toString(), ...members)
+
+    await runRedisCommand(() =>
+      redis.eval(
+        SET_KVS_AND_ADD_SET_MEMBERS_EXTEND_TTL_SCRIPT,
+        keys.length,
+        ...keys,
+        ...args
+      )
+    )
+    return
+  }
   await runRedisCommand(async () => {
     const multi = redis.multi()
     for (const { key, value, time: keyTime } of values) {

@@ -9,6 +9,7 @@ import {
   getKvs,
   getKvSetMembers,
   releaseKvLock,
+  setKvIfAbsent,
   setKvsAndAddKvSetMembers
 } from '~/lib/redis'
 import { prisma } from '~/prisma/index'
@@ -47,6 +48,8 @@ export interface LoginSessionContext {
 
 const KUN_ACCESS_TOKEN_EXPIRES_SECONDS = 30 * 24 * 60 * 60
 const LOGIN_SESSION_TOUCH_INTERVAL_MS = 5 * 60 * 1000
+const LOGIN_SESSION_PRUNE_SAMPLE_RATE = 100
+const LOGIN_SESSION_PRUNE_INTERVAL_SECONDS = 60 * 60
 
 const getAccessTokenKey = (uid: number, jti: string) =>
   `access:token:${uid}:${jti}`
@@ -60,6 +63,8 @@ const getLoginSessionsKey = (uid: number) => `access:sessions:${uid}`
 
 const getLoginSessionTouchLockKey = (uid: number, jti: string) =>
   `access:session-touch:${uid}:${jti}`
+
+const getLoginSessionPruneKey = (uid: number) => `access:session-prune:${uid}`
 
 const normalizeSessionValue = (
   value: string | null | undefined,
@@ -185,6 +190,28 @@ const pruneStaleLoginSessions = async (uid: number) => {
   )
   const staleSessionIds = sessionIds.filter((_, index) => !tokens[index])
   await cleanupLoginSessions(uid, staleSessionIds)
+}
+
+const maybePruneStaleLoginSessions = async (uid: number) => {
+  if (Math.floor(Math.random() * LOGIN_SESSION_PRUNE_SAMPLE_RATE) !== 0) {
+    return
+  }
+
+  const shouldPrune = await setKvIfAbsent(
+    getLoginSessionPruneKey(uid),
+    '1',
+    LOGIN_SESSION_PRUNE_INTERVAL_SECONDS
+  )
+  if (!shouldPrune) {
+    return
+  }
+
+  try {
+    await pruneStaleLoginSessions(uid)
+  } catch (error) {
+    await delKv(getLoginSessionPruneKey(uid)).catch(() => undefined)
+    throw error
+  }
 }
 
 const touchLoginSession = async (
@@ -316,6 +343,7 @@ export const verifyKunTokenPayload = async (refreshToken: string) => {
         metadata,
         getTokenTtlSeconds(payload)
       ).catch(() => undefined)
+      await maybePruneStaleLoginSessions(payload.uid).catch(() => undefined)
       return payload
     }
 
@@ -336,6 +364,7 @@ export const verifyKunTokenPayload = async (refreshToken: string) => {
       ttlSeconds
     )
     await delKv(getLegacyAccessTokenKey(payload.uid))
+    await maybePruneStaleLoginSessions(payload.uid).catch(() => undefined)
 
     return payload
   } catch {

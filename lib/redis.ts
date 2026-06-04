@@ -98,6 +98,18 @@ export const getKv = async (key: string) => {
   return value
 }
 
+export const setKvIfAbsent = async (
+  key: string,
+  value: string,
+  time: number
+) => {
+  const keyString = `${KUN_PATCH_REDIS_PREFIX}:${key}`
+  const result = await runRedisCommand(() =>
+    redis.set(keyString, value, 'EX', time, 'NX')
+  )
+  return result === 'OK'
+}
+
 export const getKvs = async (keys: string[]) => {
   if (keys.length === 0) {
     return []

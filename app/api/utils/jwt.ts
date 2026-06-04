@@ -35,7 +35,6 @@ export interface KunGalgamePayload {
 
 export interface LoginSessionMetadata {
   id: string
-  tokenId: string
   userAgent: string
   ip: string
   createdAt: number
@@ -86,7 +85,6 @@ const createLoginSessionMetadata = (
 
   return {
     id: jti,
-    tokenId: jti,
     userAgent: normalizeSessionValue(context?.userAgent, 1000),
     ip: normalizeSessionValue(context?.ip, 100),
     createdAt: now,
@@ -103,7 +101,6 @@ const parseLoginSessionMetadata = (value: string | null) => {
     const parsed = JSON.parse(value) as Partial<LoginSessionMetadata>
     if (
       typeof parsed.id !== 'string' ||
-      typeof parsed.tokenId !== 'string' ||
       typeof parsed.createdAt !== 'number' ||
       !Number.isFinite(parsed.createdAt) ||
       typeof parsed.lastActiveAt !== 'number' ||
@@ -114,7 +111,6 @@ const parseLoginSessionMetadata = (value: string | null) => {
 
     return {
       id: parsed.id,
-      tokenId: parsed.tokenId,
       userAgent:
         typeof parsed.userAgent === 'string'
           ? normalizeSessionValue(parsed.userAgent, 1000)
@@ -241,7 +237,6 @@ const touchLoginSession = async (
     if (
       !currentMetadata ||
       currentMetadata.id !== jti ||
-      currentMetadata.tokenId !== jti ||
       now - currentMetadata.lastActiveAt < LOGIN_SESSION_TOUCH_INTERVAL_MS
     ) {
       return
@@ -322,11 +317,7 @@ export const verifyKunTokenPayload = async (refreshToken: string) => {
     ])
     if (redisToken === refreshToken) {
       const metadata = parseLoginSessionMetadata(metadataValue)
-      if (
-        !metadata ||
-        metadata.id !== payload.jti ||
-        metadata.tokenId !== payload.jti
-      ) {
+      if (!metadata || metadata.id !== payload.jti) {
         await cleanupLoginSessions(payload.uid, [payload.jti]).catch(
           () => undefined
         )
@@ -388,12 +379,7 @@ export const getKunLoginSessions = async (
     const sessionId = sessionIds[i]
     const metadata = parseLoginSessionMetadata(metadataValues[i])
 
-    if (
-      !tokens[i] ||
-      !metadata ||
-      metadata.id !== sessionId ||
-      metadata.tokenId !== sessionId
-    ) {
+    if (!tokens[i] || !metadata || metadata.id !== sessionId) {
       staleSessionIds.push(sessionId)
       continue
     }

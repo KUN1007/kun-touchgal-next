@@ -8,7 +8,6 @@ export interface UserSession {
 
 export interface LoginSession {
   id: string
-  tokenId: string
   userAgent: string
   ip: string
   createdAt: number

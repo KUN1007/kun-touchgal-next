@@ -52,7 +52,7 @@ export interface LoginSessionContext {
 interface KunTokenSessionExtraValue {
   key: string
   value: string
-  time?: number
+  ttlSeconds?: number
 }
 
 const KUN_ACCESS_TOKEN_EXPIRES_SECONDS = 30 * 24 * 60 * 60
@@ -156,24 +156,23 @@ const setKunTokenSession = async (
     {
       key: getAccessTokenKey(payload.uid, payload.jti),
       value: token,
-      time: ttlSeconds
+      ttlSeconds
     },
     {
       key: getLoginSessionKey(payload.uid, payload.jti),
       value: JSON.stringify(metadata),
-      time: ttlSeconds
+      ttlSeconds
     }
   ]
   if (extraValue) {
     values.push(extraValue)
   }
 
-  await setKvsAndAddKvSetMembers(
-    values,
-    getLoginSessionsKey(payload.uid),
-    [payload.jti],
-    ttlSeconds
-  )
+  await setKvsAndAddKvSetMembers(values, {
+    key: getLoginSessionsKey(payload.uid),
+    members: [payload.jti],
+    setTtlSeconds: ttlSeconds
+  })
 }
 
 const cleanupLoginSessions = async (uid: number, sessionIds: string[]) => {
@@ -288,7 +287,6 @@ export const generateKunToken = async (
   const token = jwt.sign(payload, process.env.JWT_SECRET!, {
     expiresIn: expire
   } as jwt.SignOptions)
-  await pruneStaleLoginSessions(payload.uid)
   await setKunTokenSession(
     payload,
     token,
@@ -296,6 +294,7 @@ export const generateKunToken = async (
     KUN_ACCESS_TOKEN_EXPIRES_SECONDS,
     getUserSessionInvalidationKv(payload.uid)
   )
+  void pruneStaleLoginSessions(payload.uid).catch(() => undefined)
 
   return token
 }

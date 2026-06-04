@@ -147,60 +147,38 @@ export const delKvs = async (keys: string[]) => {
   }
 }
 
-export const addKvSetMembers = async (
-  key: string,
-  members: string[],
-  time?: number
-) => {
-  if (members.length === 0) {
-    return
-  }
-
-  const keyString = `${KUN_PATCH_REDIS_PREFIX}:${key}`
-  await runRedisCommand(async () => {
-    const pipeline = redis.pipeline()
-    pipeline.sadd(keyString, ...members)
-    if (time) {
-      pipeline.expire(keyString, time)
-    }
-    await pipeline.exec()
-  })
-}
-
-export const removeKvSetMembers = async (key: string, members: string[]) => {
-  if (members.length === 0) {
-    return
-  }
-
-  const keyString = `${KUN_PATCH_REDIS_PREFIX}:${key}`
-  await runRedisCommand(() => redis.srem(keyString, ...members))
-}
-
 interface KvValue {
   key: string
   value: string
-  time?: number
+  ttlSeconds?: number
+}
+
+interface KvSetMembers {
+  key: string
+  members: string[]
+  setTtlSeconds?: number
 }
 
 export const setKvsAndAddKvSetMembers = async (
   values: KvValue[],
-  setKey: string,
-  members: string[],
-  time?: number
+  set: KvSetMembers
 ) => {
-  if (values.length === 0 && members.length === 0) {
+  const { key: setKey, members, setTtlSeconds } = set
+  const shouldExtendSetTtl =
+    typeof setTtlSeconds === 'number' && setTtlSeconds > 0
+  if (values.length === 0 && members.length === 0 && !shouldExtendSetTtl) {
     return
   }
 
   const setKeyString = `${KUN_PATCH_REDIS_PREFIX}:${setKey}`
-  if (members.length > 0 && time) {
+  if (shouldExtendSetTtl) {
     const keys = [
       ...values.map(({ key }) => `${KUN_PATCH_REDIS_PREFIX}:${key}`),
       setKeyString
     ]
-    const args = [values.length.toString(), time.toString()]
-    for (const { value, time: keyTime } of values) {
-      args.push(value, (keyTime ?? 0).toString())
+    const args = [values.length.toString(), setTtlSeconds.toString()]
+    for (const { value, ttlSeconds } of values) {
+      args.push(value, (ttlSeconds ?? 0).toString())
     }
     args.push(members.length.toString(), ...members)
 
@@ -214,21 +192,19 @@ export const setKvsAndAddKvSetMembers = async (
     )
     return
   }
+
   await runRedisCommand(async () => {
     const multi = redis.multi()
-    for (const { key, value, time: keyTime } of values) {
+    for (const { key, value, ttlSeconds } of values) {
       const keyString = `${KUN_PATCH_REDIS_PREFIX}:${key}`
-      if (keyTime) {
-        multi.setex(keyString, keyTime, value)
+      if (ttlSeconds) {
+        multi.setex(keyString, ttlSeconds, value)
       } else {
         multi.set(keyString, value)
       }
     }
     if (members.length > 0) {
       multi.sadd(setKeyString, ...members)
-      if (time) {
-        multi.expire(setKeyString, time)
-      }
     }
 
     const results = await multi.exec()
@@ -276,11 +252,6 @@ export const delKvsAndRemoveKvSetMembers = async (
 export const getKvSetMembers = async (key: string) => {
   const keyString = `${KUN_PATCH_REDIS_PREFIX}:${key}`
   return runRedisCommand(() => redis.smembers(keyString))
-}
-
-export const expireKv = async (key: string, time: number) => {
-  const keyString = `${KUN_PATCH_REDIS_PREFIX}:${key}`
-  await runRedisCommand(() => redis.expire(keyString, time))
 }
 
 export const setKvAndExpireKvIfTtlLessThan = async (

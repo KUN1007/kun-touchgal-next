@@ -5,6 +5,7 @@ import {
   delKv,
   delKvs,
   delKvsAndRemoveKvSetMembers,
+  setKvAndExpireKvIfTtlLessThan,
   getKv,
   getKvs,
   getKvSetMembers,
@@ -246,16 +247,11 @@ const touchLoginSession = async (
       return
     }
 
-    await setKvsAndAddKvSetMembers(
-      [
-        {
-          key: sessionKey,
-          value: JSON.stringify({ ...currentMetadata, lastActiveAt: now }),
-          time: ttlSeconds
-        }
-      ],
+    await setKvAndExpireKvIfTtlLessThan(
+      sessionKey,
+      JSON.stringify({ ...currentMetadata, lastActiveAt: now }),
+      ttlSeconds,
       getLoginSessionsKey(uid),
-      [jti],
       ttlSeconds
     )
   } finally {

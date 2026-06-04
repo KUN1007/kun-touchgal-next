@@ -41,6 +41,16 @@ const SET_KVS_AND_ADD_SET_MEMBERS_EXTEND_TTL_SCRIPT = `
   return 1
 `
 
+const EXPIRE_KV_IF_TTL_LESS_THAN_SCRIPT = `
+  local keyTtl = tonumber(ARGV[1])
+  local currentTtl = redis.call("ttl", KEYS[1])
+  if currentTtl < 0 or currentTtl < keyTtl then
+    return redis.call("expire", KEYS[1], keyTtl)
+  end
+
+  return 0
+`
+
 const redisOptions: RedisOptions = {
   port: parseInt(process.env.REDIS_PORT!),
   host: process.env.REDIS_HOST,
@@ -271,6 +281,37 @@ export const getKvSetMembers = async (key: string) => {
 export const expireKv = async (key: string, time: number) => {
   const keyString = `${KUN_PATCH_REDIS_PREFIX}:${key}`
   await runRedisCommand(() => redis.expire(keyString, time))
+}
+
+export const setKvAndExpireKvIfTtlLessThan = async (
+  key: string,
+  value: string,
+  keyTime: number,
+  ttlKey: string,
+  ttlTime: number
+) => {
+  if (keyTime <= 0) {
+    return
+  }
+
+  const keyString = `${KUN_PATCH_REDIS_PREFIX}:${key}`
+  const ttlKeyString = `${KUN_PATCH_REDIS_PREFIX}:${ttlKey}`
+  await runRedisCommand(async () => {
+    const pipeline = redis.pipeline()
+    pipeline.setex(keyString, keyTime, value)
+    if (ttlTime > 0) {
+      pipeline.eval(EXPIRE_KV_IF_TTL_LESS_THAN_SCRIPT, 1, ttlKeyString, ttlTime)
+    }
+
+    const results = await pipeline.exec()
+    if (!results) {
+      throw new Error('Redis pipeline failed')
+    }
+    const failed = results.find(([error]) => error)
+    if (failed?.[0]) {
+      throw failed[0]
+    }
+  })
 }
 
 export const acquireKvLock = async (key: string, ttlSeconds = 10) => {

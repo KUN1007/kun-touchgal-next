@@ -4,7 +4,7 @@ export const getRemoteIp = (headers: Headers): string => {
     if (Array.isArray(ip)) {
       return ip[0]
     } else {
-      return ip?.split(',')[0].trim()
+      return ip?.split(',')[0]?.trim() ?? ''
     }
   }
 

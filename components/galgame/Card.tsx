@@ -1,13 +1,44 @@
 'use client'
 
 import { useState } from 'react'
-import { Card, CardBody, CardFooter, CardHeader } from '@heroui/card'
+import { Card, CardBody } from '@heroui/card'
 import { Image } from '@heroui/image'
-import { KunCardStats } from '~/components/kun/CardStats'
 import Link from 'next/link'
-import { KunPatchAttribute } from '~/components/kun/PatchAttribute'
+import { Eye, Star } from 'lucide-react'
+import { formatNumber } from '~/utils/formatNumber'
 import { cn } from '~/utils/cn'
-import { Star } from 'lucide-react'
+
+const CARD_ATTRIBUTE_STYLE_MAP: Record<string, string> = {
+  PC: 'bg-sky-100 text-sky-700 dark:bg-sky-400/15 dark:text-sky-200',
+  PE: 'bg-violet-100 text-violet-700 dark:bg-violet-400/15 dark:text-violet-200',
+  中文: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200'
+}
+
+const getCardAttributeLabels = (patch: GalgameCard) => {
+  const labels: string[] = []
+
+  if (patch.type.includes('pc')) {
+    labels.push('PC')
+  }
+
+  if (patch.type.includes('mobile')) {
+    labels.push('PE')
+  }
+
+  if (patch.type.includes('chinese')) {
+    labels.push('中文')
+  }
+
+  return labels
+}
+
+const getRatingText = (rating?: number) => {
+  if (!rating) {
+    return '暂无'
+  }
+
+  return Number.isInteger(rating) ? rating.toString() : rating.toFixed(1)
+}
 
 interface Props {
   patch: GalgameCard
@@ -16,6 +47,7 @@ interface Props {
 
 export const GalgameCard = ({ patch, openOnNewTab = true }: Props) => {
   const [imageLoaded, setImageLoaded] = useState(false)
+  const attributeLabels = getCardAttributeLabels(patch)
 
   return (
     <Card
@@ -23,54 +55,85 @@ export const GalgameCard = ({ patch, openOnNewTab = true }: Props) => {
       as={Link}
       href={`/${patch.uniqueId}`}
       target={openOnNewTab ? '_blank' : '_self'}
-      className="w-full border border-default-100 dark:border-default-200"
+      rel={openOnNewTab ? 'noopener noreferrer' : undefined}
+      className={cn(
+        'group flex h-full w-full flex-col overflow-hidden border-none bg-background shadow-[0_20px_55px_rgba(15,23,42,0.16)]',
+        'rounded-[22px] transition-transform duration-300 hover:-translate-y-1 hover:shadow-[0_26px_70px_rgba(15,23,42,0.2)]',
+        'dark:bg-content1 dark:shadow-[0_20px_55px_rgba(0,0,0,0.45)]'
+      )}
     >
-      <CardHeader className="p-0">
-        <div className="relative w-full mx-auto overflow-hidden text-center rounded-t-lg opacity-90">
-          <div
-            className={cn(
-              'absolute inset-0 animate-pulse bg-default-100',
-              imageLoaded ? 'opacity-0' : 'opacity-90',
-              'transition-opacity duration-300'
-            )}
-            style={{ aspectRatio: '16/9' }}
-          />
-          <Image
-            radius="none"
-            alt={patch.name}
-            className={cn(
-              'size-full object-cover transition-all duration-300',
-              imageLoaded ? 'scale-100 opacity-90' : 'scale-105 opacity-0'
-            )}
-            removeWrapper={true}
-            src={
-              patch.banner
-                ? patch.banner.replace(/\.avif$/, '-mini.avif')
-                : '/touchgal.avif'
-            }
-            style={{ aspectRatio: '16/9' }}
-            onLoad={() => setImageLoaded(true)}
-          />
-
-          {patch.averageRating !== 0 && (
-            <div className="absolute top-2 right-2 z-10">
-              <span className="flex px-2 rounded-2xl items-center text-background bg-warning-600/90 gap-1">
-                <Star className="w-4 h-4" />
-                {patch.averageRating}
-              </span>
-            </div>
+      <div className="relative w-full overflow-hidden bg-default-100">
+        <div
+          className={cn(
+            'absolute inset-0 animate-pulse bg-default-200',
+            imageLoaded ? 'opacity-0' : 'opacity-100',
+            'transition-opacity duration-300'
           )}
-        </div>
-      </CardHeader>
-      <CardBody className="justify-between space-y-2">
-        <h2 className="font-semibold transition-colors text-small sm:text-lg line-clamp-2 hover:text-primary-500">
+          style={{ aspectRatio: '16/9' }}
+        />
+        <Image
+          radius="none"
+          alt={patch.name}
+          className={cn(
+            'size-full object-cover transition-all duration-500',
+            imageLoaded ? 'scale-100 opacity-100' : 'scale-105 opacity-0',
+            'group-hover:scale-[1.03]'
+          )}
+          removeWrapper={true}
+          src={
+            patch.banner
+              ? patch.banner.replace(/\.avif$/, '-mini.avif')
+              : '/touchgal.avif'
+          }
+          style={{ aspectRatio: '16/9' }}
+          onLoad={() => setImageLoaded(true)}
+        />
+      </div>
+
+      <CardBody className="flex flex-1 flex-col gap-2 p-3 sm:gap-3 sm:p-4">
+        <h2 className="text-base font-extrabold leading-tight tracking-wide text-foreground transition-colors line-clamp-2 sm:text-lg group-hover:text-primary-500">
           {patch.name}
         </h2>
-        <KunCardStats patch={patch} isMobile={true} />
+
+        <div className="mt-auto space-y-2 sm:space-y-3">
+          <div className="flex items-center gap-2 text-xs sm:text-sm">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Star
+                aria-hidden="true"
+                className="size-4 fill-warning-400 text-warning-400"
+              />
+              <span className="font-extrabold text-foreground">
+                <span className="sr-only">评分 </span>
+                {getRatingText(patch.averageRating)}
+              </span>
+            </div>
+
+            <div className="h-4 w-px bg-default-200" />
+
+            <div className="flex items-center gap-1.5 text-default-500 sm:gap-2">
+              <Eye aria-hidden="true" className="size-4" />
+              <span>
+                <span className="sr-only">浏览量 </span>
+                {formatNumber(patch.view)}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex min-h-5 flex-wrap gap-1.5 pt-0.5 sm:min-h-6">
+            {attributeLabels.map((label) => (
+              <span
+                key={label}
+                className={cn(
+                  'inline-flex h-5 w-8 items-center justify-center rounded-lg text-[11px] font-semibold leading-none sm:h-6 sm:w-11 sm:text-xs',
+                  CARD_ATTRIBUTE_STYLE_MAP[label]
+                )}
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
       </CardBody>
-      <CardFooter className="pt-0">
-        <KunPatchAttribute types={patch.type} size="sm" />
-      </CardFooter>
     </Card>
   )
 }

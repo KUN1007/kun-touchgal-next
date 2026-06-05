@@ -56,14 +56,14 @@ export const Username = () => {
   }
 
   return (
-    <Card className="w-full text-sm">
-      <CardHeader>
-        <h2 className="text-xl font-medium">用户名</h2>
+    <Card className="w-full overflow-hidden border border-default-200 bg-content1/85 text-sm shadow-small transition-shadow hover:shadow-medium">
+      <CardHeader className="flex-col items-start gap-1 px-5 pb-0 pt-5">
+        <h2 className="text-xl font-semibold text-foreground">用户名</h2>
+        <p className="max-w-2xl leading-6 text-default-500">
+          用户名会显示在主页、评论和消息中，修改前请确认拼写。
+        </p>
       </CardHeader>
-      <CardBody className="overflow-visible py-0 space-y-4">
-        <div>
-          <p>这是您的用户名设置, 您的用户名是唯一的</p>
-        </div>
+      <CardBody className="space-y-4 overflow-visible px-5 py-4">
         <Input
           label="用户名"
           autoComplete="text"
@@ -75,15 +75,15 @@ export const Username = () => {
         />
       </CardBody>
 
-      <CardFooter className="flex-wrap">
-        <p className="text-default-500">
-          用户名长度最大为 17, 可以是任意字符, 更改用户名需要消耗您 30 萌萌点
+      <CardFooter className="flex flex-col items-start gap-3 border-t border-default-100 bg-default-50/60 px-5 py-4 sm:flex-row sm:items-center dark:bg-default-100/10">
+        <p className="min-w-0 flex-1 leading-6 text-default-500">
+          用户名长度最大为 17，可以是任意字符。更改用户名需要消耗 30 萌萌点。
         </p>
 
         <Button
           color="primary"
           variant="solid"
-          className="ml-auto"
+          className="w-full sm:ml-auto sm:w-auto"
           onPress={onOpen}
         >
           保存

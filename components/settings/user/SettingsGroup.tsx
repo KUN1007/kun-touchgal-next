@@ -20,7 +20,7 @@ export const SettingsGroup = ({
       role="tabpanel"
       aria-labelledby={getTabId(id)}
       hidden={!isActive}
-      className="space-y-6"
+      className="space-y-5"
     >
       {children}
     </section>

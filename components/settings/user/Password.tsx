@@ -24,9 +24,9 @@ export const Password = () => {
 
   const {
     control,
-    watch,
     formState: { errors },
-    reset
+    reset,
+    handleSubmit
   } = useForm<PasswordFormData>({
     resolver: zodResolver(passwordSchema),
     defaultValues: {
@@ -35,12 +35,12 @@ export const Password = () => {
     }
   })
 
-  const handleUpdatePassword = async () => {
+  const handleUpdatePassword = async (data: PasswordFormData) => {
     setLoading(true)
 
     const res = await kunFetchPost<KunResponse<{}>>(
       '/user/setting/password',
-      watch()
+      data
     )
     kunErrorHandler(res, () => {
       reset()
@@ -53,24 +53,24 @@ export const Password = () => {
   }
 
   return (
-    <Card className="w-full text-sm">
-      <form>
-        <CardHeader>
-          <h2 className="text-xl font-medium">密码</h2>
+    <Card className="w-full overflow-hidden border border-default-200 bg-content1/85 text-sm shadow-small transition-shadow hover:shadow-medium">
+      <form className="contents" onSubmit={handleSubmit(handleUpdatePassword)}>
+        <CardHeader className="flex-col items-start gap-1 px-5 pb-0 pt-5">
+          <h2 className="text-xl font-semibold text-foreground">密码</h2>
+          <p className="max-w-2xl leading-6 text-default-500">
+            输入当前密码后设置新密码，保存成功后需要重新登录。
+          </p>
         </CardHeader>
-        <CardBody className="overflow-visible py-0 space-y-4">
-          <div>
-            <p>这是您的密码设置, 您需要输入旧密码以更改新密码</p>
-          </div>
+        <CardBody className="space-y-4 overflow-visible px-5 py-4">
           <Controller
             name="oldPassword"
             control={control}
             render={({ field }) => (
               <Input
                 {...field}
-                type="text"
+                type="password"
                 label="旧密码"
-                autoComplete="old-password"
+                autoComplete="current-password"
                 isInvalid={!!errors.oldPassword}
                 errorMessage={errors.oldPassword?.message}
               />
@@ -82,7 +82,7 @@ export const Password = () => {
             render={({ field }) => (
               <Input
                 {...field}
-                type="text"
+                type="password"
                 label="新密码"
                 autoComplete="new-password"
                 isInvalid={!!errors.newPassword}
@@ -92,17 +92,17 @@ export const Password = () => {
           />
         </CardBody>
 
-        <CardFooter className="flex-wrap">
-          <p className="text-default-500">
-            密码长度最短 6 个字符, 最长 1000 个字符, 可以选择性的包含
-            @!#$%^&*()_-+=\/ 等特殊字符, 至少包含数字和英语字母
+        <CardFooter className="flex flex-col items-start gap-3 border-t border-default-100 bg-default-50/60 px-5 py-4 sm:flex-row sm:items-center dark:bg-default-100/10">
+          <p className="min-w-0 flex-1 leading-6 text-default-500">
+            密码长度为 6 到 1000 个字符，至少包含数字和英语字母，可包含
+            @!#$%^&*()_-+=\/ 等特殊字符。
           </p>
           <Button
             color="primary"
             variant="solid"
-            className="ml-auto"
+            className="w-full sm:ml-auto sm:w-auto"
+            type="submit"
             isLoading={loading}
-            onPress={handleUpdatePassword}
           >
             保存
           </Button>
@@ -110,8 +110,8 @@ export const Password = () => {
 
         <Divider />
 
-        <CardFooter>
-          <Link showAnchorIcon href="/auth/forgot">
+        <CardFooter className="justify-end px-5 py-3">
+          <Link showAnchorIcon href="/auth/forgot" className="text-sm">
             忘记密码?
           </Link>
         </CardFooter>

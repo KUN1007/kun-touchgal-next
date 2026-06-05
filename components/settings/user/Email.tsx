@@ -87,19 +87,20 @@ export const Email = () => {
 
   return (
     <>
-      <Card className="w-full text-sm">
-        <form>
-          <CardHeader>
-            <h2 className="text-xl font-medium">邮箱</h2>
+      <Card className="w-full overflow-hidden border border-default-200 bg-content1/85 text-sm shadow-small transition-shadow hover:shadow-medium">
+        <form className="contents" onSubmit={handleSubmit(openAuthModal)}>
+          <CardHeader className="flex-col items-start gap-1 px-5 pb-0 pt-5">
+            <h2 className="text-xl font-semibold text-foreground">邮箱</h2>
+            <p className="max-w-2xl leading-6 text-default-500">
+              邮箱用于密码恢复和重要安全通知，请确保可以正常接收邮件。
+            </p>
           </CardHeader>
-          <CardBody className="overflow-visible py-0 space-y-4">
-            <div>
-              <p>这是您的邮箱设置, 您的邮箱将会被用于恢复您的密码</p>
-              <p>
-                点击发送验证码, 您的新邮箱中将会收到一封包含验证码的邮件,
-                请填写新邮箱中收到的验证码
+          <CardBody className="space-y-4 overflow-visible px-5 py-4">
+            <div className="rounded-2xl border border-default-200 bg-default-50/70 p-4 dark:bg-default-100/10">
+              <p className="font-medium text-foreground">验证流程</p>
+              <p className="mt-1 leading-6 text-default-500">
+                先向新邮箱发送验证码，保存时再通过当前密码或 2FA 确认本人操作。
               </p>
-              <p>保存前还需要确认是您本人操作。</p>
             </div>
             <Controller
               name="email"
@@ -108,7 +109,9 @@ export const Email = () => {
                 <Input
                   {...field}
                   type="email"
+                  label="新邮箱"
                   placeholder="请输入您的新邮箱"
+                  autoComplete="email"
                   startContent={
                     <Mail className="text-2xl pointer-events-none shrink-0 text-default-400" />
                   }
@@ -124,7 +127,9 @@ export const Email = () => {
                 <Input
                   {...field}
                   type="text"
-                  placeholder="新邮箱验证码"
+                  label="新邮箱验证码"
+                  placeholder="输入邮箱验证码"
+                  autoComplete="one-time-code"
                   startContent={
                     <KeyRound className="text-2xl pointer-events-none shrink-0 text-default-400" />
                   }
@@ -141,17 +146,17 @@ export const Email = () => {
               )}
             />
           </CardBody>
-          <CardFooter className="flex-wrap">
-            <p className="text-default-500">
-              如果您的新邮箱未收到验证码, 请检查垃圾邮件或者全部邮件
+          <CardFooter className="flex flex-col items-start gap-3 border-t border-default-100 bg-default-50/60 px-5 py-4 sm:flex-row sm:items-center dark:bg-default-100/10">
+            <p className="min-w-0 flex-1 leading-6 text-default-500">
+              如果新邮箱未收到验证码，请检查垃圾邮件或全部邮件。
             </p>
             <Button
               color="primary"
               variant="solid"
-              className="ml-auto"
+              className="w-full sm:ml-auto sm:w-auto"
+              type="submit"
               isLoading={checkingAuthMode}
               isDisabled={loading}
-              onPress={() => handleSubmit(openAuthModal)()}
             >
               保存
             </Button>

@@ -410,7 +410,7 @@ export const LoginSessions = () => {
     : null
 
   return (
-    <Card className="w-full overflow-hidden text-sm">
+    <Card className="w-full overflow-hidden border border-default-200 bg-content1/85 text-sm shadow-small backdrop-blur transition-shadow hover:shadow-medium">
       <CardHeader className="flex-col items-start gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
           <div>
@@ -522,7 +522,7 @@ export const LoginSessions = () => {
 
       <Divider />
 
-      <CardFooter className="items-start gap-2 bg-default-50/60 text-default-500 dark:bg-default-100/10">
+      <CardFooter className="items-start gap-2 border-t border-default-100 bg-default-50/60 px-5 py-4 text-default-500 dark:bg-default-100/10">
         <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" />
         <p className="leading-6">
           撤销会话会让对应设备的下次请求失效。当前设备退出登录请使用顶部栏退出入口。

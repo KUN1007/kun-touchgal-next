@@ -31,11 +31,11 @@ const LazySectionPlaceholder = ({
 }: LazySectionPlaceholderProps) => {
   return (
     <div
-      className="flex w-full flex-col justify-center rounded-2xl border border-default-200 bg-content1 px-6 py-5 text-sm text-default-500"
+      className="flex w-full flex-col justify-center rounded-3xl border border-default-200 bg-content1/85 px-5 py-5 text-sm text-default-500 shadow-small"
       style={{ minHeight }}
     >
-      <h2 className="mb-2 text-xl font-medium text-foreground">{title}</h2>
-      <p>{description}</p>
+      <h2 className="mb-2 text-xl font-semibold text-foreground">{title}</h2>
+      <p className="leading-6">{description}</p>
     </div>
   )
 }

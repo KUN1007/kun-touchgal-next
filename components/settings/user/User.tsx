@@ -50,17 +50,20 @@ export const UserSettings = () => {
   )
 
   return (
-    <div className="my-4 w-full">
+    <div className="my-4 w-full px-3 sm:px-0">
       <div className="mx-auto w-full max-w-6xl space-y-6">
-        <KunHeader name="账户设置" description="您可以在此处设置您的账户信息" />
+        <KunHeader
+          name="账户设置"
+          description="按分类管理个人资料、账号安全、通知隐私与内容偏好。"
+        />
 
-        <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start">
+        <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
           <SettingsNav
             activeId={activeSectionId}
             onSelect={handleSelectSection}
           />
 
-          <div className="min-w-0 space-y-8">
+          <div className="min-w-0 space-y-5">
             <SettingsGroup id={profileSettings.id} isActive={isProfileSettings}>
               <UserAvatar />
               <Username />

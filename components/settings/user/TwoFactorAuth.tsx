@@ -173,40 +173,47 @@ export const TwoFactorAuth = () => {
 
   return (
     <>
-      <Card className="w-full text-sm">
-        <CardHeader>
-          <h2 className="text-xl font-medium">两步验证</h2>
+      <Card className="w-full overflow-hidden border border-default-200 bg-content1/85 text-sm shadow-small transition-shadow hover:shadow-medium">
+        <CardHeader className="flex-col items-start gap-1 px-5 pb-0 pt-5">
+          <h2 className="text-xl font-semibold text-foreground">两步验证</h2>
+          <p className="max-w-2xl leading-6 text-default-500">
+            登录时除密码外再验证身份验证器验证码，为账户增加额外保护。
+          </p>
         </CardHeader>
-        <CardBody className="overflow-visible py-0 space-y-4">
-          <div>
-            <p>
-              两步验证可以为您的账户提供额外的安全保护。启用后，每次登录时除了密码外，
-              还需要输入身份验证器应用生成的验证码。{' '}
-              <b>您当前还有 {authStatus.backupCodeLength} 个备用验证码</b>,
-              当备用验证码过少时, 建议您重新进行两步验证
-            </p>
-          </div>
-          <div className="flex items-center justify-between">
-            <p>是否启用两步验证</p>
-            <Switch
-              size="lg"
-              color="primary"
-              isSelected={authStatus.isEnabled2FA}
-              isDisabled={isPending}
-              onValueChange={(value) => {
-                if (value) {
-                  generateSecret()
-                } else {
-                  onDisableOpen()
-                }
-              }}
-            />
+        <CardBody className="space-y-4 overflow-visible px-5 py-4">
+          <div className="rounded-2xl border border-default-200 bg-default-50/70 p-4 dark:bg-default-100/10">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">是否启用两步验证</p>
+                <p className="leading-6 text-default-500">
+                  当前还有{' '}
+                  <b className="font-semibold text-foreground">
+                    {authStatus.backupCodeLength}
+                  </b>{' '}
+                  个备用验证码，过少时建议重新配置。
+                </p>
+              </div>
+              <Switch
+                size="lg"
+                color="primary"
+                aria-label="启用两步验证"
+                isSelected={authStatus.isEnabled2FA}
+                isDisabled={isPending}
+                onValueChange={(value) => {
+                  if (value) {
+                    generateSecret()
+                  } else {
+                    onDisableOpen()
+                  }
+                }}
+              />
+            </div>
           </div>
         </CardBody>
 
-        <CardFooter className="flex-wrap">
-          <p className="text-default-500">
-            启用两步验证后，即使密码泄露，他人也无法登录您的账户
+        <CardFooter className="border-t border-default-100 bg-default-50/60 px-5 py-4 text-default-500 dark:bg-default-100/10">
+          <p className="leading-6">
+            启用后，即使密码泄露，他人也无法仅凭密码登录您的账户。
           </p>
         </CardFooter>
       </Card>
@@ -226,7 +233,7 @@ export const TwoFactorAuth = () => {
                   <div className="flex justify-center my-4">
                     <img
                       src={authStatus.qrCodeUrl}
-                      alt="2FA QR Code"
+                      alt="两步验证二维码"
                       width={200}
                       height={200}
                     />
@@ -244,7 +251,9 @@ export const TwoFactorAuth = () => {
                   onValueChange={(value) =>
                     setAuthStatus({ ...authStatus, token: value })
                   }
-                  placeholder="6位验证码"
+                  placeholder="6 位验证码"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
                   maxLength={6}
                   className="text-lg tracking-widest text-center"
                 />

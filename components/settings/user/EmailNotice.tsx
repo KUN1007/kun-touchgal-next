@@ -28,29 +28,35 @@ export const EmailNotice = () => {
   }
 
   return (
-    <Card className="w-full text-sm">
-      <CardHeader>
-        <h2 className="text-xl font-medium">邮件通知</h2>
+    <Card className="w-full overflow-hidden border border-default-200 bg-content1/85 text-sm shadow-small transition-shadow hover:shadow-medium">
+      <CardHeader className="flex-col items-start gap-1 px-5 pb-0 pt-5">
+        <h2 className="text-xl font-semibold text-foreground">邮件通知</h2>
+        <p className="max-w-2xl leading-6 text-default-500">
+          控制站内通知是否通过邮件提醒。
+        </p>
       </CardHeader>
-      <CardBody className="overflow-visible py-0 space-y-4">
-        <div>
-          <p>当网站有通知时, 会通过邮件的形式提醒您</p>
-        </div>
-        <div className="flex items-center justify-between">
-          <p>是否开启邮件通知</p>
-          <Switch
-            size="lg"
-            color="primary"
-            isSelected={user.enableEmailNotice}
-            onValueChange={handleToggleEmailNotice}
-          />
+      <CardBody className="space-y-4 overflow-visible px-5 py-4">
+        <div className="rounded-2xl border border-default-200 bg-default-50/70 p-4 dark:bg-default-100/10">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <p className="font-medium text-foreground">是否开启邮件通知</p>
+              <p className="leading-6 text-default-500">
+                有站内通知时，通过邮箱同步提醒您。
+              </p>
+            </div>
+            <Switch
+              size="lg"
+              color="primary"
+              aria-label="开启邮件通知"
+              isSelected={user.enableEmailNotice}
+              onValueChange={handleToggleEmailNotice}
+            />
+          </div>
         </div>
       </CardBody>
 
-      <CardFooter className="flex-wrap">
-        <p className="text-default-500">
-          您可以开启或关闭邮件通知, 关闭后您将不会收到关于网站的任何邮件
-        </p>
+      <CardFooter className="border-t border-default-100 bg-default-50/60 px-5 py-4 text-default-500 dark:bg-default-100/10">
+        <p className="leading-6">关闭后，您将不会收到关于网站通知的邮件。</p>
       </CardFooter>
     </Card>
   )

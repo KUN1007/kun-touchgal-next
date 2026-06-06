@@ -1,4 +1,4 @@
-import { Download, Eye, Heart, MessageSquare, Puzzle } from 'lucide-react'
+import { Download, Eye, Heart, MessageSquare, Package } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
 import { formatTimeDifference } from '~/utils/time'
@@ -45,7 +45,7 @@ const PatchStats = ({ patch }: { patch: Patch }) => (
       <Heart className="size-4" />
     </StatItem>
     <StatItem title="下载资源数" value={patch._count.resource || 0}>
-      <Puzzle className="size-4" />
+      <Package className="size-4" />
     </StatItem>
     <StatItem title="评论数" value={patch._count.comment || 0}>
       <MessageSquare className="size-4" />

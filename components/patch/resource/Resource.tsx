@@ -17,6 +17,7 @@ import { PublishResource } from './publish/PublishResource'
 import { EditResourceDialog } from './edit/EditResourceDialog'
 import { ResourceTabs } from './Tabs'
 import { KunLoading } from '~/components/kun/Loading'
+import { useUserStore } from '~/store/userStore'
 import toast from 'react-hot-toast'
 import type { PatchResource } from '~/types/api/patch'
 
@@ -28,6 +29,7 @@ interface Props {
 export const Resources = ({ id, vndbId }: Props) => {
   const [loading, setLoading] = useState(false)
   const [resources, setResources] = useState<PatchResource[]>([])
+  const uid = useUserStore((state) => state.user.uid)
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
@@ -78,16 +80,18 @@ export const Resources = ({ id, vndbId }: Props) => {
 
   return (
     <div className="mt-4 space-y-4">
-      <div className="flex justify-end">
-        <Button
-          color="primary"
-          variant="flat"
-          startContent={<Plus className="size-4" />}
-          onPress={onOpenCreate}
-        >
-          添加资源
-        </Button>
-      </div>
+      {uid > 0 && (
+        <div className="flex justify-end">
+          <Button
+            color="primary"
+            variant="flat"
+            startContent={<Plus className="size-4" />}
+            onPress={onOpenCreate}
+          >
+            添加资源
+          </Button>
+        </div>
+      )}
 
       {loading ? (
         <KunLoading hint="正在获取 Galgame 资源数据..." />

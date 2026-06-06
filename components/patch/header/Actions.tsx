@@ -41,7 +41,7 @@ export const PatchHeaderActions = ({ patch }: PatchHeaderActionsProps) => {
   }
 
   const handleShareLink = () => {
-    const text = `${patch.name} - ${kunMoyuMoe.domain.main}/patch/${patch.id}/introduction`
+    const text = `${patch.name} - ${kunMoyuMoe.domain.main}/${patch.uniqueId}`
     kunCopy(text)
   }
 

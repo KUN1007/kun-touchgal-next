@@ -12,21 +12,25 @@ interface Props {
   languages?: string[]
   platforms?: string[]
   size?: 'lg' | 'md' | 'sm'
+  hidePatchType?: boolean
 }
 
 export const KunPatchAttribute = ({
   types,
   languages = [],
   platforms = [],
-  size = 'md'
+  size = 'md',
+  hidePatchType = false
 }: Props) => {
   return (
     <div className="flex flex-wrap gap-2">
-      {types.map((type) => (
-        <Chip key={type} variant="flat" color="primary" size={size}>
-          {SUPPORTED_TYPE_MAP[type]}
-        </Chip>
-      ))}
+      {types.map((type) =>
+        hidePatchType && type === 'patch' ? null : (
+          <Chip key={type} variant="flat" color="primary" size={size}>
+            {SUPPORTED_TYPE_MAP[type]}
+          </Chip>
+        )
+      )}
       {languages?.map((lang) => (
         <Chip key={lang} variant="flat" color="secondary" size={size}>
           {SUPPORTED_LANGUAGE_MAP[lang]}

@@ -10,6 +10,7 @@ import { unified } from 'unified'
 import { remarkKunExternalLinks } from './remarkKunExternalLinks'
 import { renderMarkdownHtmlWithCache } from './markdownHtmlCache'
 import { markdownSanitizeSchema } from './sanitizeSchema'
+import { rehypeKunImageLoading } from './rehypeKunImageLoading'
 import type { Plugin } from 'unified'
 import type { Node } from 'unist'
 
@@ -31,7 +32,7 @@ const remarkDropDirectives: Plugin<[], Node> = () => {
   return (tree) => walk(tree)
 }
 
-export const COMMENT_HTML_VERSION = 1
+export const COMMENT_HTML_VERSION = 2
 
 const markdownCommentProcessor = unified()
   .use(remarkParse)
@@ -43,6 +44,7 @@ const markdownCommentProcessor = unified()
   .use(remarkFrontmatter)
   .use(remarkGfm)
   .use(rehypePrism, { ignoreMissing: true })
+  .use(rehypeKunImageLoading)
   .use(rehypeStringify)
   .freeze()
 

@@ -13,6 +13,7 @@ import { remarkKunExternalLinks } from './remarkKunExternalLinks'
 import { remarkKunWrapImage } from './remarkKunWrapImage'
 import { renderMarkdownHtmlWithCache } from './markdownHtmlCache'
 import { markdownExtendSanitizeSchema } from './sanitizeSchema'
+import { rehypeKunImageLoading } from './rehypeKunImageLoading'
 import { PATCH_INTRODUCTION_HTML_VERSION } from './htmlVersion'
 
 const markdownExtendProcessor = unified()
@@ -26,6 +27,7 @@ const markdownExtendProcessor = unified()
   .use(remarkFrontmatter)
   .use(remarkGfm)
   .use(rehypePrism, { ignoreMissing: true })
+  .use(rehypeKunImageLoading)
   .use(remarkKunWrapImage)
   .use(rehypeStringify)
   .freeze()

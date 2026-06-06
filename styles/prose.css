@@ -115,6 +115,8 @@
 }
 
 .kun-prose img {
+  max-width: 100%;
+  height: auto;
   @apply rounded-lg shadow-md border border-default-200;
 }
 

@@ -9,6 +9,7 @@ import { unified } from 'unified'
 import { remarkKunExternalLinks } from './remarkKunExternalLinks'
 import { renderMarkdownHtmlWithCache } from './markdownHtmlCache'
 import { markdownSanitizeSchema } from './sanitizeSchema'
+import { rehypeKunImageLoading } from './rehypeKunImageLoading'
 
 const markdownProcessor = unified()
   .use(remarkParse)
@@ -18,6 +19,7 @@ const markdownProcessor = unified()
   .use(remarkFrontmatter)
   .use(remarkGfm)
   .use(rehypePrism, { ignoreMissing: true })
+  .use(rehypeKunImageLoading)
   .use(rehypeStringify)
   .freeze()
 

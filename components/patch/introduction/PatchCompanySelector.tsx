@@ -24,6 +24,8 @@ import toast from 'react-hot-toast'
 import { KunLoading } from '~/components/kun/Loading'
 import { SearchCompanies } from '~/components/company/SearchCompanies'
 
+const MAX_COMPANY_SEARCH_KEYWORDS = 10
+
 type State = {
   selectedCompanies: number[]
   removedCompanies: number[]
@@ -88,10 +90,16 @@ export const PatchCompanySelector: FC<Props> = ({
       if (!isOpen) {
         return
       }
-      const response = await kunFetchGet<{
-        companies: CompanyType[]
-        total: number
-      }>('/company/all', { page: 1, limit: 100 })
+      const response = await kunFetchGet<
+        KunResponse<{
+          companies: CompanyType[]
+          total: number
+        }>
+      >('/company/all', { page: 1, limit: 100 })
+      if (typeof response === 'string') {
+        toast.error(response)
+        return
+      }
       setCompanies(response.companies)
     })
   }
@@ -102,19 +110,40 @@ export const PatchCompanySelector: FC<Props> = ({
     }
   }, [isMounted, isOpen])
 
-  const handleSearch = () => {
+  const searchCompanies = (searchQuery: string) => {
     startSearchTransition(async () => {
-      if (!query.trim()) return
-      const response = await kunFetchPost<CompanyType[]>('/company/search', {
-        query: query.split(' ').filter(Boolean)
-      })
+      const searchTerms = searchQuery
+        .trim()
+        .split(/\s+/u, MAX_COMPANY_SEARCH_KEYWORDS + 1)
+        .filter(Boolean)
+      if (searchTerms.length === 0) {
+        return
+      }
+
+      if (searchTerms.length > MAX_COMPANY_SEARCH_KEYWORDS) {
+        toast.error('您最多使用 10 组关键词')
+        return
+      }
+
+      const response = await kunFetchPost<KunResponse<CompanyType[]>>(
+        '/company/search',
+        {
+          query: searchTerms
+        }
+      )
+      if (typeof response === 'string') {
+        toast.error(response)
+        return
+      }
       setCompanies(response)
     })
   }
 
+  const handleSearch = () => searchCompanies(query)
+
   useEffect(() => {
-    if (debouncedQuery) {
-      handleSearch()
+    if (debouncedQuery.trim()) {
+      searchCompanies(debouncedQuery)
     } else {
       fetchCompanies()
     }
@@ -217,7 +246,8 @@ export const PatchCompanySelector: FC<Props> = ({
                 ) : (
                   <div className="space-y-2">
                     {(() => {
-                      const displayedCompanies = query
+                      const hasQuery = query.trim().length > 0
+                      const displayedCompanies = hasQuery
                         ? companies
                         : [
                             ...initialCompanies.filter(
@@ -227,7 +257,7 @@ export const PatchCompanySelector: FC<Props> = ({
                               state.selectedCompanies.includes(c.id)
                             )
                           ]
-                      if (!query && displayedCompanies.length === 0) {
+                      if (!hasQuery && displayedCompanies.length === 0) {
                         return (
                           <p className="text-sm text-default-400 text-center py-4">
                             暂无已选会社，请输入关键字搜索添加

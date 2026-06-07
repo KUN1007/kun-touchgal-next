@@ -28,7 +28,7 @@ export const SearchCompanies: FC<SearchCompaniesProps> = ({
             isIconOnly
             variant="light"
             aria-label="搜索 Galgame 会社"
-            onPress={handleSearch}
+            onPress={() => handleSearch()}
           >
             <Search />
           </Button>

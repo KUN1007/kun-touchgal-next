@@ -1,4 +1,4 @@
-import { KunMasonryGrid } from '~/components/kun/MasonryGrid'
+import { KunMasonry } from '~/components/kun/KunMasonry'
 import { KunLoading } from '~/components/kun/Loading'
 import { KunNull } from '~/components/kun/Null'
 import { CompanyCard } from './Card'
@@ -25,10 +25,10 @@ export const CompanyList: FC<CompanyListProps> = ({
   }
 
   return (
-    <KunMasonryGrid columnWidth={256} gap={16}>
+    <KunMasonry columnWidth={256} gap={16} estimatedItemHeight={112}>
       {companies.map((company) => (
         <CompanyCard key={company.id} company={company} />
       ))}
-    </KunMasonryGrid>
+    </KunMasonry>
   )
 }

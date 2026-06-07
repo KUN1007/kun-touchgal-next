@@ -8,8 +8,11 @@ import { SearchCompanies } from './SearchCompanies'
 import { CompanyList } from './CompanyList'
 import { useMounted } from '~/hooks/useMounted'
 import { kunFetchGet, kunFetchPost } from '~/utils/kunFetch'
+import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import type { FC } from 'react'
 import type { Company as CompanyType } from '~/types/api/company'
+
+const MAX_COMPANY_SEARCH_KEYWORDS = 10
 
 interface Props {
   initialCompanies: CompanyType[]
@@ -48,22 +51,45 @@ export const Container: FC<Props> = ({ initialCompanies, initialTotal }) => {
   const [debouncedQuery] = useDebounce(query, 500)
   const [searching, setSearching] = useState(false)
 
-  const handleSearch = async () => {
-    if (!query.trim()) {
+  const handleSearch = async (searchQuery = query) => {
+    const searchTerms = searchQuery
+      .trim()
+      .split(/\s+/u, MAX_COMPANY_SEARCH_KEYWORDS + 1)
+      .filter(Boolean)
+    if (searchTerms.length === 0) {
+      return
+    }
+
+    if (searchTerms.length > MAX_COMPANY_SEARCH_KEYWORDS) {
+      kunErrorHandler('您最多使用 10 组关键词', () => {})
       return
     }
 
     setSearching(true)
-    const res = await kunFetchPost<CompanyType[]>('/company/search', {
-      query: query.split(' ').filter((term) => term.length > 0)
-    })
-    setCompanies(res)
-    setSearching(false)
+    try {
+      const res = await kunFetchPost<CompanyType[] | string>(
+        '/company/search',
+        {
+          query: searchTerms
+        }
+      )
+
+      if (typeof res === 'string') {
+        kunErrorHandler(res, () => {})
+        return
+      }
+
+      setCompanies(res)
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setSearching(false)
+    }
   }
 
   useEffect(() => {
-    if (debouncedQuery) {
-      handleSearch()
+    if (debouncedQuery.trim()) {
+      handleSearch(debouncedQuery)
     } else {
       fetchCompanies()
     }
@@ -90,7 +116,7 @@ export const Container: FC<Props> = ({ initialCompanies, initialTotal }) => {
         />
       )}
 
-      {total > 100 && !query && (
+      {total > 100 && !query.trim() && (
         <div className="flex justify-center">
           <KunPagination
             total={Math.ceil(total / 100)}

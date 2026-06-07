@@ -13,61 +13,8 @@ import { KunTreeNode } from '~/lib/mdx/types'
 import { BookOpen, ChevronRight, X } from 'lucide-react'
 import { SidebarContent } from './SidebarContent'
 import { usePathname } from 'next/navigation'
-import { useEffect, useRef } from 'react'
-
-const normalizeWheelDeltaY = (
-  event: WheelEvent,
-  scrollElement: HTMLElement
-) => {
-  if (event.deltaMode === 1) {
-    return event.deltaY * 16
-  }
-
-  if (event.deltaMode === 2) {
-    return event.deltaY * scrollElement.clientHeight
-  }
-
-  return event.deltaY
-}
-
-const scrollPageBy = (event: WheelEvent, deltaY: number) => {
-  event.preventDefault()
-  window.scrollBy(0, deltaY)
-}
-
-const handlePrioritizedWheelScroll = (
-  event: WheelEvent,
-  scrollElement: HTMLElement | null
-) => {
-  if (!scrollElement || event.ctrlKey) {
-    return
-  }
-
-  const deltaY = normalizeWheelDeltaY(event, scrollElement)
-  if (deltaY === 0) {
-    return
-  }
-
-  const maxScrollTop = scrollElement.scrollHeight - scrollElement.clientHeight
-  if (maxScrollTop <= 0) {
-    scrollPageBy(event, deltaY)
-    return
-  }
-
-  const currentScrollTop = scrollElement.scrollTop
-  const nextScrollTop = Math.min(
-    maxScrollTop,
-    Math.max(0, currentScrollTop + deltaY)
-  )
-
-  if (nextScrollTop === currentScrollTop) {
-    scrollPageBy(event, deltaY)
-    return
-  }
-
-  event.preventDefault()
-  scrollElement.scrollTop = nextScrollTop
-}
+import { useEffect } from 'react'
+import { usePrioritizedWheelScroll } from './usePrioritizedWheelScroll'
 
 interface Props {
   tree: KunTreeNode
@@ -76,25 +23,10 @@ interface Props {
 export const KunSidebar = ({ tree }: Props) => {
   const { isOpen, onOpen, onClose, onOpenChange } = useDisclosure()
   const pathname = usePathname()
-  const sidebarRef = useRef<HTMLElement>(null)
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const { containerRef: sidebarRef, scrollContainerRef } =
+    usePrioritizedWheelScroll<HTMLElement, HTMLDivElement>()
 
   useEffect(() => onClose(), [onClose, pathname])
-
-  useEffect(() => {
-    const sidebar = sidebarRef.current
-    if (!sidebar) {
-      return
-    }
-
-    const handleWheel = (event: WheelEvent) => {
-      handlePrioritizedWheelScroll(event, scrollContainerRef.current)
-    }
-
-    sidebar.addEventListener('wheel', handleWheel, { passive: false })
-
-    return () => sidebar.removeEventListener('wheel', handleWheel)
-  }, [])
 
   return (
     <>

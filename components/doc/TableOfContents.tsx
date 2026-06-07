@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { ListTree } from 'lucide-react'
 import { cn } from '~/utils/cn'
+import { usePrioritizedWheelScroll } from './usePrioritizedWheelScroll'
 
 interface TOCItem {
   id: string
@@ -30,6 +31,8 @@ const scrollToHeading = (id: string) => {
 export const TableOfContents = () => {
   const [headings, setHeadings] = useState<TOCItem[]>([])
   const [activeId, setActiveId] = useState('')
+  const { containerRef: tableOfContentsRef, scrollContainerRef } =
+    usePrioritizedWheelScroll<HTMLElement, HTMLUListElement>()
 
   useEffect(() => {
     const elements = Array.from(
@@ -73,6 +76,7 @@ export const TableOfContents = () => {
 
   return (
     <nav
+      ref={tableOfContentsRef}
       aria-label="本页面索引"
       className="sticky top-32 hidden h-[calc(100dvh-9rem)] w-64 shrink-0 self-start lg:block"
     >
@@ -82,7 +86,10 @@ export const TableOfContents = () => {
           <span>本页面索引</span>
         </h2>
         {headings.length > 0 ? (
-          <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 scrollbar-hide">
+          <ul
+            ref={scrollContainerRef}
+            className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 scrollbar-hide"
+          >
             {headings.map((heading) => {
               const isActive = activeId === heading.id
               const depth = Math.min(

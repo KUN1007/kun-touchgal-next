@@ -21,6 +21,7 @@ export const getDirectoryTree = (): KunTreeNode => {
       return {
         name: baseName.replace(/\.mdx$/, ''),
         label: data.title,
+        date: data.date ? new Date(data.date).toISOString() : '',
         path: path
           .relative(POSTS_PATH, currentPath)
           .replace(/\.mdx$/, '')
@@ -34,10 +35,11 @@ export const getDirectoryTree = (): KunTreeNode => {
         .readdirSync(currentPath)
         .map((child) => buildTree(path.join(currentPath, child), child))
         .filter((child): child is KunTreeNode => child !== null)
-
+        .sort((a, b) => (a.date > b.date ? -1 : 1))
       return {
         name: baseName,
         label: docDirectoryLabelMap[baseName],
+        date: children[0]?.date ?? '',
         path: path.relative(POSTS_PATH, currentPath).replace(/\\/g, '/'),
         children,
         type: 'directory'

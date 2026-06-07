@@ -33,7 +33,8 @@ export const useSearchStore = create<SearchStoreState>()(
     }),
     {
       name: 'kun-patch-search-store-v3',
-      storage: createJSONStorage(() => window.localStorage)
+      storage: createJSONStorage(() => window.localStorage),
+      skipHydration: true
     }
   )
 )

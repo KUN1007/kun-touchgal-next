@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { cn } from '~/utils/cn'
-import { formatTimeDifference } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { KunAvatar } from '~/components/kun/floating-card/KunAvatar'
 import {
   Dropdown,
@@ -158,7 +158,9 @@ export const ChatMessage = ({
                   {message.content}
                 </p>
                 <div className="text-xs mt-1 flex items-center gap-2 text-primary-100">
-                  <span>{formatTimeDifference(message.created)}</span>
+                  <span>
+                    <KunTimeAgo date={message.created} />
+                  </span>
                   {message.editedAt && <span>(已编辑)</span>}
                 </div>
               </div>
@@ -191,7 +193,9 @@ export const ChatMessage = ({
               {message.content}
             </p>
             <div className="text-xs mt-1 flex items-center gap-2 text-default-400">
-              <span>{formatTimeDifference(message.created)}</span>
+              <span>
+                <KunTimeAgo date={message.created} />
+              </span>
               {message.editedAt && <span>(已编辑)</span>}
             </div>
           </div>

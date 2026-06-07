@@ -13,7 +13,7 @@ export const StatsCard: FC<{ title: string; value: number }> = ({
         {title}
       </p>
       <p className="text-xl font-semibold text-default-700">
-        {value.toLocaleString()}
+        {value.toLocaleString('zh-CN')}
       </p>
     </CardBody>
   </Card>

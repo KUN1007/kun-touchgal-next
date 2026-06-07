@@ -1,4 +1,4 @@
-import { differenceInSeconds, differenceInHours, format } from 'date-fns'
+import { differenceInSeconds, differenceInHours } from 'date-fns'
 
 export const formatTimeDifference = (pastTime: number | Date | string) => {
   const now = new Date()
@@ -40,19 +40,31 @@ export const hourDiff = (upvoteTime: number | Date | string, hours: number) => {
   return differenceInHours(currentTime, time) <= hours
 }
 
+// 站点时间展示固定为 UTC+8，避免 Node 服务器时区与浏览器本地时区不同导致 SSR/CSR 文本不一致。
+const KUN_SITE_TIMEZONE_OFFSET_MS = 8 * 60 * 60 * 1000
+
+const padDatePart = (value: number) => String(value).padStart(2, '0')
+
+export const getCurrentSiteYear = () => {
+  return new Date(Date.now() + KUN_SITE_TIMEZONE_OFFSET_MS).getUTCFullYear()
+}
+
 export const formatDate = (
   time: Date | string | number,
   config?: { isShowYear?: boolean; isPrecise?: boolean }
 ): string => {
-  let formatString = 'MM-dd'
+  const date = new Date(new Date(time).getTime() + KUN_SITE_TIMEZONE_OFFSET_MS)
+  const month = padDatePart(date.getUTCMonth() + 1)
+  const day = padDatePart(date.getUTCDate())
+  const dateText = config?.isShowYear
+    ? `${date.getUTCFullYear()}-${month}-${day}`
+    : `${month}-${day}`
 
-  if (config?.isShowYear) {
-    formatString = 'yyyy-MM-dd'
+  if (!config?.isPrecise) {
+    return dateText
   }
 
-  if (config?.isPrecise) {
-    formatString = `${formatString} - HH:mm`
-  }
-
-  return format(new Date(time), formatString)
+  return `${dateText} - ${padDatePart(date.getUTCHours())}:${padDatePart(
+    date.getUTCMinutes()
+  )}`
 }

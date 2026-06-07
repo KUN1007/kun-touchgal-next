@@ -9,7 +9,7 @@ import { Divider } from '@heroui/divider'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
 import { MessageCircle, PenLine } from 'lucide-react'
 import { kunFetchGet } from '~/utils/kunFetch'
-import { formatTimeDifference } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { PublishComment } from './PublishComment'
 import { CommentLikeButton } from './CommentLike'
 import { CommentDropdown } from './CommentDropdown'
@@ -189,7 +189,7 @@ export const Comments = ({ id }: Props) => {
                     user={comment.user}
                     userProps={{
                       name: comment.user.name,
-                      description: formatTimeDifference(comment.created),
+                      description: <KunTimeAgo date={comment.created} />,
                       avatarProps: {
                         showFallback: true,
                         name: comment.user.name,
@@ -248,9 +248,14 @@ export const Comments = ({ id }: Props) => {
                               user={reply.user}
                               userProps={{
                                 name: reply.user.name,
-                                description: reply.replyToUser
-                                  ? `回复了 @${reply.replyToUser.name} · ${formatTimeDifference(reply.created)}`
-                                  : formatTimeDifference(reply.created),
+                                description: reply.replyToUser ? (
+                                  <>
+                                    回复了 @{reply.replyToUser.name} ·{' '}
+                                    <KunTimeAgo date={reply.created} />
+                                  </>
+                                ) : (
+                                  <KunTimeAgo date={reply.created} />
+                                ),
                                 avatarProps: {
                                   showFallback: true,
                                   name: reply.user.name,

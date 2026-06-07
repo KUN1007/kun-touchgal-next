@@ -11,7 +11,7 @@ import {
   KUN_GALGAME_RATING_RECOMMEND_MAP,
   KUN_GALGAME_RATING_SPOILER_MAP
 } from '~/constants/galgame'
-import { formatTimeDifference } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import type { UserRating } from '~/types/api/user'
 
 interface Props {
@@ -126,7 +126,7 @@ export const UserRatingCard = ({ rating }: Props) => {
 
         <div className="flex items-center justify-between text-default-500">
           <span className="text-sm text-muted-foreground">
-            发布于 {formatTimeDifference(rating.created)}
+            发布于 <KunTimeAgo date={rating.created} />
           </span>
 
           <Tooltip content="点赞数">

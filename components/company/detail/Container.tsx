@@ -17,7 +17,7 @@ import { KunNull } from '~/components/kun/Null'
 import { KunPagination } from '~/components/kun/Pagination'
 import { CompanyFormModal } from '../form/CompanyFormModal'
 import { DeleteCompanyModal } from './DeleteCompanyModal'
-import { formatTimeDifference } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { kunFetchGet } from '~/utils/kunFetch'
 import { SUPPORTED_LANGUAGE_MAP } from '~/constants/resource'
 import { useUserStore } from '~/store/userStore'
@@ -40,12 +40,14 @@ interface Props {
   initialCompany: CompanyDetail
   initialPatches: GalgameCard[]
   total: number
+  filterEndYear: number
 }
 
 export const CompanyDetailContainer: FC<Props> = ({
   initialCompany,
   initialPatches,
-  total
+  total,
+  filterEndYear
 }) => {
   const { isOpen, onOpen, onClose } = useDisclosure()
 
@@ -171,7 +173,11 @@ export const CompanyDetailContainer: FC<Props> = ({
               user={company.user}
               userProps={{
                 name: company.user.name,
-                description: `创建于 ${formatTimeDifference(company.created)}`,
+                description: (
+                  <>
+                    创建于 <KunTimeAgo date={company.created} />
+                  </>
+                ),
                 avatarProps: {
                   src: company.user?.avatar
                 }
@@ -263,6 +269,7 @@ export const CompanyDetailContainer: FC<Props> = ({
         minRatingCount={minRatingCount}
         setMinRatingCount={withPageReset(setMinRatingCount)}
         defaultMinRatingCount={DEFAULT_TAG_COMPANY_MIN_RATING_COUNT}
+        endYear={filterEndYear}
       />
 
       {company.parent_brand.length > 0 && (

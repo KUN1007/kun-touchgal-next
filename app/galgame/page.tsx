@@ -3,6 +3,7 @@ import { kunMetadata } from './metadata'
 import { Suspense } from 'react'
 import { kunGetActions } from './actions'
 import { ErrorComponent } from '~/components/error/ErrorComponent'
+import { getCurrentSiteYear } from '~/utils/time'
 import type { Metadata } from 'next'
 
 export const revalidate = 120
@@ -31,6 +32,7 @@ export default async function Kun() {
       <CardContainer
         initialGalgames={response.galgames}
         initialTotal={response.total}
+        filterEndYear={getCurrentSiteYear()}
       />
     </Suspense>
   )

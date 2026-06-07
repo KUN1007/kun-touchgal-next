@@ -1,7 +1,7 @@
 import { Download, Eye, Heart, MessageSquare, Package } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
-import { formatTimeDifference } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { formatNumber } from '~/utils/formatNumber'
 import {
   GALGAME_AGE_LIMIT_DETAIL,
@@ -95,7 +95,8 @@ export const PatchHeaderInfo = ({ patch }: PatchHeaderInfoProps) => {
               <KunUser
                 user={patch.user}
                 userProps={{
-                  name: `${patch.user.name} - ${formatTimeDifference(patch.created)}`,
+                  name: patch.user.name,
+                  description: <KunTimeAgo date={patch.created} />,
                   avatarProps: {
                     showFallback: true,
                     name: patch.user.name.charAt(0).toUpperCase(),

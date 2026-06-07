@@ -3,7 +3,7 @@
 import { Card, Chip, Link } from '@heroui/react'
 import Image from 'next/image'
 import { docDirectoryLabelMap } from '~/constants/doc'
-import { formatTimeDifference } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import type { HomeCarouselMetadata } from './mdx'
 
 interface Props {
@@ -61,7 +61,7 @@ export const KunDesktopCard = ({ posts, currentSlide }: Props) => {
             </Chip>
 
             <Chip variant="flat" size="sm">
-              {formatTimeDifference(post.date)}
+              <KunTimeAgo date={post.date} />
             </Chip>
           </div>
         </div>

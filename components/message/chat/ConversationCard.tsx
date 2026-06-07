@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Card, CardBody } from '@heroui/card'
 import { Chip } from '@heroui/chip'
-import { formatTimeDifference } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { KunAvatar } from '~/components/kun/floating-card/KunAvatar'
 import type { Conversation } from '~/types/api/conversation'
 
@@ -32,7 +32,7 @@ export const ConversationCard = ({ conversation }: Props) => {
               {conversation.otherUser.name}
             </span>
             <span className="text-xs text-default-400 shrink-0 ml-2">
-              {formatTimeDifference(conversation.lastMessageTime)}
+              <KunTimeAgo date={conversation.lastMessageTime} />
             </span>
           </div>
           <p className="text-sm text-default-600 truncate">

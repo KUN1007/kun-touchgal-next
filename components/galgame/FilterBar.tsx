@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Dropdown,
   DropdownItem,
@@ -49,6 +49,7 @@ interface Props {
   minRatingCount?: number
   setMinRatingCount?: (count: number) => void
   defaultMinRatingCount?: number
+  endYear: number
 }
 
 const sortFieldLabelMap: Record<string, string> = {
@@ -60,14 +61,11 @@ const sortFieldLabelMap: Record<string, string> = {
   favorite: '收藏量'
 }
 
-const currentYear = new Date().getFullYear()
-const GALGAME_SORT_YEARS = [
+const getGalgameSortYears = (endYear: number) => [
   'all',
   'future',
   'unknown',
-  ...Array.from({ length: currentYear - 1979 }, (_, i) =>
-    String(currentYear - i)
-  )
+  ...Array.from({ length: endYear - 1979 }, (_, i) => String(endYear - i))
 ]
 
 const GALGAME_SORT_YEARS_MAP: Record<string, string> = {
@@ -109,8 +107,10 @@ export const FilterBar = ({
   setSelectedMonths,
   minRatingCount,
   setMinRatingCount,
-  defaultMinRatingCount = DEFAULT_GALGAME_MIN_RATING_COUNT
+  defaultMinRatingCount = DEFAULT_GALGAME_MIN_RATING_COUNT,
+  endYear
 }: Props) => {
+  const yearOptions = useMemo(() => getGalgameSortYears(endYear), [endYear])
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const currentSortLabel =
     sortFieldLabelMap[sortField] ?? (sortField === 'rating' ? '评分' : '排序')
@@ -307,7 +307,7 @@ export const FilterBar = ({
                   radius="lg"
                   size="sm"
                 >
-                  {GALGAME_SORT_YEARS.map((year) => (
+                  {yearOptions.map((year) => (
                     <SelectItem key={year} className="text-default-700">
                       {GALGAME_SORT_YEARS_MAP[year] ?? year}
                     </SelectItem>

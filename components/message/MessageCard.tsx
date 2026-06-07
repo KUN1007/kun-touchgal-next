@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Card, CardBody } from '@heroui/card'
 import { Avatar } from '@heroui/avatar'
 import { Chip } from '@heroui/chip'
-import { formatTimeDifference } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import {
   AtSign,
   Bell,
@@ -90,7 +90,7 @@ export const MessageCard = ({ msg }: Props) => {
           </div>
           <p className="text-default-600">{msg.content}</p>
           <span className="text-sm text-default-400">
-            {formatTimeDifference(msg.created)}
+            <KunTimeAgo date={msg.created} />
           </span>
         </div>
         {msg.status === 0 ? (

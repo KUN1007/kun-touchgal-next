@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation'
 
 export const Providers = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter()
-
   return (
     <ProgressProvider
       shallowRouting

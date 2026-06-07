@@ -3,7 +3,7 @@
 import { Chip } from '@heroui/react'
 import { Image } from '@heroui/image'
 import Link from 'next/link'
-import { formatTimeDifference } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
 import type { AdminGalgame } from '~/types/api/admin'
 
@@ -47,7 +47,7 @@ export const RenderCell = (galgame: AdminGalgame, columnKey: string) => {
     case 'created':
       return (
         <Chip size="sm" variant="light">
-          {formatTimeDifference(galgame.created)}
+          <KunTimeAgo date={galgame.created} />
         </Chip>
       )
     default:

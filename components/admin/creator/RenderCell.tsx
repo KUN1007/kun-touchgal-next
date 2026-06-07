@@ -1,7 +1,7 @@
 'use client'
 
 import { Chip } from '@heroui/react'
-import { formatTimeDifference } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { APPLICANT_STATUS_MAP } from '~/constants/admin'
 import { ActionButton } from './ActionButton'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
@@ -49,7 +49,7 @@ export const RenderCell = ({ creator, columnKey }: RenderCellProps) => {
         </Chip>
       )
     case 'created':
-      return formatTimeDifference(creator.created)
+      return <KunTimeAgo date={creator.created} />
     case 'actions':
       return creator.status === 0 ? (
         <ActionButton creator={creator} />

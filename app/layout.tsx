@@ -26,6 +26,7 @@ export default function RootLayout({
   prefetchDNS(kunMoyuMoe.domain.imageBed)
   const initialSession = getServerUserSession()
   return (
+    // next-themes 会在客户端接管 <html> 的 class；只在根节点允许该不可避免差异。
     <html lang="zh-Hans" suppressHydrationWarning>
       {process.env.KUN_VISUAL_NOVEL_TEST_SITE_LABEL && (
         <head>

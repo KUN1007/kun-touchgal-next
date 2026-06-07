@@ -26,6 +26,14 @@ interface Props {
   isSessionPending?: boolean
 }
 
+const hasPersistedUserStore = () => {
+  try {
+    return Boolean(window.localStorage.getItem('kun-patch-user-store'))
+  } catch {
+    return true
+  }
+}
+
 export const KunTopBarUser = ({ initialSession, isSessionPending }: Props) => {
   const router = useRouter()
   const { user, setUser, logout } = useUserStore(
@@ -62,9 +70,23 @@ export const KunTopBarUser = ({ initialSession, isSessionPending }: Props) => {
       return
     }
 
-    setUser(initialSession.user)
-    setUnreadMessageStatus(initialSession.unread)
-    setIsMissingSessionChecked(true)
+    let cancelled = false
+    const hydrateSession = async () => {
+      await useSettingStore.persist.rehydrate()
+      if (cancelled) {
+        return
+      }
+
+      setUser(initialSession.user)
+      setUnreadMessageStatus(initialSession.unread)
+      setIsMissingSessionChecked(true)
+    }
+
+    void hydrateSession()
+
+    return () => {
+      cancelled = true
+    }
   }, [initialSession, isMounted, setUnreadMessageStatus, setUser])
 
   useEffect(() => {
@@ -78,16 +100,36 @@ export const KunTopBarUser = ({ initialSession, isSessionPending }: Props) => {
     }
 
     missingSessionCheckedRef.current = true
-    const currentUser = useUserStore.getState().user
-    if (currentUser.uid) {
-      toast.error('用户登陆失效')
-      kunFetchPost('/user/status/logout').catch(() => {})
-      logout()
-      resetUnreadMessageStatus()
-      resetSettings()
-      router.push('/login')
+    let cancelled = false
+    const handleMissingSession = async () => {
+      await useSettingStore.persist.rehydrate()
+      const hasStoredUser = hasPersistedUserStore()
+      if (hasStoredUser) {
+        await useUserStore.persist.rehydrate()
+      }
+      if (cancelled) {
+        return
+      }
+
+      const currentUser = hasStoredUser
+        ? useUserStore.getState().user
+        : { uid: 0 }
+      if (currentUser.uid) {
+        toast.error('用户登陆失效')
+        kunFetchPost('/user/status/logout').catch(() => {})
+        logout()
+        resetUnreadMessageStatus()
+        resetSettings()
+        router.push('/login')
+      }
+      setIsMissingSessionChecked(true)
     }
-    setIsMissingSessionChecked(true)
+
+    void handleMissingSession()
+
+    return () => {
+      cancelled = true
+    }
   }, [
     initialSession,
     isSessionPending,

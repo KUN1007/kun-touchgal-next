@@ -13,7 +13,7 @@ import {
 } from '@heroui/modal'
 import { Eye, EyeOff, Pencil, Star, Trash2, TriangleAlert } from 'lucide-react'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
-import { formatTimeDifference } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { RatingLikeButton } from './RatingLike'
 import { useUserStore } from '~/store/userStore'
 import toast from 'react-hot-toast'
@@ -134,7 +134,9 @@ export const RatingCard = ({
               name: rating.user.name,
               description: (
                 <span className="flex items-center gap-1.5">
-                  <span>{formatTimeDifference(rating.created)}</span>
+                  <span>
+                    <KunTimeAgo date={rating.created} />
+                  </span>
                   <Chip
                     color={getRecommendColor(rating.recommend)}
                     variant="flat"

@@ -4,7 +4,7 @@ import { Avatar } from '@heroui/avatar'
 import { Chip } from '@heroui/chip'
 import { Divider } from '@heroui/divider'
 import { Progress } from '@heroui/progress'
-import { formatTimeDifference } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { Calendar, Link as LinkIcon } from 'lucide-react'
 import { UserFollow } from './follow/Follow'
 import { Stats } from './follow/Stats'
@@ -65,7 +65,7 @@ export const UserProfile = ({ user }: { user: UserInfo }) => {
             <div className="flex items-center gap-2">
               <Calendar className="size-4 text-default-400" />
               <span className="text-small text-default-500">
-                加入于 {formatTimeDifference(user.registerTime)}
+                加入于 <KunTimeAgo date={user.registerTime} />
               </span>
             </div>
           </div>

@@ -48,6 +48,9 @@ const eachRecursive = (
 }
 
 const getAllCookiesStartWith = (startWithKey: string) => {
+  if (typeof document === 'undefined') {
+    return {}
+  }
   return document.cookie
     .split(';')
     .map((cv) => cv.split('=').map((v) => v.trim()))

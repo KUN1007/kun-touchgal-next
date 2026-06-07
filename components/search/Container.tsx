@@ -21,7 +21,11 @@ import type { SortField, SortOrder } from '~/components/galgame/_sort'
 
 const MAX_HISTORY_ITEMS = 10
 
-export const SearchPage = () => {
+interface Props {
+  filterEndYear: number
+}
+
+export const SearchPage = ({ filterEndYear }: Props) => {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const latestSearchRequestIdRef = useRef(0)
   const [query, setQuery] = useState('')
@@ -49,10 +53,33 @@ export const SearchPage = () => {
   const [showHistory, setShowHistory] = useState(false)
   const searchData = useSearchStore((state) => state.data)
   const setSearchData = useSearchStore((state) => state.setData)
+  const [isSearchStoreHydrated, setIsSearchStoreHydrated] = useState(false)
 
   const settings = useSettingStore((state) => state.data)
   const isNSFWEnabled =
     settings.kunNsfwEnable === 'nsfw' || settings.kunNsfwEnable === 'all'
+
+  useEffect(() => {
+    const persist = useSearchStore.persist
+    if (!persist || persist.hasHydrated()) {
+      setIsSearchStoreHydrated(true)
+      return
+    }
+
+    let cancelled = false
+    const hydrateSearchStore = async () => {
+      await persist.rehydrate()
+      if (!cancelled) {
+        setIsSearchStoreHydrated(true)
+      }
+    }
+
+    void hydrateSearchStore()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const addToHistory = (suggestions: SearchSuggestionType[]) => {
     if (suggestions.length === 0) {
@@ -132,7 +159,9 @@ export const SearchPage = () => {
       setPatches(Array.isArray(response.galgames) ? response.galgames : [])
       setTotal(typeof response.total === 'number' ? response.total : 0)
       setHasSearched(true)
-      addToHistory(selectedSuggestions)
+      if (isSearchStoreHydrated) {
+        addToHistory(selectedSuggestions)
+      }
     } catch (error) {
       if (requestId !== latestSearchRequestIdRef.current) {
         return
@@ -179,14 +208,14 @@ export const SearchPage = () => {
     selectedSuggestions,
     searchData.searchInAlias,
     searchData.searchInIntroduction,
-    searchData.searchInTag
+    searchData.searchInTag,
+    isSearchStoreHydrated
   ])
-
   return (
     <div className="relative w-full my-4 space-y-6">
       <KunHeader
         name="搜索 Galgame"
-        headerEndContent={<SearchOption />}
+        headerEndContent={isSearchStoreHydrated ? <SearchOption /> : null}
         endContent={
           <div className="text-default-500">
             <p>使用游戏标题的一部分作为关键词搜索更容易找到游戏。</p>
@@ -216,11 +245,13 @@ export const SearchPage = () => {
         />
       )}
 
-      <SearchHistory
-        showHistory={showHistory}
-        setSelectedSuggestions={setSelectedSuggestions}
-        setShowHistory={setShowHistory}
-      />
+      {isSearchStoreHydrated && (
+        <SearchHistory
+          showHistory={showHistory}
+          setSelectedSuggestions={setSelectedSuggestions}
+          setShowHistory={setShowHistory}
+        />
+      )}
 
       <FilterBar
         selectedType={selectedType}
@@ -239,6 +270,7 @@ export const SearchPage = () => {
         setSelectedMonths={setSelectedMonths}
         minRatingCount={minRatingCount}
         setMinRatingCount={setMinRatingCount}
+        endYear={filterEndYear}
       />
 
       {loading ? (

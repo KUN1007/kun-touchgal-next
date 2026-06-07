@@ -29,7 +29,8 @@ export const useSettingStore = create<StoreState>()(
     }),
     {
       name: 'kun-patch-setting-store',
-      storage: createJSONStorage(() => cookieStorage)
+      storage: createJSONStorage(() => cookieStorage),
+      skipHydration: true
     }
   )
 )

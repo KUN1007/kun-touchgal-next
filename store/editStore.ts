@@ -70,7 +70,8 @@ export const useCreatePatchStore = create<StoreState>()(
     }),
     {
       name: createPatchEditStoreKey,
-      storage: createJSONStorage(() => window.localStorage)
+      storage: createJSONStorage(() => window.localStorage),
+      skipHydration: true
     }
   )
 )

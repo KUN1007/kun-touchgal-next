@@ -17,7 +17,7 @@ import { KunNull } from '~/components/kun/Null'
 import { EditTagModal } from './EditTagModal'
 import { DeleteTagModal } from './DeleteTagModal'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
-import { formatTimeDifference } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { useUserStore } from '~/store/userStore'
 import { useSearchParams } from 'next/navigation'
 import { KunPagination } from '~/components/kun/Pagination'
@@ -43,12 +43,14 @@ interface Props {
   initialTag: TagDetail
   initialPatches: GalgameCard[]
   total: number
+  filterEndYear: number
 }
 
 export const TagDetailContainer = ({
   initialTag,
   initialPatches,
-  total
+  total,
+  filterEndYear
 }: Props) => {
   const isMounted = useMounted()
   const { user, setUser } = useUserStore(
@@ -213,7 +215,11 @@ export const TagDetailContainer = ({
               user={tag.user}
               userProps={{
                 name: tag.user.name,
-                description: `创建于 ${formatTimeDifference(tag.created)}`,
+                description: (
+                  <>
+                    创建于 <KunTimeAgo date={tag.created} />
+                  </>
+                ),
                 avatarProps: {
                   src: tag.user?.avatar
                 }
@@ -275,6 +281,7 @@ export const TagDetailContainer = ({
         minRatingCount={minRatingCount}
         setMinRatingCount={withPageReset(setMinRatingCount)}
         defaultMinRatingCount={DEFAULT_TAG_COMPANY_MIN_RATING_COUNT}
+        endYear={filterEndYear}
       />
 
       {tag.alias.length > 0 && (

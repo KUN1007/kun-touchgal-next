@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { useTheme } from 'next-themes'
+import { useMounted } from '~/hooks/useMounted'
 import { Tooltip } from '@heroui/tooltip'
 import { Button } from '@heroui/button'
 import { Moon, Sun, SunMoon } from 'lucide-react'
@@ -22,25 +23,26 @@ const themeOrder: Theme[] = [Theme.light, Theme.dark, Theme.system]
 
 export const ThemeSwitcher = () => {
   const { theme, setTheme } = useTheme()
+  const isMounted = useMounted()
   const currentTheme =
     theme === Theme.light || theme === Theme.dark || theme === Theme.system
       ? theme
       : Theme.system
+  const displayTheme = isMounted ? currentTheme : Theme.system
 
   const themeIcon = useMemo(() => {
-    if (currentTheme === Theme.light) {
+    if (displayTheme === Theme.light) {
       return <Sun />
     }
-    if (currentTheme === Theme.dark) {
+    if (displayTheme === Theme.dark) {
       return <Moon />
     }
     return <SunMoon />
-  }, [currentTheme])
+  }, [displayTheme])
 
   const nextTheme =
-    themeOrder[(themeOrder.indexOf(currentTheme) + 1) % themeOrder.length]
-  const tooltipContent = ThemeLabel[currentTheme]
-
+    themeOrder[(themeOrder.indexOf(displayTheme) + 1) % themeOrder.length]
+  const tooltipContent = ThemeLabel[displayTheme]
   return (
     <Tooltip disableAnimation showArrow closeDelay={0} content={tooltipContent}>
       <div className="flex">
@@ -49,6 +51,7 @@ export const ThemeSwitcher = () => {
           variant="light"
           aria-label={tooltipContent}
           className="text-default-500"
+          isDisabled={!isMounted}
           onPress={() => setTheme(nextTheme)}
         >
           {themeIcon}

@@ -129,7 +129,7 @@ export const Info = ({ intro }: Props) => {
           </h2>
           <ul className="text-sm list-disc list-inside text-default-500">
             {intro.alias.map((alias) => (
-              <li key={Math.random()}>{alias}</li>
+              <li key={alias}>{alias}</li>
             ))}
           </ul>
         </>

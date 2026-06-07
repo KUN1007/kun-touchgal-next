@@ -66,7 +66,8 @@ export const useUserStore = create<UserStore>()(
     }),
     {
       name: 'kun-patch-user-store',
-      storage: createJSONStorage(() => window.localStorage)
+      storage: createJSONStorage(() => window.localStorage),
+      skipHydration: true
     }
   )
 )

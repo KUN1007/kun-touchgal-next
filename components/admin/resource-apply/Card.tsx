@@ -1,7 +1,7 @@
 import { Card, CardBody } from '@heroui/react'
 import { Chip } from '@heroui/react'
 import Link from 'next/link'
-import { formatTimeDifference } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { KunPatchAttribute } from '~/components/kun/PatchAttribute'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
 import { SUPPORTED_RESOURCE_LINK_MAP } from '~/constants/resource'
@@ -22,7 +22,11 @@ export const AdminResourceApplyCard = ({ resource, actions }: Props) => {
             user={resource.user}
             userProps={{
               name: resource.user.name,
-              description: `${formatTimeDifference(resource.created)} 上传了首个资源`,
+              description: (
+                <>
+                  <KunTimeAgo date={resource.created} /> 上传了首个资源
+                </>
+              ),
               avatarProps: {
                 showFallback: true,
                 src: resource.user.avatar,

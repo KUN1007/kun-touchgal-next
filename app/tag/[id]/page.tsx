@@ -19,6 +19,7 @@ import {
   parseNonNegativeIntParam,
   parsePositiveIntParam
 } from '~/utils/galgameFilter'
+import { getCurrentSiteYear } from '~/utils/time'
 
 export const revalidate = 120
 
@@ -110,6 +111,7 @@ export default async function Kun({ params, searchParams }: Props) {
           initialTag={tag}
           initialPatches={response.galgames}
           total={response.total}
+          filterEndYear={getCurrentSiteYear()}
         />
       ) : (
         <KunNull message="请登录后查看标签详细信息" />

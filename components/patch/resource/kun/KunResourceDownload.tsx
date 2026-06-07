@@ -4,7 +4,7 @@ import DOMPurify from 'isomorphic-dompurify'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Button, User } from '@heroui/react'
 import { ChevronDown, ChevronUp, Download } from 'lucide-react'
-import { formatTimeDifference } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { KunResourceDownloadCard } from './KunDownloadCard'
 import Link from 'next/link'
 import type { KunPatchResourceResponse } from '~/types/api/kun/moyu-moe'
@@ -71,7 +71,7 @@ export const KunResourceDownload = ({ resource }: Props) => {
               {resource.name ? resource.name : '资源备注'}
             </h3>
             <p className="text-sm text-default-500">
-              该补丁资源最后更新于 {formatTimeDifference(resource.update_time)}
+              该补丁资源最后更新于 <KunTimeAgo date={resource.update_time} />
             </p>
           </div>
 

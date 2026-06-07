@@ -1,7 +1,7 @@
 'use client'
 
 import { useShallow } from 'zustand/react/shallow'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Card, CardBody, CardHeader, Input } from '@heroui/react'
 import { useCreatePatchStore } from '~/store/editStore'
 import { VNDBInput } from './VNDBInput'
@@ -18,15 +18,43 @@ import { DuplicateCheckButton } from './DuplicateCheckButton'
 import { BatchTag } from '../components/BatchTag'
 import { ReleaseDateInput } from '../components/ReleaseDateInput'
 import { CompanySummary } from '../components/CompanySummary'
+import { KunLoading } from '~/components/kun/Loading'
 import type { CreatePatchRequestData } from '~/store/editStore'
 
 export const CreatePatch = () => {
   const { data, setData } = useCreatePatchStore(
     useShallow((state) => ({ data: state.data, setData: state.setData }))
   )
+  const [isStoreHydrated, setIsStoreHydrated] = useState(false)
   const [errors, setErrors] = useState<
     Partial<Record<keyof CreatePatchRequestData, string>>
   >({})
+
+  useEffect(() => {
+    const persist = useCreatePatchStore.persist
+    if (!persist || persist.hasHydrated()) {
+      setIsStoreHydrated(true)
+      return
+    }
+
+    let cancelled = false
+    const hydrateStore = async () => {
+      await persist.rehydrate()
+      if (!cancelled) {
+        setIsStoreHydrated(true)
+      }
+    }
+
+    void hydrateStore()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  if (!isStoreHydrated) {
+    return <KunLoading className="min-h-96" hint="正在读取本地草稿" />
+  }
 
   return (
     <form className="w-full max-w-5xl py-4 mx-auto">

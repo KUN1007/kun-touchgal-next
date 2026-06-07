@@ -12,9 +12,14 @@ import { DEFAULT_GALGAME_MIN_RATING_COUNT } from '~/utils/galgameFilter'
 interface Props {
   initialGalgames: GalgameCard[]
   initialTotal: number
+  filterEndYear: number
 }
 
-export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
+export const CardContainer = ({
+  initialGalgames,
+  initialTotal,
+  filterEndYear
+}: Props) => {
   const didSkipInitialFetch = useRef(false)
 
   const [galgames, setGalgames] = useState<GalgameCard[]>(initialGalgames)
@@ -99,6 +104,7 @@ export const CardContainer = ({ initialGalgames, initialTotal }: Props) => {
         setSelectedMonths={setSelectedMonths}
         minRatingCount={minRatingCount}
         setMinRatingCount={setMinRatingCount}
+        endYear={filterEndYear}
       />
 
       <div className="grid grid-cols-2 gap-2 mx-auto mb-8 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

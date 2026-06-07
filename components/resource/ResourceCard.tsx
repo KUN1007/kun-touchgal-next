@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Card, CardBody } from '@heroui/card'
 import { Chip } from '@heroui/chip'
-import { formatTimeDifference } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { KunPatchAttribute } from '~/components/kun/PatchAttribute'
 import { KunUser } from '../kun/floating-card/KunUser'
 import type { PatchResource } from '~/types/api/resource'
@@ -47,7 +47,12 @@ export const ResourceCard = ({ resource }: Props) => {
               user={resource.user}
               userProps={{
                 name: resource.user.name,
-                description: `${formatTimeDifference(resource.created)} • 已发布资源 ${resource.user.patchCount} 个`,
+                description: (
+                  <>
+                    <KunTimeAgo date={resource.created} /> • 已发布资源{' '}
+                    {resource.user.patchCount} 个
+                  </>
+                ),
                 avatarProps: {
                   showFallback: true,
                   src: resource.user.avatar,

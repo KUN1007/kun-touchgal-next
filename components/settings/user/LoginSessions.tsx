@@ -32,7 +32,8 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { kunFetchDelete, kunFetchGet, kunFetchPost } from '~/utils/kunFetch'
-import { formatDate, formatTimeDifference } from '~/utils/time'
+import { formatDate } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { useUserStore } from '~/store/userStore'
 import { useMessageStore } from '~/store/messageStore'
 import { useSettingStore } from '~/store/settingStore'
@@ -134,7 +135,7 @@ const SessionMetaItem = ({
 }: {
   icon: ReactNode
   label: string
-  value: string
+  value: ReactNode
   className?: string
 }) => (
   <div
@@ -166,10 +167,15 @@ const LoginSessionCard = ({
 }) => {
   const device = getSessionDeviceInfo(session.userAgent)
   const DeviceIcon = device.isMobile ? Smartphone : Laptop
-  const lastActive = `${formatDate(session.lastActiveAt, {
-    isShowYear: true,
-    isPrecise: true
-  })} · ${formatTimeDifference(session.lastActiveAt)}`
+  const lastActive = (
+    <>
+      {formatDate(session.lastActiveAt, {
+        isShowYear: true,
+        isPrecise: true
+      })}{' '}
+      · <KunTimeAgo date={session.lastActiveAt} />
+    </>
+  )
 
   return (
     <article

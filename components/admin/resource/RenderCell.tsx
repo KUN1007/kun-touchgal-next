@@ -3,7 +3,7 @@
 import { Chip } from '@heroui/react'
 import Link from 'next/link'
 import { SUPPORTED_RESOURCE_LINK_MAP } from '~/constants/resource'
-import { formatTimeDifference } from '~/utils/time'
+import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { ResourceEdit } from './ResourceEdit'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
 import type { AdminResource } from '~/types/api/admin'
@@ -78,7 +78,7 @@ export const RenderCell = (resource: AdminResource, columnKey: string) => {
     case 'created':
       return (
         <Chip size="sm" variant="light">
-          {formatTimeDifference(resource.created)}
+          <KunTimeAgo date={resource.created} />
         </Chip>
       )
     case 'actions':

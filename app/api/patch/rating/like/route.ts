@@ -35,6 +35,13 @@ const toggleRatingLike = async (
       }
     }
   })
+  const messageData = {
+    type: 'like' as const,
+    content: `赞了您的评价：${rating.short_summary.slice(0, 107)}`,
+    sender_id: uid,
+    recipient_id: rating.user_id,
+    link: `/${rating.patch.unique_id}?tab=rating&ratingId=${rating.id}`
+  }
 
   const response = await prisma.$transaction(async (tx) => {
     if (existingLike) {
@@ -46,6 +53,14 @@ const toggleRatingLike = async (
           }
         }
       })
+      await tx.user_message.deleteMany({
+        where: {
+          type: 'like',
+          sender_id: uid,
+          recipient_id: rating.user_id,
+          link: messageData.link
+        }
+      })
     } else {
       await tx.patch_rating_like.create({
         data: {
@@ -53,18 +68,8 @@ const toggleRatingLike = async (
           user_id: uid
         }
       })
+      await createDedupMessage(messageData, tx)
     }
-
-    await createDedupMessage(
-      {
-        type: 'like',
-        content: `赞了您的评价：${rating.short_summary.slice(0, 107)}`,
-        sender_id: uid,
-        recipient_id: rating.user_id,
-        link: `/${rating.patch.unique_id}?tab=rating&ratingId=${rating.id}`
-      },
-      tx
-    )
 
     await tx.user.update({
       where: { id: rating.user_id },

@@ -42,6 +42,13 @@ const toggleResourceLike = async (
         }
       }
     })
+  const messageData = {
+    type: 'like' as const,
+    content: `赞了您在「${resource.patch.name}」下发布的资源`,
+    sender_id: uid,
+    recipient_id: resource.user_id,
+    link: `/${resource.patch.unique_id}?tab=resources&resourceSection=${resource.section}&resourceId=${resource.id}`
+  }
 
   const response = await prisma.$transaction(async (tx) => {
     if (existingLike) {
@@ -53,6 +60,14 @@ const toggleResourceLike = async (
           }
         }
       })
+      await tx.user_message.deleteMany({
+        where: {
+          type: 'like',
+          sender_id: uid,
+          recipient_id: resource.user_id,
+          link: messageData.link
+        }
+      })
     } else {
       await tx.user_patch_resource_like_relation.create({
         data: {
@@ -60,23 +75,13 @@ const toggleResourceLike = async (
           resource_id: resourceId
         }
       })
+      await createDedupMessage(messageData, tx)
     }
 
     await tx.user.update({
       where: { id: resource.user_id },
       data: { moemoepoint: { increment: existingLike ? -1 : 1 } }
     })
-
-    await createDedupMessage(
-      {
-        type: 'like',
-        content: `赞了您在「${resource.patch.name}」下发布的资源`,
-        sender_id: uid,
-        recipient_id: resource.user_id,
-        link: `/${resource.patch.unique_id}?tab=resources&resourceSection=${resource.section}&resourceId=${resource.id}`
-      },
-      tx
-    )
 
     return !existingLike
   })

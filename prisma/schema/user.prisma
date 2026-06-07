@@ -84,6 +84,7 @@ model user_message {
   updated DateTime @updatedAt
 
   @@index([recipient_id, status, type, id])
+  @@index([recipient_id, sender_id, type])
 }
 
 model user_patch_favorite_folder {

@@ -40,6 +40,14 @@ const toggleCommentLike = async (
       }
     }
   )
+  const messageData = {
+    type: 'like' as const,
+    content: `赞了您的评论：${comment.content.slice(0, 107)}`,
+    sender_id: uid,
+    recipient_id: comment.user_id,
+    link: `/${comment.patch.unique_id}?tab=comments&commentId=${comment.id}`
+  }
+  const legacyMessageLink = `/${comment.patch.unique_id}`
 
   const response = await prisma.$transaction(async (tx) => {
     if (existingLike) {
@@ -51,6 +59,17 @@ const toggleCommentLike = async (
           }
         }
       })
+      await tx.user_message.deleteMany({
+        where: {
+          type: 'like',
+          sender_id: uid,
+          recipient_id: comment.user_id,
+          OR: [
+            { link: messageData.link },
+            { link: legacyMessageLink, content: messageData.content }
+          ]
+        }
+      })
     } else {
       await tx.user_patch_comment_like_relation.create({
         data: {
@@ -58,18 +77,8 @@ const toggleCommentLike = async (
           comment_id: commentId
         }
       })
+      await createDedupMessage(messageData, tx)
     }
-
-    await createDedupMessage(
-      {
-        type: 'like',
-        content: `赞了您的评论：${comment.content.slice(0, 107)}`,
-        sender_id: uid,
-        recipient_id: comment.user_id,
-        link: `/${comment.patch.unique_id}`
-      },
-      tx
-    )
 
     await tx.user.update({
       where: { id: comment.user_id },

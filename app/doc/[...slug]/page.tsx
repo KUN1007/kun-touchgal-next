@@ -40,19 +40,19 @@ export default async function Kun({ params }: Props) {
   const { prev, next } = getAdjacentPosts(url)
 
   return (
-    <div className="flex w-full">
+    <div className="flex w-full min-w-0 gap-6">
       <KunBreadcrumbTitle routeKey={`/doc/${url}`} title={frontmatter.title} />
-      <div className="w-full lg:w-[calc(100%-16rem)] px-3 sm:px-6">
-        <BlogHeader frontmatter={frontmatter} />
-        <article className="kun-prose">
-          <CustomMDX source={content} />
-        </article>
-        <KunBottomNavigation prev={prev} next={next} />
+      <div className="min-w-0 flex-1">
+        <div className="space-y-6">
+          <BlogHeader frontmatter={frontmatter} />
+          <article className="kun-prose rounded-[2rem] border border-default-200/70 bg-content1/80 p-5 shadow-sm backdrop-blur-sm sm:p-8">
+            <CustomMDX source={content} />
+          </article>
+          <KunBottomNavigation prev={prev} next={next} />
+        </div>
       </div>
 
-      <div>
-        <TableOfContents />
-      </div>
+      <TableOfContents />
     </div>
   )
 }

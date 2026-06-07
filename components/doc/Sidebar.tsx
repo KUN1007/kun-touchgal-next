@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  Button,
   Drawer,
   DrawerBody,
   DrawerContent,
@@ -9,11 +10,10 @@ import {
   useDisclosure
 } from '@heroui/react'
 import { KunTreeNode } from '~/lib/mdx/types'
-import { ChevronRight } from 'lucide-react'
+import { BookOpen, ChevronRight, X } from 'lucide-react'
 import { SidebarContent } from './SidebarContent'
 import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
-
 interface Props {
   tree: KunTreeNode
 }
@@ -22,37 +22,74 @@ export const KunSidebar = ({ tree }: Props) => {
   const { isOpen, onOpen, onClose, onOpenChange } = useDisclosure()
   const pathname = usePathname()
 
-  useEffect(() => onClose(), [pathname])
+  useEffect(() => onClose(), [onClose, pathname])
 
   return (
-    <div className="kun-scroll-nav">
-      <aside className="fixed hidden md:block top-32 h-[calc(100dvh-256px)] w-64 bg-background">
-        <div className="flex flex-col h-full px-4 overflow-scroll border-r border-default-200 scrollbar-hide bg-background">
-          <Link color="foreground" href="/doc" className="my-3 text-xl">
-            目录
+    <>
+      <aside className="kun-scroll-nav sticky top-32 hidden h-[calc(100dvh-9rem)] w-64 shrink-0 self-start md:block">
+        <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-default-200/70 bg-content1/80 shadow-sm backdrop-blur-xl">
+          <Link
+            color="foreground"
+            href="/doc"
+            className="mx-3 mt-3 flex min-h-12 items-center gap-2 rounded-2xl bg-gradient-to-r from-primary-500/10 to-secondary-500/10 px-3 text-lg font-semibold"
+          >
+            <BookOpen className="size-5 text-primary-500" />
+            <span>帮助文档</span>
           </Link>
-          {SidebarContent({ tree })}
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 pt-3 scrollbar-hide">
+            <SidebarContent tree={tree} />
+          </div>
         </div>
       </aside>
 
-      <div
-        className="fixed top-0 left-0 flex items-center h-full cursor-pointer text-default-500 md:hidden"
-        onClick={() => onOpen()}
-      >
-        <ChevronRight size={24} />
-      </div>
+      <div className="contents md:hidden">
+        <Button
+          isIconOnly
+          aria-label="打开文档目录"
+          className="fixed left-3 top-2/3 z-20 -translate-y-1/2 shadow-lg md:hidden"
+          color="primary"
+          variant="flat"
+          onPress={onOpen}
+        >
+          <ChevronRight className="size-5" />
+        </Button>
 
-      <Drawer
-        isOpen={isOpen}
-        onOpenChange={onOpenChange}
-        placement="left"
-        size="xs"
-      >
-        <DrawerContent>
-          <DrawerHeader className="flex flex-col gap-1">目录</DrawerHeader>
-          <DrawerBody>{SidebarContent({ tree })}</DrawerBody>
-        </DrawerContent>
-      </Drawer>
-    </div>
+        <Drawer
+          hideCloseButton
+          isOpen={isOpen}
+          onOpenChange={onOpenChange}
+          placement="left"
+          size="xs"
+        >
+          <DrawerContent className="m-3 h-[calc(100dvh-1.5rem)] overflow-hidden rounded-3xl border border-default-200/70 bg-content1/80 shadow-sm backdrop-blur-xl">
+            <DrawerHeader className="p-0">
+              <div className="mx-3 mt-3 flex min-h-12 flex-1 items-center gap-2 rounded-2xl bg-gradient-to-r from-primary-500/10 to-secondary-500/10 px-3">
+                <Link
+                  color="foreground"
+                  href="/doc"
+                  className="flex min-w-0 flex-1 items-center gap-2 text-lg font-semibold"
+                >
+                  <BookOpen className="size-5 shrink-0 text-primary-500" />
+                  <span>帮助文档</span>
+                </Link>
+                <Button
+                  isIconOnly
+                  aria-label="关闭文档目录"
+                  className="size-8 min-w-8 shrink-0"
+                  radius="full"
+                  variant="light"
+                  onPress={onClose}
+                >
+                  <X className="size-4" />
+                </Button>
+              </div>
+            </DrawerHeader>
+            <DrawerBody className="min-h-0 px-3 pb-4 pt-3 scrollbar-hide">
+              <SidebarContent tree={tree} />
+            </DrawerBody>
+          </DrawerContent>
+        </Drawer>
+      </div>
+    </>
   )
 }

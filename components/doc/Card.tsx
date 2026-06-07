@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Card, CardBody, CardFooter } from '@heroui/react'
-import { Calendar, Type } from 'lucide-react'
+import { ArrowRight, Calendar, Type } from 'lucide-react'
 import { Image } from '@heroui/image'
 import { KunPostMetadata } from '~/lib/mdx/types'
 import { formatTimeDifference } from '~/utils/time'
@@ -14,46 +14,63 @@ interface Props {
 
 export const KunAboutCard = ({ post }: Props) => {
   const [imageLoaded, setImageLoaded] = useState(false)
+  const textCount = Math.max(post.textCount, 0)
 
   return (
     <Card
       isPressable
       as={Link}
       href={`/doc/${post.slug}`}
-      className="w-full transition-transform duration-200 hover:scale-[1.02]"
+      className="group w-full overflow-hidden border border-default-200/70 bg-content1/80 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg motion-reduce:transform-none motion-reduce:transition-none"
     >
-      <CardBody className="p-4 space-y-3">
-        <h2 className="mb-2 text-xl font-bold">{post.title}</h2>
-        <div className="relative w-full mx-auto overflow-hidden text-center rounded-t-lg opacity-90">
+      <CardBody className="p-0">
+        <div
+          className="relative w-full overflow-hidden bg-default-100"
+          style={{ aspectRatio: '16/9' }}
+        >
           <div
             className={`absolute inset-0 animate-pulse bg-default-100 ${
               imageLoaded ? 'opacity-0' : 'opacity-90'
             } transition-opacity duration-300`}
-            style={{ aspectRatio: '16/9' }}
           />
           <Image
+            removeWrapper
+            radius="none"
             alt={post.title}
-            className={`size-full object-cover transition-all duration-300 ${
-              imageLoaded ? 'scale-100 opacity-90' : 'scale-105 opacity-0'
+            className={`absolute inset-0 block size-full object-cover transition-all duration-300 group-hover:scale-105 ${
+              imageLoaded ? 'scale-100 opacity-95' : 'scale-105 opacity-0'
             }`}
+            loading="lazy"
             src={post.banner}
-            style={{ aspectRatio: '16/9' }}
             onLoad={() => setImageLoaded(true)}
           />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/70 via-transparent to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
         </div>
-        <div className="flex items-center gap-4 text-sm text-default-500">
-          <div className="flex items-center gap-1">
-            <Calendar size={16} />
-            <time>{formatTimeDifference(post.date)}</time>
-          </div>
-          <div className="flex items-center gap-1">
-            <Type size={16} />
-            <span>{post.textCount} 字</span>
+
+        <div className="space-y-3 p-4">
+          <h2 className="text-lg font-bold leading-snug transition-colors line-clamp-2 group-hover:text-primary-500">
+            {post.title}
+          </h2>
+          {post.description && (
+            <p className="text-sm leading-6 text-default-500 line-clamp-3">
+              {post.description}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-3 text-sm text-default-500">
+            <div className="flex items-center gap-1.5">
+              <Calendar className="size-4 text-primary-400" />
+              <time>{formatTimeDifference(post.date)}</time>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Type className="size-4 text-secondary-400" />
+              <span>{textCount} 字</span>
+            </div>
           </div>
         </div>
       </CardBody>
-      <CardFooter className="px-5 py-3 border-t border-default-200 bg-default-50">
-        <span className="text-sm text-default-600">点击阅读更多 →</span>
+      <CardFooter className="justify-between border-t border-default-200/70 bg-default-50/60 px-4 py-3 dark:bg-default-100/10">
+        <span className="text-sm font-medium text-default-600">阅读文档</span>
+        <ArrowRight className="size-4 text-primary-500 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none" />
       </CardFooter>
     </Card>
   )

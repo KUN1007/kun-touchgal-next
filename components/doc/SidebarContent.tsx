@@ -9,7 +9,7 @@ interface Props {
 
 export const SidebarContent = ({ tree }: Props) => {
   return (
-    <div>
+    <div className="space-y-1">
       {tree.type === 'directory' &&
         tree.children?.map((child, index) => (
           <TreeItem key={index} node={child} level={0} />

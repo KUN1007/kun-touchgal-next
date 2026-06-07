@@ -10,9 +10,9 @@ export default function Layout({ children }: LayoutProps) {
   const tree = getDirectoryTree()
 
   return (
-    <div className="container flex mx-auto my-4">
+    <div className="container mx-auto my-4 flex max-w-7xl items-start gap-6 px-0 sm:px-2">
       <KunSidebar tree={tree} />
-      <main className="flex-1 pl-0 overflow-y-auto md:pl-64">{children}</main>
+      <main className="min-w-0 flex-1">{children}</main>
     </div>
   )
 }

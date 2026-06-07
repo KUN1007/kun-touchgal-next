@@ -1,10 +1,10 @@
 .kun-prose {
-  @apply text-default-800 leading-7;
+  @apply text-default-800 leading-8;
 }
 
 /* Paragraphs */
 .kun-prose p {
-  @apply my-2 leading-relaxed;
+  @apply my-4 leading-relaxed;
 }
 
 .kun-prose p:has(> img) {
@@ -28,8 +28,8 @@
 }
 
 .kun-prose h2 {
-  @apply text-default-900 font-bold text-2xl mt-16 border-t border-default-200
-         pt-8 mb-4 leading-tight tracking-tight scroll-m-20;
+  @apply text-default-900 font-bold text-2xl mt-14 border-t border-default-200/70
+         pt-7 mb-4 leading-tight tracking-tight scroll-m-20;
 }
 
 .kun-prose h3 {
@@ -68,7 +68,7 @@
 }
 
 .kun-prose pre {
-  @apply bg-default-50 rounded-xl p-4 my-6 overflow-x-auto border border-default-200
+  @apply bg-default-100/70 rounded-2xl p-4 my-6 overflow-x-auto border border-default-200
          ring-1 ring-default-200/50 shadow-sm;
 }
 
@@ -78,13 +78,13 @@
 
 /* Quotes with refined styling */
 .kun-prose blockquote {
-  @apply border-l-4 border-primary-200 pl-6 pr-4 py-1 my-8
-         bg-primary-50/50 rounded-r-lg font-medium text-default-800 shadow-sm;
+  @apply border-l-4 border-primary-300 pl-6 pr-4 py-1 my-8
+         bg-primary-500/10 rounded-r-2xl font-medium text-default-800 shadow-sm;
 }
 
 /* Tables with NextUI-inspired design */
 .kun-prose table {
-  @apply w-full my-8 border border-default-200 rounded-lg overflow-hidden
+  @apply w-full my-8 border border-default-200 rounded-2xl overflow-hidden
          shadow-sm bg-content1;
 }
 
@@ -117,7 +117,7 @@
 .kun-prose img {
   max-width: 100%;
   height: auto;
-  @apply rounded-lg shadow-md border border-default-200;
+  @apply rounded-xl shadow-lg border border-default-200;
 }
 
 .kun-comment-content img {

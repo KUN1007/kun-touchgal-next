@@ -12,31 +12,49 @@ interface NavigationProps {
 
 export const KunBottomNavigation = ({ prev, next }: NavigationProps) => {
   return (
-    <div className="flex flex-wrap justify-between gap-4 pt-8 mt-8 border-t border-default-200">
+    <nav
+      aria-label="文档分页"
+      className="grid gap-3 border-t border-default-200/70 pt-6 sm:grid-cols-2"
+    >
       {prev ? (
         <Button
-          variant="light"
+          variant="flat"
+          color="primary"
           as={Link}
           href={`/doc/${prev.slug}`}
-          startContent={<ChevronLeft className="size-4" />}
+          startContent={<ChevronLeft className="size-4 shrink-0" />}
+          className="h-auto min-h-16 justify-start rounded-2xl px-4 py-3"
         >
-          {prev.title}
+          <span className="min-w-0 text-left">
+            <span className="block text-xs text-default-500">上一篇</span>
+            <span className="mt-1 block font-medium line-clamp-2">
+              {prev.title}
+            </span>
+          </span>
         </Button>
       ) : (
-        <div />
+        <div className="hidden sm:block" />
       )}
+
       {next ? (
         <Button
           as={Link}
           href={`/doc/${next.slug}`}
-          variant="light"
-          endContent={<ChevronRight className="size-4" />}
+          variant="flat"
+          color="secondary"
+          endContent={<ChevronRight className="size-4 shrink-0" />}
+          className="h-auto min-h-16 justify-end rounded-2xl px-4 py-3"
         >
-          {next.title}
+          <span className="min-w-0 text-right">
+            <span className="block text-xs text-default-500">下一篇</span>
+            <span className="mt-1 block font-medium line-clamp-2">
+              {next.title}
+            </span>
+          </span>
         </Button>
       ) : (
-        <div />
+        <div className="hidden sm:block" />
       )}
-    </div>
+    </nav>
   )
 }

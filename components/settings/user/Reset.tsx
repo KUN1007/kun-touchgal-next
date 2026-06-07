@@ -17,6 +17,7 @@ import { useRouter } from '@bprogress/next'
 import toast from 'react-hot-toast'
 import { useState } from 'react'
 import { kunFetchPost } from '~/utils/kunFetch'
+import { useSettingStore } from '~/store/settingStore'
 
 export const Reset = () => {
   const { isOpen, onOpen, onClose } = useDisclosure()
@@ -25,6 +26,7 @@ export const Reset = () => {
 
   const handleResetData = async () => {
     localStorage.clear()
+    useSettingStore.persist.clearStorage()
     onClose()
 
     setLoading(true)

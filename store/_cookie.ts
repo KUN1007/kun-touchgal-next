@@ -1,5 +1,7 @@
 import Cookies from 'js-cookie'
 
+const COOKIE_STORAGE_ATTRIBUTES = { path: '/' }
+
 interface StateStorage {
   getItem: (name: string) => string | null | Promise<string | null>
   setItem: (name: string, value: string) => void | Promise<void>
@@ -103,22 +105,20 @@ export const cookieStorage: StateStorage = {
     const days = 90
     const expires = new Date()
     expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000)
+    const attributes = { ...COOKIE_STORAGE_ATTRIBUTES, expires }
     const jsonValue = JSON.parse(value)
     cookieStorage.removeItem(storeKey)
 
     eachRecursive(jsonValue, (key: string, value: any) => {
       const _value = Array.isArray(value) ? JSON.stringify(value) : value
-      Cookies.set(`${storeKey}${key}`, _value, {
-        expires,
-        path: '/'
-      })
+      Cookies.set(`${storeKey}${key}`, _value, attributes)
     })
   },
   removeItem: (key) => {
     const keyCookies: Record<string, string> = getAllCookiesStartWith(key)
 
     Object.keys(keyCookies).forEach((k) => {
-      Cookies.remove(k)
+      Cookies.remove(k, COOKIE_STORAGE_ATTRIBUTES)
     })
   }
 }

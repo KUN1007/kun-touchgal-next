@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '~/prisma'
 import { kunParsePostBody } from '~/app/api/utils/parseQuery'
-import { getBlockedTagIds } from '~/app/api/utils/getBlockedTagIds'
+import { getAuthenticatedBlockedTagIds } from '~/app/api/utils/getBlockedTagIds'
 import { searchTagSchema } from '~/validations/search'
 
 const searchTag = async (
@@ -40,7 +40,10 @@ export const POST = async (req: NextRequest) => {
     return NextResponse.json(input)
   }
 
-  const blockedTagIds = await getBlockedTagIds(req)
+  const blockedTagIds = await getAuthenticatedBlockedTagIds(req)
+  if (!blockedTagIds) {
+    return NextResponse.json('用户未登录')
+  }
   const response = await searchTag(input, blockedTagIds)
   return NextResponse.json(response)
 }

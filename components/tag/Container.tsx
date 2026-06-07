@@ -25,21 +25,29 @@ export const Container = ({ initialTags, initialTotal, uid }: Props) => {
   const isMounted = useMounted()
 
   const fetchTags = async () => {
+    if (!uid) {
+      return
+    }
+
     setLoading(true)
-    const { tags, total } = await kunFetchGet<{
-      tags: TagType[]
-      total: number
-    }>('/tag/all', {
+    const response = await kunFetchGet<
+      KunResponse<{
+        tags: TagType[]
+        total: number
+      }>
+    >('/tag/all', {
       page,
       limit: 100
     })
-    setTags(tags)
-    setTotal(total)
+    if (typeof response !== 'string') {
+      setTags(response.tags)
+      setTotal(response.total)
+    }
     setLoading(false)
   }
 
   useEffect(() => {
-    if (!isMounted) {
+    if (!isMounted || !uid) {
       return
     }
     fetchTags()
@@ -50,6 +58,10 @@ export const Container = ({ initialTags, initialTotal, uid }: Props) => {
   const [searching, setSearching] = useState(false)
 
   useEffect(() => {
+    if (!uid) {
+      return
+    }
+
     if (debouncedQuery) {
       handleSearch()
     } else {
@@ -58,15 +70,17 @@ export const Container = ({ initialTags, initialTotal, uid }: Props) => {
   }, [debouncedQuery])
 
   const handleSearch = async () => {
-    if (!query.trim()) {
+    if (!uid || !query.trim()) {
       return
     }
 
     setSearching(true)
-    const response = await kunFetchPost<TagType[]>('/tag/search', {
+    const response = await kunFetchPost<KunResponse<TagType[]>>('/tag/search', {
       query: query.split(' ').filter((term) => term.length > 0)
     })
-    setTags(response)
+    if (typeof response !== 'string') {
+      setTags(response)
+    }
     setSearching(false)
   }
 

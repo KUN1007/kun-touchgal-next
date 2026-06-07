@@ -93,10 +93,17 @@ export const PatchTagSelector = ({
 
     dispatch({ type: 'SET_LOADING', payload: true })
 
-    const response = await kunFetchGet<{
-      tags: TagType[]
-      total: number
-    }>('/tag/all', { page: 1, limit: 100 })
+    const response = await kunFetchGet<
+      KunResponse<{
+        tags: TagType[]
+        total: number
+      }>
+    >('/tag/all', { page: 1, limit: 100 })
+    if (typeof response === 'string') {
+      toast.error(response)
+      dispatch({ type: 'SET_LOADING', payload: false })
+      return
+    }
     setTags(response.tags)
 
     const commonIds = initialTags
@@ -124,10 +131,14 @@ export const PatchTagSelector = ({
     if (!query.trim()) return
 
     setSearching(true)
-    const response = await kunFetchPost<TagType[]>('/tag/search', {
+    const response = await kunFetchPost<KunResponse<TagType[]>>('/tag/search', {
       query: query.split(' ').filter(Boolean)
     })
-    setTags(response)
+    if (typeof response !== 'string') {
+      setTags(response)
+    } else {
+      toast.error(response)
+    }
     setSearching(false)
   }
 

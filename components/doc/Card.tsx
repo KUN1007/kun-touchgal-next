@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Card, CardBody, CardFooter } from '@heroui/react'
 import { ArrowRight, Calendar, Type } from 'lucide-react'
 import { Image } from '@heroui/image'
@@ -15,6 +15,21 @@ interface Props {
 export const KunAboutCard = ({ post }: Props) => {
   const [imageLoaded, setImageLoaded] = useState(false)
   const textCount = Math.max(post.textCount, 0)
+  const imageRef = useRef<HTMLImageElement>(null)
+
+  useEffect(() => {
+    const image = imageRef.current
+    if (!image) {
+      return
+    }
+
+    const handleLoad = () => setImageLoaded(true)
+    image.addEventListener('load', handleLoad)
+
+    setImageLoaded(image.complete && image.naturalWidth > 0)
+
+    return () => image.removeEventListener('load', handleLoad)
+  }, [post.banner])
 
   return (
     <Card
@@ -34,6 +49,7 @@ export const KunAboutCard = ({ post }: Props) => {
             } transition-opacity duration-300`}
           />
           <Image
+            ref={imageRef}
             removeWrapper
             radius="none"
             alt={post.title}
@@ -42,7 +58,6 @@ export const KunAboutCard = ({ post }: Props) => {
             }`}
             loading="lazy"
             src={post.banner}
-            onLoad={() => setImageLoaded(true)}
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/70 via-transparent to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
         </div>

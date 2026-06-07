@@ -59,7 +59,7 @@ export const ResourceDownload = ({ resource }: Props) => {
             </p>
           </div>
 
-          <div className="relative mt-2">
+          <div className="relative">
             <div
               ref={noteContentRef}
               className={`kun-prose max-w-none overflow-hidden transition-all duration-300 ease-in-out`}
@@ -68,6 +68,7 @@ export const ResourceDownload = ({ resource }: Props) => {
               }}
             >
               <div
+                className="[&>*:first-child]:mt-0"
                 dangerouslySetInnerHTML={{
                   __html: note
                 }}

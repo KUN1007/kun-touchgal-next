@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { kunFetchPut } from '~/utils/kunFetch'
 import { Button } from '@heroui/button'
 import { Tooltip } from '@heroui/tooltip'
-import { Heart } from 'lucide-react'
+import { ThumbsUp } from 'lucide-react'
 import { useUserStore } from '~/store/userStore'
 import toast from 'react-hot-toast'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
@@ -51,10 +51,7 @@ export const RatingLikeButton = ({ rating }: Props) => {
         onPress={toggleLike}
         className="min-w-0 px-2"
       >
-        <Heart
-          fill={liked ? '#f31260' : '#00000000'}
-          className={cn('w-4 h-4', liked ? 'text-danger-500' : '')}
-        />
+        <ThumbsUp className={cn('w-4 h-4', liked ? 'text-danger-500' : '')} />
         {likeCount}
       </Button>
     </Tooltip>

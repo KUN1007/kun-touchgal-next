@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { adminGalgamePaginationSchema } from '~/validations/admin'
-import { getNSFWHeader } from '~/app/api/utils/getNSFWHeader'
 import type { AdminGalgame } from '~/types/api/admin'
 
 export const getGalgame = async (

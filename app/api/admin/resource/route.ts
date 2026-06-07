@@ -25,7 +25,6 @@ export const GET = async (req: NextRequest) => {
   if (typeof input === 'string') {
     return NextResponse.json(input)
   }
-  const nsfwEnable = getNSFWHeader(req)
   const payload = await verifyHeaderCookie(req)
   if (!payload) {
     return NextResponse.json('用户未登录')
@@ -33,6 +32,7 @@ export const GET = async (req: NextRequest) => {
   if (payload.role < 4) {
     return NextResponse.json('本页面仅超级管理员可访问')
   }
+  const nsfwEnable = await getNSFWHeader(req, payload)
 
   const res = await getPatchResource(input, nsfwEnable)
   return NextResponse.json(res)

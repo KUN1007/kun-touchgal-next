@@ -19,7 +19,7 @@ export const GET = async (req: NextRequest) => {
     return NextResponse.json('仅超级管理员可访问')
   }
 
-  const nsfwEnable = getNSFWHeader(req)
+  const nsfwEnable = await getNSFWHeader(req, payload)
 
   const res = await getPatchResourceApply(input, nsfwEnable)
   return NextResponse.json(res)

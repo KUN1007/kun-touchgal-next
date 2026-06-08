@@ -14,6 +14,14 @@ const CARD_ATTRIBUTE_STYLE_MAP: Record<string, string> = {
   中文: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200'
 }
 
+const CARD_CLASS_NAME =
+  'group flex h-full w-full flex-col overflow-hidden rounded-[22px] border-none bg-background shadow-[0_12px_32px_rgba(15,23,42,0.1)] transition-none hover:shadow-[0_16px_42px_rgba(15,23,42,0.14)] data-[pressed=true]:!transform-none dark:bg-content1 dark:shadow-[0_12px_32px_rgba(0,0,0,0.3)]'
+
+const IMAGE_LOADED_CLASS_NAME =
+  'size-full object-cover duration-500 opacity-100 transition-opacity'
+const IMAGE_LOADING_CLASS_NAME =
+  'size-full object-cover duration-500 opacity-0 transition-opacity'
+
 const getCardAttributeLabels = (patch: GalgameCard) => {
   const labels: string[] = []
 
@@ -56,11 +64,7 @@ export const GalgameCard = ({ patch, openOnNewTab = true }: Props) => {
       href={`/${patch.uniqueId}`}
       target={openOnNewTab ? '_blank' : '_self'}
       rel={openOnNewTab ? 'noopener noreferrer' : undefined}
-      className={cn(
-        'group flex h-full w-full flex-col overflow-hidden border-none bg-background shadow-[0_12px_32px_rgba(15,23,42,0.1)]',
-        'rounded-[22px] transition-transform duration-300 hover:-translate-y-1 hover:shadow-[0_16px_42px_rgba(15,23,42,0.14)]',
-        'dark:bg-content1 dark:shadow-[0_12px_32px_rgba(0,0,0,0.3)]'
-      )}
+      className={CARD_CLASS_NAME}
     >
       <div className="relative w-full overflow-hidden bg-default-100">
         <div
@@ -74,11 +78,9 @@ export const GalgameCard = ({ patch, openOnNewTab = true }: Props) => {
         <Image
           radius="none"
           alt={patch.name}
-          className={cn(
-            'size-full object-cover transition-all duration-500',
-            imageLoaded ? 'scale-100 opacity-100' : 'scale-105 opacity-0',
-            'group-hover:scale-[1.03]'
-          )}
+          className={
+            imageLoaded ? IMAGE_LOADED_CLASS_NAME : IMAGE_LOADING_CLASS_NAME
+          }
           removeWrapper={true}
           src={
             patch.banner

@@ -66,20 +66,15 @@ export const KunAboutCard = ({ post }: Props) => {
           <h2 className="text-lg font-bold leading-snug transition-colors line-clamp-2 group-hover:text-primary-500">
             {post.title}
           </h2>
-          {post.description && (
-            <p className="text-sm leading-6 text-default-500 line-clamp-3">
-              {post.description}
-            </p>
-          )}
-          <div className="flex flex-wrap items-center gap-3 text-sm text-default-500">
-            <div className="flex items-center gap-1.5">
-              <Calendar className="size-4 text-primary-400" />
+          <div className="flex flex-wrap items-center gap-2 text-xs text-default-500">
+            <div className="flex items-center gap-1">
+              <Calendar className="size-3.5 text-primary-400" />
               <time>
                 <KunTimeAgo date={post.date} />
               </time>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Type className="size-4 text-secondary-400" />
+            <div className="flex items-center gap-1">
+              <Type className="size-3.5 text-secondary-400" />
               <span>{textCount} 字</span>
             </div>
           </div>

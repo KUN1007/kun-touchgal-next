@@ -1,7 +1,6 @@
 import { Chip } from '@heroui/chip'
 import { getAllPosts } from '~/lib/mdx/getPosts'
 import { KunAboutCard } from '~/components/doc/Card'
-import { KunMasonryGrid } from '~/components/kun/MasonryGrid'
 import { kunMetadata } from './metadata'
 import type { Metadata } from 'next'
 
@@ -25,11 +24,11 @@ export default function Kun() {
           </Chip>
         </div>
 
-        <KunMasonryGrid columnWidth={300} gap={24}>
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
           {posts.map((post) => (
             <KunAboutCard key={post.slug} post={post} />
           ))}
-        </KunMasonryGrid>
+        </div>
       </section>
     </div>
   )

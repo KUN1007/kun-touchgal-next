@@ -13,13 +13,22 @@ interface SubmittedExternalData {
   dlsiteCircleLink: string
 }
 
-const ensureTagsWithSource = async (
+const ensureTagsWithSources = async (
   patchId: number,
-  tagNames: string[],
-  source: string,
+  tagSources: { names: string[]; source: string }[],
   uid: number
 ) => {
-  const validTags = tagNames.filter(Boolean)
+  const tagSourceByName = new Map<string, string>()
+
+  for (const { names, source } of tagSources) {
+    for (const name of names) {
+      if (name && !tagSourceByName.has(name)) {
+        tagSourceByName.set(name, source)
+      }
+    }
+  }
+
+  const validTags = [...tagSourceByName.keys()]
   if (!validTags.length) return
 
   const existingTags = await prisma.patch_tag.findMany({
@@ -31,7 +40,11 @@ const ensureTagsWithSource = async (
   const tagsToCreate = validTags.filter((n) => !existingNameSet.has(n))
   if (tagsToCreate.length) {
     await prisma.patch_tag.createMany({
-      data: tagsToCreate.map((name) => ({ name, user_id: uid, source })),
+      data: tagsToCreate.map((name) => ({
+        name,
+        user_id: uid,
+        source: tagSourceByName.get(name) ?? 'self'
+      })),
       skipDuplicates: true
     })
   }
@@ -68,7 +81,7 @@ const ensureCompanies = async (
   names: string[],
   uid: number
 ) => {
-  const validNames = names.filter(Boolean)
+  const validNames = [...new Set(names.filter(Boolean))]
   if (!validNames.length) return
 
   const existing = await prisma.patch_company.findMany({
@@ -169,11 +182,11 @@ const ensureSingleCompany = async (
 }
 
 const ensureAliases = async (patchId: number, aliases: string[]) => {
-  const validAliases = aliases.filter(Boolean)
+  const validAliases = [...new Set(aliases.filter(Boolean))]
   if (!validAliases.length) return
 
   const existing = await prisma.patch_alias.findMany({
-    where: { patch_id: patchId },
+    where: { patch_id: patchId, name: { in: validAliases } },
     select: { name: true }
   })
   const existingNames = new Set(existing.map((a) => a.name))
@@ -197,14 +210,15 @@ export const processSubmittedExternalData = async (
     await handleBatchPatchTags(patchId, userTags, uid)
   }
 
-  const tagTasks = [
-    data.vndbTags.length &&
-      ensureTagsWithSource(patchId, data.vndbTags, 'vndb', uid),
-    data.bangumiTags.length &&
-      ensureTagsWithSource(patchId, data.bangumiTags, 'bangumi', uid),
-    data.steamTags.length &&
-      ensureTagsWithSource(patchId, data.steamTags, 'steam', uid)
-  ].filter(Boolean)
+  const tagTask = ensureTagsWithSources(
+    patchId,
+    [
+      { names: data.vndbTags, source: 'vndb' },
+      { names: data.bangumiTags, source: 'bangumi' },
+      { names: data.steamTags, source: 'steam' }
+    ],
+    uid
+  )
 
   const companyTasks = [
     data.vndbDevelopers.length &&
@@ -226,5 +240,5 @@ export const processSubmittedExternalData = async (
     data.steamAliases.length && ensureAliases(patchId, data.steamAliases)
   ].filter(Boolean)
 
-  await Promise.allSettled([...tagTasks, ...companyTasks, ...aliasTasks])
+  await Promise.allSettled([tagTask, ...companyTasks, ...aliasTasks])
 }

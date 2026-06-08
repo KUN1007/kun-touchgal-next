@@ -36,13 +36,21 @@ export const uploadPatchBanner = async (
 
   const bucketName = `patch/${id}/banner`
 
-  await uploadImageToS3(`${bucketName}/banner.avif`, banner)
-  await uploadImageToS3(`${bucketName}/banner-mini.avif`, miniBanner)
+  const uploadTasks = [
+    uploadImageToS3(`${bucketName}/banner.avif`, banner),
+    uploadImageToS3(`${bucketName}/banner-mini.avif`, miniBanner)
+  ]
 
   if (originalImage) {
-    const fullBanner = await sharp(originalImage)
-      .avif({ quality: 60 })
-      .toBuffer()
-    await uploadImageToS3(`${bucketName}/banner-full.avif`, fullBanner)
+    uploadTasks.push(
+      sharp(originalImage)
+        .avif({ quality: 60 })
+        .toBuffer()
+        .then((fullBanner) =>
+          uploadImageToS3(`${bucketName}/banner-full.avif`, fullBanner)
+        )
+    )
   }
+
+  await Promise.all(uploadTasks)
 }

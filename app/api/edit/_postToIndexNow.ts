@@ -1,5 +1,7 @@
 import { kunMoyuMoe } from '~/config/moyu-moe'
 
+const INDEX_NOW_TIMEOUT_MS = 3000
+
 interface IndexNow {
   host: string
   key: string
@@ -15,9 +17,19 @@ export const postToIndexNow = async (url: string) => {
     urlList: [url]
   }
 
-  await fetch('https://www.bing.com/indexnow', {
+  const response = await fetch('https://www.bing.com/indexnow', {
     method: 'POST',
-    headers: { 'User-Agent': kunMoyuMoe.titleShort },
-    body: JSON.stringify(requestData)
+    headers: {
+      'Content-Type': 'application/json',
+      'User-Agent': kunMoyuMoe.titleShort
+    },
+    body: JSON.stringify(requestData),
+    signal: AbortSignal.timeout(INDEX_NOW_TIMEOUT_MS)
   })
+
+  if (!response.ok) {
+    throw new Error(
+      `IndexNow request failed with ${response.status} ${response.statusText}`
+    )
+  }
 }

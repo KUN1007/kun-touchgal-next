@@ -50,28 +50,32 @@ export const createGalgame = async (input: CreateGalgameInput, uid: number) => {
   const normalizedVndbRelationId = vndbRelationId?.trim()
     ? vndbRelationId.trim().toLowerCase()
     : ''
-  if (normalizedVndbId && normalizedVndbRelationId) {
-    const vndbPatch = await prisma.patch.findFirst({
-      where: {
-        vndb_id: normalizedVndbId,
-        vndb_relation_id: normalizedVndbRelationId
-      }
-    })
-    if (vndbPatch) {
-      return `Galgame VNDB ID 与 Relation ID 的组合与游戏 ID 为 ${vndbPatch.unique_id} 的游戏重复`
-    }
-  }
-
   const normalizedDlsiteCode = dlsiteCode?.trim()
     ? dlsiteCode.trim().toUpperCase()
     : ''
-  if (normalizedDlsiteCode) {
-    const dlsitePatch = await prisma.patch.findFirst({
-      where: { dlsite_code: normalizedDlsiteCode }
-    })
-    if (dlsitePatch) {
-      return `Galgame DLSite Code 与游戏 ID 为 ${dlsitePatch.unique_id} 的游戏重复`
-    }
+  const [vndbPatch, dlsitePatch] = await Promise.all([
+    normalizedVndbId && normalizedVndbRelationId
+      ? prisma.patch.findFirst({
+          where: {
+            vndb_id: normalizedVndbId,
+            vndb_relation_id: normalizedVndbRelationId
+          },
+          select: { unique_id: true }
+        })
+      : null,
+    normalizedDlsiteCode
+      ? prisma.patch.findFirst({
+          where: { dlsite_code: normalizedDlsiteCode },
+          select: { unique_id: true }
+        })
+      : null
+  ])
+
+  if (vndbPatch) {
+    return `Galgame VNDB ID 与 Relation ID 的组合与游戏 ID 为 ${vndbPatch.unique_id} 的游戏重复`
+  }
+  if (dlsitePatch) {
+    return `Galgame DLSite Code 与游戏 ID 为 ${dlsitePatch.unique_id} 的游戏重复`
   }
 
   const res = await prisma.$transaction(
@@ -165,7 +169,10 @@ export const createGalgame = async (input: CreateGalgameInput, uid: number) => {
 
   if (contentLimit === 'sfw') {
     const newPatchUrl = `${kunMoyuMoe.domain.main}/${galgameUniqueId}`
-    await postToIndexNow(newPatchUrl)
+    void postToIndexNow(newPatchUrl).catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error('Failed to post new patch to IndexNow', error)
+    })
   }
 
   return { uniqueId: galgameUniqueId }

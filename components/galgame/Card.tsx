@@ -42,7 +42,7 @@ const getCardAttributeLabels = (patch: GalgameCard) => {
 
 const getRatingText = (rating?: number) => {
   if (!rating) {
-    return '暂无'
+    return 'N/A'
   }
 
   return Number.isInteger(rating) ? rating.toString() : rating.toFixed(1)

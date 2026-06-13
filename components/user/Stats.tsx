@@ -1,5 +1,5 @@
 import { Card, CardBody } from '@heroui/card'
-import { FileText, MessageCircle, Puzzle, Star } from 'lucide-react'
+import { FileText, MessageCircle, Package, Star } from 'lucide-react'
 import type { UserInfo } from '~/types/api/user'
 
 export const UserStats = ({ user }: { user: UserInfo }) => {
@@ -10,7 +10,7 @@ export const UserStats = ({ user }: { user: UserInfo }) => {
     {
       label: '发布资源',
       value: user._count.patch_resource,
-      icon: Puzzle
+      icon: Package
     }
   ]
 

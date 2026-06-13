@@ -104,12 +104,13 @@ const LazyKunPlyr = ({ src, autoPlay }: { src: string; autoPlay: boolean }) => {
     <div className="relative w-full aspect-video overflow-hidden rounded-xl bg-black">
       {!isReady && <VideoLoadingPlaceholder />}
       <div
-        className={`absolute inset-0 [&_.plyr]:h-full [&_.plyr]:w-full [&_.plyr__video-wrapper]:h-full [&_video]:h-full [&_video]:w-full ${
+        className={`absolute inset-0 [&_.plyr]:h-full [&_.plyr]:w-full [&_.plyr__video-wrapper]:h-full [&_video]:h-full [&_video]:w-full [&_video]:object-contain [&_video]:object-center ${
           isReady ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
       >
         <KunPlyr
           src={src}
+          className="h-full w-full object-contain object-center"
           autoPlay={autoPlay}
           onReady={() => setIsReady(true)}
         />

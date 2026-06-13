@@ -8,8 +8,11 @@ export const KunFooter = () => {
   return (
     <footer className="w-full mt-8 text-sm border-t border-divider">
       <div className="px-2 mx-auto sm:px-6 max-w-7xl">
-        <div className="flex flex-wrap justify-center gap-4 py-6 md:justify-between">
-          <Link href="/" className="flex items-center space-x-2">
+        <div className="grid grid-cols-1 items-center justify-items-center gap-4 py-6 md:grid-cols-[1fr_auto_1fr]">
+          <Link
+            href="/"
+            className="flex items-center space-x-2 md:justify-self-start"
+          >
             <Image
               src="/favicon.webp"
               alt={kunMoyuMoe.titleShort}
@@ -19,7 +22,7 @@ export const KunFooter = () => {
             <span>© 2026 {kunMoyuMoe.titleShort}</span>
           </Link>
 
-          <div className="flex space-x-8">
+          <div className="flex flex-wrap justify-center gap-x-8 gap-y-2">
             <Link href="/doc" className="flex items-center">
               使用指南
             </Link>
@@ -36,6 +39,15 @@ export const KunFooter = () => {
             </Link>
 
             <Link
+              href="https://developer.touchgal.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center"
+            >
+              API
+            </Link>
+
+            <Link
               href="https://github.com/KunMoe/kun-touchgal-next"
               target="_blank"
               rel="noopener noreferrer"
@@ -45,7 +57,7 @@ export const KunFooter = () => {
             </Link>
           </div>
 
-          <div className="flex space-x-8">
+          <div className="flex space-x-8 md:justify-self-end">
             <span className="flex items-center">联系我们</span>
             <Link
               href={kunMoyuMoe.domain.discord_group}

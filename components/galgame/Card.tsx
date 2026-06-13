@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Card, CardBody } from '@heroui/card'
 import { Image } from '@heroui/image'
 import Link from 'next/link'
-import { Eye, Star } from 'lucide-react'
+import { Eye, Star, StarOff } from 'lucide-react'
 import { formatNumber } from '~/utils/formatNumber'
 import { cn } from '~/utils/cn'
 
@@ -40,11 +40,10 @@ const getCardAttributeLabels = (patch: GalgameCard) => {
   return labels
 }
 
-const getRatingText = (rating?: number) => {
-  if (!rating) {
-    return 'N/A'
-  }
+const hasRating = (rating?: number): rating is number =>
+  typeof rating === 'number' && rating > 0
 
+const getRatingText = (rating: number) => {
   return Number.isInteger(rating) ? rating.toString() : rating.toFixed(1)
 }
 
@@ -56,6 +55,10 @@ interface Props {
 export const GalgameCard = ({ patch, openOnNewTab = true }: Props) => {
   const [imageLoaded, setImageLoaded] = useState(false)
   const attributeLabels = getCardAttributeLabels(patch)
+  const averageRating = patch.averageRating
+  const ratingText = hasRating(averageRating)
+    ? getRatingText(averageRating)
+    : null
 
   return (
     <Card
@@ -100,14 +103,23 @@ export const GalgameCard = ({ patch, openOnNewTab = true }: Props) => {
         <div className="mt-auto space-y-2 sm:space-y-3">
           <div className="flex items-center gap-2 text-xs sm:text-sm">
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <Star
-                aria-hidden="true"
-                className="size-4 fill-warning-400 text-warning-400"
-              />
-              <span className="font-extrabold text-foreground">
-                <span className="sr-only">评分 </span>
-                {getRatingText(patch.averageRating)}
-              </span>
+              {ratingText ? (
+                <Star
+                  aria-hidden="true"
+                  className="size-4 fill-warning-400 text-warning-400"
+                />
+              ) : (
+                <StarOff
+                  aria-hidden="true"
+                  className="size-3.5 text-default-500"
+                />
+              )}
+              {ratingText && (
+                <span className="font-extrabold text-foreground">
+                  <span className="sr-only">评分 </span>
+                  {ratingText}
+                </span>
+              )}
             </div>
 
             <div className="h-4 w-px bg-default-200" />

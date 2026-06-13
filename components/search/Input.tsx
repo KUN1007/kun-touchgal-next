@@ -23,6 +23,10 @@ interface Props {
   setShowHistory: Dispatch<SetStateAction<boolean>>
 }
 
+const KEYWORD_CHIP_CLASS_NAMES = {
+  content: 'cursor-pointer opacity-70 transition-opacity hover:opacity-100'
+}
+
 export const SearchInput = ({
   inputRef,
   query,
@@ -104,6 +108,44 @@ export const SearchInput = ({
       )
     )
     inputRef.current?.focus()
+  }
+  const handleEditKeywordChip = (suggestionToEdit: SearchSuggestionType) => {
+    if (suggestionToEdit.type !== 'keyword') {
+      return
+    }
+
+    clearBlurTimeout()
+    setSelectedSuggestions((prevSuggestions) =>
+      prevSuggestions.filter(
+        (suggestion) =>
+          !(
+            suggestion.type === suggestionToEdit.type &&
+            suggestion.name === suggestionToEdit.name
+          )
+      )
+    )
+    setQuery((currentQuery) => {
+      const trimmedQuery = currentQuery.trim()
+      return trimmedQuery
+        ? `${trimmedQuery} ${suggestionToEdit.name}`
+        : suggestionToEdit.name
+    })
+    setCanDeleteTag(false)
+    setIsFocused(true)
+    setShowHistory(false)
+    setShowSuggestions(true)
+    inputRef.current?.focus()
+  }
+
+  const getSuggestionLabel = (suggestion: SearchSuggestionType) => {
+    const name =
+      suggestion.type === 'tag'
+        ? `#${suggestion.name}`
+        : suggestion.type === 'company'
+          ? `会社:${suggestion.name}`
+          : suggestion.name
+
+    return `${suggestion.mode === 'exclude' ? '排除 ' : ''}${name}`
   }
 
   const handleExecuteSearch = () => {
@@ -197,14 +239,26 @@ export const SearchInput = ({
                     ? 'warning'
                     : 'secondary'
             }
+            classNames={
+              suggestion.type === 'keyword'
+                ? KEYWORD_CHIP_CLASS_NAMES
+                : undefined
+            }
+            onClick={(event) => {
+              const target = event.target
+              if (
+                suggestion.type !== 'keyword' ||
+                (target instanceof Element &&
+                  target.closest('[aria-label="close chip"]'))
+              ) {
+                return
+              }
+
+              handleEditKeywordChip(suggestion)
+            }}
             onClose={() => handleRemoveChip(suggestion)}
           >
-            {suggestion.mode === 'exclude' ? '排除 ' : ''}
-            {suggestion.type === 'tag'
-              ? `#${suggestion.name}`
-              : suggestion.type === 'company'
-                ? `会社:${suggestion.name}`
-                : suggestion.name}
+            {getSuggestionLabel(suggestion)}
           </Chip>
         ))}
 

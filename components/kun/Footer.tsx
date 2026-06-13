@@ -36,7 +36,7 @@ export const KunFooter = () => {
             </Link>
 
             <Link
-              href="https://github.com/KUN1007/kun-touchgal-next"
+              href="https://github.com/KunMoe/kun-touchgal-next"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center"

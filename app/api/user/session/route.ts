@@ -6,7 +6,7 @@ export const GET = async (req: NextRequest) => {
     req.cookies.get('kun-galgame-patch-moe-token')?.value ?? ''
   )
   if (!session) {
-    return NextResponse.json('用户登陆失效')
+    return NextResponse.json('用户登陆失效', { status: 401 })
   }
 
   return NextResponse.json(session)

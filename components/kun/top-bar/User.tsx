@@ -25,6 +25,11 @@ interface Props {
   isSessionPending?: boolean
 }
 
+type SessionCheckResult =
+  | { status: 'valid'; session: UserSession }
+  | { status: 'invalid' }
+  | { status: 'unreachable' }
+
 const hasPersistedUserStore = () => {
   try {
     return Boolean(window.localStorage.getItem('kun-patch-user-store'))
@@ -32,20 +37,26 @@ const hasPersistedUserStore = () => {
     return true
   }
 }
-const fetchCurrentSession = async (): Promise<UserSession | null> => {
+const fetchCurrentSession = async (): Promise<SessionCheckResult> => {
   try {
     const response = await fetch('/api/user/session', {
       credentials: 'include',
       cache: 'no-store'
     })
+
+    if (response.status === 401) {
+      return { status: 'invalid' }
+    }
     if (!response.ok) {
-      return null
+      return { status: 'unreachable' }
     }
 
     const session = (await response.json()) as UserSession | string
-    return typeof session === 'string' ? null : session
+    return typeof session === 'string'
+      ? { status: 'invalid' }
+      : { status: 'valid', session }
   } catch {
-    return null
+    return { status: 'unreachable' }
   }
 }
 
@@ -130,13 +141,17 @@ export const KunTopBarUser = ({ initialSession, isSessionPending }: Props) => {
         ? useUserStore.getState().user
         : { uid: 0 }
       if (currentUser.uid) {
-        const confirmedSession = await fetchCurrentSession()
+        const sessionCheck = await fetchCurrentSession()
         if (cancelled) {
           return
         }
-        if (confirmedSession) {
-          setUser(confirmedSession.user)
-          setUnreadMessageStatus(confirmedSession.unread)
+        if (sessionCheck.status === 'valid') {
+          setUser(sessionCheck.session.user)
+          setUnreadMessageStatus(sessionCheck.session.unread)
+          setIsMissingSessionChecked(true)
+          return
+        }
+        if (sessionCheck.status === 'unreachable') {
           setIsMissingSessionChecked(true)
           return
         }

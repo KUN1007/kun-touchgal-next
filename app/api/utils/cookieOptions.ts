@@ -1,6 +1,6 @@
 export const kunCookieOptions = (maxAgeSeconds: number) => ({
   httpOnly: true,
-  sameSite: 'strict' as const,
+  sameSite: 'lax' as const,
   secure: process.env.NODE_ENV !== 'development',
   maxAge: maxAgeSeconds
 })

@@ -11,7 +11,6 @@ import { useUserStore } from '~/store/userStore'
 import { useMessageStore } from '~/store/messageStore'
 import { useSettingStore } from '~/store/settingStore'
 import { useRouter } from '@bprogress/next'
-import { kunFetchPost } from '~/utils/kunFetch'
 import { ThemeSwitcher } from './ThemeSwitcher'
 import { useMounted } from '~/hooks/useMounted'
 import { UserDropdown } from './UserDropdown'
@@ -31,6 +30,22 @@ const hasPersistedUserStore = () => {
     return Boolean(window.localStorage.getItem('kun-patch-user-store'))
   } catch {
     return true
+  }
+}
+const fetchCurrentSession = async (): Promise<UserSession | null> => {
+  try {
+    const response = await fetch('/api/user/session', {
+      credentials: 'include',
+      cache: 'no-store'
+    })
+    if (!response.ok) {
+      return null
+    }
+
+    const session = (await response.json()) as UserSession | string
+    return typeof session === 'string' ? null : session
+  } catch {
+    return null
   }
 }
 
@@ -115,8 +130,18 @@ export const KunTopBarUser = ({ initialSession, isSessionPending }: Props) => {
         ? useUserStore.getState().user
         : { uid: 0 }
       if (currentUser.uid) {
+        const confirmedSession = await fetchCurrentSession()
+        if (cancelled) {
+          return
+        }
+        if (confirmedSession) {
+          setUser(confirmedSession.user)
+          setUnreadMessageStatus(confirmedSession.unread)
+          setIsMissingSessionChecked(true)
+          return
+        }
+
         toast.error('用户登陆失效')
-        kunFetchPost('/user/status/logout').catch(() => {})
         logout()
         resetUnreadMessageStatus()
         resetSettings()
@@ -131,6 +156,8 @@ export const KunTopBarUser = ({ initialSession, isSessionPending }: Props) => {
       cancelled = true
     }
   }, [
+    setUnreadMessageStatus,
+    setUser,
     initialSession,
     isSessionPending,
     isMounted,

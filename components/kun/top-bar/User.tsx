@@ -161,6 +161,7 @@ export const KunTopBarUser = ({ initialSession, isSessionPending }: Props) => {
         resetUnreadMessageStatus()
         resetSettings()
         router.push('/login')
+        return
       }
       setIsMissingSessionChecked(true)
     }

@@ -22,9 +22,9 @@ import {
   TableRow,
   useDisclosure
 } from '@heroui/react'
-import { Search, Trash2 } from 'lucide-react'
+import { Eye, EyeOff, Search, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { kunFetchDelete, kunFetchGet } from '~/utils/kunFetch'
+import { kunFetchDelete, kunFetchGet, kunFetchPut } from '~/utils/kunFetch'
 import { useEffect, useState, type Key } from 'react'
 import type { Selection } from '@heroui/table'
 import { useMounted } from '~/hooks/useMounted'
@@ -42,6 +42,7 @@ const columns = [
   { name: '存储', id: 'storage' },
   { name: '大小', id: 'size' },
   { name: '创建时间', id: 'created' },
+  { name: '状态', id: 'status' },
   { name: '操作', id: 'actions' }
 ]
 
@@ -77,6 +78,7 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
   const [searchType, setSearchType] = useState<ResourceSearchType>('content')
   const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set())
   const [batchDeleting, setBatchDeleting] = useState(false)
+  const [batchHiding, setBatchHiding] = useState(false)
   const {
     isOpen: isBatchOpen,
     onOpen: onBatchOpen,
@@ -227,6 +229,47 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
     }
   }
 
+  const handleBatchHidden = async (hidden: boolean) => {
+    setBatchHiding(true)
+    const ids =
+      selectedKeys === 'all'
+        ? resources.map((r) => r.id)
+        : Array.from(selectedKeys).map(Number)
+
+    const res = await kunFetchPut<KunResponse<{ count: number }>>(
+      '/admin/resource/hidden',
+      { resourceIds: ids.join(','), hidden }
+    )
+
+    if (typeof res === 'string') {
+      toast.error(res)
+    } else {
+      toast.success(`成功${hidden ? '隐藏' : '取消隐藏'} ${res.count} 条资源`)
+    }
+
+    setBatchHiding(false)
+    setSelectedKeys(new Set<string | number>())
+
+    // 刷新列表
+    const params: Record<string, string | number> = { page, limit }
+    if (searchType === 'content' && debouncedContent) {
+      params.search = debouncedContent
+    }
+    if (searchType === 'user' && selectedUserId) {
+      params.userId = selectedUserId
+    }
+    const refreshRes = await kunFetchGet<{
+      resources: AdminResource[]
+      total: number
+    }>('/admin/resource', params)
+    if (typeof refreshRes === 'string') {
+      toast.error(refreshRes)
+    } else {
+      setResources(refreshRes.resources)
+      setTotal(refreshRes.total)
+    }
+  }
+
   const handleSearchTypeChange = (keys: 'all' | Set<Key>) => {
     const key = Array.from(keys)[0] as ResourceSearchType | undefined
     if (!key) {
@@ -271,15 +314,37 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
         <h1 className="text-2xl font-bold">下载资源管理</h1>
         <div className="flex items-center gap-2">
           {selectedCount > 0 && (
-            <Button
-              color="danger"
-              variant="flat"
-              size="sm"
-              startContent={<Trash2 size={14} />}
-              onPress={onBatchOpen}
-            >
-              批量删除 ({selectedCount})
-            </Button>
+            <>
+              <Button
+                color="warning"
+                variant="flat"
+                size="sm"
+                startContent={<EyeOff size={14} />}
+                isLoading={batchHiding}
+                onPress={() => handleBatchHidden(true)}
+              >
+                批量隐藏 ({selectedCount})
+              </Button>
+              <Button
+                color="default"
+                variant="flat"
+                size="sm"
+                startContent={<Eye size={14} />}
+                isLoading={batchHiding}
+                onPress={() => handleBatchHidden(false)}
+              >
+                批量取消隐藏 ({selectedCount})
+              </Button>
+              <Button
+                color="danger"
+                variant="flat"
+                size="sm"
+                startContent={<Trash2 size={14} />}
+                onPress={onBatchOpen}
+              >
+                批量删除 ({selectedCount})
+              </Button>
+            </>
           )}
           <Chip color="primary" variant="flat">
             支持按内容、哈希和用户搜索

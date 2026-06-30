@@ -94,6 +94,42 @@ export const adminResourcePaginationSchema = adminPaginationSchema.extend({
   userId: z.coerce.number().min(1).max(9999999).optional()
 })
 
+const adminResourceHiddenLimit = 500
+
+const adminResourceIdsSchema = z
+  .string()
+  .trim()
+  .min(1, { message: '至少选择一条资源' })
+  .refine(
+    (value) =>
+      value.split(',').every((item) => {
+        const trimmed = item.trim()
+        if (!/^\d+$/.test(trimmed)) {
+          return false
+        }
+
+        const resourceId = Number.parseInt(trimmed, 10)
+        return resourceId >= 1 && resourceId <= 9999999
+      }),
+    { message: '资源 ID 格式不正确' }
+  )
+  .transform((value) => [
+    ...new Set(
+      value
+        .split(',')
+        .map((item) => Number.parseInt(item.trim(), 10))
+        .filter((resourceId) => resourceId >= 1 && resourceId <= 9999999)
+    )
+  ])
+  .refine((resourceIds) => resourceIds.length <= adminResourceHiddenLimit, {
+    message: `单次最多操作 ${adminResourceHiddenLimit} 条资源`
+  })
+
+export const adminUpdateResourceHiddenSchema = z.object({
+  resourceIds: adminResourceIdsSchema,
+  hidden: z.boolean()
+})
+
 export const adminReportPaginationSchema = adminPaginationSchema.extend({
   tab: z.enum(['pending', 'handled']).default('pending'),
   targetType: adminReportTargetTypeSchema.default('comment')

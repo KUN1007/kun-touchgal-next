@@ -3,6 +3,7 @@
 import { Chip } from '@heroui/react'
 import Link from 'next/link'
 import { SUPPORTED_RESOURCE_LINK_MAP } from '~/constants/resource'
+import { RESOURCE_STATUS_MAP } from '~/constants/admin'
 import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { ResourceEdit } from './ResourceEdit'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
@@ -81,6 +82,19 @@ export const RenderCell = (resource: AdminResource, columnKey: string) => {
           <KunTimeAgo date={resource.created} />
         </Chip>
       )
+    case 'status': {
+      const color =
+        resource.status === 0
+          ? 'success'
+          : resource.status === 1
+            ? 'warning'
+            : 'default'
+      return (
+        <Chip color={color} variant="flat">
+          {RESOURCE_STATUS_MAP[resource.status] ?? '未知'}
+        </Chip>
+      )
+    }
     case 'actions':
       return <ResourceEdit initialResource={resource} />
     default:

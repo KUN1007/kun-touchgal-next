@@ -18,9 +18,10 @@ import toast from 'react-hot-toast'
 
 interface Props {
   creator: AdminCreator
+  onUpdate: () => void
 }
 
-export const ActionButton = ({ creator }: Props) => {
+export const ActionButton = ({ creator, onUpdate }: Props) => {
   const [approving, setApproving] = useState(false)
   const {
     isOpen: isOpenApprove,
@@ -37,6 +38,7 @@ export const ActionButton = ({ creator }: Props) => {
     kunErrorHandler(res, () => {
       toast.success('同意申请成功!')
       onCloseApprove()
+      onUpdate()
     })
     setApproving(false)
   }
@@ -58,6 +60,7 @@ export const ActionButton = ({ creator }: Props) => {
     kunErrorHandler(res, () => {
       toast.success('拒绝申请成功!')
       onCloseDecline()
+      onUpdate()
     })
     serDeclining(false)
   }

@@ -10,6 +10,7 @@ import type { AdminCreator } from '~/types/api/admin'
 interface RenderCellProps {
   creator: AdminCreator
   columnKey: string
+  onUpdate: () => void
 }
 
 const getStatusColor = (status: number) => {
@@ -23,7 +24,11 @@ const getStatusColor = (status: number) => {
   }
 }
 
-export const RenderCell = ({ creator, columnKey }: RenderCellProps) => {
+export const RenderCell = ({
+  creator,
+  columnKey,
+  onUpdate
+}: RenderCellProps) => {
   switch (columnKey) {
     case 'sender':
       return (
@@ -52,7 +57,7 @@ export const RenderCell = ({ creator, columnKey }: RenderCellProps) => {
       return <KunTimeAgo date={creator.created} />
     case 'actions':
       return creator.status === 0 ? (
-        <ActionButton creator={creator} />
+        <ActionButton creator={creator} onUpdate={onUpdate} />
       ) : (
         <Chip variant="flat" color="success">
           已处理

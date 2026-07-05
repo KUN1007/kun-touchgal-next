@@ -2,34 +2,49 @@
 
 import { useState } from 'react'
 import { Card, CardBody, CardHeader } from '@heroui/card'
-import { Divider } from '@heroui/react'
-import { LockKeyhole } from 'lucide-react'
-import { StepOne } from './StepOne'
-import { StepTwo } from './StepTwo'
+import { Button, Divider } from '@heroui/react'
+import { LockKeyhole, MailCheck } from 'lucide-react'
+import { useRouter } from '@bprogress/next'
+import { RequestForm } from './RequestForm'
 
 export const ForgotPassword = () => {
-  const [step, setStep] = useState(1)
-  const [username, setUsername] = useState('')
+  const router = useRouter()
+  const [sent, setSent] = useState(false)
 
   return (
     <Card className="m-auto w-80">
       <CardHeader className="flex flex-col gap-2 p-6">
         <div className="mx-auto rounded-full bg-primary/10 p-3">
-          <LockKeyhole className="size-6 text-primary" />
+          {sent ? (
+            <MailCheck className="size-6 text-primary" />
+          ) : (
+            <LockKeyhole className="size-6 text-primary" />
+          )}
         </div>
         <h1 className="text-center text-2xl font-bold">重置密码</h1>
         <p className="text-center text-sm text-default-500">
-          {step === 1
-            ? '输入您的用户名或邮箱以发送邮箱验证码'
-            : '请输入您收到的验证码和新密码'}
+          {sent ? '重置密码请求已提交' : '输入您的邮箱以发送重置密码链接'}
         </p>
       </CardHeader>
       <Divider />
       <CardBody className="space-y-4 p-6">
-        {step === 1 ? (
-          <StepOne setStep={setStep} setEmail={setUsername} />
+        {sent ? (
+          <>
+            <p className="text-center text-sm text-default-500">
+              如果该邮箱已注册，则将很快收到一封包含重置密码链接的邮件。
+              <br />
+              如果没有收到请检查垃圾邮件。
+            </p>
+            <Button
+              color="primary"
+              className="w-full"
+              onPress={() => router.push('/login')}
+            >
+              返回登录
+            </Button>
+          </>
         ) : (
-          <StepTwo name={username} setStep={setStep} />
+          <RequestForm setSent={setSent} />
         )}
       </CardBody>
     </Card>

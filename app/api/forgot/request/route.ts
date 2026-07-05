@@ -1,15 +1,15 @@
 import { z } from 'zod'
 import { NextRequest, NextResponse } from 'next/server'
 import { kunParsePostBody } from '~/app/api/utils/parseQuery'
-import { stepOneSchema } from '~/validations/forgot'
+import { forgotPasswordRequestSchema } from '~/validations/forgot'
 import { prisma } from '~/prisma/index'
-import { sendVerificationCodeEmail } from '~/app/api/utils/sendVerificationCodeEmail'
+import { sendResetPasswordLinkEmail } from '~/app/api/utils/sendResetPasswordLinkEmail'
 import { getRemoteIp } from '~/app/api/utils/getRemoteIp'
 import { getKv, setKv } from '~/lib/redis'
 import { checkKunCaptchaExist } from '~/app/api/utils/verifyKunCaptcha'
 
-const stepOne = async (
-  input: z.infer<typeof stepOneSchema>,
+const requestReset = async (
+  input: z.infer<typeof forgotPasswordRequestSchema>,
   headers: Headers
 ) => {
   const captchaValid = await checkKunCaptchaExist(input.captcha)
@@ -23,14 +23,9 @@ const stepOne = async (
     return '您发送邮件的频率太快了, 请 60 秒后重试'
   }
 
-  const normalizedInput = input.name.toLowerCase()
+  const normalizedEmail = input.email.toLowerCase()
   const user = await prisma.user.findFirst({
-    where: {
-      OR: [
-        { email: { equals: normalizedInput, mode: 'insensitive' } },
-        { name: { equals: normalizedInput, mode: 'insensitive' } }
-      ]
-    }
+    where: { email: { equals: normalizedEmail, mode: 'insensitive' } }
   })
 
   if (!user) {
@@ -38,19 +33,19 @@ const stepOne = async (
     return
   }
 
-  const result = await sendVerificationCodeEmail(headers, user.email, 'forgot')
+  const result = await sendResetPasswordLinkEmail(headers, user.id, user.email)
   if (result) {
     return result
   }
 }
 
 export const POST = async (req: NextRequest) => {
-  const input = await kunParsePostBody(req, stepOneSchema)
+  const input = await kunParsePostBody(req, forgotPasswordRequestSchema)
   if (typeof input === 'string') {
     return NextResponse.json(input)
   }
 
-  const response = await stepOne(input, req.headers)
+  const response = await requestReset(input, req.headers)
   if (typeof response === 'string') {
     return NextResponse.json(response)
   }

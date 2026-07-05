@@ -1,5 +1,67 @@
 import { kunMoyuMoe } from '~/config/moyu-moe'
 
+const getSiteAddress = () => {
+  const envAddress =
+    process.env.NODE_ENV === 'development'
+      ? process.env.NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV
+      : process.env.NEXT_PUBLIC_KUN_PATCH_ADDRESS_PROD
+
+  return envAddress || kunMoyuMoe.domain.main
+}
+
+const escapeHtml = (value: string) =>
+  value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+
+export const createKunResetPasswordEmailTemplate = (resetLink: string) => {
+  const safeResetLink = escapeHtml(resetLink)
+  const iconImage = `${getSiteAddress()}/favicon.webp`
+
+  return `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${kunMoyuMoe.titleShort} 重置密码</title>
+  </head>
+  <body style="background-color: #e4e4e7; margin: 0; padding: 40px 0">
+    <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 14px; overflow: hidden">
+      <div style="background: #e6f1fe; padding: 24px; text-align: center">
+        <img src="${iconImage}" alt="${kunMoyuMoe.titleShort}" style="height: 48px" />
+        <h1 style="color: #27272a; font-size: 24px; margin: 12px 0 0 0">
+          重置密码
+        </h1>
+      </div>
+      <div style="padding: 32px; color: #374151; font-size: 16px; line-height: 24px">
+        <p style="margin: 0 0 24px 0">
+          我们收到了您重置密码的请求, 请点击下面的按钮设置新密码。
+        </p>
+        <p style="text-align: center; margin: 0 0 24px 0">
+          <a
+            href="${safeResetLink}"
+            style="display: inline-block; background: #006fee; color: #ffffff; text-decoration: none; padding: 12px 20px; border-radius: 8px"
+          >
+            设置新密码
+          </a>
+        </p>
+        <p style="color: #71717a; font-size: 14px; margin: 0 0 24px 0">
+          重置链接 30 分钟内有效, 且只能使用一次。
+        </p>
+        <p style="color: #a1a1aa; font-size: 14px; margin: 0; padding-top: 24px; border-top: 1px solid #e4e4e7">
+          如果您没有进行相关操作, 请忽略这封邮件。
+        </p>
+      </div>
+    </div>
+  </body>
+</html>
+  `
+}
+
 export const createKunVerificationEmailTemplate = (
   type: 'register' | 'forgot' | 'reset',
   code: string

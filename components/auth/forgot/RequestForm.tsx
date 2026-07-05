@@ -5,28 +5,26 @@ import { z } from 'zod'
 import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Button, Input, useDisclosure } from '@heroui/react'
-import { User } from 'lucide-react'
+import { Mail } from 'lucide-react'
 import { kunFetchPost } from '~/utils/kunFetch'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
-import toast from 'react-hot-toast'
-import { stepOneSchema } from '~/validations/forgot'
+import { forgotPasswordRequestSchema } from '~/validations/forgot'
 import { KunCaptchaModal } from '~/components/kun/auth/CaptchaModal'
 
-type StepOneFormData = z.infer<typeof stepOneSchema>
+type RequestFormData = z.infer<typeof forgotPasswordRequestSchema>
 
 interface Props {
-  setStep: (step: number) => void
-  setEmail: (username: string) => void
+  setSent: (sent: boolean) => void
 }
 
-export const StepOne = ({ setStep, setEmail }: Props) => {
+export const RequestForm = ({ setSent }: Props) => {
   const [loading, setLoading] = useState(false)
   const { isOpen, onOpen, onClose } = useDisclosure()
 
-  const { control, watch, trigger } = useForm<StepOneFormData>({
-    resolver: zodResolver(stepOneSchema),
+  const { control, watch, trigger } = useForm<RequestFormData>({
+    resolver: zodResolver(forgotPasswordRequestSchema),
     defaultValues: {
-      name: '',
+      email: '',
       captcha: ''
     }
   })
@@ -36,14 +34,12 @@ export const StepOne = ({ setStep, setEmail }: Props) => {
     setLoading(true)
 
     const data = watch()
-    const res = await kunFetchPost<KunResponse<undefined>>('/forgot/one', {
-      name: data.name,
+    const res = await kunFetchPost<KunResponse<undefined>>('/forgot/request', {
+      email: data.email,
       captcha: code
     })
     kunErrorHandler(res, () => {
-      setEmail(data.name)
-      setStep(2)
-      toast.success('重置验证码发送成功!')
+      setSent(true)
     })
 
     setLoading(false)
@@ -51,7 +47,7 @@ export const StepOne = ({ setStep, setEmail }: Props) => {
 
   const handleOpenCaptcha = async () => {
     setLoading(true)
-    const valid = await trigger('name')
+    const valid = await trigger('email')
     setLoading(false)
     if (valid) {
       onOpen()
@@ -61,17 +57,17 @@ export const StepOne = ({ setStep, setEmail }: Props) => {
   return (
     <form className="w-full space-y-4">
       <Controller
-        name="name"
+        name="email"
         control={control}
         render={({ field, formState: { errors } }) => (
           <Input
             {...field}
-            label="邮箱或用户名"
-            placeholder="请输入您的邮箱或用户名"
+            label="邮箱"
+            placeholder="请输入您的邮箱"
             autoComplete="email"
-            isInvalid={!!errors.name}
-            errorMessage={errors.name?.message}
-            startContent={<User className="size-4 text-default-400" />}
+            isInvalid={!!errors.email}
+            errorMessage={errors.email?.message}
+            startContent={<Mail className="size-4 text-default-400" />}
           />
         )}
       />
@@ -82,7 +78,7 @@ export const StepOne = ({ setStep, setEmail }: Props) => {
         isDisabled={loading || isOpen}
         onPress={handleOpenCaptcha}
       >
-        发送验证码
+        发送重置链接
       </Button>
 
       <KunCaptchaModal

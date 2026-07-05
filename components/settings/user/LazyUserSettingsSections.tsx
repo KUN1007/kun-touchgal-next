@@ -31,7 +31,7 @@ const LazySectionPlaceholder = ({
 }: LazySectionPlaceholderProps) => {
   return (
     <div
-      className="flex w-full flex-col justify-center rounded-3xl border border-default-200 bg-content1/85 px-5 py-5 text-sm text-default-500 shadow-small"
+      className="flex w-full flex-col justify-center rounded-[22px] border border-default-200/60 bg-background px-5 py-5 text-sm text-default-500 shadow-[0_12px_32px_rgba(15,23,42,0.05)] dark:bg-content1 dark:shadow-[0_12px_32px_rgba(0,0,0,0.15)]"
       style={{ minHeight }}
     >
       <h2 className="mb-2 text-xl font-semibold text-foreground">{title}</h2>

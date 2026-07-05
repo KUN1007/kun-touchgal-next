@@ -69,7 +69,7 @@ export const SettingsNav = ({ activeId, onSelect }: SettingsNavProps) => {
     <aside className="min-w-0 lg:sticky lg:top-24">
       <nav
         aria-label="账户设置分类"
-        className="min-w-0 rounded-3xl border border-default-200 bg-content1/85 p-2 shadow-small backdrop-blur"
+        className="min-w-0 rounded-[22px] border border-default-200/60 bg-background p-2 shadow-[0_12px_32px_rgba(15,23,42,0.05)] dark:bg-content1 dark:shadow-[0_12px_32px_rgba(0,0,0,0.15)]"
       >
         <ul
           role="tablist"

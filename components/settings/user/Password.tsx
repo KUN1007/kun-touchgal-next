@@ -53,7 +53,7 @@ export const Password = () => {
   }
 
   return (
-    <Card className="w-full overflow-hidden border border-default-200 bg-content1/85 text-sm shadow-small transition-shadow hover:shadow-medium">
+    <Card className="w-full overflow-hidden rounded-[22px] border border-default-200/60 bg-background text-sm shadow-[0_12px_32px_rgba(15,23,42,0.05)] dark:bg-content1 dark:shadow-[0_12px_32px_rgba(0,0,0,0.15)]">
       <form className="contents" onSubmit={handleSubmit(handleUpdatePassword)}>
         <CardHeader className="flex-col items-start gap-1 px-5 pb-0 pt-5">
           <h2 className="text-xl font-semibold text-foreground">密码</h2>

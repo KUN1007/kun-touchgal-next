@@ -69,6 +69,7 @@ export const getRating = async (
     patchName: rating.patch.name,
     patchId: rating.patch_id,
     like: rating._count.like,
+    status: rating.status,
     created: rating.created
   }))
 

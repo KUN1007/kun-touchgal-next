@@ -23,6 +23,7 @@ model patch_resource {
 
   @@index([patch_id])
   @@index([section, status, created(sort: Desc)])
+  @@index([user_id, status])
 }
 
 model patch_resource_link {

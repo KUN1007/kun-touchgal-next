@@ -18,6 +18,6 @@ export const kunGetActions = async (
     return '用户登陆失效'
   }
 
-  const response = await getUserPatchRating(input)
+  const response = await getUserPatchRating(input, payload)
   return response
 }

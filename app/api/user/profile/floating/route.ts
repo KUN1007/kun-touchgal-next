@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { kunParseGetQuery } from '~/app/api/utils/parseQuery'
 import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
+import { maskShadowBannedUser, type KunViewer } from '~/app/api/utils/shadowBan'
 import type { FloatingCardUser } from '~/types/api/user'
 
 const uidSchema = z.object({
@@ -11,8 +12,9 @@ const uidSchema = z.object({
 
 const getUserFloatingProfile = async (
   input: z.infer<typeof uidSchema>,
-  currentUserUid: number
+  viewer: KunViewer | null
 ) => {
+  const currentUserUid = viewer?.uid ?? 0
   const data = await prisma.user.findUnique({
     where: { id: input.uid },
     include: {
@@ -31,12 +33,13 @@ const getUserFloatingProfile = async (
   }
 
   const followerUserUid = data.following.map((f) => f.follower_id)
+  const masked = maskShadowBannedUser(viewer, data)
 
   const user: FloatingCardUser = {
     id: data.id,
     name: data.name,
-    avatar: data.avatar,
-    bio: data.bio,
+    avatar: masked.avatar,
+    bio: masked.bio,
     moemoepoint: data.moemoepoint,
     role: data.role,
     isFollow: followerUserUid.includes(currentUserUid),
@@ -53,6 +56,6 @@ export async function GET(req: NextRequest) {
   }
   const payload = await verifyHeaderCookie(req)
 
-  const user = await getUserFloatingProfile(input, payload?.uid ?? 0)
+  const user = await getUserFloatingProfile(input, payload)
   return NextResponse.json(user)
 }

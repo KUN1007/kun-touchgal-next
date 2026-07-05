@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { kunParseGetQuery } from '../utils/parseQuery'
 import { resourceSchema } from '~/validations/resource'
 import { getPatchVisibilityWhere } from '~/app/api/utils/getPatchVisibilityWhere'
+import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
+import { shouldBypassSharedCacheForShadowBan } from '~/app/api/utils/shadowBan'
 import { getPatchResource } from './service'
 
 export const GET = async (req: NextRequest) => {
@@ -9,8 +11,17 @@ export const GET = async (req: NextRequest) => {
   if (typeof input === 'string') {
     return NextResponse.json(input)
   }
-  const visibilityWhere = await getPatchVisibilityWhere(req)
+  const [visibilityWhere, payload] = await Promise.all([
+    getPatchVisibilityWhere(req),
+    verifyHeaderCookie(req)
+  ])
+  const bypassCache = await shouldBypassSharedCacheForShadowBan(payload)
 
-  const response = await getPatchResource(input, visibilityWhere)
+  const response = await getPatchResource(
+    input,
+    visibilityWhere,
+    payload,
+    bypassCache
+  )
   return NextResponse.json(response)
 }

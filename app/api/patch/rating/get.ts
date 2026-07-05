@@ -1,5 +1,10 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
+import {
+  getShadowBanWhere,
+  maskShadowBannedUser,
+  type KunViewer
+} from '~/app/api/utils/shadowBan'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 import type { KunPatchRating } from '~/types/api/galgame'
 
@@ -16,19 +21,25 @@ export const getPatchRatingSchema = z.object({
 
 export const getPatchRating = async (
   input: z.infer<typeof getPatchRatingSchema>,
-  uid: number
+  viewer: KunViewer
 ) => {
   const { patchId, page, limit, targetRatingId, onlyWithShortSummary } = input
+  const uid = viewer.uid
   const where: Prisma.patch_ratingWhereInput = {
     patch_id: patchId,
-    ...(onlyWithShortSummary
-      ? {
-          OR: [
-            { short_summary: { not: '' } },
-            ...(targetRatingId ? [{ id: targetRatingId }] : [])
+    AND: [
+      getShadowBanWhere(viewer),
+      ...(onlyWithShortSummary
+        ? [
+            {
+              OR: [
+                { short_summary: { not: '' } },
+                ...(targetRatingId ? [{ id: targetRatingId }] : [])
+              ]
+            }
           ]
-        }
-      : {})
+        : [])
+    ]
   }
 
   const [data, total] = await Promise.all([
@@ -43,7 +54,9 @@ export const getPatchRating = async (
           select: {
             id: true,
             name: true,
-            avatar: true
+            avatar: true,
+            avatar_shadow_ban: true,
+            bio_shadow_ban: true
           }
         },
         _count: {
@@ -78,7 +91,7 @@ export const getPatchRating = async (
     user: {
       id: rating.user.id,
       name: rating.user.name,
-      avatar: rating.user.avatar
+      avatar: maskShadowBannedUser(viewer, rating.user).avatar
     }
   }))
 

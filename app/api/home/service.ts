@@ -6,6 +6,11 @@ import {
   toGalgameCardCount
 } from '~/constants/api/select'
 import { buildVisibilityCacheKey } from '../utils/visibilityCacheKey'
+import {
+  getResourceShadowBanWhere,
+  maskShadowBannedUser,
+  type KunViewer
+} from '~/app/api/utils/shadowBan'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 import type { HomeResource } from '~/types/api/home'
 
@@ -71,14 +76,24 @@ const setHomeCache = async (cacheKey: string, response: HomeResponse) => {
 }
 
 export const getHomeData = async (
-  visibilityWhere: Prisma.patchWhereInput
+  visibilityWhere: Prisma.patchWhereInput,
+  viewer: KunViewer | null,
+  bypassCache: boolean
 ): Promise<HomeResponse> => {
   const cacheKey = getHomeCacheKey(visibilityWhere)
 
-  const cached = await getCachedHomeData(cacheKey)
+  const cached = bypassCache
+    ? { response: null, canWrite: false }
+    : await getCachedHomeData(cacheKey)
   if (cached.response) {
     return cached.response
   }
+
+  // 共享缓存路径按公开视角查询与 mask, 避免 viewer 相关内容写入缓存
+  const maskViewer = bypassCache ? viewer : null
+  const statusWhere = bypassCache
+    ? getResourceShadowBanWhere(viewer)
+    : { status: 0 }
 
   const [data, resourcesData] = await Promise.all([
     prisma.patch.findMany({
@@ -89,7 +104,7 @@ export const getHomeData = async (
     }),
     prisma.patch_resource.findMany({
       orderBy: { created: 'desc' },
-      where: { patch: visibilityWhere, section: 'patch', status: 0 },
+      where: { patch: visibilityWhere, section: 'patch', ...statusWhere },
       select: {
         id: true,
         name: true,
@@ -111,6 +126,8 @@ export const getHomeData = async (
             id: true,
             name: true,
             avatar: true,
+            avatar_shadow_ban: true,
+            bio_shadow_ban: true,
             role: true,
             _count: {
               select: { patch_resource: true }
@@ -170,7 +187,7 @@ export const getHomeData = async (
     user: {
       id: resource.user.id,
       name: resource.user.name,
-      avatar: resource.user.avatar,
+      avatar: maskShadowBannedUser(maskViewer, resource.user).avatar,
       patchCount: resource.user._count.patch_resource,
       role: resource.user.role
     }

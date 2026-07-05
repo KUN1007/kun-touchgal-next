@@ -34,6 +34,8 @@ export interface AdminUser {
   avatar: string
   role: number
   status: number
+  avatarShadowBan: boolean
+  bioShadowBan: boolean
   dailyImageCount: number
   created: Date | string
   _count: {
@@ -64,7 +66,10 @@ export interface AdminResource extends PatchResource {
   patchName: string
 }
 
-export type AdminComment = PatchComment
+export type AdminComment = PatchComment & {
+  // 0 - normal, 1 - shadow banned
+  status: number
+}
 
 export interface AdminRating {
   id: number
@@ -78,6 +83,8 @@ export interface AdminRating {
   patchName: string
   patchId: number
   like: number
+  // 0 - normal, 1 - shadow banned
+  status: number
   created: Date | string
 }
 

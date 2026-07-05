@@ -19,7 +19,7 @@ export const kunGetPatchPageDataActions = cache(
     }
     const payload = await verifyHeaderCookie()
 
-    const response = await getPatchPageData(input, payload?.uid ?? 0)
+    const response = await getPatchPageData(input, payload)
     return response
   }
 )

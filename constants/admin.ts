@@ -9,7 +9,7 @@ export const APPLICANT_STATUS_MAP: Record<number, string> = {
 
 export const RESOURCE_STATUS_MAP: Record<number, string> = {
   0: '正常',
-  1: '隐藏',
+  1: '屏蔽 (仅作者与管理员可见)',
   2: '待审核'
 }
 

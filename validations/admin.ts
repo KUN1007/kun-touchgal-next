@@ -298,6 +298,22 @@ export const adminUpdateDisableRegisterSchema = z.object({
   disableRegister: z.boolean()
 })
 
+export const adminUpdateCommentShadowBanSchema = z.object({
+  commentId: z.coerce.number().min(1).max(9999999),
+  shadowBan: z.boolean()
+})
+
+export const adminUpdateRatingShadowBanSchema = z.object({
+  ratingId: z.coerce.number().min(1).max(9999999),
+  shadowBan: z.boolean()
+})
+
+export const adminUpdateUserShadowBanSchema = z.object({
+  uid: z.coerce.number().min(1).max(9999999),
+  avatarShadowBan: z.boolean(),
+  bioShadowBan: z.boolean()
+})
+
 export const adminGetFullCommentSchema = z.object({
   commentId: z.coerce.number().min(1).max(9999999)
 })

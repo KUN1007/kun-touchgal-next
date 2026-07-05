@@ -55,6 +55,29 @@ export const RatingEdit = ({ initialRating, onSuccess }: Props) => {
     }
   }
 
+  const isShadowBanned = initialRating.status === 1
+  const [shadowBanning, setShadowBanning] = useState(false)
+  const handleToggleShadowBan = async () => {
+    setShadowBanning(true)
+    try {
+      const res = await kunFetchPut<KunResponse<{}>>(
+        '/admin/rating/shadow-ban',
+        {
+          ratingId: initialRating.id,
+          shadowBan: !isShadowBanned
+        }
+      )
+      if (typeof res === 'string') {
+        toast.error(res)
+      } else {
+        toast.success(isShadowBanned ? '已取消屏蔽该评价' : '已屏蔽该评价')
+        await onSuccess?.()
+      }
+    } finally {
+      setShadowBanning(false)
+    }
+  }
+
   const {
     isOpen: isOpenEdit,
     onOpen: onOpenEdit,
@@ -120,6 +143,15 @@ export const RatingEdit = ({ initialRating, onSuccess }: Props) => {
         <DropdownMenu>
           <DropdownItem key="edit" onPress={handleOpenEdit}>
             编辑
+          </DropdownItem>
+          <DropdownItem
+            key="shadow-ban"
+            className="text-warning"
+            color="warning"
+            isDisabled={shadowBanning}
+            onPress={handleToggleShadowBan}
+          >
+            {isShadowBanned ? '取消屏蔽' : '屏蔽 (仅作者与管理员可见)'}
           </DropdownItem>
           <DropdownItem
             key="delete"

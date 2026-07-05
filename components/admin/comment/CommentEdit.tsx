@@ -55,6 +55,29 @@ export const CommentEdit = ({ initialComment, onSuccess }: Props) => {
     }
   }
 
+  const isShadowBanned = initialComment.status === 1
+  const [shadowBanning, setShadowBanning] = useState(false)
+  const handleToggleShadowBan = async () => {
+    setShadowBanning(true)
+    try {
+      const res = await kunFetchPut<KunResponse<{}>>(
+        '/admin/comment/shadow-ban',
+        {
+          commentId: initialComment.id,
+          shadowBan: !isShadowBanned
+        }
+      )
+      if (typeof res === 'string') {
+        toast.error(res)
+      } else {
+        toast.success(isShadowBanned ? '已取消屏蔽该评论' : '已屏蔽该评论')
+        await onSuccess?.()
+      }
+    } finally {
+      setShadowBanning(false)
+    }
+  }
+
   const {
     isOpen: isOpenEdit,
     onOpen: onOpenEdit,
@@ -123,6 +146,15 @@ export const CommentEdit = ({ initialComment, onSuccess }: Props) => {
         <DropdownMenu>
           <DropdownItem key="edit" onPress={handleOpenEdit}>
             编辑
+          </DropdownItem>
+          <DropdownItem
+            key="shadow-ban"
+            className="text-warning"
+            color="warning"
+            isDisabled={shadowBanning}
+            onPress={handleToggleShadowBan}
+          >
+            {isShadowBanned ? '取消屏蔽' : '屏蔽 (仅作者与管理员可见)'}
           </DropdownItem>
           <DropdownItem
             key="delete"

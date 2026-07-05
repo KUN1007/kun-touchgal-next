@@ -5,6 +5,8 @@ import { safeParseSchema } from '~/utils/actions/safeParseSchema'
 import { resourceSchema } from '~/validations/resource'
 import { getPatchResource } from '~/app/api/resource/service'
 import { getPatchVisibilityWhere } from '~/utils/actions/getPatchVisibilityWhere'
+import { verifyHeaderCookie } from '~/utils/actions/verifyHeaderCookie'
+import { shouldBypassSharedCacheForShadowBan } from '~/app/api/utils/shadowBan'
 
 export const kunGetActions = async (params: z.infer<typeof resourceSchema>) => {
   const input = safeParseSchema(resourceSchema, params)
@@ -12,8 +14,17 @@ export const kunGetActions = async (params: z.infer<typeof resourceSchema>) => {
     return input
   }
 
-  const visibilityWhere = await getPatchVisibilityWhere()
+  const [visibilityWhere, payload] = await Promise.all([
+    getPatchVisibilityWhere(),
+    verifyHeaderCookie()
+  ])
+  const bypassCache = await shouldBypassSharedCacheForShadowBan(payload)
 
-  const response = await getPatchResource(input, visibilityWhere)
+  const response = await getPatchResource(
+    input,
+    visibilityWhere,
+    payload,
+    bypassCache
+  )
   return response
 }

@@ -1,4 +1,4 @@
-import { Checkbox } from '@heroui/react'
+import { Checkbox, Chip } from '@heroui/react'
 import { KunAvatar } from '~/components/kun/floating-card/KunAvatar'
 import { Card, CardBody } from '@heroui/card'
 import { ThumbsUp } from 'lucide-react'
@@ -46,6 +46,11 @@ export const CommentCard = ({
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <h2 className="font-semibold">{comment.user.name}</h2>
+                {comment.status === 1 && (
+                  <Chip color="warning" variant="flat" size="sm">
+                    已屏蔽
+                  </Chip>
+                )}
                 <span className="text-small text-default-500">
                   评论在{' '}
                   <Link

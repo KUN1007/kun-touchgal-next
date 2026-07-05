@@ -14,6 +14,9 @@ model user {
 
   enable_email_notice    Boolean @default(true)
   allow_private_message  Boolean @default(true)
+  // shadow ban: masked for viewers other than the user and role >= 3
+  avatar_shadow_ban      Boolean @default(false)
+  bio_shadow_ban         Boolean @default(false)
   blocked_tag_ids        Int[]   @default([])
   daily_image_count   Int     @default(0)
   daily_check_in      Int     @default(0)

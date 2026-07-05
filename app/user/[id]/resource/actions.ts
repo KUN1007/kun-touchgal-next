@@ -21,6 +21,6 @@ export const kunGetActions = async (
 
   const visibilityWhere = await getPatchVisibilityWhere()
 
-  const response = await getUserPatchResource(input, visibilityWhere)
+  const response = await getUserPatchResource(input, visibilityWhere, payload)
   return response
 }

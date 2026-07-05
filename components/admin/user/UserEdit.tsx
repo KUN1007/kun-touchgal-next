@@ -12,6 +12,7 @@ import {
   ModalHeader,
   Select,
   SelectItem,
+  Switch,
   Textarea,
   useDisclosure
 } from '@heroui/react'
@@ -92,6 +93,30 @@ export const UserEdit = ({ initialUser }: Props) => {
       errorReporter(error)
     } finally {
       setUpdating(false)
+    }
+  }
+
+  const [updatingShadowBan, setUpdatingShadowBan] = useState(false)
+  const handleUpdateShadowBan = async () => {
+    setUpdatingShadowBan(true)
+    try {
+      const res = await kunFetchPut<KunResponse<{}>>('/admin/user/shadow-ban', {
+        uid: formUser.id,
+        avatarShadowBan: formUser.avatarShadowBan,
+        bioShadowBan: formUser.bioShadowBan
+      })
+      kunErrorHandler(res, () => {
+        setUser((prev) => ({
+          ...prev,
+          avatarShadowBan: formUser.avatarShadowBan,
+          bioShadowBan: formUser.bioShadowBan
+        }))
+        toast.success('更新用户屏蔽状态成功')
+      })
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setUpdatingShadowBan(false)
     }
   }
 
@@ -189,6 +214,40 @@ export const UserEdit = ({ initialUser }: Props) => {
                   value={formUser.bio}
                   onChange={(e) => handleChange('bio', e.target.value)}
                 />
+              </div>
+              <div className="col-span-2 flex flex-wrap items-center gap-4 rounded-lg bg-default-100 p-4">
+                <Switch
+                  size="sm"
+                  isSelected={formUser.avatarShadowBan}
+                  onValueChange={(value) =>
+                    setFormUser((prev) => ({ ...prev, avatarShadowBan: value }))
+                  }
+                >
+                  屏蔽头像
+                </Switch>
+                <Switch
+                  size="sm"
+                  isSelected={formUser.bioShadowBan}
+                  onValueChange={(value) =>
+                    setFormUser((prev) => ({ ...prev, bioShadowBan: value }))
+                  }
+                >
+                  屏蔽签名
+                </Switch>
+                <Button
+                  size="sm"
+                  color="warning"
+                  variant="flat"
+                  isDisabled={updating || updatingShadowBan}
+                  isLoading={updatingShadowBan}
+                  onPress={handleUpdateShadowBan}
+                >
+                  保存屏蔽状态
+                </Button>
+                <p className="w-full text-tiny text-default-500">
+                  屏蔽后头像与签名仅该用户和管理员可见,
+                  保存屏蔽状态不会导致该用户重新登录
+                </p>
               </div>
             </div>
           </ModalBody>

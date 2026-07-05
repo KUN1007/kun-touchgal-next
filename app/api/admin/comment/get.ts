@@ -66,6 +66,7 @@ export const getComment = async (
     patchName: comment.patch.name,
     patchId: comment.patch_id,
     like: comment._count.like_by,
+    status: comment.status,
     created: comment.created
   }))
 

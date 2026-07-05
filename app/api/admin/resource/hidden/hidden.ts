@@ -24,7 +24,7 @@ export const updateResourceHidden = async (
   }
 
   const { resourceIds, hidden } = input
-  // 隐藏: 仅 0 -> 1；取消隐藏: 仅 1 -> 0。status=2 待审核永不被命中
+  // 屏蔽: 仅 0 -> 1；取消屏蔽: 仅 1 -> 0。status=2 待审核永不被命中
   const fromStatus = hidden ? 0 : 1
   const toStatus = hidden ? 1 : 0
 
@@ -56,7 +56,7 @@ export const updateResourceHidden = async (
         type: 'update',
         user_id: uid,
         content: truncateLogContent(
-          `管理员 ${admin.name} 批量${hidden ? '隐藏' : '取消隐藏'}了 ${targetIds.length} 条资源\n资源 ID: ${targetIds.join(', ')}`
+          `管理员 ${admin.name} 批量${hidden ? '屏蔽' : '取消屏蔽'}了 ${targetIds.length} 条资源\n资源 ID: ${targetIds.join(', ')}`
         )
       }
     })

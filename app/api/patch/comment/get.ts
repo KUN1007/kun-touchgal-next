@@ -6,13 +6,22 @@ import {
   markdownToHtmlComment
 } from '~/app/api/utils/render/markdownToHtmlComment'
 import { getPatchCommentSchema } from '~/validations/patch'
+import {
+  getShadowBanSql,
+  getShadowBanWhere,
+  maskShadowBannedUser,
+  type KunViewer
+} from '~/app/api/utils/shadowBan'
 import type { PatchComment } from '~/types/api/patch'
 
 export const getPatchComment = async (
   input: z.infer<typeof getPatchCommentSchema>,
-  uid: number
+  viewer: KunViewer
 ) => {
   const { patchId, page, limit, commentId } = input
+  const uid = viewer.uid
+  const shadowBanWhere = getShadowBanWhere(viewer)
+  const shadowBanSql = getShadowBanSql(viewer)
   type CommentLocator = {
     id: number
     patch_id: number
@@ -26,11 +35,12 @@ export const getPatchComment = async (
         SELECT id, patch_id, parent_id, created
         FROM patch_comment
         WHERE id = ${targetCommentId} AND patch_id = ${patchId}
+          AND ${shadowBanSql}
         UNION ALL
         SELECT pc.id, pc.patch_id, pc.parent_id, pc.created
         FROM patch_comment pc
         INNER JOIN ancestors a ON pc.id = a.parent_id
-        WHERE pc.patch_id = ${patchId}
+        WHERE pc.patch_id = ${patchId} AND ${shadowBanSql}
       )
       SELECT id, patch_id, parent_id, created
       FROM ancestors
@@ -49,12 +59,17 @@ export const getPatchComment = async (
         where: {
           patch_id: patchId,
           parent_id: null,
-          OR: [
-            { created: { gt: rootComment.created } },
+          AND: [
+            shadowBanWhere,
             {
-              AND: [
-                { created: rootComment.created },
-                { id: { gt: rootComment.id } }
+              OR: [
+                { created: { gt: rootComment.created } },
+                {
+                  AND: [
+                    { created: rootComment.created },
+                    { id: { gt: rootComment.id } }
+                  ]
+                }
               ]
             }
           ]
@@ -66,7 +81,7 @@ export const getPatchComment = async (
   }
 
   const total = await prisma.patch_comment.count({
-    where: { patch_id: patchId, parent_id: null }
+    where: { patch_id: patchId, parent_id: null, ...shadowBanWhere }
   })
 
   const commentSelect = {
@@ -84,7 +99,9 @@ export const getPatchComment = async (
       select: {
         id: true,
         name: true,
-        avatar: true
+        avatar: true,
+        avatar_shadow_ban: true,
+        bio_shadow_ban: true
       }
     },
     patch: {
@@ -98,7 +115,7 @@ export const getPatchComment = async (
   } satisfies Prisma.patch_commentSelect
 
   const rootComments = await prisma.patch_comment.findMany({
-    where: { patch_id: patchId, parent_id: null },
+    where: { patch_id: patchId, parent_id: null, ...shadowBanWhere },
     orderBy: [{ created: 'desc' }, { id: 'desc' }],
     skip: (currentPage - 1) * limit,
     take: limit,
@@ -115,11 +132,12 @@ export const getPatchComment = async (
         FROM patch_comment
         WHERE parent_id IN (${Prisma.join(rootIds)})
           AND patch_id = ${patchId}
+          AND ${shadowBanSql}
         UNION ALL
         SELECT pc.id, pc.parent_id
         FROM patch_comment pc
         INNER JOIN descendants d ON pc.parent_id = d.id
-        WHERE pc.patch_id = ${patchId}
+        WHERE pc.patch_id = ${patchId} AND ${shadowBanSql}
       )
       SELECT id FROM descendants
     `
@@ -127,7 +145,7 @@ export const getPatchComment = async (
 
     if (descendantIds.length > 0) {
       descendantComments = await prisma.patch_comment.findMany({
-        where: { id: { in: descendantIds } },
+        where: { id: { in: descendantIds }, ...shadowBanWhere },
         select: commentSelect
       })
     }
@@ -214,7 +232,7 @@ export const getPatchComment = async (
           user: {
             id: reply.user.id,
             name: reply.user.name,
-            avatar: reply.user.avatar
+            avatar: maskShadowBannedUser(viewer, reply.user).avatar
           },
           quotedContent: null,
           quotedUsername: null,
@@ -223,7 +241,7 @@ export const getPatchComment = async (
               ? {
                   id: directParent.user.id,
                   name: directParent.user.name,
-                  avatar: directParent.user.avatar
+                  avatar: maskShadowBannedUser(viewer, directParent.user).avatar
                 }
               : null
         }
@@ -245,7 +263,7 @@ export const getPatchComment = async (
       user: {
         id: comment.user.id,
         name: comment.user.name,
-        avatar: comment.user.avatar
+        avatar: maskShadowBannedUser(viewer, comment.user).avatar
       },
       quotedContent: null,
       quotedUsername: null,

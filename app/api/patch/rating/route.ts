@@ -33,7 +33,7 @@ export const GET = async (req: NextRequest) => {
     return NextResponse.json('用户未登录')
   }
 
-  const response = await getPatchRating(input, payload.uid)
+  const response = await getPatchRating(input, payload)
   return NextResponse.json(response)
 }
 

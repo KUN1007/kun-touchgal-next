@@ -17,6 +17,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json('请先登录', { status: 401 })
   }
 
-  const user = await getUserProfile(input, payload.uid)
+  const user = await getUserProfile(input, payload)
   return NextResponse.json(user)
 }

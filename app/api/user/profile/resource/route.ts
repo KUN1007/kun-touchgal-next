@@ -18,6 +18,6 @@ export async function GET(req: NextRequest) {
   }
   const visibilityWhere = await getPatchVisibilityWhere(req)
 
-  const response = await getUserPatchResource(input, visibilityWhere)
+  const response = await getUserPatchResource(input, visibilityWhere, payload)
   return NextResponse.json(response)
 }

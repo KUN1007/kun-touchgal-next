@@ -80,6 +80,11 @@ export const RatingCard = ({
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="font-semibold">{rating.user.name}</h2>
+                {rating.status === 1 && (
+                  <Chip color="warning" variant="flat" size="sm">
+                    已屏蔽
+                  </Chip>
+                )}
                 <span className="text-small text-default-500">
                   评价在{' '}
                   <Link

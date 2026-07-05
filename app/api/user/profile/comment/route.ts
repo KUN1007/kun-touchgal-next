@@ -17,6 +17,6 @@ export const GET = async (req: NextRequest) => {
     return NextResponse.json('用户登陆失效')
   }
 
-  const response = await getUserComment(input)
+  const response = await getUserComment(input, payload)
   return NextResponse.json(response)
 }

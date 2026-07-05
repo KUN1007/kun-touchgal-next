@@ -6,20 +6,35 @@ import {
   getResourceListCacheKey,
   setResourceListCache
 } from './cache'
+import {
+  getResourceShadowBanWhere,
+  maskShadowBannedUser,
+  type KunViewer
+} from '~/app/api/utils/shadowBan'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 import type { PatchResource, ResourceListResponse } from '~/types/api/resource'
 
 export const getPatchResource = async (
   input: z.infer<typeof resourceSchema>,
-  visibilityWhere: Prisma.patchWhereInput
+  visibilityWhere: Prisma.patchWhereInput,
+  viewer: KunViewer | null,
+  bypassCache: boolean
 ): Promise<ResourceListResponse> => {
   const { sortField, sortOrder, page, limit } = input
-  const cacheKey = await getResourceListCacheKey(input, visibilityWhere)
+  const cacheKey = bypassCache
+    ? null
+    : await getResourceListCacheKey(input, visibilityWhere)
 
   const cached = await getCachedResourceList(cacheKey)
   if (cached.response) {
     return cached.response
   }
+
+  // 共享缓存路径按公开视角查询与 mask, 避免 viewer 相关内容写入缓存
+  const maskViewer = bypassCache ? viewer : null
+  const statusWhere = bypassCache
+    ? getResourceShadowBanWhere(viewer)
+    : { status: 0 }
 
   const offset = (page - 1) * limit
 
@@ -33,7 +48,7 @@ export const getPatchResource = async (
       take: limit,
       skip: offset,
       orderBy: orderByField,
-      where: { patch: visibilityWhere, section: 'patch', status: 0 },
+      where: { patch: visibilityWhere, section: 'patch', ...statusWhere },
       select: {
         id: true,
         name: true,
@@ -55,6 +70,8 @@ export const getPatchResource = async (
             id: true,
             name: true,
             avatar: true,
+            avatar_shadow_ban: true,
+            bio_shadow_ban: true,
             role: true,
             _count: {
               select: { patch_resource: true }
@@ -77,7 +94,7 @@ export const getPatchResource = async (
       }
     }),
     prisma.patch_resource.count({
-      where: { patch: visibilityWhere, section: 'patch', status: 0 }
+      where: { patch: visibilityWhere, section: 'patch', ...statusWhere }
     })
   ])
 
@@ -99,7 +116,7 @@ export const getPatchResource = async (
     user: {
       id: resource.user.id,
       name: resource.user.name,
-      avatar: resource.user.avatar,
+      avatar: maskShadowBannedUser(maskViewer, resource.user).avatar,
       patchCount: resource.user._count.patch_resource,
       role: resource.user.role
     }

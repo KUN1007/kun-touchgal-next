@@ -4,6 +4,10 @@ import {
 } from '~/config/cache'
 import { getKv, setKv } from '~/lib/redis'
 import { prisma } from '~/prisma/index'
+import {
+  isShadowBanExemptViewer,
+  type KunViewer
+} from '~/app/api/utils/shadowBan'
 import { roundOneDecimal } from '~/utils/rating/average'
 import { markdownToHtmlExtend } from '~/app/api/utils/render/markdownToHtmlExtend'
 import {
@@ -109,12 +113,32 @@ export const buildCachedPatch = (patch: CachedPatchSource): CachedPatch => ({
   user: {
     id: patch.user.id,
     name: patch.user.name,
-    avatar: patch.user.avatar
+    // 缓存跨 viewer 共享, 按公开视角 mask 后写入;
+    // 豁免 viewer 由 restorePatchUserAvatarForViewer 按请求恢复
+    avatar: patch.user.avatar_shadow_ban ? '' : patch.user.avatar
   },
   created: String(patch.created),
   updated: String(patch.updated),
   _count: patch._count
 })
+
+// 作者本人与管理员不受头像 shadow ban 影响, 恢复真实头像
+export const restorePatchUserAvatarForViewer = async (
+  patch: CachedPatch,
+  viewer: KunViewer | null
+): Promise<CachedPatch> => {
+  if (!isShadowBanExemptViewer(viewer, patch.user.id)) {
+    return patch
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: patch.user.id },
+    select: { avatar: true }
+  })
+  return user
+    ? { ...patch, user: { ...patch.user, avatar: user.avatar } }
+    : patch
+}
 
 export const buildPatchIntroduction = async (
   patch: PatchIntroductionSource

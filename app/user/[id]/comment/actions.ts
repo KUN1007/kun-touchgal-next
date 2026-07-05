@@ -18,6 +18,6 @@ export const kunGetActions = async (
     return '用户登陆失效'
   }
 
-  const response = await getUserComment(input)
+  const response = await getUserComment(input, payload)
   return response
 }

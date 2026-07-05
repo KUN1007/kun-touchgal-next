@@ -244,7 +244,7 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
     if (typeof res === 'string') {
       toast.error(res)
     } else {
-      toast.success(`成功${hidden ? '隐藏' : '取消隐藏'} ${res.count} 条资源`)
+      toast.success(`成功${hidden ? '屏蔽' : '取消屏蔽'} ${res.count} 条资源`)
     }
 
     setBatchHiding(false)
@@ -323,7 +323,7 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
                 isLoading={batchHiding}
                 onPress={() => handleBatchHidden(true)}
               >
-                批量隐藏 ({selectedCount})
+                批量屏蔽 ({selectedCount})
               </Button>
               <Button
                 color="default"
@@ -333,7 +333,7 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
                 isLoading={batchHiding}
                 onPress={() => handleBatchHidden(false)}
               >
-                批量取消隐藏 ({selectedCount})
+                批量取消屏蔽 ({selectedCount})
               </Button>
               <Button
                 color="danger"

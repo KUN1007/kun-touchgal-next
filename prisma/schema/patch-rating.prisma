@@ -10,6 +10,8 @@ model patch_rating {
   short_summary String @default("") @db.VarChar(1314)
   // summary spoiler - none, portion, serious
   spoiler_level String @default("none")
+  // 0 - normal, 1 - shadow banned (visible only to author and role >= 3)
+  status        Int    @default(0)
 
   user_id  Int
   user     user  @relation(fields: [user_id], references: [id], onDelete: Cascade)

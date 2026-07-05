@@ -5,6 +5,8 @@ model patch_comment {
   content_html_version Int     @default(0)
   edit                 String  @default("")
   is_spoiler           Boolean @default(false)
+  // 0 - normal, 1 - shadow banned (visible only to author and role >= 3)
+  status               Int     @default(0)
 
   like_by user_patch_comment_like_relation[]
   report  patch_report[]

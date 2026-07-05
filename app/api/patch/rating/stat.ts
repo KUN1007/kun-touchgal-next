@@ -2,8 +2,9 @@ import { prisma } from '~/prisma/index'
 
 // Recompute and upsert rating statistics for a patch
 export const recomputePatchRatingStat = async (patchId: number) => {
+  // Shadow banned ratings (status=1) are excluded for all viewers
   const agg = await prisma.patch_rating.aggregate({
-    where: { patch_id: patchId },
+    where: { patch_id: patchId, status: 0 },
     _avg: { overall: true },
     _count: { _all: true }
   })
@@ -11,19 +12,19 @@ export const recomputePatchRatingStat = async (patchId: number) => {
   // Recommend counts (explicit counts to avoid complex typings)
   const [strong_no, no, neutral, yes, strong_yes] = await Promise.all([
     prisma.patch_rating.count({
-      where: { patch_id: patchId, recommend: 'strong_no' }
+      where: { patch_id: patchId, status: 0, recommend: 'strong_no' }
     }),
     prisma.patch_rating.count({
-      where: { patch_id: patchId, recommend: 'no' }
+      where: { patch_id: patchId, status: 0, recommend: 'no' }
     }),
     prisma.patch_rating.count({
-      where: { patch_id: patchId, recommend: 'neutral' }
+      where: { patch_id: patchId, status: 0, recommend: 'neutral' }
     }),
     prisma.patch_rating.count({
-      where: { patch_id: patchId, recommend: 'yes' }
+      where: { patch_id: patchId, status: 0, recommend: 'yes' }
     }),
     prisma.patch_rating.count({
-      where: { patch_id: patchId, recommend: 'strong_yes' }
+      where: { patch_id: patchId, status: 0, recommend: 'strong_yes' }
     })
   ])
 
@@ -31,7 +32,7 @@ export const recomputePatchRatingStat = async (patchId: number) => {
   const histCounts = await Promise.all(
     Array.from({ length: 10 }, (_, i) =>
       prisma.patch_rating.count({
-        where: { patch_id: patchId, overall: i + 1 }
+        where: { patch_id: patchId, status: 0, overall: i + 1 }
       })
     )
   )

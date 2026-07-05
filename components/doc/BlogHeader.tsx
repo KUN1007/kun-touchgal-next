@@ -12,7 +12,7 @@ interface BlogHeaderProps {
 
 export const BlogHeader = ({ frontmatter }: BlogHeaderProps) => {
   return (
-    <Card className="overflow-hidden rounded-[2rem] border border-default-200/70 bg-content1/80 shadow-sm">
+    <Card className="overflow-hidden rounded-[22px] border border-default-200/60 bg-background shadow-[0_12px_32px_rgba(15,23,42,0.05)] dark:bg-content1 dark:shadow-[0_12px_32px_rgba(0,0,0,0.15)]">
       <CardHeader className="block p-0">
         <div className="relative aspect-[16/9] w-full overflow-hidden bg-default-100 sm:aspect-[16/7]">
           <Image

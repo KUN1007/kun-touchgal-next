@@ -36,7 +36,7 @@ export const KunAboutCard = ({ post }: Props) => {
       isPressable
       as={Link}
       href={`/doc/${post.slug}`}
-      className="group w-full overflow-hidden border border-default-200/70 bg-content1/80 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg motion-reduce:transform-none motion-reduce:transition-none"
+      className="group w-full overflow-hidden rounded-[22px] border border-default-200/60 bg-background shadow-[0_12px_32px_rgba(15,23,42,0.05)] transition-[box-shadow,transform,scale] duration-300 hover:shadow-[0_16px_42px_rgba(15,23,42,0.08)] motion-reduce:transition-none dark:bg-content1 dark:shadow-[0_12px_32px_rgba(0,0,0,0.15)]"
     >
       <CardBody className="p-0">
         <div
@@ -80,7 +80,7 @@ export const KunAboutCard = ({ post }: Props) => {
           </div>
         </div>
       </CardBody>
-      <CardFooter className="justify-between border-t border-default-200/70 bg-default-50/60 px-4 py-3 dark:bg-default-100/10">
+      <CardFooter className="justify-between border-t border-default-200/60 bg-default-50/60 px-4 py-3 dark:bg-default-100/10">
         <span className="text-sm font-medium text-default-600">阅读文档</span>
         <ArrowRight className="size-4 text-primary-500 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none" />
       </CardFooter>

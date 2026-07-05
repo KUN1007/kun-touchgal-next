@@ -34,7 +34,7 @@ export const KunSidebar = ({ tree }: Props) => {
         ref={sidebarRef}
         className="kun-scroll-nav sticky top-32 hidden h-[calc(100dvh-9rem)] w-64 shrink-0 self-start md:block"
       >
-        <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-default-200/70 bg-content1/80 shadow-sm backdrop-blur-xl">
+        <div className="flex h-full flex-col overflow-hidden rounded-[22px] border border-default-200/60 bg-background shadow-[0_12px_32px_rgba(15,23,42,0.05)] dark:bg-content1 dark:shadow-[0_12px_32px_rgba(0,0,0,0.15)]">
           <Link
             color="foreground"
             href="/doc"
@@ -71,7 +71,7 @@ export const KunSidebar = ({ tree }: Props) => {
           placement="left"
           size="xs"
         >
-          <DrawerContent className="m-3 h-[calc(100dvh-1.5rem)] overflow-hidden rounded-3xl border border-default-200/70 bg-content1/80 shadow-sm backdrop-blur-xl">
+          <DrawerContent className="m-3 h-[calc(100dvh-1.5rem)] overflow-hidden rounded-[22px] border border-default-200/60 bg-background shadow-[0_12px_32px_rgba(15,23,42,0.05)] dark:bg-content1 dark:shadow-[0_12px_32px_rgba(0,0,0,0.15)]">
             <DrawerHeader className="p-0">
               <div className="mx-3 mt-3 flex min-h-12 flex-1 items-center gap-2 rounded-2xl bg-gradient-to-r from-primary-500/10 to-secondary-500/10 px-3">
                 <Link

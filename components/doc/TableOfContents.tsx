@@ -80,7 +80,7 @@ export const TableOfContents = () => {
       aria-label="本页面索引"
       className="sticky top-32 hidden h-[calc(100dvh-9rem)] w-64 shrink-0 self-start lg:block"
     >
-      <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-default-200/70 bg-content1/80 p-4 shadow-sm backdrop-blur-xl">
+      <div className="flex h-full flex-col overflow-hidden rounded-[22px] border border-default-200/60 bg-background p-4 shadow-[0_12px_32px_rgba(15,23,42,0.05)] dark:bg-content1 dark:shadow-[0_12px_32px_rgba(0,0,0,0.15)]">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
           <ListTree className="size-4 text-primary-500" aria-hidden="true" />
           <span>本页面索引</span>

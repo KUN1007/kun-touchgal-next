@@ -14,7 +14,7 @@ export const KunBottomNavigation = ({ prev, next }: NavigationProps) => {
   return (
     <nav
       aria-label="文档分页"
-      className="grid gap-3 border-t border-default-200/70 pt-6 sm:grid-cols-2"
+      className="grid gap-3 border-t border-default-200/60 pt-6 sm:grid-cols-2"
     >
       {prev ? (
         <Button

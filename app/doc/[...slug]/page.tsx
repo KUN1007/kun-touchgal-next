@@ -45,7 +45,7 @@ export default async function Kun({ params }: Props) {
       <div className="min-w-0 flex-1">
         <div className="space-y-6">
           <BlogHeader frontmatter={frontmatter} />
-          <article className="kun-prose rounded-[2rem] border border-default-200/70 bg-content1/80 p-5 shadow-sm backdrop-blur-sm sm:p-8">
+          <article className="kun-prose rounded-[22px] border border-default-200/60 bg-background p-5 shadow-[0_12px_32px_rgba(15,23,42,0.05)] dark:bg-content1 dark:shadow-[0_12px_32px_rgba(0,0,0,0.15)] sm:p-8">
             <CustomMDX source={content} />
           </article>
           <KunBottomNavigation prev={prev} next={next} />

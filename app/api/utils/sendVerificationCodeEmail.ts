@@ -7,7 +7,7 @@ import { createKunVerificationEmailTemplate } from '~/constants/email/verify-tem
 export const sendVerificationCodeEmail = async (
   headers: Headers,
   email: string,
-  type: 'register' | 'forgot' | 'reset'
+  type: 'register' | 'reset'
 ) => {
   const ip = getRemoteIp(headers)
 

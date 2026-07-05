@@ -63,18 +63,16 @@ export const createKunResetPasswordEmailTemplate = (resetLink: string) => {
 }
 
 export const createKunVerificationEmailTemplate = (
-  type: 'register' | 'forgot' | 'reset',
+  type: 'register' | 'reset',
   code: string
 ) => {
   const titles = {
     register: `欢迎注册 ${kunMoyuMoe.titleShort}`,
-    forgot: `忘记密码`,
     reset: `更改邮箱验证`
   }
 
   const messages = {
     register: `感谢您注册 ${kunMoyuMoe.titleShort}, 请使用下面的验证码以完成您的注册`,
-    forgot: '我们收到了您重置密码的请求, 请使用下面的验证码以继续',
     reset: '您正在更改您的邮箱地址, 请使用下面的验证码以让我们确认您的新邮箱'
   }
 

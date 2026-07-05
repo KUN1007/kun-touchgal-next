@@ -32,7 +32,7 @@ export const KunSidebar = ({ tree }: Props) => {
     <>
       <aside
         ref={sidebarRef}
-        className="kun-scroll-nav sticky top-32 hidden h-[calc(100dvh-9rem)] w-64 shrink-0 self-start md:block"
+        className="kun-scroll-nav sticky top-20 hidden h-[calc(100dvh-6rem)] w-64 shrink-0 self-start md:block"
       >
         <div className="flex h-full flex-col overflow-hidden rounded-[22px] border border-default-200/60 bg-background shadow-[0_12px_32px_rgba(15,23,42,0.05)] dark:bg-content1 dark:shadow-[0_12px_32px_rgba(0,0,0,0.15)]">
           <Link

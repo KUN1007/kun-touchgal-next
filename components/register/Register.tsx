@@ -192,7 +192,7 @@ export const RegisterForm = () => {
         注册
       </Button>
 
-      <KunTextDivider text="或" />
+      <KunTextDivider text="或" dividerClass="my-4" />
 
       <Button
         color="primary"

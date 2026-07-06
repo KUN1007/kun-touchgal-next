@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { patchRatingCreateSchema } from '~/validations/patch'
 import { recomputePatchRatingStat } from './stat'
+import { createModerationTask, preScreenText } from '~/server/moderation/submit'
 import type { KunPatchRating } from '~/types/api/galgame'
 
 export const createPatchRating = async (
@@ -26,30 +27,50 @@ export const createPatchRating = async (
     return '您已经评价过该游戏'
   }
 
-  const data = await prisma.patch_rating.create({
-    data: {
-      patch_id: patchId,
-      user_id: uid,
-      recommend,
-      overall,
-      play_status: playStatus,
-      short_summary: shortSummary,
-      spoiler_level: spoilerLevel
-    },
-    include: {
-      patch: {
-        select: {
-          unique_id: true
-        }
+  const moderation = await preScreenText(shortSummary)
+
+  const data = await prisma.$transaction(async (tx) => {
+    const created = await tx.patch_rating.create({
+      data: {
+        patch_id: patchId,
+        user_id: uid,
+        recommend,
+        overall,
+        play_status: playStatus,
+        short_summary: shortSummary,
+        spoiler_level: spoilerLevel,
+        status: moderation.intercept ? 1 : 0
       },
-      user: {
-        select: {
-          id: true,
-          name: true,
-          avatar: true
+      include: {
+        patch: {
+          select: {
+            unique_id: true
+          }
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true
+          }
         }
       }
+    })
+
+    if (moderation.queue) {
+      await createModerationTask(
+        {
+          contentType: 'rating',
+          contentId: created.id,
+          userId: uid,
+          payload: { text: shortSummary },
+          dryRun: moderation.dryRun
+        },
+        tx
+      )
     }
+
+    return created
   })
 
   await recomputePatchRatingStat(patchId)
@@ -62,6 +83,8 @@ export const createPatchRating = async (
     playStatus: data.play_status,
     shortSummary: data.short_summary,
     spoilerLevel: data.spoiler_level,
+    // status=1 (审核中) 对作者掩码为 0, 保持与正常发布一致
+    status: data.status === 1 ? 0 : data.status,
     isLike: false,
     likeCount: 0,
     userId: data.user_id,

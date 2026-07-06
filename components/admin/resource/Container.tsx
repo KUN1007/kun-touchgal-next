@@ -333,7 +333,9 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
                 </DropdownTrigger>
                 <DropdownMenu
                   aria-label="批量修改资源状态"
-                  onAction={(key) => handleBatchStatus(Number(key) as 0 | 1 | 3)}
+                  onAction={(key) =>
+                    handleBatchStatus(Number(key) as 0 | 1 | 3)
+                  }
                 >
                   <DropdownItem key="1" startContent={<EyeOff size={14} />}>
                     Shadow ban

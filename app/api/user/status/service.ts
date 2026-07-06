@@ -1,5 +1,6 @@
 import { prisma } from '~/prisma/index'
 import { getRedirectConfig } from '~/app/api/admin/setting/redirect/getRedirectConfig'
+import { getModerationConfig } from '~/server/moderation/config'
 import { acquireKvLock, setKv } from '~/lib/redis'
 import type { UserState } from '~/store/userStore'
 
@@ -40,6 +41,35 @@ export const touchUserLastActiveTime = async (uid: number) => {
     .catch(() => undefined)
 }
 
+// 本人视角合并审核中的头像/签名暂存值, 保证提交后刷新页面显示一致
+const getPendingProfileValues = async (uid: number) => {
+  // 审核关闭时不产生新任务, 跳过查询避免会话路径的额外开销
+  const config = await getModerationConfig()
+  if (!config.enabled) {
+    return { pendingAvatar: undefined, pendingBio: undefined }
+  }
+
+  const pendingTasks = await prisma.moderation_task.findMany({
+    where: {
+      user_id: uid,
+      status: 'pending',
+      dry_run: false,
+      content_type: { in: ['avatar', 'bio'] }
+    },
+    orderBy: { created: 'desc' }
+  })
+
+  const avatarTask = pendingTasks.find((t) => t.content_type === 'avatar')
+  const bioTask = pendingTasks.find((t) => t.content_type === 'bio')
+  const avatarPayload = avatarTask?.payload as { pendingLink?: string } | null
+  const bioPayload = bioTask?.payload as { bio?: string } | null
+
+  return {
+    pendingAvatar: avatarPayload?.pendingLink,
+    pendingBio: bioPayload?.bio
+  }
+}
+
 export const getUserStatus = async (uid: number) => {
   const user = await prisma.user.findUnique({
     where: { id: uid }
@@ -50,12 +80,13 @@ export const getUserStatus = async (uid: number) => {
   if (user.status === 2) {
     return '用户登陆失效'
   }
+  const { pendingAvatar, pendingBio } = await getPendingProfileValues(uid)
   const redirectConfig = await getRedirectConfig()
   const responseData: UserState = {
     uid: user.id,
     name: user.name,
-    avatar: user.avatar,
-    bio: user.bio,
+    avatar: pendingAvatar ?? user.avatar,
+    bio: pendingBio ?? user.bio,
     moemoepoint: user.moemoepoint,
     role: user.role,
     dailyCheckIn: user.daily_check_in,

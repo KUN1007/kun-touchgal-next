@@ -5,6 +5,11 @@ import {
   COMMENT_HTML_VERSION,
   markdownToHtmlComment
 } from '~/app/api/utils/render/markdownToHtmlComment'
+import {
+  MODERATION_SKIP,
+  createModerationTask,
+  preScreenText
+} from '~/server/moderation/submit'
 
 export const updateComment = async (
   input: z.infer<typeof patchCommentUpdateSchema>,
@@ -35,22 +40,42 @@ export const updateComment = async (
     contentHtmlVersion = 0
   }
 
-  await prisma.patch_comment.update({
-    where: { id: commentId, user_id: commentUserUid },
-    data: {
-      content,
-      content_html: contentHtml,
-      content_html_version: contentHtmlVersion,
-      is_spoiler: isSpoiler,
-      edit: Date.now().toString()
-    },
-    include: {
-      user: true,
-      like_by: {
-        include: {
-          user: true
+  // 编辑正文后必须重新送审, 否则先发正常内容再改成违规即可绕过审核
+  const moderation =
+    comment.content !== content ? await preScreenText(content) : MODERATION_SKIP
+
+  await prisma.$transaction(async (tx) => {
+    await tx.patch_comment.update({
+      where: { id: commentId, user_id: commentUserUid },
+      data: {
+        content,
+        content_html: contentHtml,
+        content_html_version: contentHtmlVersion,
+        is_spoiler: isSpoiler,
+        edit: Date.now().toString(),
+        ...(moderation.intercept ? { status: 1 } : {})
+      },
+      include: {
+        user: true,
+        like_by: {
+          include: {
+            user: true
+          }
         }
       }
+    })
+
+    if (moderation.queue) {
+      await createModerationTask(
+        {
+          contentType: 'comment',
+          contentId: commentId,
+          userId: commentUserUid,
+          payload: { text: content },
+          dryRun: moderation.dryRun
+        },
+        tx
+      )
     }
   })
   return {}

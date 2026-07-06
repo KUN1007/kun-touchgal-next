@@ -2,6 +2,11 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { patchRatingUpdateSchema } from '~/validations/patch'
 import { recomputePatchRatingStat } from './stat'
+import {
+  MODERATION_SKIP,
+  createModerationTask,
+  preScreenText
+} from '~/server/moderation/submit'
 import type { KunPatchRating } from '~/types/api/galgame'
 
 export const updatePatchRating = async (
@@ -30,33 +35,57 @@ export const updatePatchRating = async (
     return '您没有权限更新该评价'
   }
 
-  const data = await prisma.patch_rating.update({
-    where: { id: ratingId, user_id: ratingUserUid },
-    data: {
-      recommend,
-      overall,
-      play_status: playStatus,
-      short_summary: shortSummary,
-      spoiler_level: spoilerLevel
-    },
-    include: {
-      patch: { select: { unique_id: true } },
-      user: {
-        select: {
-          id: true,
-          name: true,
-          avatar: true
-        }
+  // 编辑评价文本后必须重新送审, 防止先发正常内容再改成违规绕过审核
+  const moderation =
+    rating.short_summary !== shortSummary
+      ? await preScreenText(shortSummary)
+      : MODERATION_SKIP
+
+  const data = await prisma.$transaction(async (tx) => {
+    const updated = await tx.patch_rating.update({
+      where: { id: ratingId, user_id: ratingUserUid },
+      data: {
+        recommend,
+        overall,
+        play_status: playStatus,
+        short_summary: shortSummary,
+        spoiler_level: spoilerLevel,
+        ...(moderation.intercept ? { status: 1 } : {})
       },
-      _count: {
-        select: { like: true }
-      },
-      like: {
-        where: {
-          user_id: uid
+      include: {
+        patch: { select: { unique_id: true } },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true
+          }
+        },
+        _count: {
+          select: { like: true }
+        },
+        like: {
+          where: {
+            user_id: uid
+          }
         }
       }
+    })
+
+    if (moderation.queue) {
+      await createModerationTask(
+        {
+          contentType: 'rating',
+          contentId: ratingId,
+          userId: ratingUserUid,
+          payload: { text: shortSummary },
+          dryRun: moderation.dryRun
+        },
+        tx
+      )
     }
+
+    return updated
   })
 
   await recomputePatchRatingStat(rating.patch_id)
@@ -69,6 +98,8 @@ export const updatePatchRating = async (
     playStatus: data.play_status,
     shortSummary: data.short_summary,
     spoilerLevel: data.spoiler_level,
+    // status=1 对非管理员掩码为 0, 防作者从响应探测屏蔽状态
+    status: data.status === 1 && userRole < 3 ? 0 : data.status,
     isLike: data.like.length > 0,
     likeCount: data._count.like,
     userId: data.user_id,

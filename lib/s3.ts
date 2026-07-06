@@ -5,6 +5,7 @@ import { readFile, rm } from 'fs/promises'
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand
 } from '@aws-sdk/client-s3'
@@ -64,6 +65,15 @@ export const uploadFileToS3 = async (key: string, filePath: string) => {
 
   const folderPath = dirname(filePath)
   await rm(folderPath, { recursive: true, force: true })
+}
+
+export const getFileFromS3 = async (key: string) => {
+  const res = await s3.send(new GetObjectCommand({ Bucket, Key: key }))
+  const bytes = await res.Body?.transformToByteArray()
+  if (!bytes) {
+    throw new Error(`Empty S3 object body for key: ${key}`)
+  }
+  return Buffer.from(bytes)
 }
 
 export const deleteFileFromS3 = async (key: string) => {

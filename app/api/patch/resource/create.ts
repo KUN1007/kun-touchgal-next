@@ -6,6 +6,11 @@ import { markdownToHtml } from '~/app/api/utils/render/markdownToHtml'
 import { bindUploadedResource, recalcPatchType } from './_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
+import {
+  MODERATION_SKIP,
+  createModerationTask,
+  preScreenText
+} from '~/server/moderation/submit'
 import type { PatchResource } from '~/types/api/patch'
 
 export const createPatchResource = async (
@@ -27,6 +32,11 @@ export const createPatchResource = async (
     where: { user_id: uid }
   })
   const needApproval = resourceCount === 0 && userRole < 3
+
+  // 首个资源走既有人工审批流 (status=2), 不重复送 AI 审核
+  const moderation = needApproval
+    ? MODERATION_SKIP
+    : await preScreenText(`标题: ${input.name}\n介绍: ${input.note}`)
 
   const preparedLinks: Array<{
     storage: string
@@ -75,7 +85,7 @@ export const createPatchResource = async (
         type,
         language,
         platform,
-        status: needApproval ? 2 : 0,
+        status: needApproval ? 2 : moderation.intercept ? 1 : 0,
         ...resourceData,
         links: {
           create: preparedLinks
@@ -99,6 +109,22 @@ export const createPatchResource = async (
       where: { id: uid },
       data: { moemoepoint: { increment: 3 } }
     })
+
+    if (moderation.queue) {
+      await createModerationTask(
+        {
+          contentType: 'resource',
+          contentId: newResource.id,
+          userId: uid,
+          payload: {
+            text: `标题: ${newResource.name}\n介绍: ${newResource.note}`,
+            name: newResource.name
+          },
+          dryRun: moderation.dryRun
+        },
+        prisma
+      )
+    }
 
     if (currentPatch) {
       await prisma.patch.update({
@@ -163,5 +189,7 @@ export const createPatchResource = async (
     })
   }
 
-  return resource
+  // status=1 (审核中) 对作者掩码为 0, 保持与正常发布一致;
+  // 掩码放在最后, 上方的缓存失效判断使用真实状态
+  return { ...resource, status: resource.status === 1 ? 0 : resource.status }
 }

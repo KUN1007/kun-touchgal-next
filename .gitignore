@@ -58,3 +58,6 @@ migration/temp
 
 # prisma generated
 prisma/generated
+
+# local dev workspace notes
+/docs/

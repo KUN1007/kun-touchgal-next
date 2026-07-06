@@ -300,6 +300,38 @@ export const adminUpdateDisableRegisterSchema = z.object({
   disableRegister: z.boolean()
 })
 
+export const adminUpdateModerationSettingSchema = z.object({
+  enabled: z.boolean(),
+  dryRun: z.boolean()
+})
+
+export const adminModerationPaginationSchema = adminPaginationSchema.extend({
+  status: z
+    .enum(['all', 'pending', 'approved', 'rejected', 'manual', 'superseded'])
+    .default('all')
+})
+
+export const adminModerationReviewSchema = z.object({
+  taskId: z.coerce.number().min(1).max(9999999),
+  approve: z.boolean()
+})
+
+export const adminModerationRetrySchema = z.object({
+  taskId: z.coerce.number().min(1).max(9999999)
+})
+
+export const adminModerationBlacklistCreateSchema = z.object({
+  pattern: z
+    .string()
+    .trim()
+    .min(2, { message: '黑名单模式至少 2 个字符' })
+    .max(1007, { message: '黑名单模式最多 1007 个字符' })
+})
+
+export const adminModerationBlacklistDeleteSchema = z.object({
+  blacklistId: z.coerce.number().min(1).max(9999999)
+})
+
 // 0 - 正常, 1 - 屏蔽 (仅作者与管理员可见), 2 - 隐藏 (仅后台可见)
 export const adminUpdateCommentShadowBanSchema = z.object({
   commentId: z.coerce.number().min(1).max(9999999),

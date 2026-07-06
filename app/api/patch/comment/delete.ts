@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
+import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 
 const commentIdSchema = z.object({
@@ -78,7 +79,25 @@ export const deleteComment = async (
   }
 
   return await prisma.$transaction(async (tx) => {
+    // 删除前用递归 CTE 一次收集整棵回复子树的 id,
+    // 统一清理尚未有最终裁决的审核任务
+    const descendantRows = await tx.$queryRaw<{ id: number }[]>`
+      WITH RECURSIVE descendants AS (
+        SELECT id FROM patch_comment WHERE id = ${comment.id}
+        UNION ALL
+        SELECT pc.id FROM patch_comment pc
+        INNER JOIN descendants d ON pc.parent_id = d.id
+      )
+      SELECT id FROM descendants
+    `
+
     await deleteCommentWithReplies(comment, tx)
+
+    await deletePendingModerationTasks(
+      'comment',
+      descendantRows.map((row) => row.id),
+      tx
+    )
     return {}
   })
 }

@@ -6,6 +6,7 @@ import {
   sanitizeResourceLinksForAuditLog
 } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { deletePendingModerationTasks } from '~/server/moderation/submit'
 
 const resourceIdSchema = z.object({
   resourceId: z.coerce
@@ -43,6 +44,7 @@ export const deleteResource = async (
     await prisma.patch_resource.delete({
       where: { id: input.resourceId }
     })
+    await deletePendingModerationTasks('resource', input.resourceId, prisma)
     await recalcPatchType(patchResource.patch_id, prisma)
 
     const sanitizedResource = {

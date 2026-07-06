@@ -55,7 +55,12 @@ export const envSchema = z.object({
   KUN_VISUAL_NOVEL_INDEX_NOW_KEY: z.string(),
 
   KUN_ENABLE_CRON: z.enum(['true', 'false']).optional(),
-  KUN_VISUAL_NOVEL_TEST_SITE_LABEL: z.string().optional()
+  KUN_VISUAL_NOVEL_TEST_SITE_LABEL: z.string().optional(),
+
+  MODERATION_AI_BASE_URL: z.string().url().optional(),
+  MODERATION_AI_API_KEY: z.string().optional(),
+  MODERATION_AI_TEXT_MODEL: z.string().optional(),
+  MODERATION_AI_VISION_MODEL: z.string().optional()
 })
 
 export const env = envSchema.safeParse(process.env)

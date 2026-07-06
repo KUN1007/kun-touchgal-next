@@ -10,19 +10,22 @@ const getKUNGalgameTasks = async (): Promise<ScheduledTask[]> => {
     { resetDailyTask },
     { setCleanupTask },
     { syncKunPatchTypeTask },
-    { flushPatchViewsTask }
+    { flushPatchViewsTask },
+    { moderationTask }
   ] = await Promise.all([
     import('./tasks/resetDailyTask'),
     import('./tasks/setCleanupTask'),
     import('./tasks/syncKunPatchTypeTask'),
-    import('./tasks/flushPatchViewsTask')
+    import('./tasks/flushPatchViewsTask'),
+    import('./tasks/moderationTask')
   ])
 
   return [
     resetDailyTask,
     setCleanupTask,
     syncKunPatchTypeTask,
-    flushPatchViewsTask
+    flushPatchViewsTask,
+    moderationTask
   ]
 }
 

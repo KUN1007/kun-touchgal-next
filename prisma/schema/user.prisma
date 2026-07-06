@@ -54,6 +54,9 @@ model user {
   patch_report_received patch_report[] @relation("patch_report_reported_user")
   patch_report_handled  patch_report[] @relation("patch_report_handler")
 
+  moderation_task      moderation_task[]      @relation("user_moderation_task")
+  moderation_blacklist moderation_blacklist[] @relation("user_moderation_blacklist")
+
   created DateTime @default(now())
   updated DateTime @updatedAt
 }

@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Puzzle,
   Settings,
+  ShieldCheck,
   Star,
   TriangleAlert,
   Users
@@ -67,6 +68,11 @@ const menuItems = [
     name: '评论举报管理',
     href: '/admin/report',
     icon: TriangleAlert
+  },
+  {
+    name: 'AI 审核管理',
+    href: '/admin/moderation',
+    icon: ShieldCheck
   },
   {
     name: '评价举报管理',

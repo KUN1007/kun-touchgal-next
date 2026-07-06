@@ -8,6 +8,11 @@ import {
   recalcPatchType
 } from './_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import {
+  MODERATION_SKIP,
+  createModerationTask,
+  preScreenText
+} from '~/server/moderation/submit'
 import type { PatchResource } from '~/types/api/patch'
 
 export const updatePatchResource = async (
@@ -133,11 +138,20 @@ export const updatePatchResource = async (
     })
   }
 
+  // 编辑标题/介绍后必须重新送审; 待人工审批 (status=2) 的资源不送 AI
+  const textChanged =
+    resource.name !== input.name || resource.note !== input.note
+  const moderation =
+    resource.status === 2 || !textChanged
+      ? MODERATION_SKIP
+      : await preScreenText(`标题: ${input.name}\n介绍: ${input.note}`)
+
   const updatedResource = await prisma.$transaction(async (prisma) => {
     const newResource = await prisma.patch_resource.update({
       where: { id: resourceId },
       data: {
         ...resourceData,
+        ...(moderation.intercept ? { status: 1 } : {}),
         links: {
           deleteMany: {},
           create: preparedLinks
@@ -167,6 +181,22 @@ export const updatePatchResource = async (
       data: { resource_update_time: new Date() }
     })
     await recalcPatchType(patchId, prisma)
+
+    if (moderation.queue) {
+      await createModerationTask(
+        {
+          contentType: 'resource',
+          contentId: resourceId,
+          userId: resource.user_id,
+          payload: {
+            text: `标题: ${newResource.name}\n介绍: ${newResource.note}`,
+            name: newResource.name
+          },
+          dryRun: moderation.dryRun
+        },
+        prisma
+      )
+    }
 
     const resourceResponse: PatchResource = {
       id: newResource.id,
@@ -223,5 +253,11 @@ export const updatePatchResource = async (
     )
   }
 
-  return updatedResource
+  // status=1 对非管理员掩码为 0, 防作者从响应探测屏蔽状态;
+  // 掩码放在最后, 上方的缓存失效判断使用真实状态
+  return {
+    ...updatedResource,
+    status:
+      updatedResource.status === 1 && userRole < 3 ? 0 : updatedResource.status
+  }
 }

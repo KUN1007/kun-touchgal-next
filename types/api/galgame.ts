@@ -6,6 +6,7 @@ export interface KunPatchRating {
   playStatus: string
   shortSummary: string
   spoilerLevel: string
+  status: number
   isLike: boolean
   likeCount: number
   userId: number

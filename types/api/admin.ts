@@ -140,3 +140,41 @@ export interface AdminRedirectConfig {
   excludedDomains: string[]
   delaySeconds: number
 }
+
+export interface AdminModerationTask {
+  id: number
+  contentType: string
+  contentId: number | null
+  status: string
+  rejectCode: string
+  rejectReason: string
+  payload: {
+    text?: string
+    name?: string
+    bio?: string
+    pendingLink?: string
+  }
+  verdict: unknown
+  model: string
+  tokensIn: number
+  tokensOut: number
+  retry: number
+  dryRun: boolean
+  user: KunUser
+  created: Date | string
+  reviewed: Date | string | null
+}
+
+export interface AdminModerationBlacklistItem {
+  id: number
+  pattern: string
+  user: KunUser
+  created: Date | string
+}
+
+export interface AdminModerationStats {
+  todayTotal: number
+  statusCounts: Record<string, number>
+  tokensIn: number
+  tokensOut: number
+}

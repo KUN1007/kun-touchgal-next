@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
+import { Prisma } from '~/prisma/generated/prisma/client'
 import { adminDeleteCommentSchema } from '~/validations/admin'
+import { deletePendingModerationTasks } from '~/server/moderation/submit'
 
 const adminLogContentLimit = 10007
 const adminDeleteCommentSummaryLimit = 10
@@ -70,13 +72,33 @@ export const deleteComment = async (
   }
 
   return await prisma.$transaction(async (prisma) => {
+    const targetIds = comments.map((comment) => comment.id)
+
+    // 级联删除会带走整棵回复子树, 删除前先收集全部后代 id
+    // 以清理它们尚未有最终裁决的审核任务
+    const descendantRows = await prisma.$queryRaw<{ id: number }[]>`
+      WITH RECURSIVE descendants AS (
+        SELECT id FROM patch_comment WHERE id IN (${Prisma.join(targetIds)})
+        UNION ALL
+        SELECT pc.id FROM patch_comment pc
+        INNER JOIN descendants d ON pc.parent_id = d.id
+      )
+      SELECT id FROM descendants
+    `
+
     await prisma.patch_comment.deleteMany({
       where: {
         id: {
-          in: comments.map((comment) => comment.id)
+          in: targetIds
         }
       }
     })
+
+    await deletePendingModerationTasks(
+      'comment',
+      descendantRows.map((row) => row.id),
+      prisma
+    )
 
     await prisma.admin_log.create({
       data: {

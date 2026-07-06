@@ -3,6 +3,7 @@ import { prisma } from '~/prisma/index'
 import { deletePatchResourceLink, recalcPatchType } from './_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
+import { deletePendingModerationTasks } from '~/server/moderation/submit'
 
 const resourceIdSchema = z.object({
   resourceId: z.coerce
@@ -43,6 +44,7 @@ export const deleteResource = async (
     await prisma.patch_resource.delete({
       where: { id: input.resourceId }
     })
+    await deletePendingModerationTasks('resource', input.resourceId, prisma)
     await recalcPatchType(patchResource.patch_id, prisma)
     return {}
   })

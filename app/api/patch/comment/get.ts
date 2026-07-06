@@ -22,6 +22,10 @@ export const getPatchComment = async (
   const uid = viewer.uid
   const shadowBanWhere = getShadowBanWhere(viewer)
   const shadowBanSql = getShadowBanSql(viewer)
+  // 与资源列表一致: status=1 (屏蔽/审核中) 对非管理员掩码为 0,
+  // 保证作者无法从响应探测到自己被屏蔽
+  const maskStatus = (status: number) =>
+    status === 1 && viewer.role < 3 ? 0 : status
   type CommentLocator = {
     id: number
     patch_id: number
@@ -90,6 +94,7 @@ export const getPatchComment = async (
     content_html: true,
     content_html_version: true,
     is_spoiler: true,
+    status: true,
     parent_id: true,
     user_id: true,
     patch_id: true,
@@ -222,6 +227,7 @@ export const getPatchComment = async (
           content: htmlMap.get(reply.id) ?? '',
           isLike: likedSet.has(reply.id),
           isSpoiler: reply.is_spoiler,
+          status: maskStatus(reply.status),
           likeCount: reply._count.like_by,
           parentId: comment.id,
           userId: reply.user_id,
@@ -253,6 +259,7 @@ export const getPatchComment = async (
       content: htmlMap.get(comment.id) ?? '',
       isLike: likedSet.has(comment.id),
       isSpoiler: comment.is_spoiler,
+      status: maskStatus(comment.status),
       likeCount: comment._count.like_by,
       parentId: null,
       userId: comment.user_id,

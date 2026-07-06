@@ -4,15 +4,20 @@ import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { prisma } from '~/prisma/index'
 import { avatarSchema } from '~/validations/user'
 import { purgeCloudflareCache } from '~/app/api/utils/purgeCloudflareCache'
-import { uploadUserAvatar } from '../_upload'
+import { getUserAvatarKeys, uploadUserAvatar } from '../_upload'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
+import {
+  createModerationTask,
+  preScreenMedia
+} from '~/server/moderation/submit'
 
 const getAvatarUrls = (uid: number) => {
   const imageBedUrl = process.env.KUN_VISUAL_NOVEL_IMAGE_BED_URL
+  const keys = getUserAvatarKeys(uid)
 
   return {
-    avatarUrl: `${imageBedUrl}/user/avatar/user_${uid}/avatar.avif`,
-    avatarMiniUrl: `${imageBedUrl}/user/avatar/user_${uid}/avatar-mini.avif`
+    avatarUrl: `${imageBedUrl}/${keys.avatarKey}`,
+    avatarMiniUrl: `${imageBedUrl}/${keys.avatarMiniKey}`
   }
 }
 
@@ -33,7 +38,9 @@ const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
     return '您今日上传的图片已达到 50 张限额'
   }
 
-  const res = await uploadUserAvatar(avatar, uid)
+  const moderation = await preScreenMedia()
+
+  const res = await uploadUserAvatar(avatar, uid, moderation.intercept)
   if (typeof res === 'string') {
     return res
   }
@@ -42,10 +49,54 @@ const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
   const { avatarMiniUrl } = getAvatarUrls(uid)
   const imageLink = `${avatarMiniUrl}?v=${avatarVersion}`
 
+  const imageBedUrl = process.env.KUN_VISUAL_NOVEL_IMAGE_BED_URL
+  const keys = getUserAvatarKeys(uid)
+
+  if (moderation.intercept) {
+    // 新头像暂存于 pending key, 通过审核后由 apply.ts 复制到正式 key
+    const pendingLink = `${imageBedUrl}/${keys.pendingMiniKey}?v=${avatarVersion}`
+    await createModerationTask({
+      contentType: 'avatar',
+      userId: uid,
+      payload: {
+        pendingKey: keys.pendingKey,
+        pendingMiniKey: keys.pendingMiniKey,
+        avatarKey: keys.avatarKey,
+        avatarMiniKey: keys.avatarMiniKey,
+        avatarLink: imageLink,
+        pendingLink
+      },
+      dryRun: false
+    })
+    await invalidateUserSession(uid)
+    await purgeCloudflareCache([`${imageBedUrl}/${keys.pendingMiniKey}`])
+
+    // 响应形状与正常上传一致, 作者不感知审核的存在
+    return { avatar: pendingLink }
+  }
+
   await prisma.user.update({
     where: { id: uid },
     data: { avatar: imageLink }
   })
+
+  if (moderation.queue) {
+    // dryRun: 头像直接生效, 任务仅记录 AI 裁决用于校准
+    await createModerationTask({
+      contentType: 'avatar',
+      userId: uid,
+      payload: {
+        pendingKey: keys.avatarKey,
+        pendingMiniKey: keys.avatarMiniKey,
+        avatarKey: keys.avatarKey,
+        avatarMiniKey: keys.avatarMiniKey,
+        avatarLink: imageLink,
+        pendingLink: imageLink
+      },
+      dryRun: true
+    })
+  }
+
   await invalidateUserSession(uid)
   await purgeCache(uid)
 

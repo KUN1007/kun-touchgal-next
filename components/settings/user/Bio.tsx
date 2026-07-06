@@ -7,6 +7,7 @@ import { Button } from '@heroui/button'
 import { useUserStore } from '~/store/userStore'
 import { useState } from 'react'
 import { kunFetchPost } from '~/utils/kunFetch'
+import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import { bioSchema } from '~/validations/user'
 import toast from 'react-hot-toast'
 
@@ -27,11 +28,15 @@ export const Bio = () => {
       setUser({ ...user, bio })
       setLoading(true)
 
-      await kunFetchPost<KunResponse<{}>>('/user/setting/bio', { bio })
+      const res = await kunFetchPost<KunResponse<{}>>('/user/setting/bio', {
+        bio
+      })
 
       setLoading(false)
-      toast.success('更新签名成功')
-      setBio('')
+      kunErrorHandler(res, () => {
+        toast.success('更新签名成功')
+        setBio('')
+      })
     }
   }
 

@@ -4,7 +4,11 @@ import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { prisma } from '~/prisma/index'
 import { bioSchema } from '~/validations/user'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
-import { createModerationTask, preScreenText } from '~/server/moderation/submit'
+import {
+  createModerationTask,
+  hasPendingModeration,
+  preScreenText
+} from '~/server/moderation/submit'
 
 export const POST = async (req: NextRequest) => {
   const input = await kunParsePostBody(req, bioSchema)
@@ -14,6 +18,10 @@ export const POST = async (req: NextRequest) => {
   const payload = await verifyHeaderCookie(req)
   if (!payload) {
     return NextResponse.json('用户未登录')
+  }
+
+  if (await hasPendingModeration('bio', { userId: payload.uid })) {
+    return NextResponse.json('您提交的签名正在审核中, 暂时无法修改')
   }
 
   const moderation = await preScreenText(input.bio)

@@ -8,6 +8,7 @@ import { getUserAvatarKeys, uploadUserAvatar } from '../_upload'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
 import {
   createModerationTask,
+  hasPendingModeration,
   preScreenMedia
 } from '~/server/moderation/submit'
 
@@ -36,6 +37,9 @@ const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
   }
   if (user.daily_image_count >= 50) {
     return '您今日上传的图片已达到 50 张限额'
+  }
+  if (await hasPendingModeration('avatar', { userId: uid })) {
+    return '您提交的头像正在审核中, 暂时无法更换'
   }
 
   const moderation = await preScreenMedia()

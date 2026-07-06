@@ -11,6 +11,7 @@ import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import {
   MODERATION_SKIP,
   createModerationTask,
+  hasPendingModeration,
   preScreenText
 } from '~/server/moderation/submit'
 import type { PatchResource } from '~/types/api/patch'
@@ -36,6 +37,15 @@ export const updatePatchResource = async (
 
   if (resource.user_id !== uid && userRole < 3) {
     return '您没有权限更改该资源'
+  }
+  if (userRole < 3) {
+    // status=2: 首个资源的人工审批流, 审批期间同样禁止修改
+    if (resource.status === 2) {
+      return '您发布的资源正在等待管理员审核, 暂时无法修改'
+    }
+    if (await hasPendingModeration('resource', { contentId: resourceId })) {
+      return '您发布的资源正在审核中, 暂时无法修改'
+    }
   }
 
   const currentPatch = await prisma.patch.findUnique({

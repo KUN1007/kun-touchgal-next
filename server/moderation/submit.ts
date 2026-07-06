@@ -63,6 +63,26 @@ export interface ModerationAvatarPayload {
 
 export type ModerationPayload = ModerationTextPayload | ModerationAvatarPayload
 
+// 内容存在未裁决的审核任务 (AI 审核中或等待人工) 时禁止作者再次修改,
+// 否则编辑会使送审快照与实际内容脱节, 也可绕过尚未落地的人工裁决;
+// dry_run 任务不拦截内容, 不构成修改限制
+export const hasPendingModeration = async (
+  contentType: ModerationContentType,
+  target: { contentId: number } | { userId: number }
+) => {
+  const count = await prisma.moderation_task.count({
+    where: {
+      content_type: contentType,
+      status: { in: ['pending', 'manual'] },
+      dry_run: false,
+      ...('contentId' in target
+        ? { content_id: target.contentId }
+        : { user_id: target.userId })
+    }
+  })
+  return count > 0
+}
+
 // 删除内容时清理尚未有最终裁决的任务 (pending / 失败转人工),
 // 已 approved/rejected 的任务保留作历史记录
 export const deletePendingModerationTasks = async (

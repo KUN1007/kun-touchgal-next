@@ -8,6 +8,7 @@ import {
 import {
   MODERATION_SKIP,
   createModerationTask,
+  hasPendingModeration,
   preScreenText
 } from '~/server/moderation/submit'
 
@@ -28,6 +29,12 @@ export const updateComment = async (
   const commentUserUid = comment.user_id
   if (comment.user_id !== uid && userRole < 3) {
     return '您没有权限更改该评论'
+  }
+  if (
+    userRole < 3 &&
+    (await hasPendingModeration('comment', { contentId: commentId }))
+  ) {
+    return '您发布的评论正在审核中, 暂时无法修改'
   }
 
   let contentHtml = ''

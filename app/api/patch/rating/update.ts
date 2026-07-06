@@ -5,6 +5,7 @@ import { recomputePatchRatingStat } from './stat'
 import {
   MODERATION_SKIP,
   createModerationTask,
+  hasPendingModeration,
   preScreenText
 } from '~/server/moderation/submit'
 import type { KunPatchRating } from '~/types/api/galgame'
@@ -33,6 +34,12 @@ export const updatePatchRating = async (
   const ratingUserUid = rating.user_id
   if (rating.user_id !== uid && userRole < 3) {
     return '您没有权限更新该评价'
+  }
+  if (
+    userRole < 3 &&
+    (await hasPendingModeration('rating', { contentId: ratingId }))
+  ) {
+    return '您发布的评价正在审核中, 暂时无法修改'
   }
 
   // 编辑评价文本后必须重新送审, 防止先发正常内容再改成违规绕过审核

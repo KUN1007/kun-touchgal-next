@@ -9,9 +9,9 @@ export const APPLICANT_STATUS_MAP: Record<number, string> = {
 
 export const RESOURCE_STATUS_MAP: Record<number, string> = {
   0: '正常',
-  1: '屏蔽 (仅作者与管理员可见)',
+  1: 'Shadow ban',
   2: '待审核',
-  3: '隐藏 (仅后台可见)'
+  3: '隐藏'
 }
 
 export const ADMIN_LOG_TYPE_MAP: Record<string, string> = {

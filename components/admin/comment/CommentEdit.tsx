@@ -161,7 +161,7 @@ export const CommentEdit = ({ initialComment, onSuccess }: Props) => {
             isDisabled={shadowBanning}
             onPress={() => handleUpdateStatus(isShadowBanned ? 0 : 1)}
           >
-            {isShadowBanned ? '取消屏蔽' : '屏蔽 (仅作者与管理员可见)'}
+            {isShadowBanned ? '取消屏蔽' : 'Shadow ban'}
           </DropdownItem>
           <DropdownItem
             key="hidden"
@@ -170,7 +170,7 @@ export const CommentEdit = ({ initialComment, onSuccess }: Props) => {
             isDisabled={shadowBanning}
             onPress={() => handleUpdateStatus(isHidden ? 0 : 2)}
           >
-            {isHidden ? '取消隐藏' : '隐藏 (仅后台可见)'}
+            {isHidden ? '取消隐藏' : '隐藏'}
           </DropdownItem>
           <DropdownItem
             key="delete"

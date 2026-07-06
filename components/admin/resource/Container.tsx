@@ -5,7 +5,10 @@ import {
   AutocompleteItem,
   Avatar,
   Button,
-  Chip,
+  Dropdown,
+  DropdownItem,
+  DropdownMenu,
+  DropdownTrigger,
   Input,
   Modal,
   ModalBody,
@@ -22,7 +25,7 @@ import {
   TableRow,
   useDisclosure
 } from '@heroui/react'
-import { Eye, EyeOff, Search, Trash2 } from 'lucide-react'
+import { ChevronDown, Eye, EyeOff, Search, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { kunFetchDelete, kunFetchGet, kunFetchPut } from '~/utils/kunFetch'
 import { useEffect, useState, type Key } from 'react'
@@ -316,36 +319,33 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
         <div className="flex items-center gap-2">
           {selectedCount > 0 && (
             <>
-              <Button
-                color="warning"
-                variant="flat"
-                size="sm"
-                startContent={<EyeOff size={14} />}
-                isLoading={batchHiding}
-                onPress={() => handleBatchStatus(1)}
-              >
-                批量屏蔽 ({selectedCount})
-              </Button>
-              <Button
-                color="warning"
-                variant="flat"
-                size="sm"
-                startContent={<EyeOff size={14} />}
-                isLoading={batchHiding}
-                onPress={() => handleBatchStatus(3)}
-              >
-                批量隐藏 ({selectedCount})
-              </Button>
-              <Button
-                color="default"
-                variant="flat"
-                size="sm"
-                startContent={<Eye size={14} />}
-                isLoading={batchHiding}
-                onPress={() => handleBatchStatus(0)}
-              >
-                批量恢复 ({selectedCount})
-              </Button>
+              <Dropdown>
+                <DropdownTrigger>
+                  <Button
+                    color="warning"
+                    variant="flat"
+                    size="sm"
+                    endContent={<ChevronDown size={14} />}
+                    isLoading={batchHiding}
+                  >
+                    修改状态 ({selectedCount})
+                  </Button>
+                </DropdownTrigger>
+                <DropdownMenu
+                  aria-label="批量修改资源状态"
+                  onAction={(key) => handleBatchStatus(Number(key) as 0 | 1 | 3)}
+                >
+                  <DropdownItem key="1" startContent={<EyeOff size={14} />}>
+                    Shadow ban
+                  </DropdownItem>
+                  <DropdownItem key="3" startContent={<EyeOff size={14} />}>
+                    隐藏
+                  </DropdownItem>
+                  <DropdownItem key="0" startContent={<Eye size={14} />}>
+                    恢复
+                  </DropdownItem>
+                </DropdownMenu>
+              </Dropdown>
               <Button
                 color="danger"
                 variant="flat"
@@ -357,9 +357,6 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
               </Button>
             </>
           )}
-          <Chip color="primary" variant="flat">
-            支持按内容、哈希和用户搜索
-          </Chip>
         </div>
       </div>
 

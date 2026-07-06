@@ -4,6 +4,12 @@ import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { adminUpdateResourceHiddenSchema } from '~/validations/admin'
 
+const statusLabel: Record<number, string> = {
+  0: '正常',
+  1: '屏蔽',
+  3: '隐藏'
+}
+
 const adminLogContentLimit = 10007
 
 const truncateLogContent = (content: string) => {
@@ -23,13 +29,12 @@ export const updateResourceHidden = async (
     return '未找到该管理员'
   }
 
-  const { resourceIds, hidden } = input
-  // 屏蔽: 仅 0 -> 1；取消屏蔽: 仅 1 -> 0。status=2 待审核永不被命中
-  const fromStatus = hidden ? 0 : 1
-  const toStatus = hidden ? 1 : 0
+  const { resourceIds, status } = input
+  // 仅在 0 (正常) / 1 (屏蔽) / 3 (隐藏) 之间流转, status=2 待审核永不被命中
+  const fromStatuses = [0, 1, 3].filter((value) => value !== status)
 
   const targets = await prisma.patch_resource.findMany({
-    where: { id: { in: resourceIds }, status: fromStatus },
+    where: { id: { in: resourceIds }, status: { in: fromStatuses } },
     select: { id: true, patch_id: true }
   })
   if (!targets.length) {
@@ -41,8 +46,8 @@ export const updateResourceHidden = async (
 
   await prisma.$transaction(async (prisma) => {
     await prisma.patch_resource.updateMany({
-      where: { id: { in: targetIds }, status: fromStatus },
-      data: { status: toStatus }
+      where: { id: { in: targetIds }, status: { in: fromStatuses } },
+      data: { status }
     })
 
     // 资源可见性改变, 重算受影响补丁的 type/language/platform 聚合标签
@@ -56,7 +61,7 @@ export const updateResourceHidden = async (
         type: 'update',
         user_id: uid,
         content: truncateLogContent(
-          `管理员 ${admin.name} 批量${hidden ? '屏蔽' : '取消屏蔽'}了 ${targetIds.length} 条资源\n资源 ID: ${targetIds.join(', ')}`
+          `管理员 ${admin.name} 批量将 ${targetIds.length} 条资源状态修改为 ${statusLabel[status]}\n资源 ID: ${targetIds.join(', ')}`
         )
       }
     })

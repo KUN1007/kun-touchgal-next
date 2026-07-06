@@ -85,6 +85,11 @@ export const RatingCard = ({
                     已屏蔽
                   </Chip>
                 )}
+                {rating.status === 2 && (
+                  <Chip color="danger" variant="flat" size="sm">
+                    已隐藏
+                  </Chip>
+                )}
                 <span className="text-small text-default-500">
                   评价在{' '}
                   <Link

@@ -229,7 +229,7 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
     }
   }
 
-  const handleBatchHidden = async (hidden: boolean) => {
+  const handleBatchStatus = async (status: 0 | 1 | 3) => {
     setBatchHiding(true)
     const ids =
       selectedKeys === 'all'
@@ -238,13 +238,14 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
 
     const res = await kunFetchPut<KunResponse<{ count: number }>>(
       '/admin/resource/hidden',
-      { resourceIds: ids.join(','), hidden }
+      { resourceIds: ids.join(','), status }
     )
 
+    const actionLabel = status === 0 ? '恢复' : status === 1 ? '屏蔽' : '隐藏'
     if (typeof res === 'string') {
       toast.error(res)
     } else {
-      toast.success(`成功${hidden ? '屏蔽' : '取消屏蔽'} ${res.count} 条资源`)
+      toast.success(`成功${actionLabel} ${res.count} 条资源`)
     }
 
     setBatchHiding(false)
@@ -321,9 +322,19 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
                 size="sm"
                 startContent={<EyeOff size={14} />}
                 isLoading={batchHiding}
-                onPress={() => handleBatchHidden(true)}
+                onPress={() => handleBatchStatus(1)}
               >
                 批量屏蔽 ({selectedCount})
+              </Button>
+              <Button
+                color="warning"
+                variant="flat"
+                size="sm"
+                startContent={<EyeOff size={14} />}
+                isLoading={batchHiding}
+                onPress={() => handleBatchStatus(3)}
+              >
+                批量隐藏 ({selectedCount})
               </Button>
               <Button
                 color="default"
@@ -331,9 +342,9 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
                 size="sm"
                 startContent={<Eye size={14} />}
                 isLoading={batchHiding}
-                onPress={() => handleBatchHidden(false)}
+                onPress={() => handleBatchStatus(0)}
               >
-                批量取消屏蔽 ({selectedCount})
+                批量恢复 ({selectedCount})
               </Button>
               <Button
                 color="danger"

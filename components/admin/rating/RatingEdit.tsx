@@ -56,21 +56,28 @@ export const RatingEdit = ({ initialRating, onSuccess }: Props) => {
   }
 
   const isShadowBanned = initialRating.status === 1
+  const isHidden = initialRating.status === 2
   const [shadowBanning, setShadowBanning] = useState(false)
-  const handleToggleShadowBan = async () => {
+  const handleUpdateStatus = async (status: number) => {
     setShadowBanning(true)
     try {
       const res = await kunFetchPut<KunResponse<{}>>(
         '/admin/rating/shadow-ban',
         {
           ratingId: initialRating.id,
-          shadowBan: !isShadowBanned
+          status
         }
       )
       if (typeof res === 'string') {
         toast.error(res)
       } else {
-        toast.success(isShadowBanned ? '已取消屏蔽该评价' : '已屏蔽该评价')
+        toast.success(
+          status === 0
+            ? '已恢复该评价'
+            : status === 1
+              ? '已屏蔽该评价'
+              : '已隐藏该评价'
+        )
         await onSuccess?.()
       }
     } finally {
@@ -149,9 +156,18 @@ export const RatingEdit = ({ initialRating, onSuccess }: Props) => {
             className="text-warning"
             color="warning"
             isDisabled={shadowBanning}
-            onPress={handleToggleShadowBan}
+            onPress={() => handleUpdateStatus(isShadowBanned ? 0 : 1)}
           >
             {isShadowBanned ? '取消屏蔽' : '屏蔽 (仅作者与管理员可见)'}
+          </DropdownItem>
+          <DropdownItem
+            key="hidden"
+            className="text-warning"
+            color="warning"
+            isDisabled={shadowBanning}
+            onPress={() => handleUpdateStatus(isHidden ? 0 : 2)}
+          >
+            {isHidden ? '取消隐藏' : '隐藏 (仅后台可见)'}
           </DropdownItem>
           <DropdownItem
             key="delete"

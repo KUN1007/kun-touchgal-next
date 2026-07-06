@@ -125,9 +125,11 @@ const adminResourceIdsSchema = z
     message: `单次最多操作 ${adminResourceHiddenLimit} 条资源`
   })
 
+// 0 - 正常, 1 - 屏蔽 (仅作者与管理员可见), 3 - 隐藏 (仅后台可见)
+// status=2 (待审核) 不可通过此接口设置
 export const adminUpdateResourceHiddenSchema = z.object({
   resourceIds: adminResourceIdsSchema,
-  hidden: z.boolean()
+  status: z.union([z.literal(0), z.literal(1), z.literal(3)])
 })
 
 export const adminReportPaginationSchema = adminPaginationSchema.extend({
@@ -298,14 +300,15 @@ export const adminUpdateDisableRegisterSchema = z.object({
   disableRegister: z.boolean()
 })
 
+// 0 - 正常, 1 - 屏蔽 (仅作者与管理员可见), 2 - 隐藏 (仅后台可见)
 export const adminUpdateCommentShadowBanSchema = z.object({
   commentId: z.coerce.number().min(1).max(9999999),
-  shadowBan: z.boolean()
+  status: z.union([z.literal(0), z.literal(1), z.literal(2)])
 })
 
 export const adminUpdateRatingShadowBanSchema = z.object({
   ratingId: z.coerce.number().min(1).max(9999999),
-  shadowBan: z.boolean()
+  status: z.union([z.literal(0), z.literal(1), z.literal(2)])
 })
 
 export const adminUpdateUserShadowBanSchema = z.object({

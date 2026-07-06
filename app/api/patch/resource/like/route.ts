@@ -26,7 +26,8 @@ const toggleResourceLike = async (
       patch: true
     }
   })
-  if (!resource) {
+  // 隐藏 (status=3) 的资源对所有人不可见, 与不存在等同
+  if (!resource || resource.status === 3) {
     return '未找到资源'
   }
   if (resource.user_id === uid) {

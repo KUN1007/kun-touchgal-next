@@ -23,7 +23,8 @@ const toggleCommentLike = async (
     where: { id: commentId },
     include: { patch: { select: { unique_id: true } } }
   })
-  if (!comment) {
+  // 隐藏 (status=2) 的评论对所有人不可见, 与不存在等同
+  if (!comment || comment.status === 2) {
     return '未找到评论'
   }
   if (comment.user_id === uid) {

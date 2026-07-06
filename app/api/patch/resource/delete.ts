@@ -22,7 +22,8 @@ export const deleteResource = async (
       links: true
     }
   })
-  if (!patchResource) {
+  // 隐藏 (status=3) 的资源仅后台可管理, 前端与不存在等同
+  if (!patchResource || patchResource.status === 3) {
     return '未找到对应的资源'
   }
 

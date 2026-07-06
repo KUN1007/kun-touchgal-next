@@ -16,7 +16,8 @@ export const updateComment = async (
   const comment = await prisma.patch_comment.findUnique({
     where: { id: commentId }
   })
-  if (!comment) {
+  // 隐藏 (status=2) 的评论仅后台可管理, 前端与不存在等同
+  if (!comment || comment.status === 2) {
     return '未找到该评论'
   }
   const commentUserUid = comment.user_id

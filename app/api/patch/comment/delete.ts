@@ -23,6 +23,7 @@ const commentForDeleteSelect = {
   id: true,
   user_id: true,
   parent_id: true,
+  status: true,
   patch: { select: { unique_id: true } },
   parent: { select: { user_id: true } }
 } as const
@@ -67,7 +68,8 @@ export const deleteComment = async (
     },
     select: commentForDeleteSelect
   })
-  if (!comment) {
+  // 隐藏 (status=2) 的评论仅后台可管理, 前端与不存在等同
+  if (!comment || comment.status === 2) {
     return '未找到对应的评论'
   }
 

@@ -24,7 +24,8 @@ export const updatePatchResource = async (
       }
     }
   })
-  if (!resource) {
+  // 隐藏 (status=3) 的资源仅后台可管理, 前端与不存在等同
+  if (!resource || resource.status === 3) {
     return '未找到该资源'
   }
 

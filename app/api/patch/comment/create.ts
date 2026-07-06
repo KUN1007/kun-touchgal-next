@@ -13,6 +13,22 @@ export const createPatchComment = async (
   input: z.infer<typeof patchCommentCreateSchema>,
   uid: number
 ) => {
+  let parentComment: {
+    user_id: number
+    content: string
+    status: number
+  } | null = null
+  if (input.parentId) {
+    parentComment = await prisma.patch_comment.findUnique({
+      where: { id: input.parentId },
+      select: { user_id: true, content: true, status: true }
+    })
+    // 隐藏 (status=2) 的评论对所有人不可见, 与不存在等同
+    if (!parentComment || parentComment.status === 2) {
+      return '未找到该评论'
+    }
+  }
+
   let contentHtml = ''
   let contentHtmlVersion = 0
   try {
@@ -48,20 +64,14 @@ export const createPatchComment = async (
     }
   })
 
-  if (input.parentId) {
-    const parentComment = await prisma.patch_comment.findUnique({
-      where: { id: input.parentId }
+  if (parentComment && parentComment.user_id !== uid) {
+    await createDedupMessage({
+      type: 'comment',
+      content: `回复了您的评论：${parentComment.content.slice(0, 107)}`,
+      sender_id: uid,
+      recipient_id: parentComment.user_id,
+      link: `/${data.patch.unique_id}?tab=comments&commentId=${data.id}`
     })
-
-    if (parentComment!.user_id !== uid) {
-      await createDedupMessage({
-        type: 'comment',
-        content: `回复了您的评论：${parentComment!.content.slice(0, 107)}`,
-        sender_id: uid,
-        recipient_id: parentComment!.user_id,
-        link: `/${data.patch.unique_id}?tab=comments&commentId=${data.id}`
-      })
-    }
   }
 
   await createMentionMessage(

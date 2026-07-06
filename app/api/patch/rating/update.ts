@@ -21,7 +21,8 @@ export const updatePatchRating = async (
   const rating = await prisma.patch_rating.findUnique({
     where: { id: ratingId }
   })
-  if (!rating) {
+  // 隐藏 (status=2) 的评价仅后台可管理, 前端与不存在等同
+  if (!rating || rating.status === 2) {
     return '评价不存在'
   }
   const ratingUserUid = rating.user_id

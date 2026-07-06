@@ -44,11 +44,12 @@ export const getUserComment = async (
   ])
 
   const comments: UserComment[] = data.map((comment) => {
-    // 父评论被屏蔽时对非豁免 viewer 隐藏引用信息
+    // 父评论被屏蔽时对非豁免 viewer 隐藏引用信息; 被隐藏 (status=2) 时对所有人隐藏
     const parentVisible =
       !!comment.parent &&
       (comment.parent.status === 0 ||
-        isShadowBanExemptViewer(viewer, comment.parent.user_id))
+        (comment.parent.status === 1 &&
+          isShadowBanExemptViewer(viewer, comment.parent.user_id)))
 
     return {
       id: comment.id,

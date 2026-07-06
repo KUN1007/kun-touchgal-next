@@ -20,7 +20,8 @@ const toggleRatingLike = async (
     where: { id: ratingId },
     include: { patch: { select: { unique_id: true, name: true } } }
   })
-  if (!rating) {
+  // 隐藏 (status=2) 的评价对所有人不可见, 与不存在等同
+  if (!rating || rating.status === 2) {
     return '评价不存在'
   }
   if (rating.user_id === uid) {

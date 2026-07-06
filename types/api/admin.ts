@@ -67,7 +67,7 @@ export interface AdminResource extends PatchResource {
 }
 
 export type AdminComment = PatchComment & {
-  // 0 - normal, 1 - shadow banned
+  // 0 - normal, 1 - shadow banned, 2 - hidden (/admin only)
   status: number
 }
 
@@ -83,7 +83,7 @@ export interface AdminRating {
   patchName: string
   patchId: number
   like: number
-  // 0 - normal, 1 - shadow banned
+  // 0 - normal, 1 - shadow banned, 2 - hidden (/admin only)
   status: number
   created: Date | string
 }

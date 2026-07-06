@@ -24,6 +24,8 @@ model moderation_task {
   user_id Int
   user    user @relation("user_moderation_task", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
+  appeal moderation_appeal? @relation("moderation_task_appeal")
+
   created DateTime @default(now())
   updated DateTime @updatedAt
 
@@ -31,6 +33,34 @@ model moderation_task {
   @@index([content_type, content_id])
   @@index([user_id, created(sort: Desc)])
   @@index([created])
+}
+
+// 用户对被拒审核裁决的申诉, 由管理员人工复核
+// content_type: comment | rating | resource (avatar/bio 被拒时未隐藏, 不适用申诉)
+// status: pending | approved | rejected
+model moderation_appeal {
+  id           Int    @id @default(autoincrement())
+  content_type String @db.VarChar(107)
+  content_id   Int
+  // 用户修改后待人工复核的内容: comment/rating 为 { text }, resource 为 { name, note }
+  payload      Json
+  status       String @default("pending") @db.VarChar(107)
+  // 处理该申诉的管理员 uid
+  handled_by   Int?
+
+  // 被申诉的 rejected 任务; rejected 任务除用户级联外不会被删除, 严格外键安全
+  task_id Int             @unique
+  task    moderation_task @relation("moderation_task_appeal", fields: [task_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  user_id Int
+  user    user @relation("user_moderation_appeal", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  created DateTime @default(now())
+  updated DateTime @updatedAt
+
+  @@index([status, created(sort: Desc)])
+  @@index([content_type, content_id])
+  @@index([user_id, created(sort: Desc)])
 }
 
 model moderation_blacklist {

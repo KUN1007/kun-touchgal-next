@@ -56,6 +56,7 @@ model user {
 
   moderation_task      moderation_task[]      @relation("user_moderation_task")
   moderation_blacklist moderation_blacklist[] @relation("user_moderation_blacklist")
+  moderation_appeal    moderation_appeal[]    @relation("user_moderation_appeal")
 
   created DateTime @default(now())
   updated DateTime @updatedAt

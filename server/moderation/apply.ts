@@ -13,6 +13,7 @@ import {
   MODERATION_REJECT_CODE_MAP,
   MODERATION_REJECT_NOTICE
 } from '~/constants/moderation'
+import { APPEAL_CONTENT_TYPE, APPEAL_SETTINGS_LINK } from '~/constants/appeal'
 import type { ModerationAvatarPayload, ModerationTextPayload } from './submit'
 
 export interface ApplyVerdictOptions {
@@ -37,6 +38,38 @@ export const markTaskManual = async (taskId: number, reason: string) =>
     where: { id: taskId, status: 'pending' },
     data: { status: 'manual', reject_reason: reason.slice(0, 500) }
   })
+
+// 创建时被拦截而未发送的回复与提及通知, 在评论对他人可见后补发
+export const sendDeferredCommentNotifications = async (commentId: number) => {
+  const comment = await prisma.patch_comment.findUnique({
+    where: { id: commentId },
+    include: {
+      patch: { select: { name: true, unique_id: true } },
+      user: { select: { name: true } },
+      parent: { select: { user_id: true, content: true } }
+    }
+  })
+  if (!comment) {
+    return
+  }
+  if (comment.parent && comment.parent.user_id !== comment.user_id) {
+    await createDedupMessage({
+      type: 'comment',
+      content: `回复了您的评论：${comment.parent.content.slice(0, 107)}`,
+      sender_id: comment.user_id,
+      recipient_id: comment.parent.user_id,
+      link: `/${comment.patch.unique_id}?tab=comments&commentId=${comment.id}`
+    })
+  }
+  await createMentionMessage(
+    comment.patch.unique_id,
+    comment.patch.name,
+    comment.id,
+    comment.user_id,
+    comment.user.name,
+    comment.content
+  )
+}
 
 const resolveRejectReason = (rejectCode?: string, rejectReason?: string) =>
   rejectReason ||
@@ -176,7 +209,12 @@ export const applyModerationVerdict = async (
         {
           type: 'system',
           content: notice,
-          link: '',
+          // 可申诉类型 (被隐藏的内容) 引导用户到申诉页; avatar/bio 未被应用, 无申诉入口
+          link: (APPEAL_CONTENT_TYPE as readonly string[]).includes(
+            task.content_type
+          )
+            ? APPEAL_SETTINGS_LINK
+            : '',
           recipient_id: task.user_id
         },
         tx
@@ -193,34 +231,7 @@ export const applyModerationVerdict = async (
 
   // post-commit side effects
   if (commentApproved) {
-    // 创建时被拦截而未发送的回复与提及通知, 在评论对他人可见后补发
-    const comment = await prisma.patch_comment.findUnique({
-      where: { id: task.content_id ?? 0 },
-      include: {
-        patch: { select: { name: true, unique_id: true } },
-        user: { select: { name: true } },
-        parent: { select: { user_id: true, content: true } }
-      }
-    })
-    if (comment) {
-      if (comment.parent && comment.parent.user_id !== comment.user_id) {
-        await createDedupMessage({
-          type: 'comment',
-          content: `回复了您的评论：${comment.parent.content.slice(0, 107)}`,
-          sender_id: comment.user_id,
-          recipient_id: comment.parent.user_id,
-          link: `/${comment.patch.unique_id}?tab=comments&commentId=${comment.id}`
-        })
-      }
-      await createMentionMessage(
-        comment.patch.unique_id,
-        comment.patch.name,
-        comment.id,
-        comment.user_id,
-        comment.user.name,
-        comment.content
-      )
-    }
+    await sendDeferredCommentNotifications(task.content_id ?? 0)
   }
   if (ratingPatchId !== null) {
     await recomputePatchRatingStat(ratingPatchId)

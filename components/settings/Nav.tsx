@@ -1,6 +1,12 @@
 'use client'
 
-import { Bell, EyeOff, ShieldCheck, UserRound } from 'lucide-react'
+import {
+  Bell,
+  EyeOff,
+  MessageSquareWarning,
+  ShieldCheck,
+  UserRound
+} from 'lucide-react'
 import { cn } from '~/utils/cn'
 
 export const userSettingsNavItems = [
@@ -23,6 +29,11 @@ export const userSettingsNavItems = [
     id: 'content-control',
     title: '内容控制',
     icon: EyeOff
+  },
+  {
+    id: 'appeal',
+    title: '内容申诉',
+    icon: MessageSquareWarning
   }
 ] as const
 

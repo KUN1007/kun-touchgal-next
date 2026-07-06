@@ -332,6 +332,15 @@ export const adminModerationBlacklistDeleteSchema = z.object({
   blacklistId: z.coerce.number().min(1).max(9999999)
 })
 
+export const adminAppealPaginationSchema = adminPaginationSchema.extend({
+  status: z.enum(['all', 'pending', 'approved', 'rejected']).default('pending')
+})
+
+export const adminHandleAppealSchema = z.object({
+  appealId: z.coerce.number().min(1).max(9999999),
+  approve: z.boolean()
+})
+
 // 0 - 正常, 1 - 屏蔽 (仅作者与管理员可见), 2 - 隐藏 (仅后台可见)
 export const adminUpdateCommentShadowBanSchema = z.object({
   commentId: z.coerce.number().min(1).max(9999999),

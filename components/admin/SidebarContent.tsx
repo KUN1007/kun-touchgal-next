@@ -11,6 +11,7 @@ import {
   MessageCircleQuestion,
   MessageSquare,
   Puzzle,
+  Scale,
   Settings,
   ShieldCheck,
   Star,
@@ -73,6 +74,11 @@ const menuItems = [
     name: 'AI 审核管理',
     href: '/admin/moderation',
     icon: ShieldCheck
+  },
+  {
+    name: '申诉管理',
+    href: '/admin/appeal',
+    icon: Scale
   },
   {
     name: '评价举报管理',

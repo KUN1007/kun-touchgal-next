@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { adminDeleteRatingSchema } from '~/validations/admin'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
+import { deletePendingAppeals } from '~/server/moderation/appeal'
 
 const adminLogContentLimit = 10007
 const adminDeleteRatingSummaryLimit = 10
@@ -85,6 +86,12 @@ export const deleteRating = async (
     })
 
     await deletePendingModerationTasks(
+      'rating',
+      ratings.map((rating) => rating.id),
+      prisma
+    )
+
+    await deletePendingAppeals(
       'rating',
       ratings.map((rating) => rating.id),
       prisma

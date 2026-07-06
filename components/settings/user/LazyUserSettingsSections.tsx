@@ -23,6 +23,7 @@ interface LazySectionPlaceholderProps {
 const securitySettings = userSettingsNavItems[1]
 const privacySettings = userSettingsNavItems[2]
 const contentControlSettings = userSettingsNavItems[3]
+const appealSettings = userSettingsNavItems[4]
 
 const LazySectionPlaceholder = ({
   title,
@@ -88,6 +89,20 @@ const ContentControlSettings = dynamic<{ isActive: boolean }>(
   }
 )
 
+const AppealSettings = dynamic(
+  () => import('./appeal/AppealSettings').then((mod) => mod.AppealSettings),
+  {
+    ssr: false,
+    loading: () => (
+      <LazySectionPlaceholder
+        title="内容申诉"
+        description="正在加载被拒内容与申诉记录。"
+        minHeight="360px"
+      />
+    )
+  }
+)
+
 const getSettingsSectionId = (
   activeSectionId: LazyUserSettingsSectionId
 ): LazyUserSettingsSectionId => {
@@ -97,6 +112,10 @@ const getSettingsSectionId = (
 
   if (activeSectionId === privacySettings.id) {
     return privacySettings.id
+  }
+
+  if (activeSectionId === appealSettings.id) {
+    return appealSettings.id
   }
 
   return contentControlSettings.id
@@ -114,6 +133,8 @@ export const LazyUserSettingsSections = ({
         <AccountSecuritySettings />
       ) : sectionId === privacySettings.id ? (
         <NotificationPrivacySettings />
+      ) : sectionId === appealSettings.id ? (
+        <AppealSettings />
       ) : (
         <ContentControlSettings isActive={isActive} />
       )}

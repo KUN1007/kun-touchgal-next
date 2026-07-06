@@ -46,13 +46,14 @@ const getNotificationIcon = (type: string) => {
 }
 
 const getCardRoute = (msg: Message) => {
+  // link 优先, 否则系统消息 (无 sender) 无法跳转到指定页面
+  if (msg.link) {
+    return msg.link
+  }
   if (!msg.sender) {
     return '/'
   }
-  if (!msg.link) {
-    return `/user/${msg.sender.id}/comment`
-  }
-  return msg.link
+  return `/user/${msg.sender.id}/comment`
 }
 
 export const MessageCard = ({ msg }: Props) => {

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
+import { deletePendingAppeals } from '~/server/moderation/appeal'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 
 const commentIdSchema = z.object({
@@ -94,6 +95,11 @@ export const deleteComment = async (
     await deleteCommentWithReplies(comment, tx)
 
     await deletePendingModerationTasks(
+      'comment',
+      descendantRows.map((row) => row.id),
+      tx
+    )
+    await deletePendingAppeals(
       'comment',
       descendantRows.map((row) => row.id),
       tx

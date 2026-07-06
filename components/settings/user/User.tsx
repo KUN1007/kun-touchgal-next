@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { KunHeader } from '~/components/kun/Header'
 import {
   SettingsNav,
@@ -17,14 +18,24 @@ const profileSettings = userSettingsNavItems[0]
 const securitySettings = userSettingsNavItems[1]
 const privacySettings = userSettingsNavItems[2]
 const contentControlSettings = userSettingsNavItems[3]
+const appealSettings = userSettingsNavItems[4]
+
+const isUserSettingsSectionId = (
+  value: string | null
+): value is UserSettingsSectionId =>
+  userSettingsNavItems.some((item) => item.id === value)
 
 export const UserSettings = () => {
+  const searchParams = useSearchParams()
   const [activeSectionId, setActiveSectionId] = useState<UserSettingsSectionId>(
-    profileSettings.id
+    () => {
+      const tab = searchParams.get('tab')
+      return isUserSettingsSectionId(tab) ? tab : profileSettings.id
+    }
   )
   const [mountedSectionIds, setMountedSectionIds] = useState<
     ReadonlySet<UserSettingsSectionId>
-  >(() => new Set([profileSettings.id]))
+  >(() => new Set([profileSettings.id, activeSectionId]))
 
   const handleSelectSection = (sectionId: UserSettingsSectionId) => {
     setActiveSectionId(sectionId)
@@ -39,15 +50,25 @@ export const UserSettings = () => {
     })
   }
 
+  // 系统通知等入口通过 ?tab= 深链定位分页, 页内再次点击同类链接时也需切换
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (isUserSettingsSectionId(tab)) {
+      handleSelectSection(tab)
+    }
+  }, [searchParams])
+
   const isProfileSettings = activeSectionId === profileSettings.id
   const isSecuritySettings = activeSectionId === securitySettings.id
   const isPrivacySettings = activeSectionId === privacySettings.id
   const isContentControlSettings = activeSectionId === contentControlSettings.id
+  const isAppealSettings = activeSectionId === appealSettings.id
   const hasMountedSecuritySettings = mountedSectionIds.has(securitySettings.id)
   const hasMountedPrivacySettings = mountedSectionIds.has(privacySettings.id)
   const hasMountedContentControlSettings = mountedSectionIds.has(
     contentControlSettings.id
   )
+  const hasMountedAppealSettings = mountedSectionIds.has(appealSettings.id)
 
   return (
     <div className="my-4 w-full px-3 sm:px-0">
@@ -88,6 +109,13 @@ export const UserSettings = () => {
               <LazyUserSettingsSections
                 activeSectionId={contentControlSettings.id}
                 isActive={isContentControlSettings}
+              />
+            )}
+
+            {hasMountedAppealSettings && (
+              <LazyUserSettingsSections
+                activeSectionId={appealSettings.id}
+                isActive={isAppealSettings}
               />
             )}
           </div>

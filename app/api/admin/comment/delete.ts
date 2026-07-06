@@ -3,6 +3,7 @@ import { prisma } from '~/prisma/index'
 import { Prisma } from '~/prisma/generated/prisma/client'
 import { adminDeleteCommentSchema } from '~/validations/admin'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
+import { deletePendingAppeals } from '~/server/moderation/appeal'
 
 const adminLogContentLimit = 10007
 const adminDeleteCommentSummaryLimit = 10
@@ -95,6 +96,12 @@ export const deleteComment = async (
     })
 
     await deletePendingModerationTasks(
+      'comment',
+      descendantRows.map((row) => row.id),
+      prisma
+    )
+
+    await deletePendingAppeals(
       'comment',
       descendantRows.map((row) => row.id),
       prisma

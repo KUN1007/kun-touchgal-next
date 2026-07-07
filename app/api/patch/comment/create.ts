@@ -24,8 +24,16 @@ export const createPatchComment = async (
       where: { id: input.parentId },
       select: { user_id: true, content: true, status: true }
     })
-    // 隐藏 (status=2) 的评论对所有人不可见, 与不存在等同
-    if (!parentComment || parentComment.status === 2) {
+    if (!parentComment) {
+      return '未找到该评论'
+    }
+    // 与读取可见性 (getShadowBanWhere 非管理员分支) 对齐: 仅 status=0, 或作者本人的
+    // status=1 (shadow ban, 仅作者可见) 可回复; 他人的 status=1 与 status=2 (对所有人
+    // 隐藏) 一律与不存在等同, 防止通过回复探测 shadow ban
+    if (
+      parentComment.status !== 0 &&
+      !(parentComment.status === 1 && parentComment.user_id === uid)
+    ) {
       return '未找到该评论'
     }
   }

@@ -7,6 +7,7 @@ import {
   Edit,
   FileClock,
   Gamepad2,
+  KeyRound,
   Mail,
   MessageCircleQuestion,
   MessageSquare,
@@ -89,6 +90,11 @@ const menuItems = [
     name: '管理日志',
     href: '/admin/log',
     icon: FileClock
+  },
+  {
+    name: 'OIDC 应用',
+    href: '/admin/oidc',
+    icon: KeyRound
   },
   {
     name: '网站设置',

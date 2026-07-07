@@ -1,0 +1,20 @@
+// OIDC Provider 依赖方应用（RP/client）配置，由超级管理员在后台维护。
+// OIDC 运行时的短期对象（Session/Grant/AuthorizationCode/AccessToken/RefreshToken/
+// Interaction 等）不落库，走 Redis Adapter 并靠 TTL 自动过期。
+model oidc_client {
+  id                         Int      @id @default(autoincrement())
+  client_id                  String   @unique @db.VarChar(107)
+  client_secret              String   @db.VarChar(1007)
+  client_name                String   @db.VarChar(255)
+  redirect_uris              String[] @default([])
+  post_logout_redirect_uris  String[] @default([])
+  grant_types                String[] @default(["authorization_code", "refresh_token"])
+  response_types             String[] @default(["code"])
+  scopes                     String[] @default(["openid", "profile", "email"])
+  token_endpoint_auth_method String   @default("client_secret_basic")
+  is_first_party             Boolean  @default(false)
+  disabled                   Boolean  @default(false)
+
+  created DateTime @default(now())
+  updated DateTime @updatedAt
+}

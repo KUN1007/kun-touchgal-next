@@ -31,6 +31,10 @@ export const envSchema = z.object({
   JWT_AUD: z.string(),
   JWT_SECRET: z.string(),
 
+  OIDC_ISSUER: z.string().url().optional(),
+  OIDC_JWKS: z.string().optional(),
+  OIDC_COOKIE_KEYS: z.string().optional(),
+
   NODE_ENV: z.enum(['development', 'test', 'production']),
 
   KUN_VISUAL_NOVEL_EMAIL_FROM: z.string(),

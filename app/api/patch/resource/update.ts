@@ -154,11 +154,12 @@ export const updatePatchResource = async (
     })
   }
 
-  // 编辑标题/介绍后必须重新送审; 待人工审批 (status=2) 的资源不送 AI
+  // 编辑标题/介绍后必须重新送审; 待人工审批 (status=2) 的资源不送 AI;
+  // role>=3 管理员内联编辑他人内容与后台一致不送审, 避免审核任务误挂到原作者
   const textChanged =
     resource.name !== input.name || resource.note !== input.note
   const moderation =
-    resource.status === 2 || !textChanged
+    userRole >= 3 || resource.status === 2 || !textChanged
       ? MODERATION_SKIP
       : await preScreenText(`标题: ${input.name}\n介绍: ${input.note}`)
 

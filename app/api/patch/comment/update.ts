@@ -52,9 +52,12 @@ export const updateComment = async (
     contentHtmlVersion = 0
   }
 
-  // 编辑正文后必须重新送审, 否则先发正常内容再改成违规即可绕过审核
+  // 编辑正文后必须重新送审, 否则先发正常内容再改成违规即可绕过审核;
+  // role>=3 管理员内联编辑他人内容与后台一致不送审, 避免审核任务误挂到原作者
   const moderation =
-    comment.content !== content ? await preScreenText(content) : MODERATION_SKIP
+    userRole < 3 && comment.content !== content
+      ? await preScreenText(content)
+      : MODERATION_SKIP
 
   await prisma.$transaction(async (tx) => {
     await tx.patch_comment.update({

@@ -20,12 +20,18 @@ const toggleRatingLike = async (
     where: { id: ratingId },
     include: { patch: { select: { unique_id: true, name: true } } }
   })
-  // 隐藏 (status=2) 的评价对所有人不可见, 与不存在等同
-  if (!rating || rating.status === 2) {
+  if (!rating) {
     return '评价不存在'
   }
+  // 作者判断必须先于 status: 否则被 shadow ban 的作者对自己 status=1 的评价点赞时,
+  // 响应会从 '您不能给自己点赞' 变为 '评价不存在', 反向暴露封禁
   if (rating.user_id === uid) {
     return '您不能给自己点赞'
+  }
+  // 仅公开 (status=0) 评价可被他人点赞; status=1 (shadow ban) / 2 (隐藏) 与不存在等同,
+  // 防止通过点赞探测 shadow ban, 也避免向被封作者发通知
+  if (rating.status !== 0) {
+    return '评价不存在'
   }
 
   const existingLike = await prisma.patch_rating_like.findUnique({

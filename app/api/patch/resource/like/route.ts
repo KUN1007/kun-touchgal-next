@@ -26,12 +26,18 @@ const toggleResourceLike = async (
       patch: true
     }
   })
-  // 隐藏 (status=3) 的资源对所有人不可见, 与不存在等同
-  if (!resource || resource.status === 3) {
+  if (!resource) {
     return '未找到资源'
   }
+  // 作者判断必须先于 status: 否则被 shadow ban 的作者对自己 status=1 的资源点赞时,
+  // 响应会从 '您不能给自己点赞' 变为 '未找到资源', 反向暴露封禁
   if (resource.user_id === uid) {
     return '您不能给自己点赞'
+  }
+  // 仅公开 (status=0) 资源可被他人点赞; status=1 (shadow ban) / 2 (待审批) / 3 (隐藏)
+  // 与不存在等同, 防止通过点赞探测 shadow ban, 也避免向被封作者发通知
+  if (resource.status !== 0) {
+    return '未找到资源'
   }
 
   const existingLike =

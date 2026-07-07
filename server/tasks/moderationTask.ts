@@ -11,6 +11,7 @@ import {
   MODERATION_MAX_RETRY,
   MODERATION_VERDICT_CACHE_DURATION
 } from '~/constants/moderation'
+import type { ModerationContentType } from '~/constants/moderation'
 import {
   ModerationConfigError,
   moderateImage,
@@ -39,10 +40,18 @@ import { withTaskLock } from './withTaskLock'
 const MODERATION_LOCK_KEY = 'moderation:worker:lock'
 const MODERATION_LOCK_TTL_SECONDS = 300
 
+// verdicts are cached per content_type: each type has a distinct system prompt,
+// so a verdict from one type must never be replayed onto another
+type ModerationTextType = Exclude<ModerationContentType, 'avatar'>
+
+const verdictCacheKey = (contentType: ModerationTextType, hash: string) =>
+  `${KUN_MODERATION_VERDICT_CACHE_KEY}:${contentType}:${hash}`
+
 const getCachedVerdict = async (
+  contentType: ModerationTextType,
   hash: string
 ): Promise<ModerationVerdict | null> => {
-  const cached = await getKv(`${KUN_MODERATION_VERDICT_CACHE_KEY}:${hash}`)
+  const cached = await getKv(verdictCacheKey(contentType, hash))
   if (!cached) {
     return null
   }
@@ -54,9 +63,13 @@ const getCachedVerdict = async (
   }
 }
 
-const cacheVerdict = async (hash: string, verdict: ModerationVerdict) => {
+const cacheVerdict = async (
+  contentType: ModerationTextType,
+  hash: string,
+  verdict: ModerationVerdict
+) => {
   await setKv(
-    `${KUN_MODERATION_VERDICT_CACHE_KEY}:${hash}`,
+    verdictCacheKey(contentType, hash),
     JSON.stringify(verdict),
     MODERATION_VERDICT_CACHE_DURATION
   ).catch((error) =>
@@ -101,8 +114,9 @@ const processTextTask = async (
     return
   }
 
+  const contentType = task.content_type as ModerationTextType
   const hash = hashModerationText(normalized)
-  const cached = await getCachedVerdict(hash)
+  const cached = await getCachedVerdict(contentType, hash)
   if (cached) {
     await applyAiResult(task, {
       verdict: cached,
@@ -113,11 +127,8 @@ const processTextTask = async (
     return
   }
 
-  const result = await moderateText(
-    task.content_type as 'comment' | 'rating' | 'resource' | 'bio',
-    payload.text ?? ''
-  )
-  await cacheVerdict(hash, result.verdict)
+  const result = await moderateText(contentType, payload.text ?? '')
+  await cacheVerdict(contentType, hash, result.verdict)
   await applyAiResult(task, result)
 }
 

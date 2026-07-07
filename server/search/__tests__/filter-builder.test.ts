@@ -4,7 +4,8 @@ import {
   buildGalgameSearchFilter,
   buildGalgameSearchSort,
   buildReleasedFilter,
-  buildSearchQuery
+  buildSearchQuery,
+  matchExactIdQuery
 } from '~/server/search/filter-builder'
 
 describe('buildReleasedFilter', () => {
@@ -121,6 +122,21 @@ describe('buildGalgameSearchFilter', () => {
     )
   })
 
+  it('exactId 精确子句置于最前，其余条件照常 AND', () => {
+    expect(
+      buildGalgameSearchFilter({ exactId: { kind: 'vndb', value: 'v17' } })
+    ).toBe('(vndbId = "v17" OR vndbRelationId = "v17")')
+    expect(
+      buildGalgameSearchFilter({ exactId: { kind: 'dlsite', value: 'RJ123' } })
+    ).toBe('dlsiteCode = "RJ123"')
+    expect(
+      buildGalgameSearchFilter({
+        exactId: { kind: 'vndb', value: 'v17' },
+        contentLimit: 'sfw'
+      })
+    ).toBe('(vndbId = "v17" OR vndbRelationId = "v17") AND contentLimit = "sfw"')
+  })
+
   it('组合条件按 AND 连接', () => {
     expect(
       buildGalgameSearchFilter({
@@ -225,5 +241,44 @@ describe('buildSearchQuery', () => {
 
   it('空输入返回空字符串', () => {
     expect(buildSearchQuery([], [])).toBe('')
+  })
+})
+
+describe('matchExactIdQuery', () => {
+  it('唯一 v<数字> 关键词命中 vndb，并归一化为小写', () => {
+    expect(matchExactIdQuery(['v123'], [])).toEqual({
+      kind: 'vndb',
+      value: 'v123'
+    })
+    expect(matchExactIdQuery(['V17'], [])).toEqual({
+      kind: 'vndb',
+      value: 'v17'
+    })
+    expect(matchExactIdQuery([' v9 '], [])).toEqual({
+      kind: 'vndb',
+      value: 'v9'
+    })
+  })
+
+  it('RJ / VJ 编号命中 dlsite，并归一化为大写', () => {
+    expect(matchExactIdQuery(['RJ01234567'], [])).toEqual({
+      kind: 'dlsite',
+      value: 'RJ01234567'
+    })
+    expect(matchExactIdQuery(['vj123'], [])).toEqual({
+      kind: 'dlsite',
+      value: 'VJ123'
+    })
+  })
+
+  it('多关键词、含 exclude、或非外部 ID 格式时不短路', () => {
+    expect(matchExactIdQuery(['v123', 'extra'], [])).toBeNull()
+    expect(matchExactIdQuery(['v123'], ['v456'])).toBeNull()
+    expect(matchExactIdQuery(['魔女'], [])).toBeNull()
+    expect(matchExactIdQuery(['v'], [])).toBeNull()
+    expect(matchExactIdQuery(['12345'], [])).toBeNull()
+    expect(matchExactIdQuery(['RJ'], [])).toBeNull()
+    expect(matchExactIdQuery(['BJ123'], [])).toBeNull()
+    expect(matchExactIdQuery([], [])).toBeNull()
   })
 })

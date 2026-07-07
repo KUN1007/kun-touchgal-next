@@ -10,6 +10,10 @@ import type { Prisma } from '~/prisma/generated/prisma/client'
 // 超时即中止请求，由调用方捕获错误后降级到 Prisma 实现
 export const SEARCH_QUERY_TIMEOUT_MS = 800
 
+// 相关性下限（_rankingScore 0..1）：仅在有查询词时生效，剔除勉强命中的长尾。
+// 上线后按零结果/噪声查询校准，调高更严、调低更全
+export const SEARCH_RANKING_SCORE_THRESHOLD = 0.4
+
 export interface GalgameIndexQuery {
   q?: string
   filter?: string
@@ -36,6 +40,8 @@ export const queryGalgameIndex = async (query: GalgameIndexQuery) => {
       attributesToSearchOn: query.attributesToSearchOn,
       // 与旧实现的多关键词 AND 语义对齐
       matchingStrategy: 'all',
+      // 纯筛选/浏览端点 q 为空、所有文档得分 1.0，不受影响；仅约束有文字搜索的场景
+      rankingScoreThreshold: query.q ? SEARCH_RANKING_SCORE_THRESHOLD : undefined,
       attributesToRetrieve: ['id']
     },
     { signal: AbortSignal.timeout(SEARCH_QUERY_TIMEOUT_MS) }

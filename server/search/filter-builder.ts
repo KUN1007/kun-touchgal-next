@@ -1,6 +1,12 @@
 // 将 zod 校验后的筛选参数翻译为 Meilisearch filter 表达式。
 // 纯函数，语义逐项对照 app/api/utils/galgameQuery.ts 的 Prisma 实现
 
+// 外部 ID 精确直查命中结果：vndb 走 vndbId OR vndbRelationId，dlsite 走 dlsiteCode
+export interface ExactIdMatch {
+  kind: 'vndb' | 'dlsite'
+  value: string
+}
+
 export interface GalgameSearchFilterParams {
   selectedType?: string
   selectedLanguage?: string
@@ -18,6 +24,8 @@ export interface GalgameSearchFilterParams {
   excludeTagIds?: number[]
   includeCompanyIdGroups?: number[][]
   excludeCompanyIds?: number[]
+  // 命中外部 ID 精确直查时的匹配结果，替代全文匹配（见 matchExactIdQuery）
+  exactId?: ExactIdMatch
 }
 
 const quote = (value: string) =>
@@ -72,6 +80,15 @@ export const buildGalgameSearchFilter = (
   params: GalgameSearchFilterParams
 ): string | null => {
   const clauses: string[] = []
+
+  if (params.exactId) {
+    const { kind, value } = params.exactId
+    clauses.push(
+      kind === 'vndb'
+        ? `(vndbId = ${quote(value)} OR vndbRelationId = ${quote(value)})`
+        : `dlsiteCode = ${quote(value)}`
+    )
+  }
 
   if (params.selectedType && params.selectedType !== 'all') {
     clauses.push(`type = ${quote(params.selectedType)}`)
@@ -212,3 +229,24 @@ export const buildSearchQuery = (
     .filter(Boolean)
     .join(' ')
     .trim()
+
+// 唯一 include 关键词且形如外部 ID、无 exclude 关键词 → 视为精确直查。
+// 全文匹配这些 ID 会前缀渗漏（v1965 命中 v19650/v19658）且依赖分词，精确 filter 唯一确定。
+// 归一化对齐入库约定：vndb 系小写、dlsite 大写（Meilisearch filter 本就大小写不敏感，此处仅为一致）
+export const matchExactIdQuery = (
+  included: string[],
+  excluded: string[]
+): ExactIdMatch | null => {
+  if (excluded.length > 0 || included.length !== 1) {
+    return null
+  }
+  const keyword = included[0].trim()
+  if (/^v\d+$/i.test(keyword)) {
+    return { kind: 'vndb', value: keyword.toLowerCase() }
+  }
+  // 与 DLSiteInput 的入库校验一致：仅 RJ / VJ 前缀
+  if (/^(?:RJ|VJ)\d+$/i.test(keyword)) {
+    return { kind: 'dlsite', value: keyword.toUpperCase() }
+  }
+  return null
+}

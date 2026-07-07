@@ -14,7 +14,8 @@ import {
   buildAttributesToSearchOn,
   buildGalgameSearchFilter,
   buildGalgameSearchSort,
-  buildSearchQuery
+  buildSearchQuery,
+  matchExactIdQuery
 } from '~/server/search/filter-builder'
 import {
   fetchGalgameCardsByIds,
@@ -64,6 +65,11 @@ const searchGalgameWithMeili = async (
       .map((item) => item.name.trim())
       .filter(Boolean)
 
+  const includeKeywords = keywords('include')
+  const excludeKeywords = keywords('exclude')
+  // 单一外部 ID 关键词（vndb / dlsite）走精确直查：以 filter 替代全文匹配
+  const exactIdMatch = matchExactIdQuery(includeKeywords, excludeKeywords)
+
   const suggestions = (type: 'tag' | 'company', mode: 'include' | 'exclude') =>
     query.filter(
       (item) => item.type === type && normalizeMode(item.mode) === mode
@@ -106,14 +112,15 @@ const searchGalgameWithMeili = async (
     includeTagIdGroups,
     includeCompanyIdGroups,
     excludeTagIds: excludeTagIdGroups.flat(),
-    excludeCompanyIds: excludeCompanyIdGroups.flat()
+    excludeCompanyIds: excludeCompanyIdGroups.flat(),
+    exactId: exactIdMatch ?? undefined
   })
   if (filter === null) {
     return { galgames: [] as GalgameCard[], total: 0 }
   }
 
   const { ids, total } = await queryGalgameIndex({
-    q: buildSearchQuery(keywords('include'), keywords('exclude')),
+    q: exactIdMatch ? '' : buildSearchQuery(includeKeywords, excludeKeywords),
     filter,
     sort: buildGalgameSearchSort(sortField, sortOrder),
     page,

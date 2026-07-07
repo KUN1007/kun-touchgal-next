@@ -16,6 +16,10 @@ export const GALGAME_INDEX_SETTINGS: Settings = {
   ],
 
   filterableAttributes: [
+    // 注册为可过滤以支持外部 ID 精确直查（见 filter-builder matchExactIdQuery）
+    'vndbId',
+    'vndbRelationId',
+    'dlsiteCode',
     'type',
     'language',
     'platform',
@@ -47,9 +51,16 @@ export const GALGAME_INDEX_SETTINGS: Settings = {
     'exactness'
   ],
 
+  // 与 matchingStrategy:'all' 配套：仅剔除从不承载标题语义、jieba 下能干净切出的虚词/连词。
+  // 否则 的/之 会成为「必含词」，让「时间奏响的」这类部分标题命中一切共享 时间+的 的无关标题。
+  // 刻意保守：不含代词(你/我/她)、否定(不)、兼作名词/动词的同形词(地/得/着/是/在/有)；含简繁双形(与/與)
+  stopWords: ['的', '之', '了', '而', '与', '與', '及', '或'],
+
   typoTolerance: {
     enabled: true,
-    minWordSizeForTypos: { oneTypo: 4, twoTypos: 8 }
+    minWordSizeForTypos: { oneTypo: 4, twoTypos: 8 },
+    // 外部 ID 是精确 token，容错会造成错号命中（如 v1965 模糊匹配 v1985）
+    disableOnAttributes: ['vndbId', 'vndbRelationId', 'dlsiteCode']
   },
 
   // 站内俗称/缩写词库，上线后按零结果搜索词持续补充

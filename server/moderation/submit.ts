@@ -84,17 +84,21 @@ export const hasPendingModeration = async (
 }
 
 // 删除内容时清理尚未有最终裁决的任务 (pending / 失败转人工),
-// 已 approved/rejected 的任务保留作历史记录
+// 已 approved/rejected 的任务保留作历史记录.
+// excludeDryRun: 内容仍存在 (管理员改 status) 时置 true —— dry_run 任务在 apply
+// 中 claim 后即返回、永不改动内容, 无需作废, 保留其评估数据
 export const deletePendingModerationTasks = async (
   contentType: ModerationContentType,
   contentId: number | number[],
-  db: ModerationClient = prisma
+  db: ModerationClient = prisma,
+  excludeDryRun = false
 ) =>
   db.moderation_task.deleteMany({
     where: {
       content_type: contentType,
       content_id: Array.isArray(contentId) ? { in: contentId } : contentId,
-      status: { in: ['pending', 'manual'] }
+      status: { in: ['pending', 'manual'] },
+      ...(excludeDryRun ? { dry_run: false } : {})
     }
   })
 

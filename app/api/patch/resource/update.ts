@@ -47,6 +47,11 @@ export const updatePatchResource = async (
     if (await hasPendingModeration('resource', { contentId: resourceId })) {
       return '您发布的资源正在审核中, 暂时无法修改'
     }
+    // status=1 (屏蔽): 管理员 shadow ban 不产生审核任务, 放行编辑会重新送审,
+    // AI 通过后 status 1→0 静默解除管理员的封禁
+    if (resource.status === 1) {
+      return '您发布的资源正在审核中, 暂时无法修改'
+    }
   }
 
   const currentPatch = await prisma.patch.findUnique({

@@ -4,6 +4,7 @@ import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { queueSearchSync } from '~/server/search/sync'
 import { adminUpdateResourceHiddenSchema } from '~/validations/admin'
+import { deletePendingModerationTasks } from '~/server/moderation/submit'
 
 const statusLabel: Record<number, string> = {
   0: '正常',
@@ -46,6 +47,12 @@ export const updateResourceHidden = async (
   const patchIds = [...new Set(targets.map((resource) => resource.patch_id))]
 
   await prisma.$transaction(async (prisma) => {
+    // 先作废在途审核任务再改 status: 锁顺序 (task→资源行) 与 worker apply 对齐,
+    // 消除与 worker 的 AB-BA 死锁; 管理员裁决为最终, 在途裁决不应再覆盖.
+    // (作者编辑路径锁序相反, 但非特权作者被 hasPendingModeration 挡在事务外)
+    // 传 excludeDryRun=true: 资源仍在, 保留不改内容的 dry_run 评估任务
+    await deletePendingModerationTasks('resource', targetIds, prisma, true)
+
     await prisma.patch_resource.updateMany({
       where: { id: { in: targetIds }, status: { in: fromStatuses } },
       data: { status }

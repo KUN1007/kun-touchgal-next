@@ -36,6 +36,11 @@ export const updateComment = async (
   ) {
     return '您发布的评论正在审核中, 暂时无法修改'
   }
+  // status=1 (屏蔽): 管理员 shadow ban 不产生审核任务, 上面的 hasPendingModeration
+  // 拦不住; 若放行编辑会重新送审, AI 通过后 status 1→0 静默解除管理员的封禁
+  if (userRole < 3 && comment.status === 1) {
+    return '您发布的评论正在审核中, 暂时无法修改'
+  }
 
   let contentHtml = ''
   let contentHtmlVersion = 0

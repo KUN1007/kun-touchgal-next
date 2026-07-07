@@ -41,6 +41,11 @@ export const updatePatchRating = async (
   ) {
     return '您发布的评价正在审核中, 暂时无法修改'
   }
+  // status=1 (屏蔽): 管理员 shadow ban 不产生审核任务, hasPendingModeration
+  // 拦不住; 放行编辑会重新送审, AI 通过后 status 1→0 静默解除管理员的封禁
+  if (userRole < 3 && rating.status === 1) {
+    return '您发布的评价正在审核中, 暂时无法修改'
+  }
 
   // 编辑评价文本后必须重新送审, 防止先发正常内容再改成违规绕过审核
   const moderation =

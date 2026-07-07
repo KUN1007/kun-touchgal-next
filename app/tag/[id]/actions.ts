@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { safeParseSchema } from '~/utils/actions/safeParseSchema'
 import { getTagById } from '~/app/api/tag/get'
 import { getPatchByTag } from '~/app/api/tag/galgame/service'
-import { getPatchVisibilityWhere } from '~/utils/actions/getPatchVisibilityWhere'
+import { getPatchVisibilityContext } from '~/utils/actions/getPatchVisibilityContext'
 import { getPatchByTagSchema, getTagByIdSchema } from '~/validations/tag'
 
 export const kunGetTagByIdActions = async (
@@ -27,8 +27,8 @@ export const kunTagGalgameActions = async (
     return input
   }
 
-  const visibilityWhere = await getPatchVisibilityWhere()
+  const visibility = await getPatchVisibilityContext()
 
-  const response = await getPatchByTag(input, visibilityWhere)
+  const response = await getPatchByTag(input, visibility)
   return response
 }

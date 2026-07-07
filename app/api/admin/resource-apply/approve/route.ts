@@ -7,6 +7,7 @@ import { kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { approvePatchResourceSchema } from '~/validations/admin'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { queueSearchSync } from '~/server/search/sync'
 
 const approvePatchResource = async (
   input: z.infer<typeof approvePatchResourceSchema>,
@@ -57,6 +58,8 @@ const approvePatchResource = async (
 
     return {}
   })
+
+  queueSearchSync(resource.patch_id)
 
   if (resource.section === 'patch') {
     await invalidateResourceListCache()

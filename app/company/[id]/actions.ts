@@ -8,7 +8,7 @@ import {
   getCompanyByIdSchema,
   getPatchByCompanySchema
 } from '~/validations/company'
-import { getPatchVisibilityWhere } from '~/utils/actions/getPatchVisibilityWhere'
+import { getPatchVisibilityContext } from '~/utils/actions/getPatchVisibilityContext'
 
 export const kunGetCompanyByIdActions = async (
   params: z.infer<typeof getCompanyByIdSchema>
@@ -30,8 +30,8 @@ export const kunCompanyGalgameActions = async (
     return input
   }
 
-  const visibilityWhere = await getPatchVisibilityWhere()
+  const visibility = await getPatchVisibilityContext()
 
-  const response = await getPatchByCompany(input, visibilityWhere)
+  const response = await getPatchByCompany(input, visibility)
   return response
 }

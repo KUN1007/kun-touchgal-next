@@ -7,6 +7,7 @@ import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
+import { queueSearchSync } from '~/server/search/sync'
 import { purgeCloudflareCache } from '~/app/api/utils/purgeCloudflareCache'
 import { copyObject, deleteFileFromS3 } from '~/lib/s3'
 import {
@@ -237,6 +238,7 @@ export const applyModerationVerdict = async (
     await recomputePatchRatingStat(ratingPatchId)
   }
   if (resourcePatchId !== null) {
+    queueSearchSync(resourcePatchId)
     await invalidateResourceListCache()
   }
   if (task.content_type === 'avatar') {

@@ -3,6 +3,7 @@ import { prisma } from '~/prisma/index'
 import { deletePatchResourceLink } from './resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
+import { queueSearchRemove } from '~/server/search/sync'
 
 const patchIdSchema = z.object({
   patchId: z.coerce.number().min(1).max(9999999)
@@ -80,6 +81,8 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
 
     return {}
   })
+
+  queueSearchRemove(patchId)
 
   if (
     patchResources.some(

@@ -6,6 +6,7 @@ import { markdownToHtml } from '~/app/api/utils/render/markdownToHtml'
 import { bindUploadedResource, recalcPatchType } from './_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
+import { queueSearchSync } from '~/server/search/sync'
 import {
   MODERATION_SKIP,
   createModerationTask,
@@ -172,6 +173,10 @@ export const createPatchResource = async (
 
     return resource
   })
+
+  if (currentPatch) {
+    queueSearchSync(patchId)
+  }
   await invalidateUserSession(uid)
 
   if (resource.status === 0 && resource.section === 'patch') {

@@ -11,10 +11,58 @@ import {
   buildGalgameWhere
 } from '~/app/api/utils/galgameQuery'
 import { parseGalgameFilterArray } from '~/utils/galgameFilter'
+import { isMeiliEnabled } from '~/lib/meilisearch'
+import {
+  buildGalgameSearchFilter,
+  buildGalgameSearchSort
+} from '~/server/search/filter-builder'
+import {
+  fetchGalgameCardsByIds,
+  queryGalgameIndex
+} from '~/server/search/query'
+import type { PatchVisibilityContext } from '~/app/api/utils/getPatchVisibilityContext'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 
-export const getPatchByTag = async (
+const getPatchByTagFromSearch = async (
   input: z.infer<typeof getPatchByTagSchema>,
+  years: string[],
+  months: string[],
+  visibility: PatchVisibilityContext
+) => {
+  const filter = buildGalgameSearchFilter({
+    selectedType: input.selectedType,
+    selectedLanguage: input.selectedLanguage,
+    selectedPlatform: input.selectedPlatform,
+    years,
+    months,
+    minRatingCount: input.sortField === 'rating' ? input.minRatingCount : 0,
+    contentLimit: visibility.contentLimit,
+    blockedTagIds: visibility.blockedTagIds,
+    tagId: input.tagId
+  })
+  if (filter === null) {
+    return { galgames: [] as GalgameCard[], total: 0 }
+  }
+
+  const { ids, total } = await queryGalgameIndex({
+    q: '',
+    filter,
+    sort: buildGalgameSearchSort(input.sortField, input.sortOrder),
+    page: input.page,
+    hitsPerPage: input.limit
+  })
+
+  return {
+    galgames: await fetchGalgameCardsByIds(ids, visibility.visibilityWhere),
+    total
+  }
+}
+
+// 旧 Prisma 实现：Meilisearch 不可用时的运行时降级路径，勿删
+const legacyGetPatchByTag = async (
+  input: z.infer<typeof getPatchByTagSchema>,
+  years: string[],
+  months: string[],
   visibilityWhere: Prisma.patchWhereInput
 ) => {
   const {
@@ -26,13 +74,9 @@ export const getPatchByTag = async (
     selectedType,
     selectedLanguage,
     selectedPlatform,
-    yearString,
-    monthString,
     minRatingCount
   } = input
   const offset = (page - 1) * limit
-  const years = parseGalgameFilterArray(yearString)
-  const months = parseGalgameFilterArray(monthString)
   const orderBy = { patch: buildGalgameOrderBy(sortField, sortOrder) }
   const patchWhere = {
     ...buildGalgameDateFilter(years, months),
@@ -81,4 +125,23 @@ export const getPatchByTag = async (
   })
 
   return { galgames, total }
+}
+
+export const getPatchByTag = async (
+  input: z.infer<typeof getPatchByTagSchema>,
+  visibility: PatchVisibilityContext
+) => {
+  const years = parseGalgameFilterArray(input.yearString)
+  const months = parseGalgameFilterArray(input.monthString)
+
+  if (isMeiliEnabled()) {
+    try {
+      return await getPatchByTagFromSearch(input, years, months, visibility)
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Meilisearch 标签列表查询失败，降级为 Prisma 实现:', error)
+    }
+  }
+
+  return legacyGetPatchByTag(input, years, months, visibility.visibilityWhere)
 }

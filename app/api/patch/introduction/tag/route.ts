@@ -5,6 +5,7 @@ import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { patchTagChangeSchema } from '~/validations/patch'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
+import { queueSearchSync } from '~/server/search/sync'
 
 const handleAddPatchTag = async (
   input: z.infer<typeof patchTagChangeSchema>
@@ -58,6 +59,7 @@ export const POST = async (req: NextRequest) => {
 
   const changed = await handleAddPatchTag(input)
   if (changed) {
+    queueSearchSync(input.patchId)
     try {
       await invalidatePatchContentCache(patch.unique_id)
     } catch {
@@ -118,6 +120,7 @@ export const PUT = async (req: NextRequest) => {
 
   const changed = await handleRemovePatchTag(input)
   if (changed) {
+    queueSearchSync(input.patchId)
     try {
       await invalidatePatchContentCache(patch.unique_id)
     } catch {

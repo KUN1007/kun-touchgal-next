@@ -4,6 +4,7 @@ import { kunParsePostBody } from '~/app/api/utils/parseQuery'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { prisma } from '~/prisma/index'
 import { ensurePatchCompaniesFromVNDB } from '~/app/api/edit/fetchCompanies'
+import { queueSearchSync } from '~/server/search/sync'
 
 const fetchCompanySchema = z.object({
   patchId: z.coerce.number().min(1).max(9999999)
@@ -45,6 +46,8 @@ export const POST = async (req: NextRequest) => {
   if (result.related === 0) {
     return NextResponse.json('未能从 VNDB 获取到会社信息')
   }
+
+  queueSearchSync(input.patchId)
 
   const companies = await prisma.patch_company.findMany({
     where: {

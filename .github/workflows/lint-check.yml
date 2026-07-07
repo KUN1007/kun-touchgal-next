@@ -48,3 +48,6 @@ jobs:
 
       - name: Run Type Checking
         run: pnpm run typecheck
+
+      - name: Run Unit Tests
+        run: pnpm run test

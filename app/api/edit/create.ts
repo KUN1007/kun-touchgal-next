@@ -7,6 +7,7 @@ import { kunMoyuMoe } from '~/config/moyu-moe'
 import { postToIndexNow } from './_postToIndexNow'
 import { processSubmittedExternalData } from './processExternalData'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
+import { queueSearchSync } from '~/server/search/sync'
 
 type CreateGalgameInput = Omit<
   z.infer<typeof patchCreateSchema>,
@@ -166,6 +167,8 @@ export const createGalgame = async (input: CreateGalgameInput, uid: number) => {
     tag,
     uid
   )
+
+  queueSearchSync(res.patchId)
 
   if (contentLimit === 'sfw') {
     const newPatchUrl = `${kunMoyuMoe.domain.main}/${galgameUniqueId}`

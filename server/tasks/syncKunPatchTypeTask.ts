@@ -1,6 +1,7 @@
 import { prisma } from '~/prisma'
 import cron from 'node-cron'
 import { KUN_PATCH_WEBSITE_SYNC_PATCH_TYPE_ENDPOINT } from '~/config/external-api'
+import { queueSearchSync } from '~/server/search/sync'
 import { withTaskLock } from './withTaskLock'
 
 const SYNC_PATCH_TYPE_LOCK_KEY = 'cron:sync-kun-patch-type:lock'
@@ -29,11 +30,29 @@ const syncKunPatchType = async () => {
         return
       }
 
-      const updateResult = await prisma.patch.updateMany({
+      // 先取受影响的 id, 更新后据此增量同步搜索索引
+      const patchesToUpdate = await prisma.patch.findMany({
         where: {
           vndb_id: {
             in: vndbIdsToAddPatch
           },
+          NOT: {
+            type: {
+              has: 'patch'
+            }
+          }
+        },
+        select: { id: true }
+      })
+      if (patchesToUpdate.length === 0) {
+        return
+      }
+
+      // 复查 NOT 守卫：findMany 与此处之间若有并发写入已补上 'patch'，
+      // 直接 push 会造成数组元素重复
+      const updateResult = await prisma.patch.updateMany({
+        where: {
+          id: { in: patchesToUpdate.map((p) => p.id) },
           NOT: {
             type: {
               has: 'patch'
@@ -46,6 +65,10 @@ const syncKunPatchType = async () => {
           }
         }
       })
+
+      for (const { id } of patchesToUpdate) {
+        queueSearchSync(id)
+      }
 
       console.log(
         `Successfully updated ${updateResult.count} patch records. Task finished.`

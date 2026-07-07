@@ -7,8 +7,24 @@ import {
   GalgameCardSelectField,
   toGalgameCardCount
 } from '~/constants/api/select'
-import { getPatchVisibilityWhere } from '~/app/api/utils/getPatchVisibilityWhere'
+import { getPatchVisibilityContext } from '~/app/api/utils/getPatchVisibilityContext'
 import { Prisma } from '~/prisma/generated/prisma/client'
+import { isMeiliEnabled } from '~/lib/meilisearch'
+import {
+  buildAttributesToSearchOn,
+  buildGalgameSearchFilter,
+  buildGalgameSearchSort,
+  buildSearchQuery
+} from '~/server/search/filter-builder'
+import {
+  fetchGalgameCardsByIds,
+  queryGalgameIndex
+} from '~/server/search/query'
+import {
+  resolveCompanyIdsByName,
+  resolveTagIdsByName
+} from '~/server/search/resolve'
+import type { PatchVisibilityContext } from '~/app/api/utils/getPatchVisibilityContext'
 import type { SearchSuggestionType } from '~/types/api/search'
 import {
   buildGalgameDateFilter,
@@ -16,7 +32,103 @@ import {
   buildGalgameWhere
 } from '../utils/galgameQuery'
 
-const searchGalgame = async (
+const normalizeMode = (mode: SearchSuggestionType['mode'] | undefined) =>
+  mode === 'exclude' ? 'exclude' : 'include'
+
+const searchGalgameWithMeili = async (
+  input: z.infer<typeof searchSchema>,
+  visibility: PatchVisibilityContext
+) => {
+  const {
+    queryString,
+    limit,
+    searchOption,
+    page,
+    selectedType = 'all',
+    selectedLanguage = 'all',
+    selectedPlatform = 'all',
+    sortField,
+    sortOrder,
+    selectedYears = ['all'],
+    selectedMonths = ['all'],
+    minRatingCount
+  } = input
+
+  const query = JSON.parse(queryString) as SearchSuggestionType[]
+
+  const keywords = (mode: 'include' | 'exclude') =>
+    query
+      .filter(
+        (item) => item.type === 'keyword' && normalizeMode(item.mode) === mode
+      )
+      .map((item) => item.name.trim())
+      .filter(Boolean)
+
+  const suggestions = (type: 'tag' | 'company', mode: 'include' | 'exclude') =>
+    query.filter(
+      (item) => item.type === type && normalizeMode(item.mode) === mode
+    )
+
+  // 有 id 的建议项直接用 id；无 id 的按名称/别名解析为 id 集合
+  const resolveGroups = (
+    items: SearchSuggestionType[],
+    resolveByName: (name: string) => Promise<number[]>
+  ) =>
+    Promise.all(
+      items.map((item) =>
+        typeof item.id === 'number'
+          ? Promise.resolve([item.id])
+          : resolveByName(item.name)
+      )
+    )
+
+  const [
+    includeTagIdGroups,
+    excludeTagIdGroups,
+    includeCompanyIdGroups,
+    excludeCompanyIdGroups
+  ] = await Promise.all([
+    resolveGroups(suggestions('tag', 'include'), resolveTagIdsByName),
+    resolveGroups(suggestions('tag', 'exclude'), resolveTagIdsByName),
+    resolveGroups(suggestions('company', 'include'), resolveCompanyIdsByName),
+    resolveGroups(suggestions('company', 'exclude'), resolveCompanyIdsByName)
+  ])
+
+  const filter = buildGalgameSearchFilter({
+    selectedType,
+    selectedLanguage,
+    selectedPlatform,
+    years: selectedYears,
+    months: selectedMonths,
+    minRatingCount: sortField === 'rating' ? minRatingCount : 0,
+    contentLimit: visibility.contentLimit,
+    blockedTagIds: visibility.blockedTagIds,
+    includeTagIdGroups,
+    includeCompanyIdGroups,
+    excludeTagIds: excludeTagIdGroups.flat(),
+    excludeCompanyIds: excludeCompanyIdGroups.flat()
+  })
+  if (filter === null) {
+    return { galgames: [] as GalgameCard[], total: 0 }
+  }
+
+  const { ids, total } = await queryGalgameIndex({
+    q: buildSearchQuery(keywords('include'), keywords('exclude')),
+    filter,
+    sort: buildGalgameSearchSort(sortField, sortOrder),
+    page,
+    hitsPerPage: limit,
+    attributesToSearchOn: buildAttributesToSearchOn(searchOption)
+  })
+
+  return {
+    galgames: await fetchGalgameCardsByIds(ids, visibility.visibilityWhere),
+    total
+  }
+}
+
+// 旧 Prisma 实现：Meilisearch 不可用时的运行时降级路径，勿删
+const legacySearchGalgame = async (
   input: z.infer<typeof searchSchema>,
   visibilityWhere: Prisma.patchWhereInput
 ) => {
@@ -38,8 +150,6 @@ const searchGalgame = async (
   const insensitive = Prisma.QueryMode.insensitive
 
   const query = JSON.parse(queryString) as SearchSuggestionType[]
-  const normalizeMode = (mode: SearchSuggestionType['mode'] | undefined) =>
-    mode === 'exclude' ? 'exclude' : 'include'
 
   const buildKeywordCondition = (keyword: string): Prisma.patchWhereInput => ({
     OR: [
@@ -289,8 +399,18 @@ export const POST = async (req: NextRequest) => {
   if (typeof input === 'string') {
     return NextResponse.json(input)
   }
-  const visibilityWhere = await getPatchVisibilityWhere(req)
+  const visibility = await getPatchVisibilityContext(req)
 
-  const response = await searchGalgame(input, visibilityWhere)
+  if (isMeiliEnabled()) {
+    try {
+      const response = await searchGalgameWithMeili(input, visibility)
+      return NextResponse.json(response)
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Meilisearch 搜索失败，降级为 Prisma 实现:', error)
+    }
+  }
+
+  const response = await legacySearchGalgame(input, visibility.visibilityWhere)
   return NextResponse.json(response)
 }

@@ -64,7 +64,11 @@ export const envSchema = z.object({
   MODERATION_AI_BASE_URL: z.string().url().optional(),
   MODERATION_AI_API_KEY: z.string().optional(),
   MODERATION_AI_TEXT_MODEL: z.string().optional(),
-  MODERATION_AI_VISION_MODEL: z.string().optional()
+  MODERATION_AI_VISION_MODEL: z.string().optional(),
+
+  MEILISEARCH_HOST: z.string().url().optional(),
+  MEILISEARCH_ADMIN_API_KEY: z.string().optional(),
+  KUN_MEILISEARCH_ENABLED: z.enum(['true', 'false']).optional()
 })
 
 export const env = envSchema.safeParse(process.env)

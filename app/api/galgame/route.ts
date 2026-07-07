@@ -6,7 +6,7 @@ import {
   ALL_SUPPORTED_PLATFORM,
   ALL_SUPPORTED_TYPE
 } from '~/constants/resource'
-import { getPatchVisibilityWhere } from '~/app/api/utils/getPatchVisibilityWhere'
+import { getPatchVisibilityContext } from '~/app/api/utils/getPatchVisibilityContext'
 import { getGalgame } from './service'
 export const GET = async (req: NextRequest) => {
   const input = kunParseGetQuery(req, galgameSchema)
@@ -21,8 +21,8 @@ export const GET = async (req: NextRequest) => {
     return NextResponse.json('请选择我们支持的 Galgame 排序类型')
   }
 
-  const visibilityWhere = await getPatchVisibilityWhere(req)
+  const visibility = await getPatchVisibilityContext(req)
 
-  const response = await getGalgame(input, visibilityWhere)
+  const response = await getGalgame(input, visibility)
   return NextResponse.json(response)
 }

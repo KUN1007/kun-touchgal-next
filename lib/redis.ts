@@ -254,6 +254,24 @@ export const getKvSetMembers = async (key: string) => {
   return runRedisCommand(() => redis.smembers(keyString))
 }
 
+export const addKvSetMembers = async (key: string, members: string[]) => {
+  if (members.length === 0) {
+    return
+  }
+
+  const keyString = `${KUN_PATCH_REDIS_PREFIX}:${key}`
+  await runRedisCommand(() => redis.sadd(keyString, ...members))
+}
+
+export const removeKvSetMembers = async (key: string, members: string[]) => {
+  if (members.length === 0) {
+    return
+  }
+
+  const keyString = `${KUN_PATCH_REDIS_PREFIX}:${key}`
+  await runRedisCommand(() => redis.srem(keyString, ...members))
+}
+
 export const setKvAndExpireKvIfTtlLessThan = async (
   key: string,
   value: string,

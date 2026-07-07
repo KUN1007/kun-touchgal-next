@@ -4,7 +4,7 @@ import { prisma } from '~/prisma'
 import { getPatchByCompanySchema } from '~/validations/company'
 import { kunParseGetQuery } from '~/app/api/utils/parseQuery'
 import { GalgameCardSelectField } from '~/constants/api/select'
-import { getPatchVisibilityWhere } from '~/app/api/utils/getPatchVisibilityWhere'
+import { getPatchVisibilityContext } from '~/app/api/utils/getPatchVisibilityContext'
 import {
   ALL_SUPPORTED_LANGUAGE,
   ALL_SUPPORTED_PLATFORM,
@@ -30,8 +30,8 @@ export const GET = async (req: NextRequest) => {
     return NextResponse.json('请选择我们支持的 Galgame 排序类型')
   }
 
-  const visibilityWhere = await getPatchVisibilityWhere(req)
+  const visibility = await getPatchVisibilityContext(req)
 
-  const response = await getPatchByCompany(input, visibilityWhere)
+  const response = await getPatchByCompany(input, visibility)
   return NextResponse.json(response)
 }

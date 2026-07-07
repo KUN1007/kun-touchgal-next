@@ -1,0 +1,204 @@
+import { describe, expect, it } from 'vitest'
+import {
+  buildAttributesToSearchOn,
+  buildGalgameSearchFilter,
+  buildGalgameSearchSort,
+  buildReleasedFilter,
+  buildSearchQuery
+} from '~/server/search/filter-builder'
+
+describe('buildReleasedFilter', () => {
+  it('years 含 all 时不过滤', () => {
+    expect(buildReleasedFilter(['all'], ['01'])).toBe('')
+  })
+
+  it('实际年份 + 月份为 all 时仅按年过滤', () => {
+    expect(buildReleasedFilter(['2024'], ['all'])).toBe(
+      'releasedYear IN ["2024"]'
+    )
+  })
+
+  it('实际年份 × 月份组合过滤', () => {
+    expect(buildReleasedFilter(['2023', '2024'], ['01', '02'])).toBe(
+      '(releasedYear IN ["2023", "2024"] AND releasedMonth IN ["01", "02"])'
+    )
+  })
+
+  it('future/unknown 不受月份约束', () => {
+    expect(buildReleasedFilter(['future', '2024'], ['01'])).toBe(
+      '(releasedYear IN ["future"] OR (releasedYear IN ["2024"] AND releasedMonth IN ["01"]))'
+    )
+  })
+
+  it('仅 unknown', () => {
+    expect(buildReleasedFilter(['unknown'], ['all'])).toBe(
+      'releasedYear IN ["unknown"]'
+    )
+  })
+})
+
+describe('buildGalgameSearchFilter', () => {
+  it('无任何条件时返回空字符串', () => {
+    expect(buildGalgameSearchFilter({})).toBe('')
+  })
+
+  it('type/language/platform 为 all 时不过滤', () => {
+    expect(
+      buildGalgameSearchFilter({
+        selectedType: 'all',
+        selectedLanguage: 'all',
+        selectedPlatform: 'all'
+      })
+    ).toBe('')
+  })
+
+  it('单维度筛选', () => {
+    expect(buildGalgameSearchFilter({ selectedType: 'pc' })).toBe('type = "pc"')
+    expect(buildGalgameSearchFilter({ selectedLanguage: 'zh-Hans' })).toBe(
+      'language = "zh-Hans"'
+    )
+    expect(buildGalgameSearchFilter({ selectedPlatform: 'windows' })).toBe(
+      'platform = "windows"'
+    )
+  })
+
+  it('字符串值中的引号被转义', () => {
+    expect(buildGalgameSearchFilter({ selectedType: 'p"c' })).toBe(
+      'type = "p\\"c"'
+    )
+  })
+
+  it('minRatingCount 大于 0 时生效', () => {
+    expect(buildGalgameSearchFilter({ minRatingCount: 10 })).toBe(
+      'ratingCount >= 10'
+    )
+    expect(buildGalgameSearchFilter({ minRatingCount: 0 })).toBe('')
+  })
+
+  it('内容分级三态', () => {
+    expect(buildGalgameSearchFilter({ contentLimit: 'sfw' })).toBe(
+      'contentLimit = "sfw"'
+    )
+    expect(buildGalgameSearchFilter({ contentLimit: 'nsfw' })).toBe(
+      'contentLimit = "nsfw"'
+    )
+    expect(buildGalgameSearchFilter({ contentLimit: null })).toBe('')
+  })
+
+  it('屏蔽标签升序排列后排除', () => {
+    expect(buildGalgameSearchFilter({ blockedTagIds: [3, 1] })).toBe(
+      'NOT tagIds IN [1, 3]'
+    )
+  })
+
+  it('标签页与会社页的定向过滤', () => {
+    expect(buildGalgameSearchFilter({ tagId: 42 })).toBe('tagIds = 42')
+    expect(buildGalgameSearchFilter({ companyId: 7 })).toBe('companyIds = 7')
+  })
+
+  it('include 组：单 id 用等值，多 id 用 IN，多组之间为 AND', () => {
+    expect(
+      buildGalgameSearchFilter({ includeTagIdGroups: [[5], [6, 2]] })
+    ).toBe('tagIds = 5 AND tagIds IN [2, 6]')
+    expect(buildGalgameSearchFilter({ includeCompanyIdGroups: [[9]] })).toBe(
+      'companyIds = 9'
+    )
+  })
+
+  it('include 组解析为空集时返回 null（不可能命中）', () => {
+    expect(buildGalgameSearchFilter({ includeTagIdGroups: [[]] })).toBeNull()
+    expect(
+      buildGalgameSearchFilter({ includeCompanyIdGroups: [[1], []] })
+    ).toBeNull()
+  })
+
+  it('exclude 集合合并排除', () => {
+    expect(buildGalgameSearchFilter({ excludeTagIds: [7, 2] })).toBe(
+      'NOT tagIds IN [2, 7]'
+    )
+    expect(buildGalgameSearchFilter({ excludeCompanyIds: [4] })).toBe(
+      'NOT companyIds IN [4]'
+    )
+  })
+
+  it('组合条件按 AND 连接', () => {
+    expect(
+      buildGalgameSearchFilter({
+        selectedType: 'pc',
+        selectedLanguage: 'zh-Hans',
+        years: ['2024'],
+        months: ['all'],
+        minRatingCount: 10,
+        contentLimit: 'sfw',
+        blockedTagIds: [1],
+        includeTagIdGroups: [[5]]
+      })
+    ).toBe(
+      'type = "pc" AND language = "zh-Hans" AND releasedYear IN ["2024"] AND ' +
+        'ratingCount >= 10 AND contentLimit = "sfw" AND NOT tagIds IN [1] AND tagIds = 5'
+    )
+  })
+})
+
+describe('buildGalgameSearchSort', () => {
+  it('排序字段映射与旧实现 buildGalgameOrderBy 一致', () => {
+    expect(buildGalgameSearchSort('created', 'desc')).toEqual(['created:desc'])
+    expect(buildGalgameSearchSort('resource_update_time', 'asc')).toEqual([
+      'resourceUpdateTime:asc'
+    ])
+    expect(buildGalgameSearchSort('view', 'desc')).toEqual(['view:desc'])
+    expect(buildGalgameSearchSort('download', 'desc')).toEqual([
+      'download:desc'
+    ])
+    expect(buildGalgameSearchSort('favorite', 'desc')).toEqual([
+      'favoriteCount:desc'
+    ])
+    expect(buildGalgameSearchSort('rating', 'asc')).toEqual(['avgRating:asc'])
+  })
+
+  it('未知字段返回空数组', () => {
+    expect(buildGalgameSearchSort('unknown', 'desc')).toEqual([])
+  })
+})
+
+describe('buildAttributesToSearchOn', () => {
+  const base = ['name', 'vndbId', 'vndbRelationId', 'dlsiteCode', 'company']
+
+  it('三个开关全关时仅搜基础字段', () => {
+    expect(
+      buildAttributesToSearchOn({
+        searchInIntroduction: false,
+        searchInAlias: false,
+        searchInTag: false
+      })
+    ).toEqual(base)
+  })
+
+  it('开关按需追加字段', () => {
+    expect(
+      buildAttributesToSearchOn({
+        searchInIntroduction: true,
+        searchInAlias: true,
+        searchInTag: true
+      })
+    ).toEqual([...base, 'alias', 'tag', 'introduction'])
+  })
+})
+
+describe('buildSearchQuery', () => {
+  it('包含关键词以空格连接', () => {
+    expect(buildSearchQuery(['魔女', '夜宴'], [])).toBe('魔女 夜宴')
+  })
+
+  it('排除关键词使用负向语法', () => {
+    expect(buildSearchQuery(['a'], ['b'])).toBe('a -b')
+  })
+
+  it('含空格的排除关键词加引号', () => {
+    expect(buildSearchQuery([], ['c d'])).toBe('-"c d"')
+  })
+
+  it('空输入返回空字符串', () => {
+    expect(buildSearchQuery([], [])).toBe('')
+  })
+})

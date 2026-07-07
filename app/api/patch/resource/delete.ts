@@ -4,6 +4,7 @@ import { deletePatchResourceLink, recalcPatchType } from './_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
+import { queueSearchSync } from '~/server/search/sync'
 
 const resourceIdSchema = z.object({
   resourceId: z.coerce
@@ -48,6 +49,8 @@ export const deleteResource = async (
     await recalcPatchType(patchResource.patch_id, prisma)
     return {}
   })
+
+  queueSearchSync(patchResource.patch_id)
   await invalidateUserSession(resourceUserUid)
 
   if (patchResource.status === 0 && patchResource.section === 'patch') {

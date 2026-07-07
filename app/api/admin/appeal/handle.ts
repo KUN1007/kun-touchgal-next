@@ -11,6 +11,7 @@ import { sendDeferredCommentNotifications } from '~/server/moderation/apply'
 import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { queueSearchSync } from '~/server/search/sync'
 import { deleteComment as adminDeleteComment } from '~/app/api/admin/comment/delete'
 import { deleteRating as adminDeleteRating } from '~/app/api/admin/rating/delete'
 import { deleteResource as adminDeleteResource } from '~/app/api/admin/resource/delete'
@@ -142,6 +143,9 @@ const approveAppeal = async (
     await recomputePatchRatingStat(patchId)
   }
   if (type === 'resource') {
+    if (patchId !== null) {
+      queueSearchSync(patchId)
+    }
     await invalidateResourceListCache()
   }
 

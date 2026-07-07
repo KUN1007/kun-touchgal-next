@@ -5,6 +5,7 @@ import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { prisma } from '~/prisma'
 import { patchCompanyChangeSchema } from '~/validations/patch'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
+import { queueSearchSync } from '~/server/search/sync'
 
 const handlePatchCompanyAction = (type: 'add' | 'delete') => {
   const isAdd = type === 'add'
@@ -75,6 +76,7 @@ export const POST = async (req: NextRequest) => {
 
   const changed = await handlePatchCompanyAction('add')(input)
   if (changed) {
+    queueSearchSync(input.patchId)
     try {
       await invalidatePatchContentCache(patch.unique_id)
     } catch {
@@ -108,6 +110,7 @@ export const PUT = async (req: NextRequest) => {
 
   const changed = await handlePatchCompanyAction('delete')(input)
   if (changed) {
+    queueSearchSync(input.patchId)
     try {
       await invalidatePatchContentCache(patch.unique_id)
     } catch {

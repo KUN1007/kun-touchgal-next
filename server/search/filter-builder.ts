@@ -1,0 +1,193 @@
+// 将 zod 校验后的筛选参数翻译为 Meilisearch filter 表达式。
+// 纯函数，语义逐项对照 app/api/utils/galgameQuery.ts 的 Prisma 实现
+
+export interface GalgameSearchFilterParams {
+  selectedType?: string
+  selectedLanguage?: string
+  selectedPlatform?: string
+  years?: string[]
+  months?: string[]
+  // 仅传入需要生效的值：/api/galgame 恒生效，其余端点仅 rating 排序时生效
+  minRatingCount?: number
+  contentLimit?: string | null
+  blockedTagIds?: number[]
+  tagId?: number
+  companyId?: number
+  // 每组是一条 AND 条件，组内 id 为 OR（对应无 id 建议项按名称解析出的集合）
+  includeTagIdGroups?: number[][]
+  excludeTagIds?: number[]
+  includeCompanyIdGroups?: number[][]
+  excludeCompanyIds?: number[]
+}
+
+const quote = (value: string) =>
+  `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+
+const inStringClause = (field: string, values: string[]) =>
+  `${field} IN [${values.map(quote).join(', ')}]`
+
+const inNumberClause = (field: string, values: number[]) =>
+  `${field} IN [${[...values].sort((a, b) => a - b).join(', ')}]`
+
+// 复刻 buildGalgameDateFilter：future/unknown 不受月份约束，
+// 实际年份在月份非 all 时按 年 × 月 组合过滤
+export const buildReleasedFilter = (
+  years: string[],
+  months: string[]
+): string => {
+  if (years.includes('all')) {
+    return ''
+  }
+
+  const specialYears = years.filter(
+    (year) => year === 'future' || year === 'unknown'
+  )
+  const exactYears = years.filter(
+    (year) => year !== 'future' && year !== 'unknown'
+  )
+
+  const clauses: string[] = []
+  if (specialYears.length > 0) {
+    clauses.push(inStringClause('releasedYear', specialYears))
+  }
+  if (exactYears.length > 0) {
+    const yearClause = inStringClause('releasedYear', exactYears)
+    if (months.includes('all')) {
+      clauses.push(yearClause)
+    } else {
+      clauses.push(
+        `(${yearClause} AND ${inStringClause('releasedMonth', months)})`
+      )
+    }
+  }
+
+  if (clauses.length === 0) {
+    return ''
+  }
+  return clauses.length === 1 ? clauses[0] : `(${clauses.join(' OR ')})`
+}
+
+// 返回 null 表示条件不可能命中（include 组解析为空集），调用方直接返回空结果
+export const buildGalgameSearchFilter = (
+  params: GalgameSearchFilterParams
+): string | null => {
+  const clauses: string[] = []
+
+  if (params.selectedType && params.selectedType !== 'all') {
+    clauses.push(`type = ${quote(params.selectedType)}`)
+  }
+  if (params.selectedLanguage && params.selectedLanguage !== 'all') {
+    clauses.push(`language = ${quote(params.selectedLanguage)}`)
+  }
+  if (params.selectedPlatform && params.selectedPlatform !== 'all') {
+    clauses.push(`platform = ${quote(params.selectedPlatform)}`)
+  }
+
+  const releasedClause = buildReleasedFilter(
+    params.years ?? ['all'],
+    params.months ?? ['all']
+  )
+  if (releasedClause) {
+    clauses.push(releasedClause)
+  }
+
+  if (params.minRatingCount && params.minRatingCount > 0) {
+    clauses.push(`ratingCount >= ${params.minRatingCount}`)
+  }
+
+  // 内容分级由服务端强制拼入，绝不信任前端传参
+  if (params.contentLimit) {
+    clauses.push(`contentLimit = ${quote(params.contentLimit)}`)
+  }
+  if (params.blockedTagIds && params.blockedTagIds.length > 0) {
+    clauses.push(`NOT ${inNumberClause('tagIds', params.blockedTagIds)}`)
+  }
+
+  if (params.tagId) {
+    clauses.push(`tagIds = ${params.tagId}`)
+  }
+  if (params.companyId) {
+    clauses.push(`companyIds = ${params.companyId}`)
+  }
+
+  for (const group of params.includeTagIdGroups ?? []) {
+    if (group.length === 0) {
+      return null
+    }
+    clauses.push(
+      group.length === 1 ? `tagIds = ${group[0]}` : inNumberClause('tagIds', group)
+    )
+  }
+  for (const group of params.includeCompanyIdGroups ?? []) {
+    if (group.length === 0) {
+      return null
+    }
+    clauses.push(
+      group.length === 1
+        ? `companyIds = ${group[0]}`
+        : inNumberClause('companyIds', group)
+    )
+  }
+
+  if (params.excludeTagIds && params.excludeTagIds.length > 0) {
+    clauses.push(`NOT ${inNumberClause('tagIds', params.excludeTagIds)}`)
+  }
+  if (params.excludeCompanyIds && params.excludeCompanyIds.length > 0) {
+    clauses.push(`NOT ${inNumberClause('companyIds', params.excludeCompanyIds)}`)
+  }
+
+  return clauses.join(' AND ')
+}
+
+// 排序字段映射，语义对照 buildGalgameOrderBy
+const SORT_FIELD_MAP: Record<string, string> = {
+  created: 'created',
+  resource_update_time: 'resourceUpdateTime',
+  view: 'view',
+  download: 'download',
+  favorite: 'favoriteCount',
+  rating: 'avgRating'
+}
+
+export const buildGalgameSearchSort = (
+  sortField: string,
+  sortOrder: 'asc' | 'desc'
+): string[] => {
+  const field = SORT_FIELD_MAP[sortField]
+  return field ? [`${field}:${sortOrder}`] : []
+}
+
+interface GalgameSearchOption {
+  searchInIntroduction: boolean
+  searchInAlias: boolean
+  searchInTag: boolean
+}
+
+// 对应旧实现的"按选项搜索"：name 与外部 ID 恒被搜索；
+// company 为有意的召回增强（旧实现关键词不搜会社名）
+export const buildAttributesToSearchOn = (
+  searchOption: GalgameSearchOption
+): string[] => [
+  'name',
+  'vndbId',
+  'vndbRelationId',
+  'dlsiteCode',
+  'company',
+  ...(searchOption.searchInAlias ? ['alias'] : []),
+  ...(searchOption.searchInTag ? ['tag'] : []),
+  ...(searchOption.searchInIntroduction ? ['introduction'] : [])
+]
+
+// 排除关键词使用 Meilisearch v1.8+ 负向关键词语法（-word / -"phrase"）
+const formatNegativeKeyword = (keyword: string) =>
+  /\s/.test(keyword)
+    ? `-"${keyword.replace(/"/g, '\\"')}"`
+    : `-${keyword}`
+
+export const buildSearchQuery = (
+  includedKeywords: string[],
+  excludedKeywords: string[]
+): string =>
+  [...includedKeywords, ...excludedKeywords.map(formatNegativeKeyword)]
+    .join(' ')
+    .trim()

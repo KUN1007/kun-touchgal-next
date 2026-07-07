@@ -10,6 +10,7 @@ import {
   recalcPatchType
 } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { queueSearchSync } from '~/server/search/sync'
 
 const declinePatchResource = async (
   input: z.infer<typeof declinePatchResourceSchema>,
@@ -59,6 +60,8 @@ const declinePatchResource = async (
 
     return {}
   })
+
+  queueSearchSync(resource.patch_id)
 
   if (resource.section === 'patch' && resource.status === 0) {
     await invalidateResourceListCache()

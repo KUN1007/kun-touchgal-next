@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { queueSearchSync } from '~/server/search/sync'
 import { adminUpdateResourceHiddenSchema } from '~/validations/admin'
 
 const statusLabel: Record<number, string> = {
@@ -66,6 +67,10 @@ export const updateResourceHidden = async (
       }
     })
   })
+
+  for (const patchId of patchIds) {
+    queueSearchSync(patchId)
+  }
 
   await invalidateResourceListCache()
 

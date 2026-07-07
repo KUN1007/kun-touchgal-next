@@ -8,6 +8,7 @@ import {
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
+import { queueSearchSync } from '~/server/search/sync'
 
 const resourceIdSchema = z.object({
   resourceId: z.coerce
@@ -63,6 +64,8 @@ export const deleteResource = async (
 
     return {}
   })
+
+  queueSearchSync(patchResource.patch_id)
 
   if (patchResource.status === 0 && patchResource.section === 'patch') {
     await invalidateResourceListCache()

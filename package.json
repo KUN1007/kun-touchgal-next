@@ -18,6 +18,10 @@
     "typecheck": "tsc --noEmit",
     "prisma:push": "pnpm prisma db push && pnpm prisma generate",
     "prisma:generate": "pnpm prisma generate",
+    "search:init": "esno scripts/search/init.ts",
+    "search:sync-all": "esno scripts/search/syncAll.ts",
+    "search:reconcile": "esno scripts/search/reconcile.ts",
+    "test": "vitest run",
     "start": "pm2 startOrRestart ecosystem.config.cjs",
     "stop": "pm2 delete ecosystem.config.cjs",
     "deploy:install": "esno scripts/deployInstall.ts",
@@ -85,6 +89,7 @@
     "localforage": "^1.10.0",
     "lucide-react": "^0.526.0",
     "lz-string": "^1.5.0",
+    "meilisearch": "^0.58.0",
     "next": "15.5.18",
     "next-mdx-remote": "^6.0.0",
     "next-themes": "^0.4.6",
@@ -190,6 +195,7 @@
     "stylelint-config-standard": "^38.0.0",
     "stylelint-order": "^7.0.0",
     "tailwindcss": "^4.1.11",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.9"
   }
 }

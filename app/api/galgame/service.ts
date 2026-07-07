@@ -15,6 +15,16 @@ import {
 } from '../utils/galgameQuery'
 import { buildVisibilityCacheKey } from '../utils/visibilityCacheKey'
 import { parseGalgameFilterArray } from '~/utils/galgameFilter'
+import { isMeiliEnabled } from '~/lib/meilisearch'
+import {
+  buildGalgameSearchFilter,
+  buildGalgameSearchSort
+} from '~/server/search/filter-builder'
+import {
+  fetchGalgameCardsByIds,
+  queryGalgameIndex
+} from '~/server/search/query'
+import type { PatchVisibilityContext } from '../utils/getPatchVisibilityContext'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 
 const normalizeFilterValues = (values: string[]) => [...new Set(values)].sort()
@@ -109,8 +119,46 @@ const setGalgameListCache = async (
   }
 }
 
-export const getGalgame = async (
+const getGalgameFromSearch = async (
   input: z.infer<typeof galgameSchema>,
+  years: string[],
+  months: string[],
+  visibility: PatchVisibilityContext
+): Promise<GalgameListResponse> => {
+  const filter = buildGalgameSearchFilter({
+    selectedType: input.selectedType,
+    selectedLanguage: input.selectedLanguage,
+    selectedPlatform: input.selectedPlatform,
+    years,
+    months,
+    // 列表端点的 minRatingCount 恒生效，与旧实现一致
+    minRatingCount: input.minRatingCount,
+    contentLimit: visibility.contentLimit,
+    blockedTagIds: visibility.blockedTagIds
+  })
+  if (filter === null) {
+    return { galgames: [], total: 0 }
+  }
+
+  const { ids, total } = await queryGalgameIndex({
+    q: '',
+    filter,
+    sort: buildGalgameSearchSort(input.sortField, input.sortOrder),
+    page: input.page,
+    hitsPerPage: input.limit
+  })
+
+  return {
+    galgames: await fetchGalgameCardsByIds(ids, visibility.visibilityWhere),
+    total
+  }
+}
+
+// 旧 Prisma 实现：Meilisearch 不可用时的运行时降级路径，勿删
+const getGalgameFromPrisma = async (
+  input: z.infer<typeof galgameSchema>,
+  years: string[],
+  months: string[],
   visibilityWhere: Prisma.patchWhereInput
 ): Promise<GalgameListResponse> => {
   const {
@@ -123,15 +171,6 @@ export const getGalgame = async (
     limit,
     minRatingCount
   } = input
-  const years = parseGalgameFilterArray(input.yearString)
-  const months = parseGalgameFilterArray(input.monthString)
-
-  const cacheKey = getGalgameListCacheKey(input, years, months, visibilityWhere)
-
-  const cached = await getCachedGalgameList(cacheKey)
-  if (cached.response) {
-    return cached.response
-  }
 
   const offset = (page - 1) * limit
   const dateFilter = buildGalgameDateFilter(years, months)
@@ -181,7 +220,47 @@ export const getGalgame = async (
       : 0
   }))
 
-  const response: GalgameListResponse = { galgames, total }
+  return { galgames, total }
+}
+
+export const getGalgame = async (
+  input: z.infer<typeof galgameSchema>,
+  visibility: PatchVisibilityContext
+): Promise<GalgameListResponse> => {
+  const years = parseGalgameFilterArray(input.yearString)
+  const months = parseGalgameFilterArray(input.monthString)
+
+  const cacheKey = getGalgameListCacheKey(
+    input,
+    years,
+    months,
+    visibility.visibilityWhere
+  )
+
+  const cached = await getCachedGalgameList(cacheKey)
+  if (cached.response) {
+    return cached.response
+  }
+
+  let response: GalgameListResponse | null = null
+  if (isMeiliEnabled()) {
+    try {
+      response = await getGalgameFromSearch(input, years, months, visibility)
+    } catch (error) {
+      logGalgameListCacheError(
+        'Meilisearch 列表查询失败，降级为 Prisma 实现:',
+        error
+      )
+    }
+  }
+  if (!response) {
+    response = await getGalgameFromPrisma(
+      input,
+      years,
+      months,
+      visibility.visibilityWhere
+    )
+  }
 
   if (cached.canWrite) {
     await setGalgameListCache(cacheKey, response)

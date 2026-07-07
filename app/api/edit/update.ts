@@ -3,6 +3,7 @@ import { prisma } from '~/prisma/index'
 import { patchUpdateSchema } from '~/validations/edit'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { processSubmittedExternalData } from './processExternalData'
+import { queueSearchSync } from '~/server/search/sync'
 
 export const updateGalgame = async (
   input: z.infer<typeof patchUpdateSchema>,
@@ -112,6 +113,8 @@ export const updateGalgame = async (
     input.tag,
     uid
   )
+
+  queueSearchSync(id)
 
   try {
     await invalidatePatchContentCache(patch.unique_id)

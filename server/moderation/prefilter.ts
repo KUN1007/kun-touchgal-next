@@ -116,6 +116,12 @@ export const isWhitelistedText = (raw: string) => {
   if (SUSPICIOUS_PATTERN.test(text)) {
     return false
   }
+  // 分隔符格式的联系方式 (手机号 / QQ) 可绕过连续 \d{5,} 检测,
+  // 短文本里数字总量达到联系方式量级时不走白名单快速放行
+  const digitCount = (text.match(/\p{Nd}/gu) ?? []).length
+  if (digitCount >= 5) {
+    return false
+  }
 
   let rest = text
   for (const word of WHITELIST_WORDS) {

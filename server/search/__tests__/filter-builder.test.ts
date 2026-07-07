@@ -141,19 +141,31 @@ describe('buildGalgameSearchFilter', () => {
 })
 
 describe('buildGalgameSearchSort', () => {
-  it('排序字段映射与旧实现 buildGalgameOrderBy 一致', () => {
-    expect(buildGalgameSearchSort('created', 'desc')).toEqual(['created:desc'])
-    expect(buildGalgameSearchSort('resource_update_time', 'asc')).toEqual([
-      'resourceUpdateTime:asc'
+  it('排序字段映射与旧实现一致，并追加 id 稳定 tiebreaker', () => {
+    expect(buildGalgameSearchSort('created', 'desc')).toEqual([
+      'created:desc',
+      'id:desc'
     ])
-    expect(buildGalgameSearchSort('view', 'desc')).toEqual(['view:desc'])
+    expect(buildGalgameSearchSort('resource_update_time', 'asc')).toEqual([
+      'resourceUpdateTime:asc',
+      'id:desc'
+    ])
+    expect(buildGalgameSearchSort('view', 'desc')).toEqual([
+      'view:desc',
+      'id:desc'
+    ])
     expect(buildGalgameSearchSort('download', 'desc')).toEqual([
-      'download:desc'
+      'download:desc',
+      'id:desc'
     ])
     expect(buildGalgameSearchSort('favorite', 'desc')).toEqual([
-      'favoriteCount:desc'
+      'favoriteCount:desc',
+      'id:desc'
     ])
-    expect(buildGalgameSearchSort('rating', 'asc')).toEqual(['avgRating:asc'])
+    expect(buildGalgameSearchSort('rating', 'asc')).toEqual([
+      'avgRating:asc',
+      'id:desc'
+    ])
   })
 
   it('未知字段返回空数组', () => {
@@ -190,12 +202,25 @@ describe('buildSearchQuery', () => {
     expect(buildSearchQuery(['魔女', '夜宴'], [])).toBe('魔女 夜宴')
   })
 
-  it('排除关键词使用负向语法', () => {
-    expect(buildSearchQuery(['a'], ['b'])).toBe('a -b')
+  it('词首 - 从包含关键词中剥离，避免翻转为排除', () => {
+    expect(buildSearchQuery(['ATRI -My Dear Moments-'], [])).toBe(
+      'ATRI My Dear Moments-'
+    )
   })
 
-  it('含空格的排除关键词加引号', () => {
+  it('词中 - 不受影响', () => {
+    expect(buildSearchQuery(['9-nine-'], [])).toBe('9-nine-')
+  })
+
+  it('排除关键词统一 quote 成负向 phrase', () => {
+    expect(buildSearchQuery(['a'], ['b'])).toBe('a -"b"')
     expect(buildSearchQuery([], ['c d'])).toBe('-"c d"')
+  })
+
+  it('双引号替换为空格，防 phrase 提前闭合或吞并后续查询', () => {
+    expect(buildSearchQuery(['a"b'], ['c'])).toBe('a b -"c"')
+    expect(buildSearchQuery([], ['c"d'])).toBe('-"c d"')
+    expect(buildSearchQuery(['"'], ['"'])).toBe('')
   })
 
   it('空输入返回空字符串', () => {

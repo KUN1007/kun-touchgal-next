@@ -115,7 +115,9 @@ export const buildGalgameSearchFilter = (
       return null
     }
     clauses.push(
-      group.length === 1 ? `tagIds = ${group[0]}` : inNumberClause('tagIds', group)
+      group.length === 1
+        ? `tagIds = ${group[0]}`
+        : inNumberClause('tagIds', group)
     )
   }
   for (const group of params.includeCompanyIdGroups ?? []) {
@@ -133,7 +135,9 @@ export const buildGalgameSearchFilter = (
     clauses.push(`NOT ${inNumberClause('tagIds', params.excludeTagIds)}`)
   }
   if (params.excludeCompanyIds && params.excludeCompanyIds.length > 0) {
-    clauses.push(`NOT ${inNumberClause('companyIds', params.excludeCompanyIds)}`)
+    clauses.push(
+      `NOT ${inNumberClause('companyIds', params.excludeCompanyIds)}`
+    )
   }
 
   return clauses.join(' AND ')
@@ -149,12 +153,14 @@ const SORT_FIELD_MAP: Record<string, string> = {
   rating: 'avgRating'
 }
 
+// id 恒作末位稳定 tiebreaker：并列值的相对顺序否则取决于索引内部序，
+// 全量重建前后可能翻动，导致翻页重复/漏条
 export const buildGalgameSearchSort = (
   sortField: string,
   sortOrder: 'asc' | 'desc'
 ): string[] => {
   const field = SORT_FIELD_MAP[sortField]
-  return field ? [`${field}:${sortOrder}`] : []
+  return field ? [`${field}:${sortOrder}`, 'id:desc'] : []
 }
 
 interface GalgameSearchOption {
@@ -178,16 +184,31 @@ export const buildAttributesToSearchOn = (
   ...(searchOption.searchInIntroduction ? ['introduction'] : [])
 ]
 
-// 排除关键词使用 Meilisearch v1.8+ 负向关键词语法（-word / -"phrase"）
-const formatNegativeKeyword = (keyword: string) =>
-  /\s/.test(keyword)
-    ? `-"${keyword.replace(/"/g, '\\"')}"`
-    : `-${keyword}`
+// 词首的 - 会触发 Meilisearch v1.8+ 负向关键词语法，把「包含」翻转成「排除」
+// （如标题 "ATRI -My Dear Moments-"）；- 是分词分隔符，剥离不损失召回。
+// " 换成空格：不成对的引号会把后续查询串吞进 phrase，
+// 甚至让排除词变成必含词；" 同为分隔符，替换不损失召回
+const sanitizeIncludedKeyword = (keyword: string) =>
+  keyword
+    .replace(/"/g, ' ')
+    .replace(/(^|\s)-+(?=\S)/g, '$1')
+    .trim()
+
+// 排除关键词统一 quote 成负向 phrase（-"..."），避免词内 - 的负向范围歧义；
+// 查询串的 phrase 语法不支持转义，双引号换成空格防提前闭合
+const formatNegativeKeyword = (keyword: string) => {
+  const stripped = keyword.replace(/"/g, ' ').trim()
+  return stripped ? `-"${stripped}"` : ''
+}
 
 export const buildSearchQuery = (
   includedKeywords: string[],
   excludedKeywords: string[]
 ): string =>
-  [...includedKeywords, ...excludedKeywords.map(formatNegativeKeyword)]
+  [
+    ...includedKeywords.map(sanitizeIncludedKeyword),
+    ...excludedKeywords.map(formatNegativeKeyword)
+  ]
+    .filter(Boolean)
     .join(' ')
     .trim()

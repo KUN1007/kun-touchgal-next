@@ -33,10 +33,19 @@ export const GALGAME_INDEX_SETTINGS: Settings = {
     'view',
     'download',
     'favoriteCount',
-    'avgRating'
+    'avgRating',
+    // 仅作排序并列时的稳定 tiebreaker
+    'id'
   ],
 
-  rankingRules: ['words', 'typo', 'proximity', 'attribute', 'sort', 'exactness'],
+  rankingRules: [
+    'words',
+    'typo',
+    'proximity',
+    'attribute',
+    'sort',
+    'exactness'
+  ],
 
   typoTolerance: {
     enabled: true,

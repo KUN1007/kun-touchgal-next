@@ -1,0 +1,21 @@
+# Meilisearch 搜索引擎（可选服务）。仅内网监听，数据持久化到命名卷 meili_data。
+# 起停统一走 pnpm：pnpm search:engine（起，含健康等待）/ pnpm search:setup（首次全流程）。
+# 停止（保留数据卷）：docker compose down；彻底清空：docker compose down -v。
+# MEILI_MASTER_KEY 由 scripts/search/engine.ts 从项目根 .env 读出后经进程环境注入，
+# 不依赖 compose 自身对 .env 的解析，避免 `KEY = "value"` 这类格式差异导致密钥为空。
+services:
+  meilisearch:
+    image: getmeili/meilisearch:v1.15
+    container_name: kun-meilisearch
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:7700:7700'
+    environment:
+      MEILI_MASTER_KEY: '${MEILISEARCH_ADMIN_API_KEY:?需在 .env 配置或用 pnpm search:engine 启动}'
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: 'true'
+    volumes:
+      - meili_data:/meili_data
+
+volumes:
+  meili_data:

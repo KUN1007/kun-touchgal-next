@@ -21,6 +21,8 @@
     "search:init": "esno scripts/search/init.ts",
     "search:sync-all": "esno scripts/search/syncAll.ts",
     "search:reconcile": "esno scripts/search/reconcile.ts",
+    "search:engine": "esno scripts/search/engine.ts",
+    "search:setup": "esno scripts/search/setup.ts",
     "test": "vitest run",
     "start": "pm2 startOrRestart ecosystem.config.cjs",
     "stop": "pm2 delete ecosystem.config.cjs",

@@ -39,7 +39,7 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
   )
 
   const response = await prisma.$transaction(async (prisma) => {
-    // 级联删除会带走该游戏的全部评论/评价, 先收集 id 清理未决审核任务
+    // 级联删除会带走该游戏的全部评论/评价, 先收集 id 供删除后清理未决审核任务与申诉
     const [comments, ratings] = await Promise.all([
       prisma.patch_comment.findMany({
         where: { patch_id: patchId },
@@ -50,38 +50,6 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
         select: { id: true }
       })
     ])
-    await deletePendingModerationTasks(
-      'comment',
-      comments.map((comment) => comment.id),
-      prisma
-    )
-    await deletePendingModerationTasks(
-      'rating',
-      ratings.map((rating) => rating.id),
-      prisma
-    )
-    await deletePendingModerationTasks(
-      'resource',
-      patchResources.map((resource) => resource.id),
-      prisma
-    )
-    // 内容被级联删除, 一并作废其未处理的申诉; 申诉挂在存活的 rejected 任务上不会随内容级联,
-    // 否则会残留孤儿 pending 申诉滞留在管理员队列
-    await deletePendingAppeals(
-      'comment',
-      comments.map((comment) => comment.id),
-      prisma
-    )
-    await deletePendingAppeals(
-      'rating',
-      ratings.map((rating) => rating.id),
-      prisma
-    )
-    await deletePendingAppeals(
-      'resource',
-      patchResources.map((resource) => resource.id),
-      prisma
-    )
 
     if (patchResources.length > 0) {
       await Promise.all(
@@ -96,6 +64,39 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
     await prisma.patch.delete({
       where: { id: patchId }
     })
+
+    // 内容已级联删除, 删除后再清理其未决审核任务与未处理申诉 (content_id 无外键, 用删除前收集的 id);
+    // 清理置于删除后, 与 submitAppeal 的内容行锁配合, 杜绝并发申诉提交造成的 TOCTOU 孤儿
+    await deletePendingModerationTasks(
+      'comment',
+      comments.map((comment) => comment.id),
+      prisma
+    )
+    await deletePendingModerationTasks(
+      'rating',
+      ratings.map((rating) => rating.id),
+      prisma
+    )
+    await deletePendingModerationTasks(
+      'resource',
+      patchResources.map((resource) => resource.id),
+      prisma
+    )
+    await deletePendingAppeals(
+      'comment',
+      comments.map((comment) => comment.id),
+      prisma
+    )
+    await deletePendingAppeals(
+      'rating',
+      ratings.map((rating) => rating.id),
+      prisma
+    )
+    await deletePendingAppeals(
+      'resource',
+      patchResources.map((resource) => resource.id),
+      prisma
+    )
 
     return {}
   })

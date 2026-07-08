@@ -194,12 +194,32 @@ const rejectAppeal = async (
   const hiddenStatus = type === 'resource' ? 1 : 2
   const contentHidden = contentStatus === hiddenStatus
 
-  // 抢占后删除前发生任何失败, 都还原申诉为待处理, 避免"已拒绝但内容仍在"的不一致
-  const revertClaim = () =>
-    prisma.moderation_appeal.updateMany({
+  // 抢占后删除前发生任何失败, 都还原申诉为待处理, 避免"已拒绝但内容仍在"的不一致;
+  // 但内容若已被并发删除 (如整个 patch 被删), 则保持 rejected —— 复活 pending 只会造孤儿申诉
+  const revertClaim = async () => {
+    const contentExists =
+      type === 'comment'
+        ? !!(await prisma.patch_comment.findUnique({
+            where: { id: contentId },
+            select: { id: true }
+          }))
+        : type === 'rating'
+          ? !!(await prisma.patch_rating.findUnique({
+              where: { id: contentId },
+              select: { id: true }
+            }))
+          : !!(await prisma.patch_resource.findUnique({
+              where: { id: contentId },
+              select: { id: true }
+            }))
+    if (!contentExists) {
+      return
+    }
+    await prisma.moderation_appeal.updateMany({
       where: { id: appeal.id, status: 'rejected' },
       data: { status: 'pending', handled_by: null }
     })
+  }
 
   // 仅删除仍处于隐藏状态的内容; 已被其他途径恢复为可见的内容不删除, 只关闭申诉
   let contentDeleted = false

@@ -31,6 +31,41 @@ const checkContentAppealable = async (
   return !!resource && resource.user_id === uid && resource.status === 1
 }
 
+// 事务内业务失败, 回滚后把错误消息返回给调用方
+class SubmitAppealError extends Error {}
+
+// 用 FOR UPDATE 锁定目标内容行, 与并发的内容删除在该行上互斥;
+// 返回 false 表示内容已被删除或状态已变更 (不再是可申诉的隐藏态)
+const lockContentForAppeal = async (
+  contentType: string,
+  contentId: number,
+  uid: number,
+  tx: Prisma.TransactionClient
+) => {
+  if (contentType === 'comment') {
+    const rows = await tx.$queryRaw<{ id: number }[]>`
+      SELECT id FROM patch_comment
+      WHERE id = ${contentId} AND user_id = ${uid} AND status = 2
+      FOR UPDATE
+    `
+    return rows.length > 0
+  }
+  if (contentType === 'rating') {
+    const rows = await tx.$queryRaw<{ id: number }[]>`
+      SELECT id FROM patch_rating
+      WHERE id = ${contentId} AND user_id = ${uid} AND status = 2
+      FOR UPDATE
+    `
+    return rows.length > 0
+  }
+  const rows = await tx.$queryRaw<{ id: number }[]>`
+    SELECT id FROM patch_resource
+    WHERE id = ${contentId} AND user_id = ${uid} AND status = 1
+    FOR UPDATE
+  `
+  return rows.length > 0
+}
+
 export const submitAppeal = async (
   input: z.infer<typeof submitAppealSchema>,
   uid: number
@@ -97,16 +132,32 @@ export const submitAppeal = async (
             input.contentType === 'comment' ? input.content : input.shortSummary
         }
 
-  // 一次性创建; task_id 唯一约束兜底并发重复提交
-  await prisma.moderation_appeal.create({
-    data: {
-      content_type: input.contentType,
-      content_id: contentId,
-      task_id: task.id,
-      user_id: uid,
-      payload: payload as unknown as Prisma.InputJsonValue
+  // 事务内先 FOR UPDATE 锁内容行再重校验存活, 与并发的内容删除互斥:
+  // 删除先提交则此处锁到时内容已消失而拒绝; 本事务先提交则删除方在删内容后清理掉本申诉,
+  // 两个方向都不会残留孤儿 pending 申诉 (task_id 唯一约束仍兜底并发重复提交)
+  try {
+    await prisma.$transaction(async (tx) => {
+      if (
+        !(await lockContentForAppeal(input.contentType, contentId, uid, tx))
+      ) {
+        throw new SubmitAppealError('内容不存在或状态已变更, 无法申诉')
+      }
+      await tx.moderation_appeal.create({
+        data: {
+          content_type: input.contentType,
+          content_id: contentId,
+          task_id: task.id,
+          user_id: uid,
+          payload: payload as unknown as Prisma.InputJsonValue
+        }
+      })
+    })
+  } catch (error) {
+    if (error instanceof SubmitAppealError) {
+      return error.message
     }
-  })
+    throw error
+  }
 
   return {}
 }

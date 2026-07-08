@@ -9,6 +9,7 @@ import { KUN_MODERATION_VERDICT_CACHE_KEY } from '~/config/redis'
 import {
   MODERATION_BATCH_SIZE,
   MODERATION_CONCURRENCY,
+  MODERATION_LEASE_SECONDS,
   MODERATION_MAX_RETRY,
   MODERATION_VERDICT_CACHE_DURATION
 } from '~/constants/moderation'
@@ -146,8 +147,27 @@ const processAvatarTask = async (task: moderation_taskModel) => {
 // 缓存与黑名单为共享只读, 因此可安全并发
 const processTask = async (
   task: moderation_taskModel,
-  blacklistPatterns: string[]
+  blacklistPatterns: string[],
+  leaseStaleBefore: Date
 ) => {
+  // 认领: 在昂贵的 AI/S3 调用前先给这一行盖上租约. 全局锁失效或部署期两个 cron 短暂
+  // 并存时, 抢不到 (count 0) 的一方直接跳过, 同一任务永不被重复调用/重复扣费; 过期
+  // 租约 (崩溃 worker 遗留) 可被回收
+  const claim = await prisma.moderation_task.updateMany({
+    where: {
+      id: task.id,
+      status: 'pending',
+      // 与 fetch 谓词一致: 认领时二次校验 next_attempt, 避免并发下另一 worker 刚把
+      // 该行退避推后 (next_attempt 置未来、picked_at 清空) 时被本 worker 提前重试
+      next_attempt: { lte: new Date() },
+      OR: [{ picked_at: null }, { picked_at: { lt: leaseStaleBefore } }]
+    },
+    data: { picked_at: new Date() }
+  })
+  if (claim.count === 0) {
+    return
+  }
+
   try {
     if (task.content_type === 'avatar') {
       await processAvatarTask(task)
@@ -164,12 +184,14 @@ const processTask = async (
     if (retry >= MODERATION_MAX_RETRY) {
       await markTaskManual(task.id, `审核失败: ${String(error)}`)
     } else {
-      // exponential backoff: 5s, 25s
+      // exponential backoff: 5s, 25s; 清租约使 next_attempt 到点即可被重新认领,
+      // 无需干等租约自然过期
       await prisma.moderation_task.updateMany({
         where: { id: task.id, status: 'pending' },
         data: {
           retry,
-          next_attempt: new Date(Date.now() + 5 ** retry * 1000)
+          next_attempt: new Date(Date.now() + 5 ** retry * 1000),
+          picked_at: null
         }
       })
     }
@@ -217,8 +239,15 @@ const getBlacklistPatterns = async (): Promise<string[]> => {
 }
 
 const runModerationBatch = async () => {
+  // 早于此刻的租约视为过期 (worker 崩溃), 连同未认领的行一起纳入候选; 认领时按行
+  // 二次校验租约, 避免与仍在处理该行的其它 worker 撞车
+  const leaseStaleBefore = new Date(Date.now() - MODERATION_LEASE_SECONDS * 1000)
   const tasks = await prisma.moderation_task.findMany({
-    where: { status: 'pending', next_attempt: { lte: new Date() } },
+    where: {
+      status: 'pending',
+      next_attempt: { lte: new Date() },
+      OR: [{ picked_at: null }, { picked_at: { lt: leaseStaleBefore } }]
+    },
     orderBy: { created: 'asc' },
     take: MODERATION_BATCH_SIZE
   })
@@ -250,7 +279,7 @@ const runModerationBatch = async () => {
     let index: number
     while ((index = cursor++) < groupList.length) {
       for (const task of groupList[index]) {
-        await processTask(task, blacklistPatterns)
+        await processTask(task, blacklistPatterns, leaseStaleBefore)
       }
     }
   }

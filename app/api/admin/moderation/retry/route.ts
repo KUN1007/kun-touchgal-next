@@ -42,6 +42,8 @@ export const PUT = async (req: NextRequest) => {
       status: 'pending',
       retry: 0,
       next_attempt: new Date(),
+      // 清掉上次处理遗留的租约, 否则未过期的租约会阻塞重新认领
+      picked_at: null,
       reject_reason: ''
     }
   })

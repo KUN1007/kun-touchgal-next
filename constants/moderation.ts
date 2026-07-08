@@ -122,6 +122,12 @@ export const MODERATION_BATCH_SIZE = 10
 // 应 <= MODERATION_BATCH_SIZE
 export const MODERATION_CONCURRENCY = 5
 
+// 认领租约时长: 处理前给任务行盖时间戳, 期内其它 worker 不重复处理该行; 超过此窗口
+// 视为 worker 崩溃, 该行可被回收重跑. 须 > worker 锁 TTL (MODERATION_LOCK_TTL_SECONDS
+// = 300): 若二者相等, 锁刚过期时下一批次算出的 leaseStaleBefore 恰好越过在途行的
+// picked_at, 会把仍在处理的行误判为崩溃并回收, 与原批次并发跑出一次重复 AI 调用
+export const MODERATION_LEASE_SECONDS = 600
+
 // send head + tail when the text exceeds the limit; spam contact info
 // almost always sits at the very beginning or the very end
 export const MODERATION_TEXT_MAX_LENGTH = 2000

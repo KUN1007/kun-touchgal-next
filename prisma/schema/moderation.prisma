@@ -17,6 +17,9 @@ model moderation_task {
   tokens_out    Int       @default(0)
   retry         Int       @default(0)
   next_attempt  DateTime  @default(now())
+  // 认领租约: worker 处理前置为当前时间, 使锁失效/第二个 worker 抢不到同一行, 避免
+  // 重复调用 AI; 过期 (崩溃 worker 遗留) 的租约可被回收. null = 未认领
+  picked_at     DateTime?
   // dry run: verdict recorded but never applied, content stays public
   dry_run       Boolean   @default(false)
   reviewed      DateTime?

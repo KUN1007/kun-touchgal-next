@@ -196,6 +196,26 @@ const serializationKey = (task: moderation_taskModel): string => {
   }
 }
 
+// blacklist 只被这一个 cron 进程读、且极少变动, 进程内短 TTL 缓存即可, 免去每
+// 15s tick 的全表重载 (与 getModerationConfig 同一权衡: 命中即拒的新规则最长延迟
+// BLACKLIST_CACHE_DURATION_MS 生效)
+const BLACKLIST_CACHE_DURATION_MS = 60 * 1000
+
+let blacklistCache: { patterns: string[]; expire: number } | null = null
+
+const getBlacklistPatterns = async (): Promise<string[]> => {
+  const now = Date.now()
+  if (blacklistCache && blacklistCache.expire > now) {
+    return blacklistCache.patterns
+  }
+  const rows = await prisma.moderation_blacklist.findMany({
+    select: { pattern: true }
+  })
+  const patterns = rows.map((item) => item.pattern)
+  blacklistCache = { patterns, expire: now + BLACKLIST_CACHE_DURATION_MS }
+  return patterns
+}
+
 const runModerationBatch = async () => {
   const tasks = await prisma.moderation_task.findMany({
     where: { status: 'pending', next_attempt: { lte: new Date() } },
@@ -206,10 +226,9 @@ const runModerationBatch = async () => {
     return
   }
 
-  const blacklist = await prisma.moderation_blacklist.findMany({
-    select: { pattern: true }
-  })
-  const blacklistPatterns = blacklist.map((item) => item.pattern)
+  // blacklist 仅文本任务需要: 纯头像批跳过查询, 其余走进程内缓存
+  const needsBlacklist = tasks.some((task) => task.content_type !== 'avatar')
+  const blacklistPatterns = needsBlacklist ? await getBlacklistPatterns() : []
 
   // 把会相互竞态的任务归到同组 (组内串行), 再以有界并发处理各组: 一次慢的 vision
   // 调用不再阻塞排在其后的缓存/文本裁决. 批次只取一次, 并发 worker 通过 cursor++

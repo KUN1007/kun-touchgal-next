@@ -6,6 +6,7 @@ import {
   getKvSetMembers,
   setKvsAndAddKvSetMembers
 } from '~/lib/redis'
+import { decryptClientSecret } from './secret'
 import type { Adapter, AdapterFactory, AdapterPayload } from 'oidc-provider'
 
 // 带 grantId 的可撤销对象，需登记到 grant 索引集合供 revokeByGrantId 使用。
@@ -43,10 +44,12 @@ const createClientAdapter = (): Adapter => ({
       response_types: row.response_types as AdapterPayload['response_types'],
       scope: row.scopes.join(' '),
       token_endpoint_auth_method:
-        row.token_endpoint_auth_method as AdapterPayload['token_endpoint_auth_method']
+        row.token_endpoint_auth_method as AdapterPayload['token_endpoint_auth_method'],
+      // 自定义元数据：经 extraClientMetadata 透传，供 loadExistingGrant 判定可信一方。
+      is_first_party: row.is_first_party
     }
     if (row.token_endpoint_auth_method !== 'none') {
-      metadata.client_secret = row.client_secret
+      metadata.client_secret = decryptClientSecret(row.client_secret)
     }
     return metadata
   },

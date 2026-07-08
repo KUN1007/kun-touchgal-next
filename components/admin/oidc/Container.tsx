@@ -33,7 +33,10 @@ import {
   kunFetchPut
 } from '~/utils/kunFetch'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
-import type { AdminOidcClient } from '~/types/api/oidc'
+import type {
+  AdminOidcClient,
+  AdminOidcClientWithSecret
+} from '~/types/api/oidc'
 
 const ALL_SCOPES = ['openid', 'profile', 'email', 'offline_access']
 const AUTH_METHODS = [
@@ -61,7 +64,10 @@ export const OidcClientContainer = ({ initialClients }: Props) => {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
-  const [credential, setCredential] = useState<AdminOidcClient | null>(null)
+  const [credential, setCredential] = useState<{
+    client_id: string
+    client_secret?: string
+  } | null>(null)
 
   const formModal = useDisclosure()
   const credModal = useDisclosure()
@@ -93,8 +99,11 @@ export const OidcClientContainer = ({ initialClients }: Props) => {
     formModal.onOpen()
   }
 
-  const showCredential = (client: AdminOidcClient) => {
-    setCredential(client)
+  const showCredential = (cred: {
+    client_id: string
+    client_secret?: string
+  }) => {
+    setCredential(cred)
     credModal.onOpen()
   }
 
@@ -117,25 +126,37 @@ export const OidcClientContainer = ({ initialClients }: Props) => {
       token_endpoint_auth_method: form.authMethod,
       is_first_party: form.isFirstParty
     }
-    const res =
-      editingId === null
-        ? await kunFetchPost<KunResponse<AdminOidcClient>>('/admin/oidc', body)
-        : await kunFetchPut<KunResponse<AdminOidcClient>>('/admin/oidc', {
-            ...body,
-            id: editingId,
-            disabled: form.disabled
-          })
-    kunErrorHandler(res, (value) => {
-      toast.success(editingId === null ? '创建成功' : '保存成功')
-      formModal.onClose()
-      setClients((prev) => [
-        value,
-        ...prev.filter((item) => item.id !== value.id)
-      ])
-      if (editingId === null) {
-        showCredential(value)
-      }
-    })
+    if (editingId === null) {
+      const res = await kunFetchPost<KunResponse<AdminOidcClientWithSecret>>(
+        '/admin/oidc',
+        body
+      )
+      kunErrorHandler(res, (value) => {
+        toast.success('创建成功')
+        formModal.onClose()
+        setClients((prev) => [
+          value,
+          ...prev.filter((item) => item.id !== value.id)
+        ])
+        showCredential({
+          client_id: value.client_id,
+          client_secret: value.client_secret
+        })
+      })
+    } else {
+      const res = await kunFetchPut<KunResponse<AdminOidcClient>>(
+        '/admin/oidc',
+        { ...body, id: editingId, disabled: form.disabled }
+      )
+      kunErrorHandler(res, (value) => {
+        toast.success('保存成功')
+        formModal.onClose()
+        setClients((prev) => [
+          value,
+          ...prev.filter((item) => item.id !== value.id)
+        ])
+      })
+    }
     setSaving(false)
   }
 
@@ -205,7 +226,9 @@ export const OidcClientContainer = ({ initialClients }: Props) => {
                   <Button
                     size="sm"
                     variant="flat"
-                    onPress={() => showCredential(client)}
+                    onPress={() =>
+                      showCredential({ client_id: client.client_id })
+                    }
                   >
                     凭据
                   </Button>
@@ -316,6 +339,11 @@ export const OidcClientContainer = ({ initialClients }: Props) => {
                 </Switch>
               )}
             </div>
+            <p className="text-xs text-default-400">
+              可信第一方应用登录后免同意授权；但该特性不适用于请求
+              offline_access 的应用——OIDC 要求 offline_access
+              必须经用户明确同意，此类应用仍会 显示同意屏。
+            </p>
           </ModalBody>
           <ModalFooter>
             <Button variant="light" onPress={formModal.onClose}>
@@ -345,16 +373,26 @@ export const OidcClientContainer = ({ initialClients }: Props) => {
                     {credential.client_id}
                   </Snippet>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-sm text-default-500">Client Secret</p>
-                  <Snippet symbol="" variant="flat" className="w-full">
-                    {credential.client_secret}
-                  </Snippet>
-                </div>
-                <p className="text-xs text-warning">
-                  请妥善保管 Client Secret，不要泄露给第三方。Issuer 为
-                  当前站点的 /oidc 路径。
-                </p>
+                {credential.client_secret ? (
+                  <>
+                    <div className="space-y-1">
+                      <p className="text-sm text-default-500">Client Secret</p>
+                      <Snippet symbol="" variant="flat" className="w-full">
+                        {credential.client_secret}
+                      </Snippet>
+                    </div>
+                    <p className="text-xs text-warning">
+                      Client Secret
+                      仅在创建时展示这一次，请立即保存；遗失后无法找回，
+                      只能删除应用后重建。Issuer 为当前站点的 /oidc 路径。
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-default-500">
+                    Client Secret 仅在创建时展示一次，此处不再显示。如已遗失，请
+                    删除应用后重新创建。Issuer 为当前站点的 /oidc 路径。
+                  </p>
+                )}
               </>
             )}
           </ModalBody>

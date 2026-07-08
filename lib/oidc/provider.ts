@@ -44,6 +44,10 @@ const createProvider = () => {
     claims: OIDC_CLAIMS,
     ttl: OIDC_TTL,
     findAccount,
+    // 透传自定义 client 元数据，使 adapter 返回的 is_first_party 保留到 client 实例。
+    extraClientMetadata: {
+      properties: ['is_first_party']
+    },
     // 仅放行 client 已注册 redirect_uri 所在源的跨域请求，而非任意源。
     clientBasedCORS: (_ctx, origin, client) =>
       (client.redirectUris ?? []).some((uri) => {
@@ -67,6 +71,36 @@ const createProvider = () => {
       url(_ctx, interaction) {
         return `${OIDC_MOUNT_PATH}/interaction/${interaction.uid}`
       }
+    },
+    // 可信一方应用登录后免同意：无既有 grant 时直接为请求的 scope 建授权并返回，
+    // provider 便跳过 consent 交互；第三方 client 仍走 ConsentCard。
+    // 限制：offline_access 被 oidc-provider 强制要求经 consent prompt 才保留，故本路径不覆盖
+    // 需要 refresh token 的场景——请求 offline_access 的一方应用仍会显示同意屏。
+    async loadExistingGrant(ctx) {
+      const { client, session } = ctx.oidc
+      if (!client || !session) {
+        return undefined
+      }
+      const grantId =
+        ctx.oidc.result?.consent?.grantId ?? session.grantIdFor(client.clientId)
+      if (grantId) {
+        return ctx.oidc.provider.Grant.find(grantId)
+      }
+      const isFirstParty = (client as { is_first_party?: boolean })
+        .is_first_party
+      if (!isFirstParty || !session.accountId) {
+        return undefined
+      }
+      const grant = new ctx.oidc.provider.Grant({
+        clientId: client.clientId,
+        accountId: session.accountId
+      })
+      const scope = ctx.oidc.params?.scope
+      if (typeof scope === 'string' && scope) {
+        grant.addOIDCScope(scope)
+      }
+      await grant.save()
+      return grant
     }
   }
 

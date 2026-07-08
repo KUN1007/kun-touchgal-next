@@ -16,7 +16,7 @@ if (!fs.existsSync(envPath)) {
 
 config({ path: envPath })
 
-export const envSchema = z.object({
+const rawEnvSchema = z.object({
   KUN_DATABASE_URL: z.string().url(),
   KUN_VISUAL_NOVEL_SITE_URL: z.string().url(),
 
@@ -34,6 +34,7 @@ export const envSchema = z.object({
   OIDC_ISSUER: z.string().url().optional(),
   OIDC_JWKS: z.string().optional(),
   OIDC_COOKIE_KEYS: z.string().optional(),
+  OIDC_SECRET_ENC_KEY: z.string().optional(),
 
   NODE_ENV: z.enum(['development', 'test', 'production']),
 
@@ -69,6 +70,19 @@ export const envSchema = z.object({
   MEILISEARCH_HOST: z.string().url().optional(),
   MEILISEARCH_ADMIN_API_KEY: z.string().optional(),
   KUN_MEILISEARCH_ENABLED: z.enum(['true', 'false']).optional()
+})
+
+// OIDC 启用（配置了签名密钥 OIDC_JWKS）时，client_secret 加密 KEK 必填：迁移把密文落库后，
+// 一旦 KEK 缺失 / 改动会导致机密 client 全部 500 且密文不可逆恢复，故启动即 fail-fast。
+export const envSchema = rawEnvSchema.superRefine((value, ctx) => {
+  if (value.OIDC_JWKS && !value.OIDC_SECRET_ENC_KEY) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['OIDC_SECRET_ENC_KEY'],
+      message:
+        'OIDC 已启用（OIDC_JWKS 非空）时 OIDC_SECRET_ENC_KEY 必填，请运行 esno scripts/generateOidcJwks.ts 生成'
+    })
+  }
 })
 
 export const env = envSchema.safeParse(process.env)

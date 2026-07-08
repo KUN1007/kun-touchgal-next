@@ -116,6 +116,11 @@ export const OBJECT_STORAGE_MAX_FILE_SIZE_LABEL = '1GB'
 export const OBJECT_STORAGE_MAX_FILE_SIZE_ERROR = `文件大小超过限制, 必须小于 ${OBJECT_STORAGE_MAX_FILE_SIZE_LABEL}`
 export const RESOURCE_DAILY_UPLOAD_LIMIT_MB = 5120
 
+// resource 绑定 (bindUploadedResource) 里把暂存对象 copy 到正式 key 的墙钟上限:
+// 该路径是持锁的同步请求, S3 黑洞时若无此上限会无限挂起 (S3Client 全局只有 socket
+// 空闲兜底, 不设墙钟). 60s 与 moderation 的 MODERATION_S3_TIMEOUT_MS 取齐
+export const RESOURCE_S3_COPY_TIMEOUT_MS = 60 * 1000
+
 export const storageTypes = [
   {
     value: 'touchgal',

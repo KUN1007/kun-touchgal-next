@@ -8,7 +8,8 @@ import { invalidateUserSession } from '~/app/api/user/session/cache'
 import {
   OBJECT_STORAGE_MAX_FILE_SIZE_BYTES,
   OBJECT_STORAGE_MAX_FILE_SIZE_ERROR,
-  RESOURCE_DAILY_UPLOAD_LIMIT_MB
+  RESOURCE_DAILY_UPLOAD_LIMIT_MB,
+  RESOURCE_S3_COPY_TIMEOUT_MS
 } from '~/constants/resource'
 
 interface UploadTokenMeta {
@@ -77,7 +78,11 @@ export const bindUploadedResource = async (
     const segment = randomBytes(32).toString('hex')
     const finalKey = `patch/${patchId}/resource/${segment}/${meta.fileName}`
     try {
-      await copyObject(meta.s3Key, finalKey)
+      await copyObject(
+        meta.s3Key,
+        finalKey,
+        AbortSignal.timeout(RESOURCE_S3_COPY_TIMEOUT_MS)
+      )
       await deleteFileFromS3(meta.s3Key).catch(() => undefined)
       await delKv(`upload:${token}`)
     } catch (error) {

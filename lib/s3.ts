@@ -19,7 +19,16 @@ export const s3 = new S3Client({
     secretAccessKey: process.env.KUN_VISUAL_NOVEL_S3_STORAGE_SECRET_ACCESS_KEY!
   },
   forcePathStyle: true,
-  requestChecksumCalculation: 'WHEN_REQUIRED'
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  // 全局兜底: connectionTimeout 覆盖连不上, socketTimeout 覆盖连上后 S3 黑洞 (长时间
+  // 不吐数据). 刻意不设 requestTimeout —— 该版本 (client-s3 3.1030) 的 requestTimeout
+  // 是整请求的墙钟总时长且需 throwOnRequestTimeout 才中断, 会误杀 server 端大文件上传;
+  // 需要墙钟上限的调用方 (moderation get/copy、resource copy) 自带 per-call
+  // AbortSignal.timeout, 与此处独立叠加, 取先触发者
+  requestHandler: {
+    connectionTimeout: 5_000,
+    socketTimeout: 60_000
+  }
 })
 
 const Bucket = process.env.KUN_VISUAL_NOVEL_S3_STORAGE_BUCKET_NAME!

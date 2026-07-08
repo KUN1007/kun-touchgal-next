@@ -1,5 +1,5 @@
 import { getMeiliClient } from '~/lib/meilisearch'
-import { GALGAME_INDEX } from './settings'
+import { GALGAME_INDEX, GALGAME_MAX_TOTAL_HITS } from './settings'
 import type { GalgameSearchDoc } from './document'
 
 // 超时即中止请求，由调用方捕获错误后降级到 Prisma 实现
@@ -62,8 +62,8 @@ export const searchDocToGalgameCard = (doc: GalgameSearchDoc): GalgameCard => ({
   averageRating: doc.avgRating ? Math.round(doc.avgRating * 10) / 10 : 0
 })
 
-// 索引负责"找到哪些文档、按什么顺序"，并直接携带卡片渲染所需字段，
-// 一次查询同时得到卡片与精确总数，二者同源不再错位。
+// 索引负责"找到哪些文档、按什么顺序"，并直接携带卡片渲染所需字段。
+// 主查询取当前页卡片；有相关性阈值时另发一个计数查询取精确总数（见下）。
 export const queryGalgameIndex = async (
   query: GalgameIndexQuery
 ): Promise<{ galgames: GalgameCard[]; total: number }> => {
@@ -72,25 +72,58 @@ export const queryGalgameIndex = async (
     throw new Error('Meilisearch client 未配置')
   }
 
-  const res = await client.index<GalgameSearchDoc>(GALGAME_INDEX).search(
-    query.q ?? '',
-    {
-      filter: query.filter || undefined,
-      sort: query.sort && query.sort.length > 0 ? query.sort : undefined,
-      page: query.page,
-      hitsPerPage: query.hitsPerPage,
-      attributesToSearchOn: query.attributesToSearchOn,
-      // 与旧实现的多关键词 AND 语义对齐
-      matchingStrategy: 'all',
-      // 纯筛选/浏览端点 q 为空、所有文档得分 1.0，不受影响；仅约束有文字搜索的场景
-      rankingScoreThreshold: query.q ? SEARCH_RANKING_SCORE_THRESHOLD : undefined,
-      attributesToRetrieve: GALGAME_CARD_DOC_FIELDS
-    },
-    { signal: AbortSignal.timeout(SEARCH_QUERY_TIMEOUT_MS) }
-  )
+  const index = client.index<GalgameSearchDoc>(GALGAME_INDEX)
+  // 纯筛选/浏览端点 q 为空、所有文档得分 1.0，阈值不生效；仅约束有文字搜索的场景
+  const rankingScoreThreshold = query.q
+    ? SEARCH_RANKING_SCORE_THRESHOLD
+    : undefined
+
+  // 主查询与计数查询共享的检索条件。sort 必须一并共享：Meili 的 rankingRules 含 "sort"
+  // 阶段，传入 sort 会改变 _rankingScore，从而改变 rankingScoreThreshold 的过阈值集合
+  //（实测同一 q 带 sort 过 47 条、不带过 36 条）。两查询同 sort，total 才与主查询实际可翻的
+  // 分页条数一致，否则计数偏小会把末页结果吃掉。
+  const baseOptions = {
+    filter: query.filter || undefined,
+    sort: query.sort && query.sort.length > 0 ? query.sort : undefined,
+    attributesToSearchOn: query.attributesToSearchOn,
+    // 与旧实现的多关键词 AND 语义对齐
+    matchingStrategy: 'all' as const,
+    rankingScoreThreshold
+  }
+
+  // 设了 rankingScoreThreshold 后，Meili 有限分页的 totalHits 只穷举到当前页窗为止：
+  // 浅页返回"阈值过滤前"的候选数（偏大），翻到阈值截断处才崩塌 —— 页数会随翻页缩水。
+  // 用一个 hitsPerPage=maxTotalHits、不取字段的计数查询强制其对全部候选打分，拿到阈值之上
+  // 的精确总数；与主查询并行发出。无阈值（浏览态）时无此问题，直接用主查询的 totalHits。
+  const [res, count] = await Promise.all([
+    index.search(
+      query.q ?? '',
+      {
+        ...baseOptions,
+        page: query.page,
+        hitsPerPage: query.hitsPerPage,
+        attributesToRetrieve: GALGAME_CARD_DOC_FIELDS
+      },
+      { signal: AbortSignal.timeout(SEARCH_QUERY_TIMEOUT_MS) }
+    ),
+    rankingScoreThreshold === undefined
+      ? Promise.resolve(null)
+      : index.search(
+          query.q ?? '',
+          {
+            ...baseOptions,
+            page: 1,
+            hitsPerPage: GALGAME_MAX_TOTAL_HITS,
+            // 只需要 totalHits：空数组让每个 hit 回传为 {}，常见词命中数千候选时
+            // 比 ['id'] 省约 75% 传输（实测 の：71KB→17.5KB）
+            attributesToRetrieve: []
+          },
+          { signal: AbortSignal.timeout(SEARCH_QUERY_TIMEOUT_MS) }
+        )
+  ])
 
   return {
     galgames: res.hits.map(searchDocToGalgameCard),
-    total: res.totalHits
+    total: count ? count.totalHits : res.totalHits
   }
 }

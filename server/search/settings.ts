@@ -2,6 +2,11 @@ import type { Settings } from 'meilisearch'
 
 export const GALGAME_INDEX = 'galgame'
 
+// 精确总数 / 深分页上限，须大于全库 patch 条数并随增长调整。
+// 同时用作相关性阈值下计数查询的 hitsPerPage：强制 Meili 对全部候选打分，
+// 拿到阈值之上的精确 totalHits（见 query.ts）。
+export const GALGAME_MAX_TOTAL_HITS = 20000
+
 export const GALGAME_INDEX_SETTINGS: Settings = {
   // 顺序即字段权重：标题 > 别名 > 标签 > 会社 > 外部 ID > 介绍
   searchableAttributes: [
@@ -67,7 +72,7 @@ export const GALGAME_INDEX_SETTINGS: Settings = {
   synonyms: {},
 
   // 精确总数与深分页上限，须大于全库 patch 条数并随增长调整
-  pagination: { maxTotalHits: 20000 },
+  pagination: { maxTotalHits: GALGAME_MAX_TOTAL_HITS },
 
   // 明示语言，避免中/日短查询误判分词管线
   localizedAttributes: [

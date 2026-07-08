@@ -16,10 +16,7 @@ import {
   buildGalgameSearchFilter,
   buildGalgameSearchSort
 } from '~/server/search/filter-builder'
-import {
-  fetchGalgameCardsByIds,
-  queryGalgameIndex
-} from '~/server/search/query'
+import { queryGalgameIndex } from '~/server/search/query'
 import type { PatchVisibilityContext } from '~/app/api/utils/getPatchVisibilityContext'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 
@@ -44,7 +41,7 @@ const getPatchByTagFromSearch = async (
     return { galgames: [] as GalgameCard[], total: 0 }
   }
 
-  const { ids, total } = await queryGalgameIndex({
+  const { galgames, total } = await queryGalgameIndex({
     q: '',
     filter,
     sort: buildGalgameSearchSort(input.sortField, input.sortOrder),
@@ -53,7 +50,7 @@ const getPatchByTagFromSearch = async (
   })
 
   return {
-    galgames: await fetchGalgameCardsByIds(ids, visibility.visibilityWhere),
+    galgames,
     total
   }
 }

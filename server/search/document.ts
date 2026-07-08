@@ -13,6 +13,7 @@ export const PATCH_SEARCH_SELECT = {
   id: true,
   unique_id: true,
   name: true,
+  banner: true,
   vndb_id: true,
   vndb_relation_id: true,
   dlsite_code: true,
@@ -25,6 +26,8 @@ export const PATCH_SEARCH_SELECT = {
   view: true,
   download: true,
   favorite_count: true,
+  resource_count: true,
+  comment_count: true,
   created: true,
   updated: true,
   resource_update_time: true,
@@ -42,6 +45,7 @@ export interface GalgameSearchDoc {
   id: number
   uniqueId: string
   name: string
+  banner: string
   alias: string[]
   tag: string[]
   company: string[]
@@ -64,6 +68,8 @@ export interface GalgameSearchDoc {
   view: number
   download: number
   favoriteCount: number
+  resourceCount: number
+  commentCount: number
   ratingCount: number
   avgRating: number
 }
@@ -74,6 +80,8 @@ export interface GalgameSearchCountsDoc {
   view: number
   download: number
   favoriteCount: number
+  resourceCount: number
+  commentCount: number
   ratingCount: number
   avgRating: number
 }
@@ -124,6 +132,7 @@ export const patchToSearchDoc = async (
     id: patch.id,
     uniqueId: patch.unique_id,
     name: patch.name,
+    banner: patch.banner,
     alias: patch.alias.map((a) => a.name),
     tag: patch.tag.map((t) => t.tag.name),
     company: patch.company.map((c) => c.company.name),
@@ -145,6 +154,8 @@ export const patchToSearchDoc = async (
     view: patch.view,
     download: patch.download,
     favoriteCount: patch.favorite_count,
+    resourceCount: patch.resource_count,
+    commentCount: patch.comment_count,
     ratingCount: patch.rating_stat?.count ?? 0,
     avgRating: patch.rating_stat?.avg_overall ?? 0
   }

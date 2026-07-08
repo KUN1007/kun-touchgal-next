@@ -17,10 +17,7 @@ import {
   buildSearchQuery,
   matchExactIdQuery
 } from '~/server/search/filter-builder'
-import {
-  fetchGalgameCardsByIds,
-  queryGalgameIndex
-} from '~/server/search/query'
+import { queryGalgameIndex } from '~/server/search/query'
 import {
   resolveCompanyIdsByName,
   resolveTagIdsByName
@@ -119,7 +116,7 @@ const searchGalgameWithMeili = async (
     return { galgames: [] as GalgameCard[], total: 0 }
   }
 
-  const { ids, total } = await queryGalgameIndex({
+  const { galgames, total } = await queryGalgameIndex({
     q: exactIdMatch ? '' : buildSearchQuery(includeKeywords, excludeKeywords),
     filter,
     sort: buildGalgameSearchSort(sortField, sortOrder),
@@ -129,7 +126,7 @@ const searchGalgameWithMeili = async (
   })
 
   return {
-    galgames: await fetchGalgameCardsByIds(ids, visibility.visibilityWhere),
+    galgames,
     total
   }
 }

@@ -74,6 +74,7 @@ describe('patchToSearchDoc', () => {
     id: 1024,
     unique_id: 'abcd1234',
     name: 'サノバウィッチ',
+    banner: 'sano-banner.avif',
     vndb_id: 'v16044',
     vndb_relation_id: null,
     dlsite_code: null,
@@ -86,6 +87,8 @@ describe('patchToSearchDoc', () => {
     view: 12000,
     download: 3400,
     favorite_count: 500,
+    resource_count: 8,
+    comment_count: 15,
     created: new Date('2023-11-15T00:00:00Z'),
     updated: new Date('2024-03-10T00:00:00Z'),
     resource_update_time: new Date('2024-03-10T00:00:00Z'),
@@ -104,6 +107,7 @@ describe('patchToSearchDoc', () => {
       id: 1024,
       uniqueId: 'abcd1234',
       name: 'サノバウィッチ',
+      banner: 'sano-banner.avif',
       alias: ['魔女的夜宴', 'sanoba witch'],
       tag: ['恋爱', '魔女'],
       company: ['Yuzusoft'],
@@ -127,6 +131,8 @@ describe('patchToSearchDoc', () => {
       view: 12000,
       download: 3400,
       favoriteCount: 500,
+      resourceCount: 8,
+      commentCount: 15,
       ratingCount: 87,
       avgRating: 8.6
     })

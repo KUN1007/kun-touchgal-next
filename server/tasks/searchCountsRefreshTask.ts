@@ -29,6 +29,8 @@ const refreshSearchCounts = async () => {
         view: true,
         download: true,
         favorite_count: true,
+        resource_count: true,
+        comment_count: true,
         rating_stat: { select: { avg_overall: true, count: true } }
       }
     })
@@ -41,6 +43,8 @@ const refreshSearchCounts = async () => {
       view: row.view,
       download: row.download,
       favoriteCount: row.favorite_count,
+      resourceCount: row.resource_count,
+      commentCount: row.comment_count,
       ratingCount: row.rating_stat?.count ?? 0,
       avgRating: row.rating_stat?.avg_overall ?? 0
     }))

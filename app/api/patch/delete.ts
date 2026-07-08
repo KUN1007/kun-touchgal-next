@@ -3,6 +3,7 @@ import { prisma } from '~/prisma/index'
 import { deletePatchResourceLink } from './resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
+import { deletePendingAppeals } from '~/server/moderation/appeal'
 import { queueSearchRemove } from '~/server/search/sync'
 
 const patchIdSchema = z.object({
@@ -60,6 +61,23 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
       prisma
     )
     await deletePendingModerationTasks(
+      'resource',
+      patchResources.map((resource) => resource.id),
+      prisma
+    )
+    // 内容被级联删除, 一并作废其未处理的申诉; 申诉挂在存活的 rejected 任务上不会随内容级联,
+    // 否则会残留孤儿 pending 申诉滞留在管理员队列
+    await deletePendingAppeals(
+      'comment',
+      comments.map((comment) => comment.id),
+      prisma
+    )
+    await deletePendingAppeals(
+      'rating',
+      ratings.map((rating) => rating.id),
+      prisma
+    )
+    await deletePendingAppeals(
       'resource',
       patchResources.map((resource) => resource.id),
       prisma

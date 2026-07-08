@@ -118,6 +118,10 @@ export const MODERATION_MAX_RETRY = 3
 
 export const MODERATION_BATCH_SIZE = 10
 
+// 单批内并发处理的任务数上限, 即同时在途的 AI 调用数; 受 provider 限流约束,
+// 应 <= MODERATION_BATCH_SIZE
+export const MODERATION_CONCURRENCY = 5
+
 // send head + tail when the text exceeds the limit; spam contact info
 // almost always sits at the very beginning or the very end
 export const MODERATION_TEXT_MAX_LENGTH = 2000

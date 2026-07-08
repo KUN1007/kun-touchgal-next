@@ -8,6 +8,7 @@ import { getFileFromS3 } from '~/lib/s3'
 import { KUN_MODERATION_VERDICT_CACHE_KEY } from '~/config/redis'
 import {
   MODERATION_BATCH_SIZE,
+  MODERATION_CONCURRENCY,
   MODERATION_MAX_RETRY,
   MODERATION_VERDICT_CACHE_DURATION
 } from '~/constants/moderation'
@@ -141,6 +142,60 @@ const processAvatarTask = async (task: moderation_taskModel) => {
   await applyAiResult(task, result)
 }
 
+// 处理单条任务: 成功即落裁决, 失败按重试/转人工记账. 各任务的 apply 是独立事务,
+// 缓存与黑名单为共享只读, 因此可安全并发
+const processTask = async (
+  task: moderation_taskModel,
+  blacklistPatterns: string[]
+) => {
+  try {
+    if (task.content_type === 'avatar') {
+      await processAvatarTask(task)
+    } else {
+      await processTextTask(task, blacklistPatterns)
+    }
+  } catch (error) {
+    if (error instanceof ModerationConfigError) {
+      await markTaskManual(task.id, error.message)
+      return
+    }
+
+    const retry = task.retry + 1
+    if (retry >= MODERATION_MAX_RETRY) {
+      await markTaskManual(task.id, `审核失败: ${String(error)}`)
+    } else {
+      // exponential backoff: 5s, 25s
+      await prisma.moderation_task.updateMany({
+        where: { id: task.id, status: 'pending' },
+        data: {
+          retry,
+          next_attempt: new Date(Date.now() + 5 ** retry * 1000)
+        }
+      })
+    }
+    console.error(`Moderation task ${task.id} attempt failed:`, error)
+  }
+}
+
+// 同一 patch 的 resource/rating 裁决会读改写 patch 级聚合 (recalcPatchType 改
+// patch.type、recomputePatchRatingStat 改 patch_rating_stat), 并发 apply 会丢更新;
+// avatar/bio 会写同一 user 行. 用序列化 key 把会相互竞态的任务归到同组 (组内串行、
+// 组间并发). patch_id 不在 task 行上, 按 content_id 分组会让同一 patch 的两条落入
+// 不同组并发跑, 故 resource/rating 只能按类型整体串行 (代价: 这两类批内不提速);
+// avatar/bio 按 user 分组; 评论各自独立, 全并发
+const serializationKey = (task: moderation_taskModel): string => {
+  switch (task.content_type) {
+    case 'resource':
+    case 'rating':
+      return task.content_type
+    case 'avatar':
+    case 'bio':
+      return `user:${task.user_id}`
+    default:
+      return `comment:${task.id}`
+  }
+}
+
 const runModerationBatch = async () => {
   const tasks = await prisma.moderation_task.findMany({
     where: { status: 'pending', next_attempt: { lte: new Date() } },
@@ -156,33 +211,41 @@ const runModerationBatch = async () => {
   })
   const blacklistPatterns = blacklist.map((item) => item.pattern)
 
+  // 把会相互竞态的任务归到同组 (组内串行), 再以有界并发处理各组: 一次慢的 vision
+  // 调用不再阻塞排在其后的缓存/文本裁决. 批次只取一次, 并发 worker 通过 cursor++
+  // 各领一组, 永不重复处理同一行
+  const groups = new Map<string, moderation_taskModel[]>()
   for (const task of tasks) {
-    try {
-      if (task.content_type === 'avatar') {
-        await processAvatarTask(task)
-      } else {
-        await processTextTask(task, blacklistPatterns)
-      }
-    } catch (error) {
-      if (error instanceof ModerationConfigError) {
-        await markTaskManual(task.id, error.message)
-        continue
-      }
+    const key = serializationKey(task)
+    const group = groups.get(key)
+    if (group) {
+      group.push(task)
+    } else {
+      groups.set(key, [task])
+    }
+  }
+  const groupList = [...groups.values()]
 
-      const retry = task.retry + 1
-      if (retry >= MODERATION_MAX_RETRY) {
-        await markTaskManual(task.id, `审核失败: ${String(error)}`)
-      } else {
-        // exponential backoff: 5s, 25s
-        await prisma.moderation_task.updateMany({
-          where: { id: task.id, status: 'pending' },
-          data: {
-            retry,
-            next_attempt: new Date(Date.now() + 5 ** retry * 1000)
-          }
-        })
+  let cursor = 0
+  const runWorker = async () => {
+    let index: number
+    while ((index = cursor++) < groupList.length) {
+      for (const task of groupList[index]) {
+        await processTask(task, blacklistPatterns)
       }
-      console.error(`Moderation task ${task.id} attempt failed:`, error)
+    }
+  }
+  // allSettled 而非 all: 即便某 worker 因记账写库失败而 reject, 也必须等其余 worker
+  // 全部结束再返回——否则 withTaskLock 会在后台 worker 仍运行时释放锁, 与下批重叠
+  const workerCount = Math.min(MODERATION_CONCURRENCY, groupList.length)
+  const results = await Promise.allSettled(
+    Array.from({ length: workerCount }, runWorker)
+  )
+  // worker 仅在记账写库失败时 reject (业务错误已在 processTask 内消化并记录);
+  // 补记 rejected, 否则 DB 故障会让整批静默失败、排障无迹
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      console.error('Moderation worker crashed:', result.reason)
     }
   }
 }

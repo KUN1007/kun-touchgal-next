@@ -4,13 +4,12 @@ import {
   buildPatchIntroduction,
   getCachedPatchContent,
   getCachedPatchIntroduction,
-  restorePatchUserAvatarForViewer,
   setCachedPatchContent,
   setCachedPatchIntroduction,
   withPatchFavoriteStatus
 } from './_content'
 import { getPatchPageContentByUniqueId } from './_queries'
-import type { KunViewer } from '~/app/api/utils/shadowBan'
+import type { KunViewer } from '~/app/api/utils/contentVisibility'
 
 const uniqueIdSchema = z.object({
   uniqueId: z.string().min(8).max(8)
@@ -28,12 +27,8 @@ export const getPatchPageData = async (
   ])
 
   if (cachedPatch && cachedIntro) {
-    const patchForViewer = await restorePatchUserAvatarForViewer(
-      cachedPatch,
-      viewer
-    )
     return {
-      patch: await withPatchFavoriteStatus(uniqueId, patchForViewer, uid),
+      patch: await withPatchFavoriteStatus(uniqueId, cachedPatch, uid),
       intro: cachedIntro
     }
   }
@@ -50,9 +45,8 @@ export const getPatchPageData = async (
     setCachedPatchIntroduction(uniqueId, intro)
   ])
 
-  const patchForViewer = await restorePatchUserAvatarForViewer(patch, viewer)
   return {
-    patch: await withPatchFavoriteStatus(uniqueId, patchForViewer, uid),
+    patch: await withPatchFavoriteStatus(uniqueId, patch, uid),
     intro
   }
 }

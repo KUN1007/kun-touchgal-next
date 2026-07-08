@@ -1,7 +1,10 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { getUserInfoSchema } from '~/validations/user'
-import { getShadowBanWhere, type KunViewer } from '~/app/api/utils/shadowBan'
+import {
+  getCommentRatingVisibilityWhere,
+  type KunViewer
+} from '~/app/api/utils/contentVisibility'
 import type { UserRating } from '~/types/api/user'
 
 export const getUserPatchRating = async (
@@ -10,11 +13,11 @@ export const getUserPatchRating = async (
 ) => {
   const { uid, page, limit } = input
   const offset = (page - 1) * limit
-  const shadowBanWhere = getShadowBanWhere(viewer)
+  const visibilityWhere = getCommentRatingVisibilityWhere(viewer)
 
   const [data, total] = await Promise.all([
     prisma.patch_rating.findMany({
-      where: { user_id: uid, ...shadowBanWhere },
+      where: { user_id: uid, ...visibilityWhere },
       include: {
         patch: {
           select: {
@@ -33,7 +36,7 @@ export const getUserPatchRating = async (
       take: limit
     }),
     prisma.patch_rating.count({
-      where: { user_id: uid, ...shadowBanWhere }
+      where: { user_id: uid, ...visibilityWhere }
     })
   ])
 

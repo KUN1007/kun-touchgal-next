@@ -23,6 +23,10 @@ export const deletePatchRating = async (
   if (rating.user_id !== uid && userRole < 3) {
     return '您没有权限删除该评价'
   }
+  // 待审核 (status=1) 的评价禁止作者删除; 管理员可删
+  if (userRole < 3 && rating.status === 1) {
+    return '该评价正在审核中, 暂时无法删除'
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.patch_rating.delete({ where: { id: input.ratingId } })

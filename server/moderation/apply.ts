@@ -20,7 +20,7 @@ import type { ModerationAvatarPayload, ModerationTextPayload } from './submit'
 export interface ApplyVerdictOptions {
   task: moderation_taskModel
   approved: boolean
-  // verdict m=1: content is approved but the task goes to manual review
+  // verdict m=1: 内容保持待审核, task 转人工复审, 等人工最终裁决
   manual?: boolean
   rejectCode?: string
   rejectReason?: string
@@ -33,7 +33,7 @@ export interface ApplyVerdictOptions {
 }
 
 // AI failed permanently or is misconfigured: task goes to manual review,
-// content stays shadow banned - never auto-reject on provider failure
+// content stays pending - never auto-reject on provider failure
 export const markTaskManual = async (taskId: number, reason: string) =>
   prisma.moderation_task.updateMany({
     where: { id: taskId, status: 'pending' },
@@ -96,12 +96,12 @@ export const applyModerationVerdict = async (
     fromStatus = 'pending'
   } = options
 
-  const taskStatus = approved ? (manual ? 'manual' : 'approved') : 'rejected'
+  const taskStatus = manual ? 'manual' : approved ? 'approved' : 'rejected'
   const reason = resolveRejectReason(rejectCode, rejectReason)
 
   // S3 copy is idempotent, do it before claiming so that a copy failure
-  // leaves the task pending and retryable
-  if (!task.dry_run && task.content_type === 'avatar' && approved) {
+  // leaves the task pending and retryable; m=1 转人工时不落地, 等人工最终裁决
+  if (!task.dry_run && task.content_type === 'avatar' && approved && !manual) {
     const payload = task.payload as unknown as ModerationAvatarPayload
     await copyObject(payload.pendingKey, payload.avatarKey)
     await copyObject(payload.pendingMiniKey, payload.avatarMiniKey)
@@ -111,7 +111,6 @@ export const applyModerationVerdict = async (
   let ratingPatchId: number | null = null
   let resourcePatchId: number | null = null
   let commentApproved = false
-  let avatarCleared = false
 
   await prisma.$transaction(async (tx) => {
     const claim = await tx.moderation_task.updateMany({
@@ -136,15 +135,16 @@ export const applyModerationVerdict = async (
       return
     }
 
+    // m=1 转人工: 内容保持待审核, 不改内容也不通知, 等人工最终裁决
+    if (manual) {
+      return
+    }
+
     switch (task.content_type) {
       case 'comment': {
-        // approve 只放行仍屏蔽(1); reject 需隐藏仍屏蔽(1)或已被 m=1 放行(0)的评论,
-        // 否则超管对 m=1 任务的拒绝会静默空操作 —— 违规评论仍公开可见
+        // 待审核 (1) 的评论: 通过转正常 (0), 拒绝转隐藏 (2)
         const updated = await tx.patch_comment.updateMany({
-          where: {
-            id: task.content_id ?? 0,
-            status: approved ? 1 : { in: [0, 1] }
-          },
+          where: { id: task.content_id ?? 0, status: 1 },
           data: { status: approved ? 0 : 2 }
         })
         commentApproved = approved && updated.count > 0
@@ -155,13 +155,8 @@ export const applyModerationVerdict = async (
           where: { id: task.content_id ?? 0 },
           select: { patch_id: true, status: true }
         })
-        // approve 只放行仍屏蔽(1); reject 对仍屏蔽(1)或已被 m=1 放行(0)的评分都要隐藏
-        if (
-          rating &&
-          (approved
-            ? rating.status === 1
-            : rating.status === 0 || rating.status === 1)
-        ) {
+        // 待审核 (1) 的评价: 通过转正常 (0), 拒绝转隐藏 (2)
+        if (rating && rating.status === 1) {
           await tx.patch_rating.update({
             where: { id: task.content_id ?? 0 },
             data: { status: approved ? 0 : 2 }
@@ -175,16 +170,11 @@ export const applyModerationVerdict = async (
           where: { id: task.content_id ?? 0 },
           select: { patch_id: true, status: true }
         })
-        // approve 只放行仍屏蔽(1); reject 对仍屏蔽(1)或已被 m=1 放行(0)的资源都要隐藏
-        if (
-          resource &&
-          (approved
-            ? resource.status === 1
-            : resource.status === 0 || resource.status === 1)
-        ) {
+        // 待审核 (3) 的资源: 通过转正常 (0), 拒绝转隐藏 (1)
+        if (resource && resource.status === 3) {
           await tx.patch_resource.update({
             where: { id: task.content_id ?? 0 },
-            data: { status: approved ? 0 : 3 }
+            data: { status: approved ? 0 : 1 }
           })
           // visible resource set changed, keep aggregates consistent with
           // the admin hidden flow
@@ -198,18 +188,15 @@ export const applyModerationVerdict = async (
         if (approved) {
           await tx.user.update({
             where: { id: task.user_id },
-            data: { avatar: payload.avatarLink }
+            data: { avatar: payload.avatarLink, avatar_status: 0 }
           })
         } else {
-          // 仅清除已被 m=1 放行落地的违规头像 (user.avatar 仍是本任务写入的带版本值);
-          // pending / 转人工失败的头像从未应用, 条件不匹配则不动用户现有头像.
-          // 单条原子 updateMany, 避免读-改之间的竞态窗口
-          const cleared = await tx.user.updateMany({
-            where: { id: task.user_id, avatar: payload.avatarLink },
-            data: { avatar: '' }
+          // pending 头像从未落地到 user.avatar (仍是旧头像), 拒绝时仅清除审核标记,
+          // 保留用户原头像; pending S3 对象在提交后副作用中删除
+          await tx.user.update({
+            where: { id: task.user_id },
+            data: { avatar_status: 0 }
           })
-          // 记录是否真的清了正式头像, 供 commit 后删除正式 S3 对象 + purge CDN
-          avatarCleared = cleared.count > 0
         }
         break
       }
@@ -218,14 +205,13 @@ export const applyModerationVerdict = async (
         if (approved) {
           await tx.user.update({
             where: { id: task.user_id },
-            data: { bio: payload.bio ?? '' }
+            data: { bio: payload.bio ?? '', bio_status: 0 }
           })
         } else {
-          // 清除仍公开展示的违规签名: 仅当 user.bio 当前正是本任务送审文本时才清
-          // (等值即"违规文本此刻可见"); 新签名未落地时 user.bio 仍是旧值, 不匹配则不动
-          await tx.user.updateMany({
-            where: { id: task.user_id, bio: payload.bio ?? '' },
-            data: { bio: '' }
+          // 新签名从未落地到 user.bio (仍是旧签名), 拒绝时仅清除审核标记, 保留原签名
+          await tx.user.update({
+            where: { id: task.user_id },
+            data: { bio_status: 0 }
           })
         }
         break
@@ -263,6 +249,10 @@ export const applyModerationVerdict = async (
   if (task.dry_run) {
     return true
   }
+  // m=1 转人工: 无内容变更与副作用, task 已置 manual, 直接返回
+  if (manual) {
+    return true
+  }
 
   // post-commit side effects
   if (commentApproved) {
@@ -279,24 +269,14 @@ export const applyModerationVerdict = async (
     const payload = task.payload as unknown as ModerationAvatarPayload
     const imageBedUrl = process.env.KUN_VISUAL_NOVEL_IMAGE_BED_URL
     await invalidateUserSession(task.user_id)
-    // approve: 新头像已复制到正式 key, 刷新 CDN; cleared-reject: 违规头像正被删除,
-    // 同样需失效其 CDN 缓存, 否则删了源对象仍可从边缘取到旧图
-    if (approved || avatarCleared) {
+    // approve: 新头像已复制到正式 key, 刷新 CDN
+    if (approved) {
       await purgeCloudflareCache([
         `${imageBedUrl}/${payload.avatarKey}`,
         `${imageBedUrl}/${payload.avatarMiniKey}`
       ])
     }
-    // 违规头像在 m=1 放行时已复制到正式 key; 拒绝并清空 user.avatar 后删除正式对象,
-    // 否则仍可经稳定 URL 直取. 仅在确实清空时删, 避免误删 pending 拒绝下用户仍在用的头像
-    if (!approved && avatarCleared) {
-      await deleteFileFromS3(payload.avatarKey).catch((error) =>
-        console.error('Failed to delete rejected avatar:', error)
-      )
-      await deleteFileFromS3(payload.avatarMiniKey).catch((error) =>
-        console.error('Failed to delete rejected mini avatar:', error)
-      )
-    }
+    // pending 暂存对象无论通过与否都清理; 拒绝时用户原头像与正式 key 保持不动
     await deleteFileFromS3(payload.pendingKey).catch((error) =>
       console.error('Failed to delete pending avatar:', error)
     )

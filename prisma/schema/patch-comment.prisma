@@ -5,8 +5,8 @@ model patch_comment {
   content_html_version Int     @default(0)
   edit                 String  @default("")
   is_spoiler           Boolean @default(false)
-  // 0 - normal, 1 - shadow banned (visible only to author and role >= 3),
-  // 2 - hidden (invisible on the frontend to everyone, /admin only)
+  // 0 - 正常, 1 - 待审核 (仅作者与 role >= 3 可见),
+  // 2 - 隐藏 (前台对所有人不可见, 仅 /admin 可见)
   status               Int     @default(0)
 
   like_by user_patch_comment_like_relation[]

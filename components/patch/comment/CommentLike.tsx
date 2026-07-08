@@ -11,9 +11,10 @@ import type { PatchComment } from '~/types/api/patch'
 
 interface Props {
   comment: PatchComment
+  isDisabled?: boolean
 }
 
-export const CommentLikeButton = ({ comment }: Props) => {
+export const CommentLikeButton = ({ comment, isDisabled }: Props) => {
   const user = useUserStore((state) => state.user)
   const [liked, setLiked] = useState(comment.isLike)
   const [likeCount, setLikeCount] = useState(comment.likeCount)
@@ -49,6 +50,7 @@ export const CommentLikeButton = ({ comment }: Props) => {
         size="sm"
         className="gap-2"
         disabled={loading}
+        isDisabled={isDisabled}
         isLoading={loading}
         onPress={toggleLike}
       >

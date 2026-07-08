@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { kunParseGetQuery } from '~/app/api/utils/parseQuery'
 import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
-import { maskShadowBannedUser, type KunViewer } from '~/app/api/utils/shadowBan'
+import type { KunViewer } from '~/app/api/utils/contentVisibility'
 import type { FloatingCardUser } from '~/types/api/user'
 
 const uidSchema = z.object({
@@ -33,13 +33,12 @@ const getUserFloatingProfile = async (
   }
 
   const followerUserUid = data.following.map((f) => f.follower_id)
-  const masked = maskShadowBannedUser(viewer, data)
 
   const user: FloatingCardUser = {
     id: data.id,
     name: data.name,
-    avatar: masked.avatar,
-    bio: masked.bio,
+    avatar: data.avatar,
+    bio: data.bio,
     moemoepoint: data.moemoepoint,
     role: data.role,
     isFollow: followerUserUid.includes(currentUserUid),

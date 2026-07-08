@@ -27,13 +27,11 @@ export const createPatchComment = async (
     if (!parentComment) {
       return '未找到该评论'
     }
-    // 与读取可见性 (getShadowBanWhere 非管理员分支) 对齐: 仅 status=0, 或作者本人的
-    // status=1 (shadow ban, 仅作者可见) 可回复; 他人的 status=1 与 status=2 (对所有人
-    // 隐藏) 一律与不存在等同, 防止通过回复探测 shadow ban
-    if (
-      parentComment.status !== 0 &&
-      !(parentComment.status === 1 && parentComment.user_id === uid)
-    ) {
+    // 待审核 (status=1) 的评论不可回复; 隐藏 (status=2) 的评论前端不可见, 与不存在等同
+    if (parentComment.status === 1) {
+      return '该评论正在审核中, 暂时无法回复'
+    }
+    if (parentComment.status !== 0) {
       return '未找到该评论'
     }
   }
@@ -124,8 +122,7 @@ export const createPatchComment = async (
         : await markdownToHtmlComment(data.content),
     isLike: false,
     isSpoiler: data.is_spoiler,
-    // status=1 (审核中) 对作者掩码为 0, 保持与正常发布一致
-    status: data.status === 1 ? 0 : data.status,
+    status: data.status,
     likeCount: 0,
     parentId: data.parent_id,
     userId: data.user_id,

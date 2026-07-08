@@ -83,8 +83,7 @@ export const createPatchRating = async (
     playStatus: data.play_status,
     shortSummary: data.short_summary,
     spoilerLevel: data.spoiler_level,
-    // status=1 (审核中) 对作者掩码为 0, 保持与正常发布一致
-    status: data.status === 1 ? 0 : data.status,
+    status: data.status,
     isLike: false,
     likeCount: 0,
     userId: data.user_id,

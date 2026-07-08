@@ -9,7 +9,7 @@ type ModerationClient = Prisma.TransactionClient | typeof prisma
 export interface ModerationPreScreen {
   // create a moderation task for the worker
   queue: boolean
-  // content starts shadow banned (status = 1) until the verdict lands
+  // content starts pending (待审核) until the verdict lands
   intercept: boolean
   dryRun: boolean
 }

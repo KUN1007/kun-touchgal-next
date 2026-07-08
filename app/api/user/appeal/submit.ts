@@ -28,7 +28,7 @@ const checkContentAppealable = async (
     where: { id: contentId },
     select: { user_id: true, status: true }
   })
-  return !!resource && resource.user_id === uid && resource.status === 3
+  return !!resource && resource.user_id === uid && resource.status === 1
 }
 
 export const submitAppeal = async (

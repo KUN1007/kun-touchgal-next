@@ -14,9 +14,9 @@ model user {
 
   enable_email_notice    Boolean @default(true)
   allow_private_message  Boolean @default(true)
-  // shadow ban: masked for viewers other than the user and role >= 3
-  avatar_shadow_ban      Boolean @default(false)
-  bio_shadow_ban         Boolean @default(false)
+  // 头像/签名审核状态: 0 - 正常, 1 - 待审核 (新值暂存待通过, 通过前其他人看已批准的旧值)
+  avatar_status          Int     @default(0)
+  bio_status             Int     @default(0)
   blocked_tag_ids        Int[]   @default([])
   daily_image_count   Int     @default(0)
   daily_check_in      Int     @default(0)

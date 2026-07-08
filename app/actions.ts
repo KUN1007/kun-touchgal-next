@@ -2,7 +2,7 @@
 
 import { getPatchVisibilityWhere } from '~/utils/actions/getPatchVisibilityWhere'
 import { verifyHeaderCookie } from '~/utils/actions/verifyHeaderCookie'
-import { shouldBypassSharedCacheForShadowBan } from '~/app/api/utils/shadowBan'
+import { shouldBypassSharedCache } from '~/app/api/utils/contentVisibility'
 import { getHomeData } from '~/app/api/home/service'
 
 export const kunGetActions = async () => {
@@ -10,7 +10,7 @@ export const kunGetActions = async () => {
     getPatchVisibilityWhere(),
     verifyHeaderCookie()
   ])
-  const bypassCache = await shouldBypassSharedCacheForShadowBan(payload)
+  const bypassCache = await shouldBypassSharedCache(payload)
   const response = await getHomeData(visibilityWhere, payload, bypassCache)
   return response
 }

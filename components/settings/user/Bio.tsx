@@ -18,6 +18,7 @@ export const Bio = () => {
   const [bio, setBio] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [pending, setPending] = useState(false)
 
   const handleSave = async () => {
     const result = bioSchema.safeParse({ bio })
@@ -28,14 +29,16 @@ export const Bio = () => {
       setUser({ ...user, bio })
       setLoading(true)
 
-      const res = await kunFetchPost<KunResponse<{}>>('/user/setting/bio', {
-        bio
-      })
+      const res = await kunFetchPost<KunResponse<{ pending?: boolean }>>(
+        '/user/setting/bio',
+        { bio }
+      )
 
       setLoading(false)
-      kunErrorHandler(res, () => {
+      kunErrorHandler(res, (value) => {
         toast.success('更新签名成功')
         setBio('')
+        setPending(!!value.pending)
       })
     }
   }
@@ -58,6 +61,11 @@ export const Bio = () => {
           isInvalid={!!error}
           errorMessage={error}
         />
+        {pending && (
+          <p className="text-sm text-warning-600 dark:text-warning-500">
+            签名审核中，通过后对所有人可见
+          </p>
+        )}
       </CardBody>
 
       <CardFooter className="flex flex-col items-start gap-3 border-t border-default-100 bg-default-50/60 px-5 py-4 sm:flex-row sm:items-center dark:bg-default-100/10">

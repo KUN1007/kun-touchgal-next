@@ -1,10 +1,9 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import {
-  getShadowBanWhere,
-  maskShadowBannedUser,
+  getCommentRatingVisibilityWhere,
   type KunViewer
-} from '~/app/api/utils/shadowBan'
+} from '~/app/api/utils/contentVisibility'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 import type { KunPatchRating } from '~/types/api/galgame'
 
@@ -28,7 +27,7 @@ export const getPatchRating = async (
   const where: Prisma.patch_ratingWhereInput = {
     patch_id: patchId,
     AND: [
-      getShadowBanWhere(viewer),
+      getCommentRatingVisibilityWhere(viewer),
       ...(onlyWithShortSummary
         ? [
             {
@@ -54,9 +53,7 @@ export const getPatchRating = async (
           select: {
             id: true,
             name: true,
-            avatar: true,
-            avatar_shadow_ban: true,
-            bio_shadow_ban: true
+            avatar: true
           }
         },
         _count: {
@@ -82,8 +79,7 @@ export const getPatchRating = async (
     playStatus: rating.play_status,
     shortSummary: rating.short_summary,
     spoilerLevel: rating.spoiler_level,
-    // 与资源列表一致: status=1 对非管理员掩码为 0, 防作者探测屏蔽状态
-    status: rating.status === 1 && (viewer?.role ?? 0) < 3 ? 0 : rating.status,
+    status: rating.status,
     isLike: rating.like.length > 0,
     likeCount: rating._count.like,
     userId: rating.user_id,
@@ -93,7 +89,7 @@ export const getPatchRating = async (
     user: {
       id: rating.user.id,
       name: rating.user.name,
-      avatar: maskShadowBannedUser(viewer, rating.user).avatar
+      avatar: rating.user.avatar
     }
   }))
 

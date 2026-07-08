@@ -3,8 +3,7 @@ import { prisma } from '~/prisma/index'
 const patchUserSelect = {
   id: true,
   name: true,
-  avatar: true,
-  avatar_shadow_ban: true
+  avatar: true
 } as const
 
 const patchAliasSelect = {

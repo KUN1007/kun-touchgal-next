@@ -28,21 +28,30 @@ export const POST = async (req: NextRequest) => {
 
   if (moderation.intercept) {
     // 新签名暂存于任务 payload, 通过审核后由 apply.ts 写入 user 表
-    await createModerationTask({
-      contentType: 'bio',
-      userId: payload.uid,
-      payload: { text: input.bio, bio: input.bio },
-      dryRun: false
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: payload.uid },
+        data: { bio_status: 1 }
+      })
+      await createModerationTask(
+        {
+          contentType: 'bio',
+          userId: payload.uid,
+          payload: { text: input.bio, bio: input.bio },
+          dryRun: false
+        },
+        tx
+      )
     })
     await invalidateUserSession(payload.uid)
 
-    // 响应形状与正常更新一致, 作者不感知审核的存在
-    return NextResponse.json({})
+    // 显性告知作者签名审核中
+    return NextResponse.json({ pending: true })
   }
 
   await prisma.user.update({
     where: { id: payload.uid },
-    data: { bio: input.bio }
+    data: { bio: input.bio, bio_status: 0 }
   })
 
   if (moderation.queue) {

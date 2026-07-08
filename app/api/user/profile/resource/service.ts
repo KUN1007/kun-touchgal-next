@@ -2,9 +2,9 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { getUserInfoSchema } from '~/validations/user'
 import {
-  getResourceShadowBanWhere,
+  getResourceVisibilityWhere,
   type KunViewer
-} from '~/app/api/utils/shadowBan'
+} from '~/app/api/utils/contentVisibility'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 import type { UserResource } from '~/types/api/user'
 
@@ -15,11 +15,11 @@ export const getUserPatchResource = async (
 ) => {
   const { uid, page, limit } = input
   const offset = (page - 1) * limit
-  const shadowBanWhere = getResourceShadowBanWhere(viewer)
+  const resourceStatusWhere = getResourceVisibilityWhere(viewer)
 
   const [data, total] = await Promise.all([
     prisma.patch_resource.findMany({
-      where: { user_id: uid, patch: visibilityWhere, ...shadowBanWhere },
+      where: { user_id: uid, patch: visibilityWhere, ...resourceStatusWhere },
       include: {
         patch: true
       },
@@ -28,7 +28,7 @@ export const getUserPatchResource = async (
       take: limit
     }),
     prisma.patch_resource.count({
-      where: { user_id: uid, patch: visibilityWhere, ...shadowBanWhere }
+      where: { user_id: uid, patch: visibilityWhere, ...resourceStatusWhere }
     })
   ])
 

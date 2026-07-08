@@ -232,7 +232,7 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
     }
   }
 
-  const handleBatchStatus = async (status: 0 | 1 | 3) => {
+  const handleBatchStatus = async (status: 0 | 1) => {
     setBatchHiding(true)
     const ids =
       selectedKeys === 'all'
@@ -244,7 +244,7 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
       { resourceIds: ids.join(','), status }
     )
 
-    const actionLabel = status === 0 ? '恢复' : status === 1 ? '屏蔽' : '隐藏'
+    const actionLabel = status === 0 ? '恢复' : '隐藏'
     if (typeof res === 'string') {
       toast.error(res)
     } else {
@@ -333,14 +333,9 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
                 </DropdownTrigger>
                 <DropdownMenu
                   aria-label="批量修改资源状态"
-                  onAction={(key) =>
-                    handleBatchStatus(Number(key) as 0 | 1 | 3)
-                  }
+                  onAction={(key) => handleBatchStatus(Number(key) as 0 | 1)}
                 >
                   <DropdownItem key="1" startContent={<EyeOff size={14} />}>
-                    Shadow ban
-                  </DropdownItem>
-                  <DropdownItem key="3" startContent={<EyeOff size={14} />}>
                     隐藏
                   </DropdownItem>
                   <DropdownItem key="0" startContent={<Eye size={14} />}>

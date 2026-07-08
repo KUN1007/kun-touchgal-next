@@ -41,6 +41,7 @@ interface Props {
 
 export const CommentDropdown = ({ comment, setComments }: Props) => {
   const user = useUserStore((state) => state.user)
+  const isPending = comment.status === 1
 
   const [editContent, setEditContent] = useState('')
   const [editIsSpoiler, setEditIsSpoiler] = useState(false)
@@ -156,9 +157,11 @@ export const CommentDropdown = ({ comment, setComments }: Props) => {
         <DropdownMenu
           aria-label="Comment actions"
           disabledKeys={
-            user.uid !== comment.userId && user.role < 3
-              ? ['edit', 'delete']
-              : ['report']
+            isPending
+              ? ['edit', 'delete', 'report']
+              : user.uid !== comment.userId && user.role < 3
+                ? ['edit', 'delete']
+                : ['report']
           }
         >
           <DropdownItem

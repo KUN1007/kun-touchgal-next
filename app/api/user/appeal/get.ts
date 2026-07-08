@@ -107,7 +107,7 @@ export const getUserAppeals = async (
   }
   for (const resource of resources) {
     contentMap.set(`resource:${resource.id}`, {
-      hidden: resource.status === 3,
+      hidden: resource.status === 1,
       patchName: resource.patch.name,
       original: { name: resource.name, note: resource.note }
     })

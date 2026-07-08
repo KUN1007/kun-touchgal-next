@@ -55,11 +55,10 @@ export const CommentEdit = ({ initialComment, onSuccess }: Props) => {
     }
   }
 
-  const isShadowBanned = initialComment.status === 1
   const isHidden = initialComment.status === 2
-  const [shadowBanning, setShadowBanning] = useState(false)
+  const [hiding, setHiding] = useState(false)
   const handleUpdateStatus = async (status: number) => {
-    setShadowBanning(true)
+    setHiding(true)
     try {
       const res = await kunFetchPut<KunResponse<{}>>(
         '/admin/comment/shadow-ban',
@@ -71,17 +70,11 @@ export const CommentEdit = ({ initialComment, onSuccess }: Props) => {
       if (typeof res === 'string') {
         toast.error(res)
       } else {
-        toast.success(
-          status === 0
-            ? '已恢复该评论'
-            : status === 1
-              ? '已屏蔽该评论'
-              : '已隐藏该评论'
-        )
+        toast.success(status === 0 ? '已恢复该评论' : '已隐藏该评论')
         await onSuccess?.()
       }
     } finally {
-      setShadowBanning(false)
+      setHiding(false)
     }
   }
 
@@ -155,19 +148,10 @@ export const CommentEdit = ({ initialComment, onSuccess }: Props) => {
             编辑
           </DropdownItem>
           <DropdownItem
-            key="shadow-ban"
-            className="text-warning"
-            color="warning"
-            isDisabled={shadowBanning}
-            onPress={() => handleUpdateStatus(isShadowBanned ? 0 : 1)}
-          >
-            {isShadowBanned ? '取消屏蔽' : 'Shadow ban'}
-          </DropdownItem>
-          <DropdownItem
             key="hidden"
             className="text-warning"
             color="warning"
-            isDisabled={shadowBanning}
+            isDisabled={hiding}
             onPress={() => handleUpdateStatus(isHidden ? 0 : 2)}
           >
             {isHidden ? '取消隐藏' : '隐藏'}

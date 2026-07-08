@@ -6,7 +6,7 @@ import { deletePendingModerationTasks } from '~/server/moderation/submit'
 
 const statusLabel: Record<number, string> = {
   0: '正常',
-  1: '屏蔽',
+  1: '待审核',
   2: '隐藏'
 }
 

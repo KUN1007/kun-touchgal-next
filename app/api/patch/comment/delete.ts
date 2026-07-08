@@ -78,6 +78,10 @@ export const deleteComment = async (
   if (comment.user_id !== uid && userRole < 3) {
     return '您没有权限删除该评论'
   }
+  // 待审核 (status=1) 的评论禁止作者删除; 管理员可删
+  if (userRole < 3 && comment.status === 1) {
+    return '该评论正在审核中, 暂时无法删除'
+  }
 
   return await prisma.$transaction(async (tx) => {
     // 删除前用递归 CTE 一次收集整棵回复子树的 id,

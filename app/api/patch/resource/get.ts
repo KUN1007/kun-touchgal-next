@@ -2,10 +2,9 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { markdownToHtml } from '~/app/api/utils/render/markdownToHtml'
 import {
-  getResourceShadowBanWhere,
-  maskShadowBannedUser,
+  getResourceVisibilityWhere,
   type KunViewer
-} from '~/app/api/utils/shadowBan'
+} from '~/app/api/utils/contentVisibility'
 import type { PatchResource } from '~/types/api/patch'
 
 const patchIdSchema = z.object({
@@ -22,7 +21,7 @@ export const getPatchResource = async (
   const data = await prisma.patch_resource.findMany({
     where: {
       patch_id: patchId,
-      ...getResourceShadowBanWhere(viewer)
+      ...getResourceVisibilityWhere(viewer)
     },
     include: {
       patch: { select: { unique_id: true } },
@@ -71,16 +70,14 @@ export const getPatchResource = async (
       })),
       likeCount: resource._count.like_by,
       isLike: resource.like_by.length > 0,
-      // 对非管理员隐藏 shadow ban 标记, 作者视角与正常资源一致
-      status:
-        resource.status === 1 && (viewer?.role ?? 0) < 3 ? 0 : resource.status,
+      status: resource.status,
       userId: resource.user_id,
       patchId: resource.patch_id,
       created: String(resource.created),
       user: {
         id: resource.user.id,
         name: resource.user.name,
-        avatar: maskShadowBannedUser(viewer, resource.user).avatar,
+        avatar: resource.user.avatar,
         patchCount: resource.user._count.patch_resource,
         role: resource.user.role
       }

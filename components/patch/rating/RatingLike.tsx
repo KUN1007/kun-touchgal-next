@@ -13,9 +13,10 @@ import type { KunPatchRating } from '~/types/api/galgame'
 
 interface Props {
   rating: KunPatchRating
+  isDisabled?: boolean
 }
 
-export const RatingLikeButton = ({ rating }: Props) => {
+export const RatingLikeButton = ({ rating, isDisabled }: Props) => {
   const user = useUserStore((state) => state.user)
   const [liked, setLiked] = useState(rating.isLike)
   const [likeCount, setLikeCount] = useState(rating.likeCount)
@@ -48,6 +49,7 @@ export const RatingLikeButton = ({ rating }: Props) => {
       <Button
         variant="light"
         disabled={loading}
+        isDisabled={isDisabled}
         onPress={toggleLike}
         className="min-w-0 px-2"
       >

@@ -90,7 +90,7 @@ const approveAppeal = async (
         updatedCount = updated.count
       } else {
         const updated = await tx.patch_resource.updateMany({
-          where: { id: contentId, status: 3 },
+          where: { id: contentId, status: 1 },
           data: {
             name: payload.name ?? '',
             note: payload.note ?? '',
@@ -191,7 +191,7 @@ const rejectAppeal = async (
     })
     contentStatus = resource?.status ?? null
   }
-  const hiddenStatus = type === 'resource' ? 3 : 2
+  const hiddenStatus = type === 'resource' ? 1 : 2
   const contentHidden = contentStatus === hiddenStatus
 
   // 抢占后删除前发生任何失败, 都还原申诉为待处理, 避免"已拒绝但内容仍在"的不一致

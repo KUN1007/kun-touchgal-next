@@ -59,29 +59,38 @@ const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
   if (moderation.intercept) {
     // 新头像暂存于 pending key, 通过审核后由 apply.ts 复制到正式 key
     const pendingLink = `${imageBedUrl}/${keys.pendingMiniKey}?v=${avatarVersion}`
-    await createModerationTask({
-      contentType: 'avatar',
-      userId: uid,
-      payload: {
-        pendingKey: keys.pendingKey,
-        pendingMiniKey: keys.pendingMiniKey,
-        avatarKey: keys.avatarKey,
-        avatarMiniKey: keys.avatarMiniKey,
-        avatarLink: imageLink,
-        pendingLink
-      },
-      dryRun: false
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: uid },
+        data: { avatar_status: 1 }
+      })
+      await createModerationTask(
+        {
+          contentType: 'avatar',
+          userId: uid,
+          payload: {
+            pendingKey: keys.pendingKey,
+            pendingMiniKey: keys.pendingMiniKey,
+            avatarKey: keys.avatarKey,
+            avatarMiniKey: keys.avatarMiniKey,
+            avatarLink: imageLink,
+            pendingLink
+          },
+          dryRun: false
+        },
+        tx
+      )
     })
     await invalidateUserSession(uid)
     await purgeCloudflareCache([`${imageBedUrl}/${keys.pendingMiniKey}`])
 
-    // 响应形状与正常上传一致, 作者不感知审核的存在
-    return { avatar: pendingLink }
+    // 显性告知作者头像审核中: 返回 pending 预览与审核标志
+    return { avatar: pendingLink, pending: true }
   }
 
   await prisma.user.update({
     where: { id: uid },
-    data: { avatar: imageLink }
+    data: { avatar: imageLink, avatar_status: 0 }
   })
 
   if (moderation.queue) {

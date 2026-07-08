@@ -17,6 +17,7 @@ interface Props {
 const COLLAPSED_HEIGHT_PX = 96
 
 export const ResourceDownload = ({ resource }: Props) => {
+  const isPending = resource.status === 2 || resource.status === 3
   const [showLinks, setShowLinks] = useState<Record<number, boolean>>({})
 
   const [isNoteExpanded, setIsNoteExpanded] = useState(false)
@@ -125,11 +126,12 @@ export const ResourceDownload = ({ resource }: Props) => {
         />
 
         <div className="flex gap-2">
-          <ResourceLikeButton resource={resource} />
+          <ResourceLikeButton resource={resource} isDisabled={isPending} />
           <Button
             color="primary"
             isIconOnly
             aria-label={`下载 Galgame 资源`}
+            isDisabled={isPending}
             onPress={() => toggleLinks(resource.id)}
           >
             <Download className="size-4" />

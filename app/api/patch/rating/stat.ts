@@ -2,7 +2,7 @@ import { prisma } from '~/prisma/index'
 
 // Recompute and upsert rating statistics for a patch
 export const recomputePatchRatingStat = async (patchId: number) => {
-  // Shadow banned ratings (status=1) are excluded for all viewers
+  // 仅 status=0 (正常) 的评价计入统计; 待审核 (1) 与隐藏 (2) 均排除
   const agg = await prisma.patch_rating.aggregate({
     where: { patch_id: patchId, status: 0 },
     _avg: { overall: true },

@@ -7,10 +7,9 @@ import {
 } from '~/constants/api/select'
 import { buildVisibilityCacheKey } from '../utils/visibilityCacheKey'
 import {
-  getResourceShadowBanWhere,
-  maskShadowBannedUser,
+  getResourceVisibilityWhere,
   type KunViewer
-} from '~/app/api/utils/shadowBan'
+} from '~/app/api/utils/contentVisibility'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 import type { HomeResource } from '~/types/api/home'
 
@@ -89,10 +88,9 @@ export const getHomeData = async (
     return cached.response
   }
 
-  // 共享缓存路径按公开视角查询与 mask, 避免 viewer 相关内容写入缓存
-  const maskViewer = bypassCache ? viewer : null
+  // 共享缓存路径按公开视角查询, 避免 viewer 相关内容写入缓存
   const statusWhere = bypassCache
-    ? getResourceShadowBanWhere(viewer)
+    ? getResourceVisibilityWhere(viewer)
     : { status: 0 }
 
   const [data, resourcesData] = await Promise.all([
@@ -126,8 +124,6 @@ export const getHomeData = async (
             id: true,
             name: true,
             avatar: true,
-            avatar_shadow_ban: true,
-            bio_shadow_ban: true,
             role: true,
             _count: {
               select: { patch_resource: true }
@@ -187,7 +183,7 @@ export const getHomeData = async (
     user: {
       id: resource.user.id,
       name: resource.user.name,
-      avatar: maskShadowBannedUser(maskViewer, resource.user).avatar,
+      avatar: resource.user.avatar,
       patchCount: resource.user._count.patch_resource,
       role: resource.user.role
     }

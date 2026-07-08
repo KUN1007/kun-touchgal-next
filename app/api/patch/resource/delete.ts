@@ -24,14 +24,18 @@ export const deleteResource = async (
       links: true
     }
   })
-  // 隐藏 (status=3) 的资源仅后台可管理, 前端与不存在等同
-  if (!patchResource || patchResource.status === 3) {
+  // 隐藏 (status=1) 的资源仅后台可管理, 前端与不存在等同
+  if (!patchResource || patchResource.status === 1) {
     return '未找到对应的资源'
   }
 
   const resourceUserUid = patchResource.user_id
   if (patchResource.user_id !== uid && userRole < 3) {
     return '您没有权限删除该资源'
+  }
+  // 待初次审核 (status=2) / 待审核 (status=3) 的资源禁止作者删除; 管理员可删
+  if (userRole < 3 && patchResource.status !== 0) {
+    return '该资源正在审核中, 暂时无法删除'
   }
 
   const s3Links = patchResource.links.filter((link) => link.storage === 's3')

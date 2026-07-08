@@ -82,7 +82,7 @@ export const RatingCard = ({
                 <h2 className="font-semibold">{rating.user.name}</h2>
                 {rating.status === 1 && (
                   <Chip color="warning" variant="flat" size="sm">
-                    已屏蔽
+                    待审核
                   </Chip>
                 )}
                 {rating.status === 2 && (

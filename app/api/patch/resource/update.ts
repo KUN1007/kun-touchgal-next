@@ -31,8 +31,8 @@ export const updatePatchResource = async (
       }
     }
   })
-  // 隐藏 (status=3) 的资源仅后台可管理, 前端与不存在等同
-  if (!resource || resource.status === 3) {
+  // 隐藏 (status=1) 的资源仅后台可管理, 前端与不存在等同
+  if (!resource || resource.status === 1) {
     return '未找到该资源'
   }
 
@@ -47,9 +47,8 @@ export const updatePatchResource = async (
     if (await hasPendingModeration('resource', { contentId: resourceId })) {
       return '您发布的资源正在审核中, 暂时无法修改'
     }
-    // status=1 (屏蔽): 管理员 shadow ban 不产生审核任务, 放行编辑会重新送审,
-    // AI 通过后 status 1→0 静默解除管理员的封禁
-    if (resource.status === 1) {
+    // 待审核 (status=3) 的资源禁止修改; hasPendingModeration 之外再兜底一层
+    if (resource.status === 3) {
       return '您发布的资源正在审核中, 暂时无法修改'
     }
   }
@@ -168,7 +167,7 @@ export const updatePatchResource = async (
       where: { id: resourceId },
       data: {
         ...resourceData,
-        ...(moderation.intercept ? { status: 1 } : {}),
+        ...(moderation.intercept ? { status: 3 } : {}),
         links: {
           deleteMany: {},
           create: preparedLinks
@@ -272,11 +271,5 @@ export const updatePatchResource = async (
     )
   }
 
-  // status=1 对非管理员掩码为 0, 防作者从响应探测屏蔽状态;
-  // 掩码放在最后, 上方的缓存失效判断使用真实状态
-  return {
-    ...updatedResource,
-    status:
-      updatedResource.status === 1 && userRole < 3 ? 0 : updatedResource.status
-  }
+  return updatedResource
 }

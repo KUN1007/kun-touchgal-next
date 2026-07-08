@@ -78,6 +78,7 @@ export const RatingCard = ({
   const [reporting, setReporting] = useState(false)
 
   const canEdit = user.uid === rating.user.id || user.role >= 3
+  const isPending = rating.status === 1
 
   const {
     isOpen: isOpenDelete,
@@ -153,6 +154,18 @@ export const RatingCard = ({
                   >
                     {KUN_GALGAME_RATING_PLAY_STATUS_MAP[rating.playStatus]}
                   </Chip>
+                  {isPending && (
+                    <Tooltip content="审核中，仅你和管理员可见">
+                      <Chip
+                        color="warning"
+                        variant="flat"
+                        size="sm"
+                        className="h-5 px-1.5"
+                      >
+                        待审核
+                      </Chip>
+                    </Tooltip>
+                  )}
                 </span>
               ),
               avatarProps: {
@@ -214,7 +227,7 @@ export const RatingCard = ({
           </>
         )}
         <div className="flex items-center justify-between">
-          <RatingLikeButton rating={rating} />
+          <RatingLikeButton rating={rating} isDisabled={isPending} />
 
           <div className="flex gap-0.5">
             {user.uid > 0 && user.uid !== rating.user.id && (
@@ -223,6 +236,7 @@ export const RatingCard = ({
                   variant="light"
                   isIconOnly
                   size="sm"
+                  isDisabled={isPending}
                   onPress={onOpenReport}
                   className="text-default-500"
                 >
@@ -237,6 +251,7 @@ export const RatingCard = ({
                     variant="light"
                     isIconOnly
                     size="sm"
+                    isDisabled={isPending}
                     onPress={onOpen}
                     className="text-default-500"
                   >
@@ -248,6 +263,7 @@ export const RatingCard = ({
                     variant="light"
                     isIconOnly
                     size="sm"
+                    isDisabled={isPending}
                     onPress={onOpenDelete}
                     className="text-danger"
                   >

@@ -48,7 +48,7 @@ export const CommentCard = ({
                 <h2 className="font-semibold">{comment.user.name}</h2>
                 {comment.status === 1 && (
                   <Chip color="warning" variant="flat" size="sm">
-                    已屏蔽
+                    待审核
                   </Chip>
                 )}
                 {comment.status === 2 && (

@@ -22,6 +22,7 @@ export const AvatarCrop = () => {
   const inputRef = useRef<HTMLInputElement>(null)
   const [image, setImage] = useState<string | null>(null)
   const [croppedImage, setCroppedImage] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
   const onSelectFile = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const reader = new FileReader()
@@ -42,9 +43,14 @@ export const AvatarCrop = () => {
     inputRef.current?.click()
   }
 
-  const handleUploaded = (croppedImage: string, avatar: string) => {
+  const handleUploaded = (
+    croppedImage: string,
+    avatar: string,
+    pending?: boolean
+  ) => {
     setCroppedImage(croppedImage)
     setUser({ ...user, avatar })
+    setPending(!!pending)
   }
 
   return (
@@ -86,6 +92,12 @@ export const AvatarCrop = () => {
           />
         </div>
       </div>
+
+      {pending && (
+        <p className="text-center text-sm text-warning-600 dark:text-warning-500">
+          头像审核中，通过后对所有人可见
+        </p>
+      )}
 
       {isOpen && image && (
         <AvatarCropModal

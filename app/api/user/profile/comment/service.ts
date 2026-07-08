@@ -3,10 +3,10 @@ import { prisma } from '~/prisma/index'
 import { getUserInfoSchema } from '~/validations/user'
 import { markdownToText } from '~/utils/markdownToText'
 import {
-  getShadowBanWhere,
-  isShadowBanExemptViewer,
+  getCommentRatingVisibilityWhere,
+  isContentVisibleToViewer,
   type KunViewer
-} from '~/app/api/utils/shadowBan'
+} from '~/app/api/utils/contentVisibility'
 import type { UserComment } from '~/types/api/user'
 
 export const getUserComment = async (
@@ -15,11 +15,11 @@ export const getUserComment = async (
 ) => {
   const { uid, page, limit } = input
   const offset = (page - 1) * limit
-  const shadowBanWhere = getShadowBanWhere(viewer)
+  const visibilityWhere = getCommentRatingVisibilityWhere(viewer)
 
   const [data, total] = await Promise.all([
     prisma.patch_comment.findMany({
-      where: { user_id: uid, ...shadowBanWhere },
+      where: { user_id: uid, ...visibilityWhere },
       include: {
         user: true,
         patch: true,
@@ -39,17 +39,17 @@ export const getUserComment = async (
       skip: offset
     }),
     prisma.patch_comment.count({
-      where: { user_id: uid, ...shadowBanWhere }
+      where: { user_id: uid, ...visibilityWhere }
     })
   ])
 
   const comments: UserComment[] = data.map((comment) => {
-    // 父评论被屏蔽时对非豁免 viewer 隐藏引用信息; 被隐藏 (status=2) 时对所有人隐藏
+    // 父评论待审核 (status=1) 时仅对作者与管理员显示引用信息; 隐藏 (status=2) 时对所有人隐藏
     const parentVisible =
       !!comment.parent &&
       (comment.parent.status === 0 ||
         (comment.parent.status === 1 &&
-          isShadowBanExemptViewer(viewer, comment.parent.user_id)))
+          isContentVisibleToViewer(viewer, comment.parent.user_id)))
 
     return {
       id: comment.id,

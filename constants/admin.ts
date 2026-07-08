@@ -9,9 +9,9 @@ export const APPLICANT_STATUS_MAP: Record<number, string> = {
 
 export const RESOURCE_STATUS_MAP: Record<number, string> = {
   0: '正常',
-  1: 'Shadow ban',
-  2: '待审核',
-  3: '隐藏'
+  1: '隐藏',
+  2: '待初次审核',
+  3: '待审核'
 }
 
 export const ADMIN_LOG_TYPE_MAP: Record<string, string> = {

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
-import { maskShadowBannedUser, type KunViewer } from '~/app/api/utils/shadowBan'
+import type { KunViewer } from '~/app/api/utils/contentVisibility'
 import type { UserInfo } from '~/types/api/user'
 
 const getProfileSchema = z.object({
@@ -37,15 +37,14 @@ export const getUserProfile = async (
 
   const followerUserUid = data.following.map((f) => f.follower_id)
   const isSelf = currentUserUid === input.id
-  const masked = maskShadowBannedUser(viewer, data)
 
   const user: UserInfo = {
     id: data.id,
     requestUserUid: currentUserUid,
     name: data.name,
     email: isSelf ? data.email : '',
-    avatar: masked.avatar,
-    bio: masked.bio,
+    avatar: data.avatar,
+    bio: data.bio,
     role: data.role,
     status: data.status,
     registerTime: String(data.register_time),

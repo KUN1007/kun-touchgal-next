@@ -14,7 +14,8 @@ const createReport = async (
     select: {
       id: true,
       user_id: true,
-      patch_id: true
+      patch_id: true,
+      status: true
     }
   })
   if (!rating) {
@@ -25,6 +26,13 @@ const createReport = async (
   }
   if (rating.user_id === uid) {
     return '不能举报自己的评价'
+  }
+  // 待审核 (status=1) 的评价不可举报; 隐藏 (status=2) 的评价前端不可见, 与不存在等同
+  if (rating.status === 1) {
+    return '该评价正在审核中, 暂时无法举报'
+  }
+  if (rating.status !== 0) {
+    return '评价不存在'
   }
 
   const existingReport = await prisma.patch_report.findFirst({

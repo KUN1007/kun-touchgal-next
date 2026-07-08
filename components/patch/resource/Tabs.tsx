@@ -7,10 +7,12 @@ import {
   Card,
   CardHeader,
   CardBody,
+  Chip,
   Dropdown,
   DropdownItem,
   DropdownMenu,
   DropdownTrigger,
+  Tooltip,
   User,
   Tab,
   Tabs
@@ -179,7 +181,16 @@ export const ResourceTabs = ({
     >
       <div className="space-y-2">
         <div className="flex items-start justify-between">
-          <ResourceInfo resource={resource} />
+          <div className="space-y-2">
+            <ResourceInfo resource={resource} />
+            {(resource.status === 2 || resource.status === 3) && (
+              <Tooltip content="审核中，仅你和管理员可见">
+                <Chip color="warning" variant="flat" size="sm">
+                  待审核
+                </Chip>
+              </Tooltip>
+            )}
+          </div>
           <Dropdown>
             <DropdownTrigger>
               <Button variant="light" isIconOnly>
@@ -189,9 +200,11 @@ export const ResourceTabs = ({
             <DropdownMenu
               aria-label="Resource actions"
               disabledKeys={
-                user.uid !== resource.userId && user.role < 3
+                resource.status === 2 || resource.status === 3
                   ? ['edit', 'delete']
-                  : []
+                  : user.uid !== resource.userId && user.role < 3
+                    ? ['edit', 'delete']
+                    : []
               }
             >
               <DropdownItem

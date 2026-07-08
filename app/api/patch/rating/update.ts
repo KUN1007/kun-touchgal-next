@@ -41,8 +41,7 @@ export const updatePatchRating = async (
   ) {
     return '您发布的评价正在审核中, 暂时无法修改'
   }
-  // status=1 (屏蔽): 管理员 shadow ban 不产生审核任务, hasPendingModeration
-  // 拦不住; 放行编辑会重新送审, AI 通过后 status 1→0 静默解除管理员的封禁
+  // 待审核 (status=1) 的评价禁止修改; hasPendingModeration 之外再兜底一层
   if (userRole < 3 && rating.status === 1) {
     return '您发布的评价正在审核中, 暂时无法修改'
   }
@@ -111,8 +110,7 @@ export const updatePatchRating = async (
     playStatus: data.play_status,
     shortSummary: data.short_summary,
     spoilerLevel: data.spoiler_level,
-    // status=1 对非管理员掩码为 0, 防作者从响应探测屏蔽状态
-    status: data.status === 1 && userRole < 3 ? 0 : data.status,
+    status: data.status,
     isLike: data.like.length > 0,
     likeCount: data._count.like,
     userId: data.user_id,

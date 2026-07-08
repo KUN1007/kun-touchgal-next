@@ -21,7 +21,7 @@ interface Props {
   image: string
   isOpen: boolean
   onClose: () => void
-  onUploaded: (croppedImage: string, avatar: string) => void
+  onUploaded: (croppedImage: string, avatar: string, pending?: boolean) => void
 }
 
 export const AvatarCropModal = ({
@@ -73,13 +73,12 @@ export const AvatarCropModal = ({
 
     setLoading(true)
     try {
-      const res = await kunFetchFormData<KunResponse<{ avatar: string }>>(
-        '/user/setting/avatar',
-        formData
-      )
+      const res = await kunFetchFormData<
+        KunResponse<{ avatar: string; pending?: boolean }>
+      >('/user/setting/avatar', formData)
       kunErrorHandler(res, (value) => {
         toast.success('更新头像成功!')
-        onUploaded(base64Image, value.avatar)
+        onUploaded(base64Image, value.avatar, value.pending)
         onClose()
       })
     } catch (error) {

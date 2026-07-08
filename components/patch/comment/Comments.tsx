@@ -6,6 +6,8 @@ import { Card, CardBody } from '@heroui/card'
 import { Button } from '@heroui/button'
 import { Pagination } from '@heroui/pagination'
 import { Divider } from '@heroui/divider'
+import { Chip } from '@heroui/chip'
+import { Tooltip } from '@heroui/tooltip'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
 import { MessageCircle, PenLine } from 'lucide-react'
 import { kunFetchGet } from '~/utils/kunFetch'
@@ -185,18 +187,27 @@ export const Comments = ({ id }: Props) => {
             <CardBody className="space-y-3">
               <div className="space-y-2">
                 <div className="flex items-start justify-between">
-                  <KunUser
-                    user={comment.user}
-                    userProps={{
-                      name: comment.user.name,
-                      description: <KunTimeAgo date={comment.created} />,
-                      avatarProps: {
-                        showFallback: true,
+                  <div className="flex items-center gap-2">
+                    <KunUser
+                      user={comment.user}
+                      userProps={{
                         name: comment.user.name,
-                        src: comment.user.avatar
-                      }
-                    }}
-                  />
+                        description: <KunTimeAgo date={comment.created} />,
+                        avatarProps: {
+                          showFallback: true,
+                          name: comment.user.name,
+                          src: comment.user.avatar
+                        }
+                      }}
+                    />
+                    {comment.status === 1 && (
+                      <Tooltip content="审核中，仅你和管理员可见">
+                        <Chip color="warning" variant="flat" size="sm">
+                          待审核
+                        </Chip>
+                      </Tooltip>
+                    )}
+                  </div>
                   <CommentDropdown
                     comment={comment}
                     setComments={setComments}
@@ -206,11 +217,15 @@ export const Comments = ({ id }: Props) => {
                 <CommentContent comment={comment} />
 
                 <div className="flex gap-2">
-                  <CommentLikeButton comment={comment} />
+                  <CommentLikeButton
+                    comment={comment}
+                    isDisabled={comment.status === 1}
+                  />
                   <Button
                     variant="ghost"
                     size="sm"
                     className="gap-2"
+                    isDisabled={comment.status === 1}
                     onPress={() =>
                       setReplyTo(
                         replyTo?.commentId === comment.id
@@ -264,6 +279,13 @@ export const Comments = ({ id }: Props) => {
                                 }
                               }}
                             />
+                            {reply.status === 1 && (
+                              <Tooltip content="审核中，仅你和管理员可见">
+                                <Chip color="warning" variant="flat" size="sm">
+                                  待审核
+                                </Chip>
+                              </Tooltip>
+                            )}
                           </div>
                           <CommentDropdown
                             comment={reply}
@@ -274,11 +296,15 @@ export const Comments = ({ id }: Props) => {
                         <CommentContent comment={reply} />
 
                         <div className="flex gap-2">
-                          <CommentLikeButton comment={reply} />
+                          <CommentLikeButton
+                            comment={reply}
+                            isDisabled={reply.status === 1}
+                          />
                           <Button
                             variant="ghost"
                             size="sm"
                             className="gap-2"
+                            isDisabled={reply.status === 1}
                             onPress={() =>
                               setReplyTo(
                                 replyTo?.commentId === reply.id

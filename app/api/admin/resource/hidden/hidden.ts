@@ -8,8 +8,7 @@ import { deletePendingModerationTasks } from '~/server/moderation/submit'
 
 const statusLabel: Record<number, string> = {
   0: '正常',
-  1: '屏蔽',
-  3: '隐藏'
+  1: '隐藏'
 }
 
 const adminLogContentLimit = 10007
@@ -32,8 +31,8 @@ export const updateResourceHidden = async (
   }
 
   const { resourceIds, status } = input
-  // 仅在 0 (正常) / 1 (屏蔽) / 3 (隐藏) 之间流转, status=2 待审核永不被命中
-  const fromStatuses = [0, 1, 3].filter((value) => value !== status)
+  // 仅在 0 (正常) / 1 (隐藏) 之间流转; 待初次审核 (2) / 待审核 (3) 为系统态, 永不被命中
+  const fromStatuses = [0, 1].filter((value) => value !== status)
 
   const targets = await prisma.patch_resource.findMany({
     where: { id: { in: resourceIds }, status: { in: fromStatuses } },

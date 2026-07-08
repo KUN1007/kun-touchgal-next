@@ -26,13 +26,13 @@ const toggleCommentLike = async (
   if (!comment) {
     return '未找到评论'
   }
-  // 作者判断必须先于 status: 否则被 shadow ban 的作者对自己 status=1 的评论点赞时,
-  // 响应会从 '您不能给自己点赞' 变为 '未找到评论', 反向暴露封禁
   if (comment.user_id === uid) {
     return '您不能给自己点赞'
   }
-  // 仅公开 (status=0) 评论可被他人点赞; status=1 (shadow ban) / 2 (隐藏) 与不存在等同,
-  // 防止通过点赞探测 shadow ban, 也避免向被封作者发通知
+  // 待审核 (status=1) 的评论不可点赞; 隐藏 (status=2) 的评论前端不可见, 与不存在等同
+  if (comment.status === 1) {
+    return '该评论正在审核中, 暂时无法点赞'
+  }
   if (comment.status !== 0) {
     return '未找到评论'
   }

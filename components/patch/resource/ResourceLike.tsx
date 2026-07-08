@@ -11,9 +11,10 @@ import { PatchResource } from '~/types/api/patch'
 
 interface Props {
   resource: PatchResource
+  isDisabled?: boolean
 }
 
-export const ResourceLikeButton = ({ resource }: Props) => {
+export const ResourceLikeButton = ({ resource, isDisabled }: Props) => {
   const user = useUserStore((state) => state.user)
 
   const [liked, setLiked] = useState(resource.isLike)
@@ -50,6 +51,7 @@ export const ResourceLikeButton = ({ resource }: Props) => {
       <Button
         variant="light"
         disabled={loading}
+        isDisabled={isDisabled}
         onPress={toggleLike}
         className="min-w-0 px-2"
       >

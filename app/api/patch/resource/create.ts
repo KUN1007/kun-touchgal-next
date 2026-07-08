@@ -86,7 +86,7 @@ export const createPatchResource = async (
         type,
         language,
         platform,
-        status: needApproval ? 2 : moderation.intercept ? 1 : 0,
+        status: needApproval ? 2 : moderation.intercept ? 3 : 0,
         ...resourceData,
         links: {
           create: preparedLinks
@@ -194,7 +194,5 @@ export const createPatchResource = async (
     })
   }
 
-  // status=1 (审核中) 对作者掩码为 0, 保持与正常发布一致;
-  // 掩码放在最后, 上方的缓存失效判断使用真实状态
-  return { ...resource, status: resource.status === 1 ? 0 : resource.status }
+  return resource
 }

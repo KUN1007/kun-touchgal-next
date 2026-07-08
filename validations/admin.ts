@@ -125,11 +125,11 @@ const adminResourceIdsSchema = z
     message: `单次最多操作 ${adminResourceHiddenLimit} 条资源`
   })
 
-// 0 - 正常, 1 - 屏蔽 (仅作者与管理员可见), 3 - 隐藏 (仅后台可见)
-// status=2 (待审核) 不可通过此接口设置
+// 0 - 正常, 1 - 隐藏 (仅后台可见)
+// 待初次审核 (2) / 待审核 (3) 为系统态, 不可通过此接口设置
 export const adminUpdateResourceHiddenSchema = z.object({
   resourceIds: adminResourceIdsSchema,
-  status: z.union([z.literal(0), z.literal(1), z.literal(3)])
+  status: z.union([z.literal(0), z.literal(1)])
 })
 
 export const adminReportPaginationSchema = adminPaginationSchema.extend({
@@ -341,21 +341,15 @@ export const adminHandleAppealSchema = z.object({
   approve: z.boolean()
 })
 
-// 0 - 正常, 1 - 屏蔽 (仅作者与管理员可见), 2 - 隐藏 (仅后台可见)
+// admin 仅在正常 (0) 与隐藏 (2) 间切换; 待审核 (1) 为系统态, 不手动设置
 export const adminUpdateCommentShadowBanSchema = z.object({
   commentId: z.coerce.number().min(1).max(9999999),
-  status: z.union([z.literal(0), z.literal(1), z.literal(2)])
+  status: z.union([z.literal(0), z.literal(2)])
 })
 
 export const adminUpdateRatingShadowBanSchema = z.object({
   ratingId: z.coerce.number().min(1).max(9999999),
-  status: z.union([z.literal(0), z.literal(1), z.literal(2)])
-})
-
-export const adminUpdateUserShadowBanSchema = z.object({
-  uid: z.coerce.number().min(1).max(9999999),
-  avatarShadowBan: z.boolean(),
-  bioShadowBan: z.boolean()
+  status: z.union([z.literal(0), z.literal(2)])
 })
 
 export const adminGetFullCommentSchema = z.object({

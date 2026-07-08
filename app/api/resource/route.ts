@@ -3,7 +3,7 @@ import { kunParseGetQuery } from '../utils/parseQuery'
 import { resourceSchema } from '~/validations/resource'
 import { getPatchVisibilityWhere } from '~/app/api/utils/getPatchVisibilityWhere'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
-import { shouldBypassSharedCacheForShadowBan } from '~/app/api/utils/shadowBan'
+import { shouldBypassSharedCache } from '~/app/api/utils/contentVisibility'
 import { getPatchResource } from './service'
 
 export const GET = async (req: NextRequest) => {
@@ -15,7 +15,7 @@ export const GET = async (req: NextRequest) => {
     getPatchVisibilityWhere(req),
     verifyHeaderCookie(req)
   ])
-  const bypassCache = await shouldBypassSharedCacheForShadowBan(payload)
+  const bypassCache = await shouldBypassSharedCache(payload)
 
   const response = await getPatchResource(
     input,

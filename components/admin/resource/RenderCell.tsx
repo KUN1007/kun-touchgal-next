@@ -87,9 +87,9 @@ export const RenderCell = (resource: AdminResource, columnKey: string) => {
         resource.status === 0
           ? 'success'
           : resource.status === 1
-            ? 'warning'
+            ? 'danger'
             : resource.status === 3
-              ? 'danger'
+              ? 'warning'
               : 'default'
       return (
         <Chip color={color} variant="flat">

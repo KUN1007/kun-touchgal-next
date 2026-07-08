@@ -122,11 +122,22 @@ export const MODERATION_BATCH_SIZE = 10
 // 应 <= MODERATION_BATCH_SIZE
 export const MODERATION_CONCURRENCY = 5
 
+// worker 抢占锁 TTL: 单个 cron 进程独占一批审核的最长时间. 批次超此值时锁自然过期,
+// 可能与下一 tick 并发 —— 由认领协议 (picked_at) 兜底正确性. 下面三个时间常量构成
+// 不变式链, 集中于此以免跨文件漂移
+export const MODERATION_LOCK_TTL_SECONDS = 300
+
 // 认领租约时长: 处理前给任务行盖时间戳, 期内其它 worker 不重复处理该行; 超过此窗口
-// 视为 worker 崩溃, 该行可被回收重跑. 须 > worker 锁 TTL (MODERATION_LOCK_TTL_SECONDS
-// = 300): 若二者相等, 锁刚过期时下一批次算出的 leaseStaleBefore 恰好越过在途行的
-// picked_at, 会把仍在处理的行误判为崩溃并回收, 与原批次并发跑出一次重复 AI 调用
+// 视为 worker 崩溃, 该行可被回收重跑. 须 > MODERATION_LOCK_TTL_SECONDS: 若二者相等,
+// 锁刚过期时下一批次算出的 leaseStaleBefore 恰好越过在途行的 picked_at, 会把仍在处理
+// 的行误判为崩溃并回收, 与原批次并发跑出一次重复 AI 调用
 export const MODERATION_LEASE_SECONDS = 600
+
+// 单次 AI 调用超时: 必须 < MODERATION_LOCK_TTL_SECONDS, 把任一任务的处理耗时经这一
+// 网络调用上限约束在锁 TTL 内, 否则挂起的 provider 调用会拖到锁自然过期、触发另一批次
+// 并发重跑. 慢推理模型吃满 max_tokens=2048 约需 100-140s, 取 180s 留足余量避免误杀
+// 合法慢响应; 不变式链: AI 超时 (180s) < 锁 TTL (300s) < 认领租约 (600s)
+export const MODERATION_AI_TIMEOUT_MS = 180 * 1000
 
 // send head + tail when the text exceeds the limit; spam contact info
 // almost always sits at the very beginning or the very end

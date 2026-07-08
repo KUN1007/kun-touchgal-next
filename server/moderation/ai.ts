@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import {
+  MODERATION_AI_TIMEOUT_MS,
   MODERATION_AVATAR_SYSTEM_PROMPT,
   MODERATION_TEXT_SYSTEM_PROMPT
 } from '~/constants/moderation'
@@ -69,6 +70,9 @@ const requestChatCompletion = async (
 
   const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
     method: 'POST',
+    // 单次调用超时: 约束任务处理耗时在锁 TTL 内 (见 MODERATION_AI_TIMEOUT_MS); 超时会
+    // abort 请求与响应体读取, 抛错后由 worker 走退避重试, 而非无限占用 worker
+    signal: AbortSignal.timeout(MODERATION_AI_TIMEOUT_MS),
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`

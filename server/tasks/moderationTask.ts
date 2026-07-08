@@ -10,6 +10,7 @@ import {
   MODERATION_BATCH_SIZE,
   MODERATION_CONCURRENCY,
   MODERATION_LEASE_SECONDS,
+  MODERATION_LOCK_TTL_SECONDS,
   MODERATION_MAX_RETRY,
   MODERATION_VERDICT_CACHE_DURATION
 } from '~/constants/moderation'
@@ -40,7 +41,6 @@ import type {
 import { withTaskLock } from './withTaskLock'
 
 const MODERATION_LOCK_KEY = 'moderation:worker:lock'
-const MODERATION_LOCK_TTL_SECONDS = 300
 
 // verdicts are cached per content_type: each type has a distinct system prompt,
 // so a verdict from one type must never be replayed onto another
@@ -143,6 +143,18 @@ const processAvatarTask = async (task: moderation_taskModel) => {
   await applyAiResult(task, result)
 }
 
+// fetch 候选与逐行认领共用同一谓词: 待处理、已到重试时刻 (next_attempt)、租约为空或已
+// 过期 (picked_at). 抽成工厂而非常量对象, 因两处各用自己的 now、共享 leaseStaleBefore;
+// 认领时复用它二次校验, 避免并发下另一 worker 刚把该行退避推后时被本 worker 提前重试
+const claimablePredicate = (
+  now: Date,
+  leaseStaleBefore: Date
+): Prisma.moderation_taskWhereInput => ({
+  status: 'pending',
+  next_attempt: { lte: now },
+  OR: [{ picked_at: null }, { picked_at: { lt: leaseStaleBefore } }]
+})
+
 // 处理单条任务: 成功即落裁决, 失败按重试/转人工记账. 各任务的 apply 是独立事务,
 // 缓存与黑名单为共享只读, 因此可安全并发
 const processTask = async (
@@ -150,21 +162,28 @@ const processTask = async (
   blacklistPatterns: string[],
   leaseStaleBefore: Date
 ) => {
+  // 非空 picked_at 说明这是在回收一个过期租约: 上次尝试既没走到结算 (会移出 pending)
+  // 也没走到退避 (会清空 picked_at), 即上个 worker 是崩溃而非抛错. 计入 retry, 使反复
+  // 崩溃 worker 的任务不会绕过 MAX_RETRY 被无限回收
+  const isReclaim = task.picked_at !== null
+
   // 认领: 在昂贵的 AI/S3 调用前先给这一行盖上租约. 全局锁失效或部署期两个 cron 短暂
   // 并存时, 抢不到 (count 0) 的一方直接跳过, 同一任务永不被重复调用/重复扣费; 过期
   // 租约 (崩溃 worker 遗留) 可被回收
   const claim = await prisma.moderation_task.updateMany({
-    where: {
-      id: task.id,
-      status: 'pending',
-      // 与 fetch 谓词一致: 认领时二次校验 next_attempt, 避免并发下另一 worker 刚把
-      // 该行退避推后 (next_attempt 置未来、picked_at 清空) 时被本 worker 提前重试
-      next_attempt: { lte: new Date() },
-      OR: [{ picked_at: null }, { picked_at: { lt: leaseStaleBefore } }]
-    },
-    data: { picked_at: new Date() }
+    where: { id: task.id, ...claimablePredicate(new Date(), leaseStaleBefore) },
+    data: {
+      picked_at: new Date(),
+      ...(isReclaim ? { retry: { increment: 1 } } : {})
+    }
   })
   if (claim.count === 0) {
+    return
+  }
+
+  // 回收已耗尽重试预算: 该任务每次处理都让 worker 崩溃, 转人工而非再次重跑
+  if (isReclaim && task.retry + 1 >= MODERATION_MAX_RETRY) {
+    await markTaskManual(task.id, '多次处理未完成, 已转人工复核')
     return
   }
 
@@ -185,7 +204,8 @@ const processTask = async (
       await markTaskManual(task.id, `审核失败: ${String(error)}`)
     } else {
       // exponential backoff: 5s, 25s; 清租约使 next_attempt 到点即可被重新认领,
-      // 无需干等租约自然过期
+      // 无需干等租约自然过期. retry 为绝对写 (task.retry+1), 与回收时的 increment 落在
+      // 同一值, 故"回收后又抛错"净 +1 而非双计 —— 勿把这里改成 increment
       await prisma.moderation_task.updateMany({
         where: { id: task.id, status: 'pending' },
         data: {
@@ -243,11 +263,7 @@ const runModerationBatch = async () => {
   // 二次校验租约, 避免与仍在处理该行的其它 worker 撞车
   const leaseStaleBefore = new Date(Date.now() - MODERATION_LEASE_SECONDS * 1000)
   const tasks = await prisma.moderation_task.findMany({
-    where: {
-      status: 'pending',
-      next_attempt: { lte: new Date() },
-      OR: [{ picked_at: null }, { picked_at: { lt: leaseStaleBefore } }]
-    },
+    where: claimablePredicate(new Date(), leaseStaleBefore),
     orderBy: { created: 'asc' },
     take: MODERATION_BATCH_SIZE
   })

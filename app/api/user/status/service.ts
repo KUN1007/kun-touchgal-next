@@ -52,7 +52,9 @@ const getPendingProfileValues = async (uid: number) => {
   const pendingTasks = await prisma.moderation_task.findMany({
     where: {
       user_id: uid,
-      status: 'pending',
+      // 与 hasPendingModeration 对齐: 转人工 (manual) 期间仍向作者展示送审新值,
+      // 避免锁定生效但预览回退旧值的错位
+      status: { in: ['pending', 'manual'] },
       dry_run: false,
       content_type: { in: ['avatar', 'bio'] }
     },

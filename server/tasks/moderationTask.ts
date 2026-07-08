@@ -12,6 +12,7 @@ import {
   MODERATION_LEASE_SECONDS,
   MODERATION_LOCK_TTL_SECONDS,
   MODERATION_MAX_RETRY,
+  MODERATION_S3_TIMEOUT_MS,
   MODERATION_VERDICT_CACHE_DURATION
 } from '~/constants/moderation'
 import type { ModerationContentType } from '~/constants/moderation'
@@ -136,7 +137,10 @@ const processTextTask = async (
 
 const processAvatarTask = async (task: moderation_taskModel) => {
   const payload = task.payload as unknown as ModerationAvatarPayload
-  const buffer = await getFileFromS3(payload.pendingKey)
+  const buffer = await getFileFromS3(
+    payload.pendingKey,
+    AbortSignal.timeout(MODERATION_S3_TIMEOUT_MS)
+  )
   // vision APIs handle jpeg far more reliably than avif
   const jpeg = await sharp(buffer).jpeg({ quality: 85 }).toBuffer()
   const result = await moderateImage(jpeg.toString('base64'))
@@ -264,7 +268,11 @@ const runModerationBatch = async () => {
   const leaseStaleBefore = new Date(Date.now() - MODERATION_LEASE_SECONDS * 1000)
   const tasks = await prisma.moderation_task.findMany({
     where: claimablePredicate(new Date(), leaseStaleBefore),
-    orderBy: { created: 'asc' },
+    // 按 next_attempt 升序取: 与 [status, next_attempt] 索引同序, Postgres 直接索引
+    // 取前 N 免去额外 Sort. next_attempt 是范围条件, 其后的列 (如 created) 在索引里
+    // 不构成有序, 故加复合索引也消不掉排序; 换排序键才是零成本解. 未重试任务
+    // next_attempt 默认等于 created, FIFO 不变, 重试任务则按就绪时刻公平排队
+    orderBy: { next_attempt: 'asc' },
     take: MODERATION_BATCH_SIZE
   })
   if (!tasks.length) {

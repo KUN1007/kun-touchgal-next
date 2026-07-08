@@ -12,7 +12,8 @@ import { purgeCloudflareCache } from '~/app/api/utils/purgeCloudflareCache'
 import { copyObject, deleteFileFromS3 } from '~/lib/s3'
 import {
   MODERATION_REJECT_CODE_MAP,
-  MODERATION_REJECT_NOTICE
+  MODERATION_REJECT_NOTICE,
+  MODERATION_S3_TIMEOUT_MS
 } from '~/constants/moderation'
 import { APPEAL_CONTENT_TYPE, APPEAL_SETTINGS_LINK } from '~/constants/appeal'
 import type { ModerationAvatarPayload, ModerationTextPayload } from './submit'
@@ -103,8 +104,16 @@ export const applyModerationVerdict = async (
   // leaves the task pending and retryable; m=1 转人工时不落地, 等人工最终裁决
   if (!task.dry_run && task.content_type === 'avatar' && approved && !manual) {
     const payload = task.payload as unknown as ModerationAvatarPayload
-    await copyObject(payload.pendingKey, payload.avatarKey)
-    await copyObject(payload.pendingMiniKey, payload.avatarMiniKey)
+    await copyObject(
+      payload.pendingKey,
+      payload.avatarKey,
+      AbortSignal.timeout(MODERATION_S3_TIMEOUT_MS)
+    )
+    await copyObject(
+      payload.pendingMiniKey,
+      payload.avatarMiniKey,
+      AbortSignal.timeout(MODERATION_S3_TIMEOUT_MS)
+    )
   }
 
   let claimed = false

@@ -133,11 +133,18 @@ export const MODERATION_LOCK_TTL_SECONDS = 300
 // 的行误判为崩溃并回收, 与原批次并发跑出一次重复 AI 调用
 export const MODERATION_LEASE_SECONDS = 600
 
-// 单次 AI 调用超时: 必须 < MODERATION_LOCK_TTL_SECONDS, 把任一任务的处理耗时经这一
+// 单次 AI 调用超时: 必须 < MODERATION_LOCK_TTL_SECONDS, 把任务中 AI 调用的耗时经这一
 // 网络调用上限约束在锁 TTL 内, 否则挂起的 provider 调用会拖到锁自然过期、触发另一批次
 // 并发重跑. 慢推理模型吃满 max_tokens=2048 约需 100-140s, 取 180s 留足余量避免误杀
 // 合法慢响应; 不变式链: AI 超时 (180s) < 锁 TTL (300s) < 认领租约 (600s)
 export const MODERATION_AI_TIMEOUT_MS = 180 * 1000
+
+// avatar 任务在「认领→结算」窗口内除 AI 调用外还有阻塞式 S3 操作 (取 pending 图、copy
+// 到正式 key), 若无超时, S3 卡死会让单任务处理耗时超过认领租约、被另一批次回收而重复
+// 调用 AI. 给这些 S3 调用同样设超时, 使不变式链对头像也成立: 头像最坏处理耗时
+// = get(60) + AI(180) + copy×2(120) = 360s < 认领租约 (600s); 另有 sharp 解码与结算
+// tx (各受自身 CPU / Prisma 默认超时约束), 240s 余量足以覆盖
+export const MODERATION_S3_TIMEOUT_MS = 60 * 1000
 
 // send head + tail when the text exceeds the limit; spam contact info
 // almost always sits at the very beginning or the very end

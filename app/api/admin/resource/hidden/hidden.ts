@@ -43,7 +43,11 @@ export const updateResourceHidden = async (
   }
 
   const targetIds = targets.map((resource) => resource.id)
-  const patchIds = [...new Set(targets.map((resource) => resource.patch_id))]
+  // 排序后再逐个加通告锁 (recalcPatchType 内): 确定性锁序, 消除两个反序重叠批在
+  // patch 级通告锁上的 AB-BA 死锁 (与上面 task→资源行的锁序处理同理)
+  const patchIds = [
+    ...new Set(targets.map((resource) => resource.patch_id))
+  ].sort((a, b) => a - b)
 
   await prisma.$transaction(async (prisma) => {
     // 先作废在途审核任务再改 status: 锁顺序 (task→资源行) 与 worker apply 对齐,

@@ -67,8 +67,10 @@ export const uploadFileToS3 = async (key: string, filePath: string) => {
   await rm(folderPath, { recursive: true, force: true })
 }
 
-export const getFileFromS3 = async (key: string) => {
-  const res = await s3.send(new GetObjectCommand({ Bucket, Key: key }))
+export const getFileFromS3 = async (key: string, abortSignal?: AbortSignal) => {
+  const res = await s3.send(new GetObjectCommand({ Bucket, Key: key }), {
+    abortSignal
+  })
   const bytes = await res.Body?.transformToByteArray()
   if (!bytes) {
     throw new Error(`Empty S3 object body for key: ${key}`)
@@ -103,11 +105,16 @@ export const presignPutObject = (
 export const headObject = (key: string) =>
   s3.send(new HeadObjectCommand({ Bucket, Key: key }))
 
-export const copyObject = (srcKey: string, dstKey: string) =>
+export const copyObject = (
+  srcKey: string,
+  dstKey: string,
+  abortSignal?: AbortSignal
+) =>
   s3.send(
     new CopyObjectCommand({
       Bucket,
       CopySource: `${Bucket}/${encodeURI(srcKey)}`,
       Key: dstKey
-    })
+    }),
+    { abortSignal }
   )

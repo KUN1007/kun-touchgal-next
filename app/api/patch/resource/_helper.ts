@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto'
 import { copyObject, deleteFileFromS3, headObject } from '~/lib/s3'
 import { acquireKvLock, delKv, getKv, releaseKvLock } from '~/lib/redis'
 import { prisma } from '~/prisma/index'
+import type { Prisma } from '~/prisma/generated/prisma/client'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
 import {
@@ -136,13 +137,20 @@ export const sanitizeResourceLinksForAuditLog = <
   return links.map(({ content, password, code, hash, s3_key, ...rest }) => rest)
 }
 
-export const recalcPatchType = async (
+// 通告锁命名空间 (pg_advisory_xact_lock 首参): 同一 patch 的并发重算按 (域, patchId)
+// 串行, 与评分统计锁 (rating stat) 分属不同域, 互不阻塞
+const PATCH_TYPE_LOCK_NAMESPACE = 481001
+
+const recalcPatchTypeLocked = async (
   patchId: number,
-  tx: {
-    patch_resource: Pick<typeof prisma.patch_resource, 'findMany'>
-    patch: Pick<typeof prisma.patch, 'update'>
-  } = prisma
+  tx: Prisma.TransactionClient
 ) => {
+  // pg_advisory_xact_lock: 事务级通告锁, 提交/回滚时自动释放. 使同一 patch 的
+  // 「读全部可见资源 → 写 type/language/platform」原子化, 消除重叠事务 (审核重叠批次、
+  // 管理员与用户并发操作) 的丢更新. 用 $executeRaw (而非 $queryRaw): pg adapter 无法
+  // 反序列化 void 返回列; ::int 显式定型以匹配 (int, int) 重载
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${PATCH_TYPE_LOCK_NAMESPACE}::int, ${patchId}::int)`
+
   const resources = await tx.patch_resource.findMany({
     where: { patch_id: patchId, status: 0 },
     select: { type: true, language: true, platform: true }
@@ -163,4 +171,19 @@ export const recalcPatchType = async (
   })
 
   await invalidatePatchContentCache(patch.unique_id)
+}
+
+// 现有调用方全部在事务内 (审核 apply / 申诉 / 资源增删改 / 管理端), 传入其 tx: 锁随该
+// 事务提交释放, 且重算参与调用方事务、能见其未提交的资源改动. 不传 tx 时自开事务兜底.
+// 两个易错点: (1) 交互事务客户端运行期仍带 $transaction 属性, 故不能用 'in' 判据区分,
+// 只能判 tx 是否传入. (2) tx 必须是交互事务客户端; 顶层 prisma 虽能过类型检查 (结构
+// 超集), 但会让通告锁跑在 autocommit 连接上、语句结束即释放 → 序列化静默失效, 切勿传入
+export const recalcPatchType = async (
+  patchId: number,
+  tx?: Prisma.TransactionClient
+) => {
+  if (!tx) {
+    return prisma.$transaction((t) => recalcPatchTypeLocked(patchId, t))
+  }
+  return recalcPatchTypeLocked(patchId, tx)
 }

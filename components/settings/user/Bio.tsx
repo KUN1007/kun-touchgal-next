@@ -5,6 +5,7 @@ import { Card, CardBody, CardFooter, CardHeader } from '@heroui/card'
 import { Textarea } from '@heroui/input'
 import { Button } from '@heroui/button'
 import { useUserStore } from '~/store/userStore'
+import { useModerationPending } from '~/hooks/useModerationPending'
 import { useState } from 'react'
 import { kunFetchPost } from '~/utils/kunFetch'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
@@ -18,7 +19,7 @@ export const Bio = () => {
   const [bio, setBio] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [pending, setPending] = useState(false)
+  const { pending, markPending } = useModerationPending('bioPending')
 
   const handleSave = async () => {
     const result = bioSchema.safeParse({ bio })
@@ -38,7 +39,7 @@ export const Bio = () => {
       kunErrorHandler(res, (value) => {
         toast.success('更新签名成功')
         setBio('')
-        setPending(!!value.pending)
+        markPending(!!value.pending)
       })
     }
   }

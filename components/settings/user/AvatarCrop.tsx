@@ -7,6 +7,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { Avatar } from '@heroui/react'
 import { useDisclosure } from '@heroui/react'
 import { useUserStore } from '~/store/userStore'
+import { useModerationPending } from '~/hooks/useModerationPending'
 import { Camera } from 'lucide-react'
 
 const AvatarCropModal = dynamic(
@@ -22,7 +23,8 @@ export const AvatarCrop = () => {
   const inputRef = useRef<HTMLInputElement>(null)
   const [image, setImage] = useState<string | null>(null)
   const [croppedImage, setCroppedImage] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
+  const { pending, markPending } = useModerationPending('avatarPending')
+
   const onSelectFile = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const reader = new FileReader()
@@ -50,7 +52,7 @@ export const AvatarCrop = () => {
   ) => {
     setCroppedImage(croppedImage)
     setUser({ ...user, avatar })
-    setPending(!!pending)
+    markPending(!!pending)
   }
 
   return (

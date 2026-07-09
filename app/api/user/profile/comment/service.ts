@@ -20,19 +20,21 @@ export const getUserComment = async (
   const [data, total] = await Promise.all([
     prisma.patch_comment.findMany({
       where: { user_id: uid, ...visibilityWhere },
-      include: {
-        user: true,
-        patch: true,
+      select: {
+        id: true,
+        content: true,
+        user_id: true,
+        patch_id: true,
+        created: true,
+        patch: { select: { unique_id: true, name: true } },
         parent: {
-          include: {
-            user: true
+          select: {
+            status: true,
+            user_id: true,
+            user: { select: { id: true, name: true } }
           }
         },
-        like_by: {
-          include: {
-            user: true
-          }
-        }
+        _count: { select: { like_by: true } }
       },
       orderBy: { created: 'desc' },
       take: limit,
@@ -55,7 +57,7 @@ export const getUserComment = async (
       id: comment.id,
       patchUniqueId: comment.patch.unique_id,
       content: markdownToText(comment.content).slice(0, 233),
-      like: comment.like_by.length,
+      like: comment._count.like_by,
       userId: comment.user_id,
       patchId: comment.patch_id,
       patchName: comment.patch.name,

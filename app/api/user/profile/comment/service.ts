@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { getUserInfoSchema } from '~/validations/user'
 import { markdownToText } from '~/utils/markdownToText'
+import { PatchRefSelectField } from '~/constants/api/select'
 import {
   getCommentRatingVisibilityWhere,
   isContentVisibleToViewer,
@@ -26,7 +27,7 @@ export const getUserComment = async (
         user_id: true,
         patch_id: true,
         created: true,
-        patch: { select: { unique_id: true, name: true } },
+        patch: { select: PatchRefSelectField },
         parent: {
           select: {
             status: true,

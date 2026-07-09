@@ -3,6 +3,7 @@ import { prisma } from '~/prisma/index'
 import { adminCommentPaginationSchema } from '~/validations/admin'
 import { markdownToText } from '~/utils/markdownToText'
 import type { AdminComment } from '~/types/api/admin'
+import { PatchRefSelectField } from '~/constants/api/select'
 
 export const getComment = async (
   input: z.infer<typeof adminCommentPaginationSchema>
@@ -35,12 +36,7 @@ export const getComment = async (
       skip: offset,
       orderBy: { created: 'desc' },
       include: {
-        patch: {
-          select: {
-            name: true,
-            unique_id: true
-          }
-        },
+        patch: { select: PatchRefSelectField },
         user: {
           select: {
             id: true,

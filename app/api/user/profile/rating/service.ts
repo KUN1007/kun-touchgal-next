@@ -6,6 +6,7 @@ import {
   type KunViewer
 } from '~/app/api/utils/contentVisibility'
 import type { UserRating } from '~/types/api/user'
+import { PatchRefSelectField } from '~/constants/api/select'
 
 export const getUserPatchRating = async (
   input: z.infer<typeof getUserInfoSchema>,
@@ -19,12 +20,7 @@ export const getUserPatchRating = async (
     prisma.patch_rating.findMany({
       where: { user_id: uid, ...visibilityWhere },
       include: {
-        patch: {
-          select: {
-            name: true,
-            unique_id: true
-          }
-        },
+        patch: { select: PatchRefSelectField },
         _count: {
           select: {
             like: true

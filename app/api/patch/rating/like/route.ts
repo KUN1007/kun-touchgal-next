@@ -5,6 +5,7 @@ import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { createDedupMessage } from '~/app/api/utils/message'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
+import { PatchRefSelectField } from '~/constants/api/select'
 
 const ratingIdSchema = z.object({
   ratingId: z.coerce.number({ message: 'ID 不正确' }).min(1).max(9999999)
@@ -18,7 +19,7 @@ const toggleRatingLike = async (
 
   const rating = await prisma.patch_rating.findUnique({
     where: { id: ratingId },
-    include: { patch: { select: { unique_id: true, name: true } } }
+    include: { patch: { select: PatchRefSelectField } }
   })
   if (!rating) {
     return '评价不存在'

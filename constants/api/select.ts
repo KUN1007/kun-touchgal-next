@@ -7,6 +7,11 @@
 //   }
 // }
 
+export const PatchRefSelectField = {
+  unique_id: true,
+  name: true
+}
+
 export const GalgameCardSelectField = {
   id: true,
   unique_id: true,

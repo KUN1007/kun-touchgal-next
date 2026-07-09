@@ -63,6 +63,10 @@ export const updateUserSchema = z.object({
   bio: z.string().max(107).optional()
 })
 
+export const getUserProfileSchema = z.object({
+  id: z.coerce.number().min(1).max(9999999)
+})
+
 export const getUserInfoSchema = z.object({
   uid: z.coerce.number().min(1).max(9999999),
   page: z.coerce.number().min(1).max(9999999),

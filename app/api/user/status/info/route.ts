@@ -1,14 +1,11 @@
-import { z } from 'zod'
 import { NextRequest, NextResponse } from 'next/server'
 import { kunParseGetQuery } from '~/app/api/utils/parseQuery'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
+import { getUserProfileSchema } from '~/validations/user'
 import { getUserProfile } from './service'
 
-const getProfileSchema = z.object({
-  id: z.coerce.number().min(1).max(9999999)
-})
 export async function GET(req: NextRequest) {
-  const input = kunParseGetQuery(req, getProfileSchema)
+  const input = kunParseGetQuery(req, getUserProfileSchema)
   if (typeof input === 'string') {
     return NextResponse.json(input)
   }

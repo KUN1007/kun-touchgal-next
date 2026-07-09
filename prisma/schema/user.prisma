@@ -72,6 +72,7 @@ model user_follow_relation {
   following user @relation("user_following", fields: [following_id], references: [id])
 
   @@unique([follower_id, following_id])
+  @@index([following_id])
 }
 
 // status: 0 - unread, 1 - read, 2 - approve, 3 - decline

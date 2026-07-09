@@ -41,14 +41,6 @@ export const updateComment = async (
         content_html: contentHtml,
         content_html_version: contentHtmlVersion,
         edit: Date.now().toString()
-      },
-      include: {
-        user: true,
-        like_by: {
-          include: {
-            user: true
-          }
-        }
       }
     })
 

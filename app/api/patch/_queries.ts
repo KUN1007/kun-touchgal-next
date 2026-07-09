@@ -12,8 +12,8 @@ const patchAliasSelect = {
 
 const patchCountSelect = {
   favorite_folder: true,
-  resource: true,
-  comment: true
+  resource: { where: { status: 0 } },
+  comment: { where: { status: 0 } }
 } as const
 
 const patchTagNameSelect = {

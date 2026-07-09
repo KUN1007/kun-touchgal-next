@@ -18,11 +18,19 @@ const getUserFollowing = async (
       take: limit,
       skip: offset,
       where: { follower_id: uid },
-      include: {
+      select: {
         following: {
-          include: {
-            follower: true,
-            following: true
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+            bio: true,
+            _count: {
+              select: {
+                follower: true,
+                following: true
+              }
+            }
           }
         }
       }
@@ -32,16 +40,30 @@ const getUserFollowing = async (
     })
   ])
 
-  const followings: UserFollow[] = data.map((r) => ({
-    id: r.following.id,
-    name: r.following.name,
-    avatar: r.following.avatar,
-    bio: r.following.bio,
-    follower: r.following.following.length,
-    following: r.following.follower.length,
-    isFollow: r.following.following
-      .map((u) => u.follower_id)
-      .includes(currentUserUid ?? 0)
+  const followingIds = data.map((relation) => relation.following.id)
+  const followedIds =
+    currentUserUid && followingIds.length
+      ? new Set(
+          (
+            await prisma.user_follow_relation.findMany({
+              where: {
+                follower_id: currentUserUid,
+                following_id: { in: followingIds }
+              },
+              select: { following_id: true }
+            })
+          ).map((relation) => relation.following_id)
+        )
+      : new Set<number>()
+
+  const followings: UserFollow[] = data.map((relation) => ({
+    id: relation.following.id,
+    name: relation.following.name,
+    avatar: relation.following.avatar,
+    bio: relation.following.bio,
+    follower: relation.following._count.following,
+    following: relation.following._count.follower,
+    isFollow: followedIds.has(relation.following.id)
   }))
 
   return { followings, total }

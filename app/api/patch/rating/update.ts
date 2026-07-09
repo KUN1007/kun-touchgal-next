@@ -89,6 +89,7 @@ export const updatePatchRating = async (
         {
           contentType: 'rating',
           contentId: ratingId,
+          patchId: rating.patch_id,
           userId: ratingUserUid,
           payload: { text: shortSummary },
           dryRun: moderation.dryRun

@@ -116,6 +116,7 @@ export const createPatchResource = async (
         {
           contentType: 'resource',
           contentId: newResource.id,
+          patchId,
           userId: uid,
           payload: {
             text: `标题: ${newResource.name}\n介绍: ${newResource.note}`,

@@ -203,6 +203,8 @@ export const updatePatchResource = async (
         {
           contentType: 'resource',
           contentId: resourceId,
+          // 分组用资源真实 patch_id (与 apply 的 recalcPatchType 对齐, 防 input 篡改失准)
+          patchId: resource.patch_id,
           userId: resource.user_id,
           payload: {
             text: `标题: ${newResource.name}\n介绍: ${newResource.note}`,

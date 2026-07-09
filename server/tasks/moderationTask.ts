@@ -223,17 +223,19 @@ const processTask = async (
   }
 }
 
-// 同一 patch 的 resource/rating 裁决会读改写 patch 级聚合 (recalcPatchType 改
-// patch.type、recomputePatchRatingStat 改 patch_rating_stat), 并发 apply 会丢更新;
-// avatar/bio 会写同一 user 行. 用序列化 key 把会相互竞态的任务归到同组 (组内串行、
-// 组间并发). patch_id 不在 task 行上, 按 content_id 分组会让同一 patch 的两条落入
-// 不同组并发跑, 故 resource/rating 只能按类型整体串行 (代价: 这两类批内不提速);
-// avatar/bio 按 user 分组; 评论各自独立, 全并发
+// resource/rating 裁决在 apply 后处理会读改写 patch 级聚合 (resource→recalcPatchType
+// 改 patch.type; rating→recomputePatchRatingStat 改 patch_rating_stat), 由 patch 级通告锁
+// 串行化; 序列化 key 把同 patch 的这两类归同组 (组内串行、组间并发) 以降低锁争用与并发面:
+// 同一 patch 串行、不同 patch 并行 (resource 与 rating 写不同聚合本不互斥, 合用 patch:<id>
+// 键属保守简化); 旧任务无 patch_id 时降级按类型整体串行 (与改动前一致). avatar/bio 写同一
+// user 行, 按 user 分组; 评论各自独立, 全并发
 const serializationKey = (task: moderation_taskModel): string => {
   switch (task.content_type) {
     case 'resource':
     case 'rating':
-      return task.content_type
+      return task.patch_id !== null
+        ? `patch:${task.patch_id}`
+        : task.content_type
     case 'avatar':
     case 'bio':
       return `user:${task.user_id}`

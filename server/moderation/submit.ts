@@ -106,6 +106,7 @@ export const createModerationTask = async (
   input: {
     contentType: ModerationContentType
     contentId?: number
+    patchId?: number
     userId: number
     payload: ModerationPayload
     dryRun: boolean
@@ -134,6 +135,7 @@ export const createModerationTask = async (
     data: {
       content_type: input.contentType,
       content_id: input.contentId ?? null,
+      patch_id: input.patchId ?? null,
       user_id: input.userId,
       payload: payload as unknown as Prisma.InputJsonValue,
       dry_run: input.dryRun

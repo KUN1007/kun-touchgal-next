@@ -5,6 +5,9 @@ model moderation_task {
   content_type  String    @db.VarChar(107)
   // primary key of the content row; null for avatar/bio (located by user_id)
   content_id    Int?
+  // patch this content belongs to; set for resource/rating so the worker can
+  // group by patch (同一 patch 串行、不同 patch 并行), null for others
+  patch_id      Int?
   // snapshot of the text under review, or staged values for avatar/bio
   payload       Json
   status        String    @default("pending") @db.VarChar(107)

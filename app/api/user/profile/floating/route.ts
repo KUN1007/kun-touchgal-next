@@ -15,24 +15,34 @@ const getUserFloatingProfile = async (
   viewer: KunViewer | null
 ) => {
   const currentUserUid = viewer?.uid ?? 0
-  const data = await prisma.user.findUnique({
-    where: { id: input.uid },
-    include: {
-      _count: {
-        select: {
-          follower: true,
-          patch: true,
-          patch_resource: true
+  const [data, followRelation] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: input.uid },
+      include: {
+        _count: {
+          select: {
+            follower: true,
+            patch: true,
+            patch_resource: true
+          }
         }
-      },
-      following: true
-    }
-  })
+      }
+    }),
+    currentUserUid && currentUserUid !== input.uid
+      ? prisma.user_follow_relation.findUnique({
+          where: {
+            follower_id_following_id: {
+              follower_id: currentUserUid,
+              following_id: input.uid
+            }
+          },
+          select: { id: true }
+        })
+      : null
+  ])
   if (!data) {
     return '未找到用户'
   }
-
-  const followerUserUid = data.following.map((f) => f.follower_id)
 
   const user: FloatingCardUser = {
     id: data.id,
@@ -41,7 +51,7 @@ const getUserFloatingProfile = async (
     bio: data.bio,
     moemoepoint: data.moemoepoint,
     role: data.role,
-    isFollow: followerUserUid.includes(currentUserUid),
+    isFollow: Boolean(followRelation),
     _count: data._count
   }
 

@@ -31,7 +31,7 @@ export const getUserComment = async (
           select: {
             status: true,
             user_id: true,
-            user: { select: { id: true, name: true } }
+            user: { select: { name: true } }
           }
         },
         _count: { select: { like_by: true } }
@@ -62,7 +62,7 @@ export const getUserComment = async (
       patchId: comment.patch_id,
       patchName: comment.patch.name,
       created: String(comment.created),
-      quotedUserUid: parentVisible ? comment.parent?.user.id : undefined,
+      quotedUserUid: parentVisible ? comment.parent?.user_id : undefined,
       quotedUsername: parentVisible ? comment.parent?.user.name : undefined
     }
   })

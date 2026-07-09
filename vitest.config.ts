@@ -10,7 +10,8 @@ export default defineConfig({
   test: {
     include: [
       'server/search/__tests__/**/*.test.ts',
-      'app/api/user/follow/__tests__/**/*.test.ts'
+      'app/api/user/follow/__tests__/**/*.test.ts',
+      'app/api/patch/resource/__tests__/**/*.test.ts'
     ]
   }
 })

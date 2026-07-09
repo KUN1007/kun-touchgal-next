@@ -26,7 +26,11 @@ export const getPatchResource = async (
     include: {
       patch: { select: { unique_id: true } },
       user: {
-        include: {
+        select: {
+          id: true,
+          name: true,
+          avatar: true,
+          role: true,
           _count: {
             select: { patch_resource: true }
           }

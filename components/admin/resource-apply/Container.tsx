@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useDebounce } from 'use-debounce'
 import { kunFetchGet } from '~/utils/kunFetch'
 import { useMounted } from '~/hooks/useMounted'
-import { KunLoading } from '~/components/kun/Loading'
+import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { KunPagination } from '~/components/kun/Pagination'
 import { AdminResourceApplyCard } from './Card'
 import { ResourceApprovalButton } from './ApprovalButton'
@@ -75,9 +75,7 @@ export const ResourceApply = ({ initialResources, initialTotal }: Props) => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">资源首次发布申请</h1>
-        <Chip color="primary" variant="flat">
-          仅展示等待审核的用户首次资源
-        </Chip>
+        <Chip variant="flat">仅展示等待审核的用户首次资源</Chip>
       </div>
 
       <Input
@@ -90,7 +88,7 @@ export const ResourceApply = ({ initialResources, initialTotal }: Props) => {
       />
 
       {loading ? (
-        <KunLoading hint="正在加载待审核资源..." />
+        <KunCardSkeleton count={3} />
       ) : (
         <div className="space-y-4">
           {resources.map((resource) => (

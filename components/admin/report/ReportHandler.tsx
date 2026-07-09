@@ -52,6 +52,7 @@ export const ReportHandler = ({ report }: Props) => {
       <DropdownTrigger>
         <Button
           isIconOnly
+          aria-label="举报操作菜单"
           size="sm"
           variant="light"
           isDisabled={currentUser.role < 3}

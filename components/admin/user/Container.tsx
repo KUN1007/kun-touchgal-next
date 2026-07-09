@@ -1,7 +1,6 @@
 'use client'
 
 import {
-  Chip,
   Input,
   Select,
   SelectItem,
@@ -16,7 +15,7 @@ import { Search } from 'lucide-react'
 import { useEffect, useState, type Key } from 'react'
 import { RenderCell } from './RenderCell'
 import { kunFetchGet } from '~/utils/kunFetch'
-import { KunLoading } from '~/components/kun/Loading'
+import { KunTableSkeleton } from '~/components/kun/TableSkeleton'
 import { useMounted } from '~/hooks/useMounted'
 import { useDebounce } from 'use-debounce'
 import { KunPagination } from '~/components/kun/Pagination'
@@ -103,12 +102,7 @@ export const User = ({ initialUsers, initialTotal }: Props) => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">用户管理</h1>
-        <Chip color="primary" variant="flat">
-          杂鱼! 不许视奸!
-        </Chip>
-      </div>
+      <h1 className="text-2xl font-bold">用户管理</h1>
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Select
@@ -133,7 +127,7 @@ export const User = ({ initialUsers, initialTotal }: Props) => {
       </div>
 
       {loading ? (
-        <KunLoading hint="正在获取消息数据..." />
+        <KunTableSkeleton />
       ) : (
         <Table
           aria-label="用户管理"

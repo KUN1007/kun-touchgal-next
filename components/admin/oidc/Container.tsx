@@ -69,8 +69,12 @@ export const OidcClientContainer = ({ initialClients }: Props) => {
     client_secret?: string
   } | null>(null)
 
+  const [deleteTarget, setDeleteTarget] = useState<AdminOidcClient | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
   const formModal = useDisclosure()
   const credModal = useDisclosure()
+  const deleteModal = useDisclosure()
 
   const refresh = async () => {
     const res = await kunFetchGet<AdminOidcClient[] | string>('/admin/oidc')
@@ -160,17 +164,25 @@ export const OidcClientContainer = ({ initialClients }: Props) => {
     setSaving(false)
   }
 
-  const handleDelete = async (client: AdminOidcClient) => {
-    if (!window.confirm(`确认删除应用「${client.client_name}」？`)) {
+  const openDelete = (client: AdminOidcClient) => {
+    setDeleteTarget(client)
+    deleteModal.onOpen()
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget) {
       return
     }
+    setDeleting(true)
     const res = await kunFetchDelete<KunResponse<{}>>('/admin/oidc', {
-      id: client.id
+      id: deleteTarget.id
     })
     kunErrorHandler(res, () => {
       toast.success('已删除')
-      setClients((prev) => prev.filter((item) => item.id !== client.id))
+      setClients((prev) => prev.filter((item) => item.id !== deleteTarget.id))
+      deleteModal.onClose()
     })
+    setDeleting(false)
   }
 
   return (
@@ -191,7 +203,10 @@ export const OidcClientContainer = ({ initialClients }: Props) => {
           <TableColumn>状态</TableColumn>
           <TableColumn>操作</TableColumn>
         </TableHeader>
-        <TableBody emptyContent="暂无应用" items={clients}>
+        <TableBody
+          emptyContent="暂无 OIDC 应用, 点击右上角「新建应用」接入第一个集成"
+          items={clients}
+        >
           {(client) => (
             <TableRow key={client.id}>
               <TableCell>{client.client_name}</TableCell>
@@ -199,7 +214,7 @@ export const OidcClientContainer = ({ initialClients }: Props) => {
                 <span className="font-mono text-xs">{client.client_id}</span>
               </TableCell>
               <TableCell>
-                <span className="text-xs text-default-500">
+                <span className="text-xs text-default-600">
                   {client.redirect_uris.length} 个
                 </span>
               </TableCell>
@@ -243,7 +258,7 @@ export const OidcClientContainer = ({ initialClients }: Props) => {
                     size="sm"
                     variant="flat"
                     color="danger"
-                    onPress={() => handleDelete(client)}
+                    onPress={() => openDelete(client)}
                   >
                     删除
                   </Button>
@@ -339,7 +354,7 @@ export const OidcClientContainer = ({ initialClients }: Props) => {
                 </Switch>
               )}
             </div>
-            <p className="text-xs text-default-400">
+            <p className="text-xs text-default-600">
               可信第一方应用登录后免同意授权；但该特性不适用于请求
               offline_access 的应用——OIDC 要求 offline_access
               必须经用户明确同意，此类应用仍会 显示同意屏。
@@ -356,6 +371,33 @@ export const OidcClientContainer = ({ initialClients }: Props) => {
               isDisabled={saving}
             >
               保存
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal
+        isOpen={deleteModal.isOpen}
+        onClose={deleteModal.onClose}
+        placement="center"
+      >
+        <ModalContent>
+          <ModalHeader>删除 OIDC 应用</ModalHeader>
+          <ModalBody>
+            确定要删除应用「{deleteTarget?.client_name}」吗?
+            删除后使用该应用的登录集成将立即失效, 该操作不可撤销
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="light" onPress={deleteModal.onClose}>
+              取消
+            </Button>
+            <Button
+              color="danger"
+              isLoading={deleting}
+              isDisabled={deleting}
+              onPress={handleDelete}
+            >
+              确认删除
             </Button>
           </ModalFooter>
         </ModalContent>
@@ -388,7 +430,7 @@ export const OidcClientContainer = ({ initialClients }: Props) => {
                     </p>
                   </>
                 ) : (
-                  <p className="text-xs text-default-500">
+                  <p className="text-xs text-default-600">
                     Client Secret 仅在创建时展示一次，此处不再显示。如已遗失，请
                     删除应用后重新创建。Issuer 为当前站点的 /oidc 路径。
                   </p>

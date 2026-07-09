@@ -20,12 +20,14 @@ export const KunAdminStatistic: FC = () => {
   })
   const [days, setDays] = useState(1)
   const [debouncedDays] = useDebounce(days, 300)
+  const [loading, setLoading] = useState(true)
 
   const fetchOverview = async (days: number) => {
     const res = await kunFetchGet<KunResponse<OverviewData>>('/admin/stats', {
       days
     })
     kunErrorHandler(res, setOverview)
+    setLoading(false)
   }
 
   useEffect(() => {
@@ -41,12 +43,13 @@ export const KunAdminStatistic: FC = () => {
       <div className="flex flex-col space-y-6">
         <h3 className="text-lg font-semibold whitespace-nowrap">{`${days} 天内数据统计`}</h3>
 
-        <div className="flex flex-wrap gap-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {Object.entries(ADMIN_STATS_MAP).map(([key, title]) => (
             <StatsCard
               key={key}
               title={title}
               value={overview[key as keyof OverviewData]}
+              isLoading={loading}
             />
           ))}
         </div>
@@ -58,6 +61,7 @@ export const KunAdminStatistic: FC = () => {
             minValue={1}
             maxValue={60}
             value={days}
+            getValue={(value) => `${value} 天`}
             onChange={(value) => setDays(Number(value))}
           />
         </div>

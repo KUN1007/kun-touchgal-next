@@ -111,7 +111,7 @@ export const RatingCard = ({
                 <Chip variant="flat" size="sm">
                   评分 {rating.overall}/10
                 </Chip>
-                <span className="text-tiny text-default-400">
+                <span className="text-tiny text-default-600">
                   {playStatusLabel[rating.playStatus] ?? rating.playStatus}
                 </span>
                 {rating.spoilerLevel !== 'none' && (

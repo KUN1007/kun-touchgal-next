@@ -1,7 +1,6 @@
 'use client'
 
 import {
-  Chip,
   Input,
   Select,
   SelectItem,
@@ -16,7 +15,7 @@ import { Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { RenderCell } from './RenderCell'
 import { kunFetchGet } from '~/utils/kunFetch'
-import { KunLoading } from '~/components/kun/Loading'
+import { KunTableSkeleton } from '~/components/kun/TableSkeleton'
 import { useMounted } from '~/hooks/useMounted'
 import { useDebounce } from 'use-debounce'
 import { KunPagination } from '~/components/kun/Pagination'
@@ -75,12 +74,7 @@ export const Galgame = ({ initialGalgames, initialTotal }: Props) => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Galgame 管理</h1>
-        <Chip color="primary" variant="flat">
-          正在开发中...
-        </Chip>
-      </div>
+      <h1 className="text-2xl font-bold">Galgame 管理</h1>
 
       <Input
         fullWidth
@@ -92,7 +86,7 @@ export const Galgame = ({ initialGalgames, initialTotal }: Props) => {
       />
 
       {loading ? (
-        <KunLoading hint="正在获取 Galgame 数据..." />
+        <KunTableSkeleton />
       ) : (
         <Table
           aria-label="Galgame 管理"

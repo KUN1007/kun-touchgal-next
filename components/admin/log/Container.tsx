@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
-import { KunLoading } from '~/components/kun/Loading'
+import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { useMounted } from '~/hooks/useMounted'
 import { LogCard } from './Card'
 import toast from 'react-hot-toast'
@@ -54,7 +54,7 @@ export const Log = ({ initialLogs, total }: Props) => {
 
       <div className="space-y-4">
         {loading ? (
-          <KunLoading hint="正在获取日志数据..." />
+          <KunCardSkeleton count={3} />
         ) : (
           <>
             {logs.map((log) => (

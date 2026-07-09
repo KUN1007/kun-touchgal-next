@@ -21,7 +21,7 @@ import {
 import { Search } from 'lucide-react'
 import { useEffect, useState, type Key } from 'react'
 import { kunFetchDelete, kunFetchGet } from '~/utils/kunFetch'
-import { KunLoading } from '~/components/kun/Loading'
+import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { useMounted } from '~/hooks/useMounted'
 import { CommentCard } from './Card'
 import { useDebounce } from 'use-debounce'
@@ -79,7 +79,9 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
   } = useDisclosure()
 
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [deleteProgress, setDeleteProgress] = useState('')
 
   useEffect(() => {
     if (!debouncedUserInput.trim()) {
@@ -126,6 +128,7 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
 
   const fetchData = async () => {
     setLoading(true)
+    setError('')
 
     try {
       const params: Record<string, string | number> = {
@@ -140,10 +143,16 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
         params.userId = selectedUserId
       }
 
-      const response = await kunFetchGet<{
-        comments: AdminComment[]
-        total: number
-      }>('/admin/comment', params)
+      const response = await kunFetchGet<
+        KunResponse<{
+          comments: AdminComment[]
+          total: number
+        }>
+      >('/admin/comment', params)
+      if (typeof response === 'string') {
+        setError(response)
+        return
+      }
 
       const totalPage = Math.max(1, Math.ceil(response.total / limit))
       if (page > totalPage) {
@@ -161,6 +170,8 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
           [...prev].filter((commentId) => currentCommentIds.has(commentId))
         )
       })
+    } catch {
+      setError('网络错误, 请稍后重试')
     } finally {
       setLoading(false)
     }
@@ -250,24 +261,45 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
       return
     }
 
-    const deleteCount = selectedCommentIds.size
+    const ids = Array.from(selectedCommentIds)
+    const chunkSize = 100
     setDeleting(true)
     try {
-      const res = await kunFetchDelete<KunResponse<{}>>('/admin/comment', {
-        commentIds: Array.from(selectedCommentIds).join(',')
-      })
-
-      if (typeof res === 'string') {
-        toast.error(res)
-        return
+      let deletedCount = 0
+      const failedIds: number[] = []
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize)
+        setDeleteProgress(
+          `${Math.min(i + chunkSize, ids.length)} / ${ids.length}`
+        )
+        try {
+          const res = await kunFetchDelete<KunResponse<{}>>('/admin/comment', {
+            commentIds: chunk.join(',')
+          })
+          if (typeof res === 'string') {
+            failedIds.push(...chunk)
+          } else {
+            deletedCount += chunk.length
+          }
+        } catch {
+          failedIds.push(...chunk)
+        }
       }
 
-      onCloseDelete()
-      setSelectedCommentIds(new Set())
-      toast.success(`已删除 ${deleteCount} 条评论`)
+      if (failedIds.length) {
+        setSelectedCommentIds(new Set(failedIds))
+        toast.error(
+          `已删除 ${deletedCount} 条, ${failedIds.length} 条删除失败, 已保留选中可重试`
+        )
+      } else {
+        onCloseDelete()
+        setSelectedCommentIds(new Set())
+        toast.success(`已删除 ${deletedCount} 条评论`)
+      }
       await fetchData()
     } finally {
       setDeleting(false)
+      setDeleteProgress('')
     }
   }
 
@@ -282,7 +314,7 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">评论管理</h1>
-        <KunLoading hint="正在获取评论数据..." />
+        <KunCardSkeleton count={3} />
       </div>
     )
   }
@@ -374,7 +406,14 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
 
       <div className="space-y-4">
         {loading ? (
-          <KunLoading hint="正在获取评论数据..." />
+          <KunCardSkeleton count={3} />
+        ) : error ? (
+          <div className="space-y-3 py-12 text-center">
+            <p className="text-danger">{error}</p>
+            <Button variant="flat" onPress={() => fetchData()}>
+              重试
+            </Button>
+          </div>
         ) : comments.length ? (
           <>
             {comments.map((comment) => (
@@ -391,7 +430,12 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
             ))}
           </>
         ) : (
-          <div className="py-12 text-center text-default-500">暂无评论</div>
+          <div className="space-y-1 py-12 text-center">
+            <p className="text-default-600">暂无评论</p>
+            <p className="text-sm text-default-500">
+              没有找到符合条件的评论, 可切换搜索类型或修改关键词重试
+            </p>
+          </div>
         )}
       </div>
 
@@ -446,9 +490,9 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
               color="danger"
               onPress={handleBatchDelete}
               isLoading={deleting}
-              disabled={deleting}
+              isDisabled={deleting}
             >
-              删除
+              {deleteProgress ? `删除中 ${deleteProgress}` : '删除'}
             </Button>
           </ModalFooter>
         </ModalContent>

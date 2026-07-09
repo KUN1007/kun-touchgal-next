@@ -51,10 +51,6 @@ export const RenderCell = (galgame: AdminGalgame, columnKey: string) => {
         </Chip>
       )
     default:
-      return (
-        <Chip color="primary" variant="flat">
-          咕咕咕
-        </Chip>
-      )
+      return null
   }
 }

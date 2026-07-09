@@ -120,6 +120,7 @@ export const UserEdit = ({ initialUser }: Props) => {
     <>
       <Button
         isIconOnly
+        aria-label="编辑用户"
         size="sm"
         variant="light"
         onPress={handleOpen}

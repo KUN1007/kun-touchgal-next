@@ -1,9 +1,9 @@
 'use client'
 
-import { Select, SelectItem, Tab, Tabs } from '@heroui/react'
+import { Button, Select, SelectItem, Tab, Tabs } from '@heroui/react'
 import { useEffect, useState } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
-import { KunLoading } from '~/components/kun/Loading'
+import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { useMounted } from '~/hooks/useMounted'
 import { ReportCard } from './ReportCard'
 import { KunPagination } from '~/components/kun/Pagination'
@@ -27,22 +27,34 @@ export const Report = ({ initialReports, total, title, targetType }: Props) => {
   const isMounted = useMounted()
 
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const fetchData = async (targetPage = page, targetTab = activeTab) => {
     setLoading(true)
+    setError('')
 
-    const response = await kunFetchGet<{
-      reports: AdminReport[]
-      total: number
-    }>('/admin/report', {
-      page: targetPage,
-      limit,
-      tab: targetTab,
-      targetType
-    })
-
-    setLoading(false)
-    setReports(response.reports)
-    setTotalCount(response.total)
+    try {
+      const response = await kunFetchGet<
+        KunResponse<{
+          reports: AdminReport[]
+          total: number
+        }>
+      >('/admin/report', {
+        page: targetPage,
+        limit,
+        tab: targetTab,
+        targetType
+      })
+      if (typeof response === 'string') {
+        setError(response)
+        return
+      }
+      setReports(response.reports)
+      setTotalCount(response.total)
+    } catch {
+      setError('网络错误, 请稍后重试')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -56,7 +68,7 @@ export const Report = ({ initialReports, total, title, targetType }: Props) => {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">{title}</h1>
-        <KunLoading hint="正在获取举报数据..." />
+        <KunCardSkeleton count={3} />
       </div>
     )
   }
@@ -81,7 +93,14 @@ export const Report = ({ initialReports, total, title, targetType }: Props) => {
 
       <div className="space-y-4">
         {loading ? (
-          <KunLoading hint="正在获取举报数据..." />
+          <KunCardSkeleton count={3} />
+        ) : error ? (
+          <div className="space-y-3 py-12 text-center">
+            <p className="text-danger">{error}</p>
+            <Button variant="flat" onPress={() => fetchData()}>
+              重试
+            </Button>
+          </div>
         ) : reports.length ? (
           <>
             {reports.map((report) => (
@@ -93,9 +112,16 @@ export const Report = ({ initialReports, total, title, targetType }: Props) => {
             ))}
           </>
         ) : (
-          <p className="text-default-500">
-            {activeTab === 'pending' ? '暂无未处理举报' : '暂无已处理举报'}
-          </p>
+          <div className="space-y-1 py-12 text-center">
+            <p className="text-default-600">
+              {activeTab === 'pending' ? '暂无未处理举报' : '暂无已处理举报'}
+            </p>
+            <p className="text-sm text-default-500">
+              {activeTab === 'pending'
+                ? '新举报会在这里排队, 当前无需处理'
+                : '处理过的举报会归档在这里, 可切换到「未处理」查看待办'}
+            </p>
+          </div>
         )}
       </div>
 

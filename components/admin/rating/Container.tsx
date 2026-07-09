@@ -21,7 +21,7 @@ import {
 import { Search } from 'lucide-react'
 import { useEffect, useState, type Key } from 'react'
 import { kunFetchDelete, kunFetchGet } from '~/utils/kunFetch'
-import { KunLoading } from '~/components/kun/Loading'
+import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { useMounted } from '~/hooks/useMounted'
 import { RatingCard } from './Card'
 import { useDebounce } from 'use-debounce'
@@ -286,7 +286,7 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">评价管理</h1>
-        <KunLoading hint="正在获取评价数据..." />
+        <KunCardSkeleton count={3} />
       </div>
     )
   }
@@ -378,7 +378,7 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
 
       <div className="space-y-4">
         {loading ? (
-          <KunLoading hint="正在获取评价数据..." />
+          <KunCardSkeleton count={3} />
         ) : ratings.length ? (
           <>
             {ratings.map((rating) => (
@@ -395,7 +395,12 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
             ))}
           </>
         ) : (
-          <div className="py-12 text-center text-default-500">暂无评价</div>
+          <div className="space-y-1 py-12 text-center">
+            <p className="text-default-600">暂无评价</p>
+            <p className="text-sm text-default-500">
+              没有找到符合条件的评价, 可调整筛选或搜索条件重试
+            </p>
+          </div>
         )}
       </div>
 

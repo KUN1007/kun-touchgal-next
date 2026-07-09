@@ -46,10 +46,6 @@ export const RenderCell = (user: AdminUserType, columnKey: string) => {
         </div>
       )
     default:
-      return (
-        <Chip color="primary" variant="flat">
-          咕咕咕
-        </Chip>
-      )
+      return null
   }
 }

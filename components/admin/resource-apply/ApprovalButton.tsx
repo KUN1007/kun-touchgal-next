@@ -148,7 +148,7 @@ export const ResourceApprovalButton = ({
               placeholder="请填写拒绝该资源发布的具体原因，将会通知到上传用户..."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              required
+              isRequired
             />
           </ModalBody>
           <ModalFooter>
@@ -158,7 +158,7 @@ export const ResourceApprovalButton = ({
             <Button
               color="danger"
               onPress={handleDecline}
-              isDisabled={declining}
+              isDisabled={declining || !reason.trim()}
               isLoading={declining}
             >
               确认拒绝

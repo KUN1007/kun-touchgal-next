@@ -21,8 +21,8 @@ export const LogCard = ({ log }: Props) => {
               src: log.user.avatar
             }}
           />
-          <div className="w-full">
-            <pre>{log.content}</pre>
+          <div className="w-full min-w-0">
+            <pre className="whitespace-pre-wrap break-all">{log.content}</pre>
 
             <div className="flex items-center gap-4 mt-2">
               <span className="text-small text-default-500">

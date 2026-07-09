@@ -31,7 +31,7 @@ import { kunFetchDelete, kunFetchGet, kunFetchPut } from '~/utils/kunFetch'
 import { useEffect, useState, type Key } from 'react'
 import type { Selection } from '@heroui/table'
 import { useMounted } from '~/hooks/useMounted'
-import { KunLoading } from '~/components/kun/Loading'
+import { KunTableSkeleton } from '~/components/kun/TableSkeleton'
 import { RenderCell } from './RenderCell'
 import { useDebounce } from 'use-debounce'
 import { KunPagination } from '~/components/kun/Pagination'
@@ -408,7 +408,7 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
       </div>
 
       {loading ? (
-        <KunLoading hint="正在加载资源列表..." />
+        <KunTableSkeleton />
       ) : (
         <Table
           aria-label="资源管理列表"

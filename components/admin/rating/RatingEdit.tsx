@@ -133,6 +133,7 @@ export const RatingEdit = ({ initialRating, onSuccess }: Props) => {
         <DropdownTrigger>
           <Button
             isIconOnly
+            aria-label="评价操作菜单"
             size="sm"
             variant="light"
             isDisabled={currentUser.role < 3}

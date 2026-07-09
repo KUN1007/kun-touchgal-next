@@ -34,12 +34,14 @@ export const Sidebar = () => {
         </div>
       </aside>
 
-      <div
-        className="fixed top-0 left-0 flex items-center h-full cursor-pointer text-default-500 md:hidden"
+      <button
+        type="button"
+        aria-label="打开管理菜单"
+        className="fixed top-0 left-0 flex items-center h-full cursor-pointer text-default-500 md:hidden focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         onClick={() => onOpen()}
       >
         <ChevronRight size={24} />
-      </div>
+      </button>
 
       <Drawer
         isOpen={isOpen}

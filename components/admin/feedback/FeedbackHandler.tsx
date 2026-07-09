@@ -62,6 +62,7 @@ export const FeedbackHandler = ({ initialFeedback }: Props) => {
         <DropdownTrigger>
           <Button
             isIconOnly
+            aria-label="反馈操作菜单"
             size="sm"
             variant="light"
             isDisabled={currentUser.role < 3}

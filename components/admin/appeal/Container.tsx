@@ -3,7 +3,7 @@
 import { Select, SelectItem } from '@heroui/react'
 import { useEffect, useState, type Key } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
-import { KunLoading } from '~/components/kun/Loading'
+import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { KunPagination } from '~/components/kun/Pagination'
 import { useMounted } from '~/hooks/useMounted'
 import { AppealCard } from './Card'
@@ -66,7 +66,7 @@ export const Appeal = ({ initialAppeals, initialTotal }: Props) => {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">申诉管理</h1>
-        <KunLoading hint="正在获取申诉..." />
+        <KunCardSkeleton count={3} />
       </div>
     )
   }
@@ -93,13 +93,18 @@ export const Appeal = ({ initialAppeals, initialTotal }: Props) => {
 
       <div className="space-y-4">
         {loading ? (
-          <KunLoading hint="正在获取申诉..." />
+          <KunCardSkeleton count={3} />
         ) : appeals.length ? (
           appeals.map((appeal) => (
             <AppealCard key={appeal.id} appeal={appeal} onRefresh={fetchData} />
           ))
         ) : (
-          <div className="py-12 text-center text-default-500">暂无申诉</div>
+          <div className="space-y-1 py-12 text-center">
+            <p className="text-default-600">暂无申诉</p>
+            <p className="text-sm text-default-500">
+              用户对处罚的申诉会在这里排队, 可切换上方状态筛选查看历史记录
+            </p>
+          </div>
         )}
       </div>
 

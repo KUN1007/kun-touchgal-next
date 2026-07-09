@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Select, SelectItem } from '@heroui/react'
 import { kunFetchGet } from '~/utils/kunFetch'
-import { KunLoading } from '~/components/kun/Loading'
+import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { useMounted } from '~/hooks/useMounted'
 import { FeedbackCard } from './FeedbackCard'
 import { KunPagination } from '~/components/kun/Pagination'
@@ -51,7 +51,7 @@ export const Feedback = ({ initialFeedbacks, total: initialTotal }: Props) => {
 
       <div className="space-y-4">
         {loading ? (
-          <KunLoading hint="正在获取反馈数据..." />
+          <KunCardSkeleton count={3} />
         ) : (
           <>
             {feedbacks.map((feedback) => (

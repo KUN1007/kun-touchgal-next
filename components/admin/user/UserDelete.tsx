@@ -43,6 +43,7 @@ export const UserDelete = ({ user }: Props) => {
       {currentUser.role === 4 && (
         <Button
           isIconOnly
+          aria-label="永久删除用户"
           size="sm"
           color="danger"
           variant="light"
@@ -64,11 +65,11 @@ export const UserDelete = ({ user }: Props) => {
             </div>
           </ModalBody>
           <ModalFooter>
-            <Button color="danger" variant="light" onPress={onClose}>
+            <Button variant="light" onPress={onClose}>
               取消
             </Button>
             <Button
-              color="primary"
+              color="danger"
               isDisabled={deleting}
               isLoading={deleting}
               onPress={handleUpdateUserInfo}

@@ -20,7 +20,7 @@ import {
 import { useEffect, useState, type Key } from 'react'
 import toast from 'react-hot-toast'
 import { kunFetchDelete, kunFetchGet, kunFetchPost } from '~/utils/kunFetch'
-import { KunLoading } from '~/components/kun/Loading'
+import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { KunPagination } from '~/components/kun/Pagination'
 import { useMounted } from '~/hooks/useMounted'
 import { ModerationTaskCard } from './Card'
@@ -50,6 +50,7 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('all')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [stats, setStats] = useState<AdminModerationStats | null>(null)
   const limit = 30
   const isMounted = useMounted()
@@ -65,13 +66,22 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
 
   const fetchData = async () => {
     setLoading(true)
+    setError('')
     try {
-      const response = await kunFetchGet<{
-        tasks: AdminModerationTask[]
-        total: number
-      }>('/admin/moderation', { page, limit, status })
+      const response = await kunFetchGet<
+        KunResponse<{
+          tasks: AdminModerationTask[]
+          total: number
+        }>
+      >('/admin/moderation', { page, limit, status })
+      if (typeof response === 'string') {
+        setError(response)
+        return
+      }
       setTasks(response.tasks)
       setTotal(response.total)
+    } catch {
+      setError('网络错误, 请稍后重试')
     } finally {
       setLoading(false)
     }
@@ -163,7 +173,7 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">AI 审核管理</h1>
-        <KunLoading hint="正在获取审核任务..." />
+        <KunCardSkeleton count={3} />
       </div>
     )
   }
@@ -174,20 +184,33 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
 
       {stats && (
         <Card>
-          <CardBody>
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-              <span>今日送审: {stats.todayTotal}</span>
-              <span className="text-default-500">近 30 天:</span>
+          <CardBody className="space-y-3">
+            <p className="text-sm text-default-500">
+              审核统计, 状态与 Token 为近 30 天
+            </p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+              <div>
+                <p className="text-sm text-default-500">今日送审</p>
+                <p className="text-xl font-semibold">{stats.todayTotal}</p>
+              </div>
               {Object.entries(MODERATION_TASK_STATUS_MAP).map(
                 ([key, label]) => (
-                  <span key={key}>
-                    {label}: {stats.statusCounts[key] ?? 0}
-                  </span>
+                  <div key={key}>
+                    <p className="text-sm text-default-500">{label}</p>
+                    <p className="text-xl font-semibold">
+                      {stats.statusCounts[key] ?? 0}
+                    </p>
+                  </div>
                 )
               )}
-              <span>
-                Token 消耗: {stats.tokensIn} 入 / {stats.tokensOut} 出
-              </span>
+              <div>
+                <p className="text-sm text-default-500">Token 入</p>
+                <p className="text-xl font-semibold">{stats.tokensIn}</p>
+              </div>
+              <div>
+                <p className="text-sm text-default-500">Token 出</p>
+                <p className="text-xl font-semibold">{stats.tokensOut}</p>
+              </div>
             </div>
           </CardBody>
         </Card>
@@ -211,7 +234,14 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
 
       <div className="space-y-4">
         {loading ? (
-          <KunLoading hint="正在获取审核任务..." />
+          <KunCardSkeleton count={3} />
+        ) : error ? (
+          <div className="space-y-3 py-12 text-center">
+            <p className="text-danger">{error}</p>
+            <Button variant="flat" onPress={() => fetchData()}>
+              重试
+            </Button>
+          </div>
         ) : tasks.length ? (
           tasks.map((task) => (
             <ModerationTaskCard
@@ -225,7 +255,12 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
             />
           ))
         ) : (
-          <div className="py-12 text-center text-default-500">暂无审核任务</div>
+          <div className="space-y-1 py-12 text-center">
+            <p className="text-default-600">暂无审核任务</p>
+            <p className="text-sm text-default-500">
+              送审内容会自动进入审核队列, 可切换上方状态筛选查看其他任务
+            </p>
+          </div>
         )}
       </div>
 
@@ -290,7 +325,8 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
               ))}
               {!blacklist.length && (
                 <p className="py-4 text-center text-sm text-default-500">
-                  暂无黑名单模式
+                  暂无黑名单模式, 在上方输入高置信度的违规特征,
+                  或在任务卡片点击「加入黑名单」快速添加
                 </p>
               )}
             </div>

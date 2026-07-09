@@ -164,7 +164,7 @@ export const ReportCard = ({ report, onHandled }: Props) => {
                 </span>
                 {report.handlerReply}
                 {report.handler ? (
-                  <span className="ml-2 text-default-400">
+                  <span className="ml-2 text-default-500">
                     by {report.handler.name}
                   </span>
                 ) : null}
@@ -180,7 +180,7 @@ export const ReportCard = ({ report, onHandled }: Props) => {
               onPress={() => openActionModal('delete')}
               isDisabled={reportStatus !== 0}
             >
-              删除并处理
+              删除内容
             </Button>
             <Button
               size="sm"
@@ -189,9 +189,9 @@ export const ReportCard = ({ report, onHandled }: Props) => {
               onPress={() => openActionModal('reject')}
               isDisabled={reportStatus !== 0}
             >
-              驳回
+              驳回举报
             </Button>
-            <span className="text-tiny text-default-400">
+            <span className="text-tiny text-default-600">
               操作会自动处理同一{targetLabel}的其他待处理举报
             </span>
           </div>
@@ -201,7 +201,7 @@ export const ReportCard = ({ report, onHandled }: Props) => {
       <Modal isOpen={isOpen} onClose={onClose} placement="center">
         <ModalContent>
           <ModalHeader className="flex flex-col gap-1">
-            {actionType === 'reject' ? '驳回举报' : '处理举报'}
+            {actionType === 'reject' ? '驳回举报' : '删除内容并处理举报'}
           </ModalHeader>
           <ModalBody>
             <Textarea
@@ -216,6 +216,9 @@ export const ReportCard = ({ report, onHandled }: Props) => {
               minRows={2}
               maxRows={8}
             />
+            <p className="text-small text-default-500">
+              确认后将自动处理同一{targetLabel}的其他待处理举报
+            </p>
           </ModalBody>
           <ModalFooter>
             <Button

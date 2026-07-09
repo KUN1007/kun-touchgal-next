@@ -61,3 +61,6 @@ prisma/generated
 
 # local dev workspace notes
 /docs/
+/PRODUCT.md
+/DESIGN.md
+.impeccable/

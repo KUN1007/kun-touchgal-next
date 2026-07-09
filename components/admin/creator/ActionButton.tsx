@@ -106,7 +106,7 @@ export const ActionButton = ({ creator, onUpdate }: Props) => {
               placeholder="请提供拒绝原因以便申请人进行更改..."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              required
+              isRequired
             />
           </ModalBody>
           <ModalFooter>
@@ -116,7 +116,7 @@ export const ActionButton = ({ creator, onUpdate }: Props) => {
             <Button
               color="danger"
               onPress={handleDecline}
-              isDisabled={declining}
+              isDisabled={declining || !reason.trim()}
               isLoading={declining}
             >
               拒绝

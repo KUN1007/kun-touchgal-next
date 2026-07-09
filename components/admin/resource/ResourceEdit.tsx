@@ -58,6 +58,7 @@ export const ResourceEdit = ({ initialResource }: Props) => {
       <div className="flex gap-2">
         <Button
           isIconOnly
+          aria-label="编辑资源"
           size="sm"
           variant="light"
           isDisabled={currentUser.role < 3}
@@ -67,6 +68,7 @@ export const ResourceEdit = ({ initialResource }: Props) => {
         </Button>
         <Button
           isIconOnly
+          aria-label="删除资源"
           size="sm"
           variant="light"
           color="danger"

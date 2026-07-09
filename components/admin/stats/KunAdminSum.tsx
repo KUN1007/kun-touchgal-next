@@ -15,10 +15,12 @@ export const KunAdminSum: FC = () => {
     galgamePatchResourceCount: 0,
     galgameCommentCount: 0
   })
+  const [loading, setLoading] = useState(true)
 
   const fetchSummaryData = async () => {
     const res = await kunFetchGet<KunResponse<SumData>>('/admin/stats/sum')
     kunErrorHandler(res, setSum)
+    setLoading(false)
   }
 
   useEffect(() => {
@@ -29,12 +31,13 @@ export const KunAdminSum: FC = () => {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">数据统计</h2>
 
-      <div className="flex flex-wrap gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {Object.entries(ADMIN_STATS_SUM_MAP).map(([key, title]) => (
           <StatsCard
             key={key}
             title={title}
             value={sum[key as keyof SumData]}
+            isLoading={loading}
           />
         ))}
       </div>

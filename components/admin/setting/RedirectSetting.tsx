@@ -82,7 +82,7 @@ export const RedirectSetting = ({ setting }: Props) => {
             value={delay.toString()}
             endContent={
               <div className="flex items-center pointer-events-none">
-                <span className="text-default-400 text-small">秒</span>
+                <span className="text-default-500 text-small">秒</span>
               </div>
             }
             onChange={(e) => setDelay(Number(e.target.value))}
@@ -107,6 +107,7 @@ export const RedirectSetting = ({ setting }: Props) => {
 
             <Button
               isIconOnly
+              aria-label="添加排除域名"
               variant="flat"
               color="primary"
               onPress={addExcludedDomain}

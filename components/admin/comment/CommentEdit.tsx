@@ -136,6 +136,7 @@ export const CommentEdit = ({ initialComment, onSuccess }: Props) => {
         <DropdownTrigger>
           <Button
             isIconOnly
+            aria-label="评论操作菜单"
             size="sm"
             variant="light"
             isDisabled={currentUser.role < 3}

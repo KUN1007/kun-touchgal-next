@@ -20,8 +20,16 @@ export const getUserPatchResource = async (
   const [data, total] = await Promise.all([
     prisma.patch_resource.findMany({
       where: { user_id: uid, patch: visibilityWhere, ...resourceStatusWhere },
-      include: {
-        patch: true
+      select: {
+        id: true,
+        section: true,
+        type: true,
+        language: true,
+        platform: true,
+        created: true,
+        patch: {
+          select: { id: true, unique_id: true, name: true, banner: true }
+        }
       },
       orderBy: { created: 'desc' },
       skip: offset,

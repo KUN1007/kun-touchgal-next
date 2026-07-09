@@ -19,7 +19,7 @@ const approvePatchResource = async (
     where: { id: resourceId },
     include: {
       user: true,
-      patch: true
+      patch: { select: { name: true, unique_id: true } }
     }
   })
   if (!resource) {

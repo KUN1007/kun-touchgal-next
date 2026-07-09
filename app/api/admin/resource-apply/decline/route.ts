@@ -22,7 +22,7 @@ const declinePatchResource = async (
     where: { id: resourceId },
     include: {
       user: true,
-      patch: true,
+      patch: { select: { name: true, unique_id: true } },
       links: true
     }
   })

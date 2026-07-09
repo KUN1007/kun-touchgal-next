@@ -68,14 +68,6 @@ export const updateComment = async (
         is_spoiler: isSpoiler,
         edit: Date.now().toString(),
         ...(moderation.intercept ? { status: 1 } : {})
-      },
-      include: {
-        user: true,
-        like_by: {
-          include: {
-            user: true
-          }
-        }
       }
     })
 

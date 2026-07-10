@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { adminDeleteRatingSchema } from '~/validations/admin'
+import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
 
@@ -76,7 +77,7 @@ export const deleteRating = async (
     return '未找到该管理员'
   }
 
-  return await prisma.$transaction(async (prisma) => {
+  await prisma.$transaction(async (prisma) => {
     await prisma.patch_rating.deleteMany({
       where: {
         id: {
@@ -104,7 +105,13 @@ export const deleteRating = async (
         content: buildDeleteLogContent(admin.name, ratings)
       }
     })
-
-    return {}
   })
+
+  // recomputePatchRatingStat 内部自开事务, 须在删除事务提交后调用
+  const patchIds = [...new Set(ratings.map((rating) => rating.patch_id))]
+  for (const patchId of patchIds) {
+    await recomputePatchRatingStat(patchId)
+  }
+
+  return {}
 }

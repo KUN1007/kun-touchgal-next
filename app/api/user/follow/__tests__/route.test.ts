@@ -59,7 +59,6 @@ const mockRequest = new Request('http://localhost') as unknown as Parameters<
   typeof getFollowerRoute
 >[0]
 
-
 const seedFollowerQuery = () => {
   relationFindManyMock.mockImplementation(async (args: MockFindManyArgs) => {
     if (args.where?.following_id === baseInput.uid && args.select?.follower) {
@@ -93,7 +92,6 @@ const seedFollowerQuery = () => {
     ) {
       return [{ following_id: 11 }]
     }
-
 
     return []
   })
@@ -132,7 +130,6 @@ const seedFollowingQuery = () => {
     ) {
       return [{ following_id: 21 }]
     }
-
 
     return []
   })

@@ -117,7 +117,6 @@ export const applyModerationVerdict = async (
   }
 
   let claimed = false
-  let ratingPatchId: number | null = null
   let resourcePatchId: number | null = null
   let commentApproved = false
 
@@ -197,7 +196,7 @@ export const applyModerationVerdict = async (
             where: { id: task.content_id ?? 0 },
             data: { status: approved ? 0 : 2 }
           })
-          ratingPatchId = rating.patch_id
+          await recomputePatchRatingStat(rating.patch_id, tx)
         }
         break
       }
@@ -293,9 +292,6 @@ export const applyModerationVerdict = async (
   // post-commit side effects
   if (commentApproved) {
     await sendDeferredCommentNotifications(task.content_id ?? 0)
-  }
-  if (ratingPatchId !== null) {
-    await recomputePatchRatingStat(ratingPatchId)
   }
   if (resourcePatchId !== null) {
     queueSearchSync(resourcePatchId)

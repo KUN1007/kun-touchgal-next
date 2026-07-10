@@ -26,6 +26,8 @@ const transactionClient = {
   user: { update: updateUserMock }
 }
 
+const events: string[] = []
+
 vi.mock('~/prisma/index', () => ({
   prisma: { $transaction: transactionMock }
 }))
@@ -101,15 +103,25 @@ const joinSql = (call: unknown[]) =>
 
 beforeEach(() => {
   vi.clearAllMocks()
+  events.length = 0
   executeRawMock.mockResolvedValue(1)
   claimMock.mockResolvedValue({ count: 1 })
   findRatingMock.mockResolvedValue({ patch_id: 10, status: 1 })
   updateRatingMock.mockResolvedValue({})
   updateUserMock.mockResolvedValue({})
-  recomputeOneMock.mockResolvedValue(undefined)
+  recomputeOneMock.mockImplementation(
+    async (_patchId: number, tx: typeof transactionClient) => {
+      expect(tx).toBe(transactionClient)
+      events.push('recompute')
+    }
+  )
   transactionMock.mockImplementation(
-    async (callback: (tx: typeof transactionClient) => Promise<unknown>) =>
-      callback(transactionClient)
+    async (callback: (tx: typeof transactionClient) => Promise<unknown>) => {
+      events.push('transaction-start')
+      const result = await callback(transactionClient)
+      events.push('transaction-commit')
+      return result
+    }
   )
 })
 
@@ -141,7 +153,12 @@ describe('applyModerationVerdict', () => {
       where: { id: 5 },
       data: { status: 0 }
     })
-    expect(recomputeOneMock).toHaveBeenCalledWith(10)
+    expect(recomputeOneMock).toHaveBeenCalledWith(10, transactionClient)
+    expect(events).toEqual([
+      'transaction-start',
+      'recompute',
+      'transaction-commit'
+    ])
   })
 
   it('locks the user once with FOR UPDATE for profile verdicts', async () => {

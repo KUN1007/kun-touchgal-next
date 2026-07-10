@@ -39,7 +39,7 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
   )
 
   const response = await prisma.$transaction(async (prisma) => {
-    // 级联删除会带走该游戏的全部评论/评价, 先收集 id 供删除后清理未决审核任务与申诉
+    // 级联删除会带走该游戏的全部资源/评论/评价, 先收集 id 供删除后清理未决审核任务与申诉
     const [comments, ratings] = await Promise.all([
       prisma.patch_comment.findMany({
         where: { patch_id: patchId },
@@ -50,16 +50,6 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
         select: { id: true }
       })
     ])
-
-    if (patchResources.length > 0) {
-      await Promise.all(
-        patchResources.map(async (resource) => {
-          await prisma.patch_resource.delete({
-            where: { id: resource.id }
-          })
-        })
-      )
-    }
 
     await prisma.patch.delete({
       where: { id: patchId }

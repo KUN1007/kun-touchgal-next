@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目
 
-TouchGal（`kun-touchgal-next`）：Next.js 15 App Router 的 Galgame 文化社区站点。技术栈为 React 19、TypeScript strict、HeroUI + Tailwind v4、Prisma 7 + PostgreSQL、Redis、S3。包管理器是 **pnpm**；项目为 ESM（`"type": "module"`），TS 脚本通过 `esno` 执行。
+TouchGal（`kun-touchgal-next`）：Next.js 15 App Router 的 Galgame 文化社区站点。技术栈为 React 19、TypeScript strict、HeroUI + Tailwind v4、Prisma 7 + PostgreSQL、Redis、S3；Meilisearch 为可选搜索后端，未启用或异常时回退 Prisma。包管理器是 **pnpm**；项目为 ESM（`"type": "module"`），TS 脚本通过 `esno` 执行。
 
 ## 常用命令
 
@@ -14,6 +14,8 @@ TouchGal（`kun-touchgal-next`）：Next.js 15 App Router 的 Galgame 文化社�
 pnpm dev              # Turbopack 开发服务器 (127.0.0.1:3000)
 pnpm dev:webpack      # 切回 webpack dev server
 pnpm build            # 生产构建 (Next standalone)
+pnpm test             # Vitest 全量 (vitest run)
+pnpm test -- app/api/user/follow/__tests__/route.test.ts   # 运行单个测试文件
 pnpm typecheck        # tsc --noEmit
 pnpm lint             # next lint  (lint:fix 可自动修复)
 pnpm format           # prettier --write
@@ -23,7 +25,7 @@ pnpm build:sitemap    # 生成 public/sitemap.xml
 pnpm start / pnpm stop  # PM2 (ecosystem.config.cjs)
 ```
 
-仓库**没有测试框架**，也没有 `pnpm test`。改动后的验证基线等同 CI（`.github/workflows/lint-check.yml`）：`pnpm prisma:generate` → `pnpm lint` → `pnpm typecheck`；涉及路由 / 配置 / Prisma / standalone 时再加跑 `pnpm build`。
+测试框架为 **Vitest**（`vitest.config.ts`），只发现 `**/__tests__/**/*.test.ts`——测试与实现同目录放在 `__tests__/` 下，不要用 `.spec.ts`。改动后的验证基线等同 CI（`.github/workflows/lint-check.yml`，Node 22）：`pnpm prisma:generate` → `pnpm lint` → `pnpm typecheck` → `pnpm test`；涉及路由 / 配置 / Prisma / standalone 时再加跑 `pnpm build`。
 
 ## 请求与数据流（核心）
 

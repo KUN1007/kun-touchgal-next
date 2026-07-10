@@ -18,6 +18,10 @@ expectTypeOf(recomputePatchRatingStat).parameters.toEqualTypeOf<
   [number, Prisma.TransactionClient]
 >()
 
+expectTypeOf(recomputePatchRatingStats).parameters.toEqualTypeOf<
+  [number[], Prisma.TransactionClient]
+>()
+
 const getSql = (call: unknown[]) =>
   (call[0] as TemplateStringsArray).join('?').replace(/\s+/g, ' ').trim()
 

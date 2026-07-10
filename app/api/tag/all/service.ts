@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { getTagSchema } from '~/validations/tag'
-import type { Tag } from '~/types/api/tag'
 
 export const getTag = async (
   input: z.infer<typeof getTagSchema>,
@@ -18,17 +17,16 @@ export const getTag = async (
       where,
       take: limit,
       skip: offset,
-      orderBy: { count: 'desc' }
+      orderBy: { count: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        count: true,
+        alias: true
+      }
     }),
     prisma.patch_tag.count({ where })
   ])
 
-  const tags: Tag[] = data.map((tag) => ({
-    id: tag.id,
-    name: tag.name,
-    count: tag.count,
-    alias: tag.alias
-  }))
-
-  return { tags, total }
+  return { tags: data, total }
 }

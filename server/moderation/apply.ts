@@ -122,6 +122,29 @@ export const applyModerationVerdict = async (
   let commentApproved = false
 
   await prisma.$transaction(async (tx) => {
+    // 先锁内容行再认领 task: 删除路径 (删内容行 → 删待审任务) 与 patch/user 级联
+    // 删除都是内容行在前, 若这里先锁 task 行再改内容行会构成 AB-BA 死锁.
+    // dry_run 与 m=1 转人工不改内容行, 不参与排序; 内容行已被删除时锁空集,
+    // 后续查询自然落空
+    if (!task.dry_run && !manual) {
+      const contentId = task.content_id ?? 0
+      switch (task.content_type) {
+        case 'comment':
+          await tx.$executeRaw`SELECT id FROM patch_comment WHERE id = ${contentId} FOR UPDATE`
+          break
+        case 'rating':
+          await tx.$executeRaw`SELECT id FROM patch_rating WHERE id = ${contentId} FOR UPDATE`
+          break
+        case 'resource':
+          await tx.$executeRaw`SELECT id FROM patch_resource WHERE id = ${contentId} FOR UPDATE`
+          break
+        case 'avatar':
+        case 'bio':
+          await tx.$executeRaw`SELECT id FROM "user" WHERE id = ${task.user_id} FOR UPDATE`
+          break
+      }
+    }
+
     const claim = await tx.moderation_task.updateMany({
       where: { id: task.id, status: fromStatus },
       data: {

@@ -107,11 +107,11 @@ const handleReport = async (
         })
       })
     }
-  })
 
-  if (ratingPatchId) {
-    await recomputePatchRatingStat(ratingPatchId)
-  }
+    if (ratingPatchId !== undefined && ratingPatchId !== null) {
+      await recomputePatchRatingStat(ratingPatchId, tx)
+    }
+  })
 
   return {}
 }

@@ -56,10 +56,9 @@ export const updateRatingShadowBan = async (
         content: `管理员 ${admin.name} 将用户 ${rating.user.name} 的评价 (ID: ${ratingId}) 状态由 ${statusLabel[rating.status]} 修改为 ${statusLabel[status]}`
       }
     })
-  })
 
-  // 屏蔽 / 隐藏的评价不计入评分统计, 与 create/delete 流程一致重算
-  await recomputePatchRatingStat(rating.patch_id)
+    await recomputePatchRatingStat(rating.patch_id, prisma)
+  })
 
   return {}
 }

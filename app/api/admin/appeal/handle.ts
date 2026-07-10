@@ -108,6 +108,10 @@ const approveAppeal = async (
         )
       }
 
+      if (type === 'rating' && patchId !== null) {
+        await recomputePatchRatingStat(patchId, tx)
+      }
+
       await createMessage(
         {
           type: 'system',
@@ -138,9 +142,6 @@ const approveAppeal = async (
   // 事务提交后的副作用, 与 AI 审核通过路径保持一致
   if (type === 'comment') {
     await sendDeferredCommentNotifications(contentId)
-  }
-  if (type === 'rating' && patchId !== null) {
-    await recomputePatchRatingStat(patchId)
   }
   if (type === 'resource') {
     if (patchId !== null) {

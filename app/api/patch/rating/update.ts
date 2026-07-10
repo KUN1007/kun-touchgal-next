@@ -98,10 +98,9 @@ export const updatePatchRating = async (
       )
     }
 
+    await recomputePatchRatingStat(rating.patch_id, tx)
     return updated
   })
-
-  await recomputePatchRatingStat(rating.patch_id)
 
   return {
     id: data.id,

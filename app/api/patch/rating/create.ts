@@ -71,10 +71,9 @@ export const createPatchRating = async (
       )
     }
 
+    await recomputePatchRatingStat(patchId, tx)
     return created
   })
-
-  await recomputePatchRatingStat(patchId)
 
   return {
     id: data.id,

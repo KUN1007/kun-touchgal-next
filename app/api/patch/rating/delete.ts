@@ -31,9 +31,8 @@ export const deletePatchRating = async (
   await prisma.$transaction(async (tx) => {
     await tx.patch_rating.delete({ where: { id: input.ratingId } })
     await deletePendingModerationTasks('rating', input.ratingId, tx)
+    await recomputePatchRatingStat(rating.patch_id, tx)
   })
-
-  await recomputePatchRatingStat(rating.patch_id)
 
   return {}
 }

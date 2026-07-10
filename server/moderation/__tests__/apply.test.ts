@@ -7,6 +7,7 @@ const {
   claimMock,
   findRatingMock,
   updateRatingMock,
+  updateUserMock,
   recomputeOneMock
 } = vi.hoisted(() => ({
   transactionMock: vi.fn(),
@@ -14,13 +15,15 @@ const {
   claimMock: vi.fn(),
   findRatingMock: vi.fn(),
   updateRatingMock: vi.fn(),
+  updateUserMock: vi.fn(),
   recomputeOneMock: vi.fn()
 }))
 
 const transactionClient = {
   $executeRaw: executeRawMock,
   moderation_task: { updateMany: claimMock },
-  patch_rating: { findUnique: findRatingMock, update: updateRatingMock }
+  patch_rating: { findUnique: findRatingMock, update: updateRatingMock },
+  user: { update: updateUserMock }
 }
 
 vi.mock('~/prisma/index', () => ({
@@ -102,6 +105,7 @@ beforeEach(() => {
   claimMock.mockResolvedValue({ count: 1 })
   findRatingMock.mockResolvedValue({ patch_id: 10, status: 1 })
   updateRatingMock.mockResolvedValue({})
+  updateUserMock.mockResolvedValue({})
   recomputeOneMock.mockResolvedValue(undefined)
   transactionMock.mockImplementation(
     async (callback: (tx: typeof transactionClient) => Promise<unknown>) =>
@@ -110,18 +114,26 @@ beforeEach(() => {
 })
 
 describe('applyModerationVerdict', () => {
-  it('locks the content row before claiming the task to keep lock order aligned with delete paths', async () => {
+  it('locks the user and content rows before claiming the task to keep lock order aligned with delete paths', async () => {
     await expect(
       applyModerationVerdict({ task: ratingTask(), approved: true })
     ).resolves.toBe(true)
 
-    expect(executeRawMock).toHaveBeenCalledTimes(1)
-    const lockSql = joinSql(executeRawMock.mock.calls[0])
-    expect(lockSql).toContain('FROM patch_rating')
-    expect(lockSql).toContain('FOR UPDATE')
-    expect(executeRawMock.mock.calls[0][1]).toBe(5)
+    expect(executeRawMock).toHaveBeenCalledTimes(2)
+    const userLockSql = joinSql(executeRawMock.mock.calls[0])
+    expect(userLockSql).toContain('FROM "user"')
+    expect(userLockSql).toContain('FOR KEY SHARE')
+    expect(executeRawMock.mock.calls[0][1]).toBe(100)
+
+    const contentLockSql = joinSql(executeRawMock.mock.calls[1])
+    expect(contentLockSql).toContain('FROM patch_rating')
+    expect(contentLockSql).toContain('FOR UPDATE')
+    expect(executeRawMock.mock.calls[1][1]).toBe(5)
 
     expect(executeRawMock.mock.invocationCallOrder[0]).toBeLessThan(
+      executeRawMock.mock.invocationCallOrder[1]
+    )
+    expect(executeRawMock.mock.invocationCallOrder[1]).toBeLessThan(
       claimMock.mock.invocationCallOrder[0]
     )
 
@@ -130,6 +142,35 @@ describe('applyModerationVerdict', () => {
       data: { status: 0 }
     })
     expect(recomputeOneMock).toHaveBeenCalledWith(10)
+  })
+
+  it('locks the user once with FOR UPDATE for profile verdicts', async () => {
+    await expect(
+      applyModerationVerdict({
+        task: ratingTask({
+          content_type: 'bio',
+          content_id: null,
+          patch_id: null,
+          payload: { text: 'new bio', bio: 'new bio' }
+        }),
+        approved: true
+      })
+    ).resolves.toBe(true)
+
+    expect(executeRawMock).toHaveBeenCalledTimes(1)
+    const userLockSql = joinSql(executeRawMock.mock.calls[0])
+    expect(userLockSql).toContain('FROM "user"')
+    expect(userLockSql).toContain('FOR UPDATE')
+    expect(userLockSql).not.toContain('FOR KEY SHARE')
+    expect(executeRawMock.mock.calls[0][1]).toBe(100)
+    expect(executeRawMock.mock.invocationCallOrder[0]).toBeLessThan(
+      claimMock.mock.invocationCallOrder[0]
+    )
+
+    expect(updateUserMock).toHaveBeenCalledWith({
+      where: { id: 100 },
+      data: { bio: 'new bio', bio_status: 0 }
+    })
   })
 
   it('skips the content lock for dry-run tasks', async () => {

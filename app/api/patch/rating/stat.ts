@@ -1,4 +1,3 @@
-import { prisma } from '~/prisma/index'
 import { Prisma } from '~/prisma/generated/prisma/client'
 
 // 通告锁命名空间: 与 patch type 锁 (recalcPatchType) 分属不同域, 同 patch 的评分统计
@@ -93,23 +92,17 @@ const recomputePatchRatingStatsLocked = async (
 
 export const recomputePatchRatingStats = async (
   patchIds: number[],
-  tx?: Prisma.TransactionClient
+  tx: Prisma.TransactionClient
 ) => {
   const uniquePatchIds = [...new Set(patchIds)].sort((a, b) => a - b)
   if (!uniquePatchIds.length) {
     return
   }
 
-  if (tx) {
-    return recomputePatchRatingStatsLocked(uniquePatchIds, tx)
-  }
-
-  return prisma.$transaction((transaction) =>
-    recomputePatchRatingStatsLocked(uniquePatchIds, transaction)
-  )
+  return recomputePatchRatingStatsLocked(uniquePatchIds, tx)
 }
 
 export const recomputePatchRatingStat = (
   patchId: number,
-  tx?: Prisma.TransactionClient
+  tx: Prisma.TransactionClient
 ) => recomputePatchRatingStats([patchId], tx)

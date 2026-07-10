@@ -1,8 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 
-const { transactionMock, executeRawMock } = vi.hoisted(() => ({
-  transactionMock: vi.fn(),
+const { executeRawMock } = vi.hoisted(() => ({
   executeRawMock: vi.fn()
 }))
 
@@ -10,16 +9,14 @@ const transactionClient = {
   $executeRaw: executeRawMock
 } as unknown as Prisma.TransactionClient
 
-vi.mock('~/prisma/index', () => ({
-  prisma: {
-    $transaction: transactionMock
-  }
-}))
-
 import {
   recomputePatchRatingStat,
   recomputePatchRatingStats
 } from '~/app/api/patch/rating/stat'
+
+expectTypeOf(recomputePatchRatingStat).parameters.toEqualTypeOf<
+  [number, Prisma.TransactionClient]
+>()
 
 const getSql = (call: unknown[]) =>
   (call[0] as TemplateStringsArray).join('?').replace(/\s+/g, ' ').trim()
@@ -38,18 +35,12 @@ const getJoinedValues = (call: unknown[]) => {
 beforeEach(() => {
   vi.clearAllMocks()
   executeRawMock.mockResolvedValue(1)
-  transactionMock.mockImplementation(
-    async (callback: (tx: typeof transactionClient) => Promise<void>) => {
-      await callback(transactionClient)
-    }
-  )
 })
 
 describe('patch rating statistics', () => {
   it('locks unique patch ids and batch-upserts every rating bucket', async () => {
     await recomputePatchRatingStats([42, 7, 42], transactionClient)
 
-    expect(transactionMock).not.toHaveBeenCalled()
     expect(executeRawMock).toHaveBeenCalledTimes(2)
 
     const lockCall = executeRawMock.mock.calls[0]
@@ -103,16 +94,14 @@ describe('patch rating statistics', () => {
   })
 
   it('keeps the single-patch API on the same batch path', async () => {
-    await recomputePatchRatingStat(42)
+    await recomputePatchRatingStat(42, transactionClient)
 
-    expect(transactionMock).toHaveBeenCalledTimes(1)
     expect(executeRawMock).toHaveBeenCalledTimes(2)
   })
 
-  it('skips empty batches without opening a transaction', async () => {
-    await recomputePatchRatingStats([])
+  it('skips empty batches without executing SQL', async () => {
+    await recomputePatchRatingStats([], transactionClient)
 
-    expect(transactionMock).not.toHaveBeenCalled()
     expect(executeRawMock).not.toHaveBeenCalled()
   })
 })

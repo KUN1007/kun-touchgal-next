@@ -1,32 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Prisma } from '~/prisma/generated/prisma/client'
 
-const {
-  transactionMock,
-  executeRawMock,
-  queryRawMock,
-  aggregateMock,
-  countMock,
-  upsertMock
-} = vi.hoisted(() => ({
+const { transactionMock, executeRawMock } = vi.hoisted(() => ({
   transactionMock: vi.fn(),
-  executeRawMock: vi.fn(),
-  queryRawMock: vi.fn(),
-  aggregateMock: vi.fn(),
-  countMock: vi.fn(),
-  upsertMock: vi.fn()
+  executeRawMock: vi.fn()
 }))
 
 const transactionClient = {
-  $executeRaw: executeRawMock,
-  $queryRaw: queryRawMock,
-  patch_rating: {
-    aggregate: aggregateMock,
-    count: countMock
-  },
-  patch_rating_stat: {
-    upsert: upsertMock
-  }
-}
+  $executeRaw: executeRawMock
+} as unknown as Prisma.TransactionClient
 
 vi.mock('~/prisma/index', () => ({
   prisma: {
@@ -34,41 +16,28 @@ vi.mock('~/prisma/index', () => ({
   }
 }))
 
-import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
+import {
+  recomputePatchRatingStat,
+  recomputePatchRatingStats
+} from '~/app/api/patch/rating/stat'
 
-const ratingStat = {
-  avg_overall: 5.5,
-  count: 4,
-  rec_strong_no: 2,
-  rec_no: 0,
-  rec_neutral: 0,
-  rec_yes: 2,
-  rec_strong_yes: 0,
-  o1: 0,
-  o2: 2,
-  o3: 0,
-  o4: 0,
-  o5: 0,
-  o6: 0,
-  o7: 0,
-  o8: 1,
-  o9: 0,
-  o10: 1
-}
+const getSql = (call: unknown[]) =>
+  (call[0] as TemplateStringsArray).join('?').replace(/\s+/g, ' ').trim()
 
-const emptyRatingStat = {
-  ...ratingStat,
-  avg_overall: 0,
-  count: 0,
-  rec_strong_no: 0,
-  rec_yes: 0,
-  o2: 0,
-  o8: 0,
-  o10: 0
+const getJoinedValues = (call: unknown[]) => {
+  const joined = call.find(
+    (value): value is { values: unknown[] } =>
+      typeof value === 'object' &&
+      value !== null &&
+      'values' in value &&
+      Array.isArray(value.values)
+  )
+  return joined?.values
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
+  executeRawMock.mockResolvedValue(1)
   transactionMock.mockImplementation(
     async (callback: (tx: typeof transactionClient) => Promise<void>) => {
       await callback(transactionClient)
@@ -76,41 +45,28 @@ beforeEach(() => {
   )
 })
 
-describe('recomputePatchRatingStat', () => {
-  it('aggregates every rating bucket with one query inside the lock', async () => {
-    const lock = Promise.withResolvers<number>()
-    executeRawMock.mockReturnValue(lock.promise)
-    queryRawMock.mockResolvedValue([ratingStat])
-    aggregateMock.mockResolvedValue({
-      _avg: { overall: 5.5 },
-      _count: { _all: 4 }
-    })
-    const legacyCounts = [2, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 1, 0, 1]
-    legacyCounts.forEach((count) => countMock.mockResolvedValueOnce(count))
-    upsertMock.mockResolvedValue({})
+describe('patch rating statistics', () => {
+  it('locks unique patch ids and batch-upserts every rating bucket', async () => {
+    await recomputePatchRatingStats([42, 7, 42], transactionClient)
 
-    const recompute = recomputePatchRatingStat(42)
+    expect(transactionMock).not.toHaveBeenCalled()
+    expect(executeRawMock).toHaveBeenCalledTimes(2)
 
-    expect(executeRawMock).toHaveBeenCalledTimes(1)
-    expect(queryRawMock).not.toHaveBeenCalled()
+    const lockCall = executeRawMock.mock.calls[0]
+    const lockSql = getSql(lockCall)
+    expect(lockSql).toContain('pg_advisory_xact_lock')
+    expect(lockSql).toContain('ORDER BY patch_id')
+    expect(getJoinedValues(lockCall)).toEqual([7, 42])
 
-    lock.resolve(1)
-    await recompute
-
-    expect(queryRawMock).toHaveBeenCalledTimes(1)
-    expect(aggregateMock).not.toHaveBeenCalled()
-    expect(countMock).not.toHaveBeenCalled()
-
-    const [strings, ...parameters] = queryRawMock.mock.calls[0] as [
-      TemplateStringsArray,
-      ...unknown[]
-    ]
-    const sql = strings.join('?').replace(/\s+/g, ' ').trim()
-    expect(parameters).toEqual([42])
-    expect(sql).toContain(
-      'COALESCE(AVG(overall), 0)::double precision AS avg_overall'
-    )
-    expect(sql).toContain('COUNT(*)::int AS count')
+    const upsertCall = executeRawMock.mock.calls[1]
+    const upsertSql = getSql(upsertCall)
+    expect(getJoinedValues(upsertCall)).toEqual([7, 42])
+    expect(upsertSql).toContain('INSERT INTO patch_rating_stat')
+    expect(upsertSql).toContain('FROM patch AS p')
+    expect(upsertSql).toContain('LEFT JOIN patch_rating AS r')
+    expect(upsertSql).toContain('r.status = 0')
+    expect(upsertSql).toContain('COALESCE(AVG(r.overall), 0)::double precision')
+    expect(upsertSql).toContain('COUNT(r.id)::int')
     ;[
       ['strong_no', 'rec_strong_no'],
       ['no', 'rec_no'],
@@ -118,34 +74,45 @@ describe('recomputePatchRatingStat', () => {
       ['yes', 'rec_yes'],
       ['strong_yes', 'rec_strong_yes']
     ].forEach(([recommend, field]) => {
-      expect(sql).toContain(
-        `COUNT(*) FILTER (WHERE recommend = '${recommend}')::int AS ${field}`
+      expect(upsertSql).toContain(
+        `COUNT(r.id) FILTER (WHERE r.recommend = '${recommend}')::int AS ${field}`
       )
     })
     for (let overall = 1; overall <= 10; overall++) {
-      expect(sql).toContain(
-        `COUNT(*) FILTER (WHERE overall = ${overall})::int AS o${overall}`
+      expect(upsertSql).toContain(
+        `COUNT(r.id) FILTER (WHERE r.overall = ${overall})::int AS o${overall}`
       )
     }
-    expect(sql).toContain('FROM patch_rating WHERE patch_id = ? AND status = 0')
-    expect(upsertMock).toHaveBeenCalledWith({
-      where: { patch_id: 42 },
-      create: { patch_id: 42, ...ratingStat },
-      update: ratingStat
-    })
+    expect(upsertSql).toContain('ON CONFLICT (patch_id) DO UPDATE')
+    expect(upsertSql.match(/statement_timestamp\(\)/g)).toHaveLength(2)
+    expect(upsertSql).not.toContain('NOW()')
   })
 
-  it('upserts zero statistics when no visible ratings remain', async () => {
-    executeRawMock.mockResolvedValue(1)
-    queryRawMock.mockResolvedValue([emptyRatingStat])
-    upsertMock.mockResolvedValue({})
+  it('waits for the advisory lock before upserting statistics', async () => {
+    const lock = Promise.withResolvers<number>()
+    executeRawMock.mockImplementationOnce(() => lock.promise)
 
+    const result = recomputePatchRatingStats([42], transactionClient)
+
+    expect(executeRawMock).toHaveBeenCalledTimes(1)
+
+    lock.resolve(1)
+    await result
+
+    expect(executeRawMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the single-patch API on the same batch path', async () => {
     await recomputePatchRatingStat(42)
 
-    expect(upsertMock).toHaveBeenCalledWith({
-      where: { patch_id: 42 },
-      create: { patch_id: 42, ...emptyRatingStat },
-      update: emptyRatingStat
-    })
+    expect(transactionMock).toHaveBeenCalledTimes(1)
+    expect(executeRawMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('skips empty batches without opening a transaction', async () => {
+    await recomputePatchRatingStats([])
+
+    expect(transactionMock).not.toHaveBeenCalled()
+    expect(executeRawMock).not.toHaveBeenCalled()
   })
 })

@@ -1,7 +1,8 @@
 import { z } from 'zod'
-import { prisma } from '~/prisma/index'
+import { isPrismaTransactionConflict, prisma } from '~/prisma/index'
 import { adminDeleteRatingSchema } from '~/validations/admin'
-import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
+import { Prisma } from '~/prisma/generated/prisma/client'
+import { recomputePatchRatingStats } from '~/app/api/patch/rating/stat'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
 
@@ -77,40 +78,67 @@ export const deleteRating = async (
     return '未找到该管理员'
   }
 
-  await prisma.$transaction(async (prisma) => {
-    await prisma.patch_rating.deleteMany({
-      where: {
-        id: {
-          in: ratings.map((rating) => rating.id)
-        }
+  const ratingIds = ratings.map((rating) => rating.id)
+  const patchIds = [...new Set(ratings.map((rating) => rating.patch_id))].sort(
+    (a, b) => a - b
+  )
+
+  let retryCount = 0
+  while (true) {
+    try {
+      await prisma.$transaction(async (prisma) => {
+        // 先锁涉及的 patch, 避免补丁级联删除与评价删除/统计重算反向等待
+        await prisma.$executeRaw`
+          SELECT id
+          FROM patch
+          WHERE id IN (${Prisma.join(patchIds)})
+          ORDER BY id
+          FOR KEY SHARE
+        `
+
+        // 以事务内的当前 status 决定哪些 patch 需要重算
+        const lockedRatings = await prisma.$queryRaw<
+          Array<{ id: number; patch_id: number; status: number }>
+        >`
+          SELECT id, patch_id, status
+          FROM patch_rating
+          WHERE id IN (${Prisma.join(ratingIds)})
+          ORDER BY id
+          FOR UPDATE
+        `
+
+        await prisma.patch_rating.deleteMany({
+          where: {
+            id: {
+              in: ratingIds
+            }
+          }
+        })
+        await deletePendingModerationTasks('rating', ratingIds, prisma)
+        await deletePendingAppeals('rating', ratingIds, prisma)
+
+        await recomputePatchRatingStats(
+          lockedRatings
+            .filter((rating) => rating.status === 0)
+            .map((rating) => rating.patch_id),
+          prisma
+        )
+
+        await prisma.admin_log.create({
+          data: {
+            type: 'delete',
+            user_id: uid,
+            content: buildDeleteLogContent(admin.name, ratings)
+          }
+        })
+      })
+      break
+    } catch (error) {
+      if (!isPrismaTransactionConflict(error) || retryCount >= 2) {
+        throw error
       }
-    })
-
-    await deletePendingModerationTasks(
-      'rating',
-      ratings.map((rating) => rating.id),
-      prisma
-    )
-
-    await deletePendingAppeals(
-      'rating',
-      ratings.map((rating) => rating.id),
-      prisma
-    )
-
-    await prisma.admin_log.create({
-      data: {
-        type: 'delete',
-        user_id: uid,
-        content: buildDeleteLogContent(admin.name, ratings)
-      }
-    })
-  })
-
-  // recomputePatchRatingStat 内部自开事务, 须在删除事务提交后调用
-  const patchIds = [...new Set(ratings.map((rating) => rating.patch_id))]
-  for (const patchId of patchIds) {
-    await recomputePatchRatingStat(patchId)
+      retryCount++
+    }
   }
 
   return {}

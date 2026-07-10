@@ -1,51 +1,115 @@
 import { prisma } from '~/prisma/index'
-import type { Prisma } from '~/prisma/generated/prisma/client'
+import { Prisma } from '~/prisma/generated/prisma/client'
 
 // 通告锁命名空间: 与 patch type 锁 (recalcPatchType) 分属不同域, 同 patch 的评分统计
 // 重算按 (域, patchId) 串行
 const RATING_STAT_LOCK_NAMESPACE = 481002
 
-type PatchRatingStatData = Omit<
-  Prisma.patch_rating_statModel,
-  'patch_id' | 'created' | 'updated'
->
+const recomputePatchRatingStatsLocked = async (
+  patchIds: number[],
+  tx: Prisma.TransactionClient
+) => {
+  // 批量调用按 patch ID 的固定顺序取锁, 避免重叠批次形成锁顺序反转
+  await tx.$executeRaw`
+    SELECT pg_advisory_xact_lock(
+      ${RATING_STAT_LOCK_NAMESPACE}::int,
+      ordered.patch_id::int
+    )
+    FROM unnest(ARRAY[${Prisma.join(patchIds)}]::int[]) AS ordered(patch_id)
+    ORDER BY patch_id
+  `
 
-// Recompute and upsert rating statistics for a patch
-export const recomputePatchRatingStat = async (patchId: number) => {
-  await prisma.$transaction(async (tx) => {
-    // pg_advisory_xact_lock: 事务级通告锁, 使同一 patch 的「聚合读 → upsert 写」原子化,
-    // 消除重叠重算 (审核重叠批次、管理员与用户并发操作) 的丢更新. 用 $executeRaw
-    // (而非 $queryRaw): pg adapter 无法反序列化 void; ::int 匹配 (int,int) 重载
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${RATING_STAT_LOCK_NAMESPACE}::int, ${patchId}::int)`
-
-    // 仅 status=0 (正常) 的评价计入统计; 待审核 (1) 与隐藏 (2) 均排除
-    const [ratingStat] = await tx.$queryRaw<PatchRatingStatData[]>`
-      SELECT
-        COALESCE(AVG(overall), 0)::double precision AS avg_overall,
-        COUNT(*)::int AS count,
-        COUNT(*) FILTER (WHERE recommend = 'strong_no')::int AS rec_strong_no,
-        COUNT(*) FILTER (WHERE recommend = 'no')::int AS rec_no,
-        COUNT(*) FILTER (WHERE recommend = 'neutral')::int AS rec_neutral,
-        COUNT(*) FILTER (WHERE recommend = 'yes')::int AS rec_yes,
-        COUNT(*) FILTER (WHERE recommend = 'strong_yes')::int AS rec_strong_yes,
-        COUNT(*) FILTER (WHERE overall = 1)::int AS o1,
-        COUNT(*) FILTER (WHERE overall = 2)::int AS o2,
-        COUNT(*) FILTER (WHERE overall = 3)::int AS o3,
-        COUNT(*) FILTER (WHERE overall = 4)::int AS o4,
-        COUNT(*) FILTER (WHERE overall = 5)::int AS o5,
-        COUNT(*) FILTER (WHERE overall = 6)::int AS o6,
-        COUNT(*) FILTER (WHERE overall = 7)::int AS o7,
-        COUNT(*) FILTER (WHERE overall = 8)::int AS o8,
-        COUNT(*) FILTER (WHERE overall = 9)::int AS o9,
-        COUNT(*) FILTER (WHERE overall = 10)::int AS o10
-      FROM patch_rating
-      WHERE patch_id = ${patchId} AND status = 0
-    `
-
-    await tx.patch_rating_stat.upsert({
-      where: { patch_id: patchId },
-      create: { patch_id: patchId, ...ratingStat },
-      update: ratingStat
-    })
-  })
+  // 从仍存在的 patch 出发: 已被级联删除的 patch 自动跳过, 无评价的 patch 写入零统计
+  await tx.$executeRaw`
+    INSERT INTO patch_rating_stat (
+      patch_id,
+      avg_overall,
+      count,
+      rec_strong_no,
+      rec_no,
+      rec_neutral,
+      rec_yes,
+      rec_strong_yes,
+      o1,
+      o2,
+      o3,
+      o4,
+      o5,
+      o6,
+      o7,
+      o8,
+      o9,
+      o10,
+      created,
+      updated
+    )
+    SELECT
+      p.id,
+      COALESCE(AVG(r.overall), 0)::double precision,
+      COUNT(r.id)::int,
+      COUNT(r.id) FILTER (WHERE r.recommend = 'strong_no')::int AS rec_strong_no,
+      COUNT(r.id) FILTER (WHERE r.recommend = 'no')::int AS rec_no,
+      COUNT(r.id) FILTER (WHERE r.recommend = 'neutral')::int AS rec_neutral,
+      COUNT(r.id) FILTER (WHERE r.recommend = 'yes')::int AS rec_yes,
+      COUNT(r.id) FILTER (WHERE r.recommend = 'strong_yes')::int AS rec_strong_yes,
+      COUNT(r.id) FILTER (WHERE r.overall = 1)::int AS o1,
+      COUNT(r.id) FILTER (WHERE r.overall = 2)::int AS o2,
+      COUNT(r.id) FILTER (WHERE r.overall = 3)::int AS o3,
+      COUNT(r.id) FILTER (WHERE r.overall = 4)::int AS o4,
+      COUNT(r.id) FILTER (WHERE r.overall = 5)::int AS o5,
+      COUNT(r.id) FILTER (WHERE r.overall = 6)::int AS o6,
+      COUNT(r.id) FILTER (WHERE r.overall = 7)::int AS o7,
+      COUNT(r.id) FILTER (WHERE r.overall = 8)::int AS o8,
+      COUNT(r.id) FILTER (WHERE r.overall = 9)::int AS o9,
+      COUNT(r.id) FILTER (WHERE r.overall = 10)::int AS o10,
+      statement_timestamp(),
+      statement_timestamp()
+    FROM patch AS p
+    LEFT JOIN patch_rating AS r
+      ON r.patch_id = p.id AND r.status = 0
+    WHERE p.id IN (${Prisma.join(patchIds)})
+    GROUP BY p.id
+    ON CONFLICT (patch_id) DO UPDATE SET
+      avg_overall = EXCLUDED.avg_overall,
+      count = EXCLUDED.count,
+      rec_strong_no = EXCLUDED.rec_strong_no,
+      rec_no = EXCLUDED.rec_no,
+      rec_neutral = EXCLUDED.rec_neutral,
+      rec_yes = EXCLUDED.rec_yes,
+      rec_strong_yes = EXCLUDED.rec_strong_yes,
+      o1 = EXCLUDED.o1,
+      o2 = EXCLUDED.o2,
+      o3 = EXCLUDED.o3,
+      o4 = EXCLUDED.o4,
+      o5 = EXCLUDED.o5,
+      o6 = EXCLUDED.o6,
+      o7 = EXCLUDED.o7,
+      o8 = EXCLUDED.o8,
+      o9 = EXCLUDED.o9,
+      o10 = EXCLUDED.o10,
+      updated = EXCLUDED.updated
+  `
 }
+
+export const recomputePatchRatingStats = async (
+  patchIds: number[],
+  tx?: Prisma.TransactionClient
+) => {
+  const uniquePatchIds = [...new Set(patchIds)].sort((a, b) => a - b)
+  if (!uniquePatchIds.length) {
+    return
+  }
+
+  if (tx) {
+    return recomputePatchRatingStatsLocked(uniquePatchIds, tx)
+  }
+
+  return prisma.$transaction((transaction) =>
+    recomputePatchRatingStatsLocked(uniquePatchIds, transaction)
+  )
+}
+
+export const recomputePatchRatingStat = (
+  patchId: number,
+  tx?: Prisma.TransactionClient
+) => recomputePatchRatingStats([patchId], tx)

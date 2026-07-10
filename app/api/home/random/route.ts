@@ -4,17 +4,27 @@ import { getPatchVisibilityWhere } from '~/app/api/utils/getPatchVisibilityWhere
 import type { Prisma } from '~/prisma/generated/prisma/client'
 
 const getRandomUniqueId = async (visibilityWhere: Prisma.patchWhereInput) => {
-  const totalArticles = await prisma.patch.findMany({
-    where: visibilityWhere,
-    select: { unique_id: true }
-  })
-  if (totalArticles.length === 0) {
+  const count = await prisma.patch.count({ where: visibilityWhere })
+  if (count === 0) {
     return '未查询到文章'
   }
-  const uniqueIds = totalArticles.map((a) => a.unique_id)
-  const randomIndex = Math.floor(Math.random() * uniqueIds.length)
 
-  return { uniqueId: uniqueIds[randomIndex] }
+  const [randomPatch] = await prisma.patch.findMany({
+    where: visibilityWhere,
+    orderBy: { id: 'asc' },
+    skip: Math.floor(Math.random() * count),
+    take: 1,
+    select: { unique_id: true }
+  })
+  const patch =
+    randomPatch ??
+    (await prisma.patch.findFirst({
+      where: visibilityWhere,
+      orderBy: { id: 'asc' },
+      select: { unique_id: true }
+    }))
+
+  return patch ? { uniqueId: patch.unique_id } : '未查询到文章'
 }
 
 export const GET = async (req: NextRequest) => {

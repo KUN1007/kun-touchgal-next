@@ -25,7 +25,8 @@ const updatePatchBanner = async (
   originalImage?: ArrayBuffer
 ) => {
   const patch = await prisma.patch.findUnique({
-    where: { id: patchId }
+    where: { id: patchId },
+    select: { id: true }
   })
   if (!patch) {
     return '这个 Galgame 不存在'

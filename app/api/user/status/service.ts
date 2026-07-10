@@ -74,7 +74,22 @@ const getPendingProfileValues = async (uid: number) => {
 
 export const getUserStatus = async (uid: number) => {
   const user = await prisma.user.findUnique({
-    where: { id: uid }
+    where: { id: uid },
+    select: {
+      id: true,
+      name: true,
+      avatar: true,
+      bio: true,
+      moemoepoint: true,
+      role: true,
+      status: true,
+      daily_check_in: true,
+      daily_image_count: true,
+      daily_upload_size: true,
+      enable_email_notice: true,
+      allow_private_message: true,
+      blocked_tag_ids: true
+    }
   })
   if (!user) {
     return '用户未找到'

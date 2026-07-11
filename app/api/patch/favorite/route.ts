@@ -14,31 +14,34 @@ const togglePatchFavorite = async (
   input: z.infer<typeof togglePatchFavoriteSchema>,
   uid: number
 ) => {
-  const patch = await prisma.patch.findUnique({
-    where: { id: input.patchId }
-  })
+  const [patch, folder, existing] = await Promise.all([
+    prisma.patch.findUnique({
+      where: { id: input.patchId },
+      select: { user_id: true, name: true, unique_id: true }
+    }),
+    prisma.user_patch_favorite_folder.findUnique({
+      where: { id: input.folderId },
+      select: { user_id: true }
+    }),
+    prisma.user_patch_favorite_folder_relation.findUnique({
+      where: {
+        folder_id_patch_id: {
+          folder_id: input.folderId,
+          patch_id: input.patchId
+        }
+      },
+      select: { folder_id: true }
+    })
+  ])
   if (!patch) {
     return '未找到 Galgame'
   }
-
-  const folder = await prisma.user_patch_favorite_folder.findUnique({
-    where: { id: input.folderId }
-  })
   if (!folder) {
     return '未找到收藏文件夹'
   }
   if (folder.user_id !== uid) {
     return '这不是您的收藏夹'
   }
-
-  const existing = await prisma.user_patch_favorite_folder_relation.findUnique({
-    where: {
-      folder_id_patch_id: {
-        folder_id: input.folderId,
-        patch_id: input.patchId
-      }
-    }
-  })
 
   const response = await prisma.$transaction(async (prisma) => {
     if (patch.user_id !== uid) {

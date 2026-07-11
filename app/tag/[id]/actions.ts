@@ -1,11 +1,13 @@
 'use server'
 
 import { z } from 'zod'
+import { cache } from 'react'
 import { safeParseSchema } from '~/utils/actions/safeParseSchema'
 import { getTagById } from '~/app/api/tag/get'
 import { getPatchByTag } from '~/app/api/tag/galgame/service'
 import { getPatchVisibilityContext } from '~/utils/actions/getPatchVisibilityContext'
 import { getPatchByTagSchema, getTagByIdSchema } from '~/validations/tag'
+const getCachedTagById = cache((tagId: number) => getTagById({ tagId }))
 
 export const kunGetTagByIdActions = async (
   params: z.infer<typeof getTagByIdSchema>
@@ -15,11 +17,10 @@ export const kunGetTagByIdActions = async (
     return input
   }
 
-  const response = await getTagById(input)
-  return response
+  return getCachedTagById(input.tagId)
 }
 
-export const kunTagGalgameActions = async (
+export const kunGetTagPageDataActions = async (
   params: z.infer<typeof getPatchByTagSchema>
 ) => {
   const input = safeParseSchema(getPatchByTagSchema, params)
@@ -27,8 +28,27 @@ export const kunTagGalgameActions = async (
     return input
   }
 
-  const visibility = await getPatchVisibilityContext()
+  const tagPromise = getCachedTagById(input.tagId)
+  const responseResultPromise = getPatchVisibilityContext()
+    .then((visibility) => getPatchByTag(input, visibility))
+    .then(
+      (response) => ({ status: 'fulfilled' as const, response }),
+      (error: unknown) => ({ status: 'rejected' as const, error })
+    )
+  const [tag, responseResult] = await Promise.all([
+    tagPromise,
+    responseResultPromise
+  ])
 
-  const response = await getPatchByTag(input, visibility)
-  return response
+  if (typeof tag === 'string') {
+    return tag
+  }
+  if (responseResult.status === 'rejected') {
+    throw responseResult.error
+  }
+  if (typeof responseResult.response === 'string') {
+    return responseResult.response
+  }
+
+  return { tag, response: responseResult.response }
 }

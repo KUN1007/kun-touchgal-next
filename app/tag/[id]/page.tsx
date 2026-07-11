@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { TagDetailContainer } from '~/components/tag/detail/Container'
 import { generateKunMetadataTemplate } from './metadata'
-import { kunGetTagByIdActions, kunTagGalgameActions } from './actions'
+import { kunGetTagByIdActions, kunGetTagPageDataActions } from './actions'
 import { ErrorComponent } from '~/components/error/ErrorComponent'
 import { verifyHeaderCookie } from '~/utils/actions/verifyHeaderCookie'
 import { KunNull } from '~/components/kun/Null'
@@ -54,6 +54,7 @@ export const generateMetadata = async ({
 export default async function Kun({ params, searchParams }: Props) {
   const { id } = await params
   const res = await searchParams
+  const tagId = Number(id)
   const sortField =
     (getSearchParamValue(res?.sortField) as SortField | undefined) ||
     DEFAULT_GALGAME_SORT_FIELD
@@ -79,13 +80,8 @@ export default async function Kun({ params, searchParams }: Props) {
         )
       : 0
 
-  const tag = await kunGetTagByIdActions({ tagId: Number(id) })
-  if (typeof tag === 'string') {
-    return <ErrorComponent error={tag} />
-  }
-
-  const response = await kunTagGalgameActions({
-    tagId: Number(id),
+  const result = await kunGetTagPageDataActions({
+    tagId,
     page: currentPage,
     limit: 24,
     selectedType,
@@ -97,9 +93,11 @@ export default async function Kun({ params, searchParams }: Props) {
     monthString,
     minRatingCount
   })
-  if (typeof response === 'string') {
-    return <ErrorComponent error={response} />
+  if (typeof result === 'string') {
+    return <ErrorComponent error={result} />
   }
+
+  const { tag, response } = result
 
   const payload = await verifyHeaderCookie()
 

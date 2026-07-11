@@ -36,17 +36,20 @@ export const createPatchComment = async (
     }
   }
 
-  let contentHtml = ''
-  let contentHtmlVersion = 0
-  try {
-    contentHtml = await markdownToHtmlComment(input.content)
-    contentHtmlVersion = COMMENT_HTML_VERSION
-  } catch {
-    contentHtml = ''
-    contentHtmlVersion = 0
-  }
-
-  const moderation = await preScreenText(input.content)
+  const [contentResult, moderation] = await Promise.all([
+    (async () => {
+      try {
+        return {
+          html: await markdownToHtmlComment(input.content),
+          version: COMMENT_HTML_VERSION
+        }
+      } catch {
+        return { html: '', version: 0 }
+      }
+    })(),
+    preScreenText(input.content)
+  ])
+  const { html: contentHtml, version: contentHtmlVersion } = contentResult
 
   const data = await prisma.$transaction(async (tx) => {
     const created = await tx.patch_comment.create({

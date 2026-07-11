@@ -21,17 +21,18 @@ export const createPatchResource = async (
 ) => {
   const { patchId, type, language, platform, links, ...resourceData } = input
 
-  const currentPatch = await prisma.patch.findUnique({
-    where: { id: patchId },
-    select: {
-      unique_id: true,
-      name: true
-    }
-  })
-
-  const resourceCount = await prisma.patch_resource.count({
-    where: { user_id: uid }
-  })
+  const [currentPatch, resourceCount] = await Promise.all([
+    prisma.patch.findUnique({
+      where: { id: patchId },
+      select: {
+        unique_id: true,
+        name: true
+      }
+    }),
+    prisma.patch_resource.count({
+      where: { user_id: uid }
+    })
+  ])
   const needApproval = resourceCount === 0 && userRole < 3
 
   // 首个资源走既有人工审批流 (status=2), 不重复送 AI 审核

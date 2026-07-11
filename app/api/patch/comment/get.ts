@@ -79,10 +79,6 @@ export const getPatchComment = async (
     }
   }
 
-  const total = await prisma.patch_comment.count({
-    where: { patch_id: patchId, parent_id: null, ...visibilityWhere }
-  })
-
   const commentSelect = {
     id: true,
     content: true,
@@ -112,13 +108,18 @@ export const getPatchComment = async (
     }
   } satisfies Prisma.patch_commentSelect
 
-  const rootComments = await prisma.patch_comment.findMany({
-    where: { patch_id: patchId, parent_id: null, ...visibilityWhere },
-    orderBy: [{ created: 'desc' }, { id: 'desc' }],
-    skip: (currentPage - 1) * limit,
-    take: limit,
-    select: commentSelect
-  })
+  const rootWhere = { patch_id: patchId, parent_id: null, ...visibilityWhere }
+
+  const [total, rootComments] = await Promise.all([
+    prisma.patch_comment.count({ where: rootWhere }),
+    prisma.patch_comment.findMany({
+      where: rootWhere,
+      orderBy: [{ created: 'desc' }, { id: 'desc' }],
+      skip: (currentPage - 1) * limit,
+      take: limit,
+      select: commentSelect
+    })
+  ])
 
   const rootIds = rootComments.map((c) => c.id)
 

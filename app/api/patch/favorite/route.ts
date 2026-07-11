@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { NextRequest, NextResponse } from 'next/server'
 import { kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { prisma } from '~/prisma/index'
+import { Prisma } from '~/prisma/generated/prisma/client'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { togglePatchFavoriteSchema } from '~/validations/patch'
 import { createDedupMessage } from '~/app/api/utils/message'
@@ -14,7 +15,7 @@ const togglePatchFavorite = async (
   input: z.infer<typeof togglePatchFavoriteSchema>,
   uid: number
 ) => {
-  const [patch, folder, existing] = await Promise.all([
+  const [patch, folder] = await Promise.all([
     prisma.patch.findUnique({
       where: { id: input.patchId },
       select: { user_id: true, name: true, unique_id: true }
@@ -22,15 +23,6 @@ const togglePatchFavorite = async (
     prisma.user_patch_favorite_folder.findUnique({
       where: { id: input.folderId },
       select: { user_id: true }
-    }),
-    prisma.user_patch_favorite_folder_relation.findUnique({
-      where: {
-        folder_id_patch_id: {
-          folder_id: input.folderId,
-          patch_id: input.patchId
-        }
-      },
-      select: { folder_id: true }
     })
   ])
   if (!patch) {
@@ -43,37 +35,62 @@ const togglePatchFavorite = async (
     return '这不是您的收藏夹'
   }
 
-  const response = await prisma.$transaction(async (prisma) => {
-    if (patch.user_id !== uid) {
-      await createDedupMessage({
-        type: 'favorite',
-        content: patch.name,
-        sender_id: uid,
-        recipient_id: patch.user_id,
-        link: `/${patch.unique_id}`
-      })
-    }
+  const messageData = {
+    type: 'favorite' as const,
+    content: patch.name,
+    sender_id: uid,
+    recipient_id: patch.user_id,
+    link: `/${patch.unique_id}`
+  }
 
-    if (existing) {
-      await prisma.user_patch_favorite_folder_relation.delete({
+  // deleteMany + createMany(skipDuplicates) 使并发双击不会触发 P2002/P2025
+  const response = await prisma
+    .$transaction(async (tx) => {
+      const removed = await tx.user_patch_favorite_folder_relation.deleteMany({
         where: {
-          folder_id_patch_id: {
-            folder_id: input.folderId,
-            patch_id: input.patchId
-          }
-        }
-      })
-      return { added: false }
-    } else {
-      await prisma.user_patch_favorite_folder_relation.create({
-        data: {
           folder_id: input.folderId,
           patch_id: input.patchId
         }
       })
+      if (removed.count > 0) {
+        if (patch.user_id !== uid) {
+          await tx.user_message.deleteMany({
+            where: {
+              type: 'favorite',
+              sender_id: uid,
+              recipient_id: patch.user_id,
+              link: messageData.link
+            }
+          })
+        }
+        return { added: false }
+      }
+
+      await tx.user_patch_favorite_folder_relation.createMany({
+        data: {
+          folder_id: input.folderId,
+          patch_id: input.patchId
+        },
+        skipDuplicates: true
+      })
+      if (patch.user_id !== uid) {
+        await createDedupMessage(messageData, tx)
+      }
       return { added: true }
-    }
-  })
+    })
+    .catch((error: unknown) => {
+      // 事务内任一外键的引用行被并发删除都会命中约束, 无法区分是哪一条, 返回通用文案
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        return '收藏失败, 请重试'
+      }
+      throw error
+    })
+  if (typeof response === 'string') {
+    return response
+  }
 
   try {
     await Promise.all([

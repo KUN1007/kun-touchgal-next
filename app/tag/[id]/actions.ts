@@ -6,12 +6,19 @@ import { safeParseSchema } from '~/utils/actions/safeParseSchema'
 import { getTagById } from '~/app/api/tag/get'
 import { getPatchByTag } from '~/app/api/tag/galgame/service'
 import { getPatchVisibilityContext } from '~/utils/actions/getPatchVisibilityContext'
+import { verifyHeaderCookie } from '~/utils/actions/verifyHeaderCookie'
 import { getPatchByTagSchema, getTagByIdSchema } from '~/validations/tag'
+
 const getCachedTagById = cache((tagId: number) => getTagById({ tagId }))
 
-export const kunGetTagByIdActions = async (
+export const kunGetTagMetadataActions = async (
   params: z.infer<typeof getTagByIdSchema>
 ) => {
+  const payload = await verifyHeaderCookie()
+  if (!payload?.uid) {
+    return null
+  }
+
   const input = safeParseSchema(getTagByIdSchema, params)
   if (typeof input === 'string') {
     return input
@@ -23,6 +30,11 @@ export const kunGetTagByIdActions = async (
 export const kunGetTagPageDataActions = async (
   params: z.infer<typeof getPatchByTagSchema>
 ) => {
+  const payload = await verifyHeaderCookie()
+  if (!payload?.uid) {
+    return null
+  }
+
   const input = safeParseSchema(getPatchByTagSchema, params)
   if (typeof input === 'string') {
     return input

@@ -1,9 +1,8 @@
 import { Suspense } from 'react'
 import { TagDetailContainer } from '~/components/tag/detail/Container'
 import { generateKunMetadataTemplate } from './metadata'
-import { kunGetTagByIdActions, kunGetTagPageDataActions } from './actions'
+import { kunGetTagMetadataActions, kunGetTagPageDataActions } from './actions'
 import { ErrorComponent } from '~/components/error/ErrorComponent'
-import { verifyHeaderCookie } from '~/utils/actions/verifyHeaderCookie'
 import { KunNull } from '~/components/kun/Null'
 import { KunBreadcrumbTitle } from '~/components/kun/BreadcrumbTitle'
 import type { SortField, SortOrder } from '~/components/galgame/_sort'
@@ -42,9 +41,9 @@ export const generateMetadata = async ({
   params
 }: Pick<Props, 'params'>): Promise<Metadata> => {
   const { id } = await params
-  const tag = await kunGetTagByIdActions({ tagId: Number(id) })
+  const tag = await kunGetTagMetadataActions({ tagId: Number(id) })
 
-  if (typeof tag === 'string') {
+  if (!tag || typeof tag === 'string') {
     return generateKunMetadataTemplate('标签详情')
   }
 
@@ -93,27 +92,25 @@ export default async function Kun({ params, searchParams }: Props) {
     monthString,
     minRatingCount
   })
+  if (result === null) {
+    return <KunNull message="请登录后查看标签详细信息" />
+  }
+
   if (typeof result === 'string') {
     return <ErrorComponent error={result} />
   }
 
   const { tag, response } = result
 
-  const payload = await verifyHeaderCookie()
-
   return (
     <Suspense>
       <KunBreadcrumbTitle routeKey={`/tag/${tag.id}`} title={tag.name} />
-      {payload?.uid ? (
-        <TagDetailContainer
-          initialTag={tag}
-          initialPatches={response.galgames}
-          total={response.total}
-          filterEndYear={getCurrentSiteYear()}
-        />
-      ) : (
-        <KunNull message="请登录后查看标签详细信息" />
-      )}
+      <TagDetailContainer
+        initialTag={tag}
+        initialPatches={response.galgames}
+        total={response.total}
+        filterEndYear={getCurrentSiteYear()}
+      />
     </Suspense>
   )
 }

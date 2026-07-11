@@ -7,31 +7,41 @@ import {
   DEFAULT_GALGAME_YEAR_STRING
 } from '~/utils/galgameFilter'
 
-const { getTagByIdMock, getPatchByTagMock, getPatchVisibilityContextMock } =
-  vi.hoisted(() => ({
-    getTagByIdMock: vi.fn(),
-    getPatchByTagMock: vi.fn(),
-    getPatchVisibilityContextMock: vi.fn()
-  }))
+const {
+  getTagByIdMock,
+  getPatchByTagMock,
+  getPatchVisibilityContextMock,
+  verifyHeaderCookieMock,
+  reactCacheEntriesMock
+} = vi.hoisted(() => ({
+  getTagByIdMock: vi.fn(),
+  getPatchByTagMock: vi.fn(),
+  getPatchVisibilityContextMock: vi.fn(),
+  verifyHeaderCookieMock: vi.fn(),
+  reactCacheEntriesMock: [] as Array<{
+    fn: unknown
+    args: unknown[]
+    result: unknown
+  }>
+}))
 
 vi.mock('react', () => ({
   cache: <Args extends unknown[], Result>(fn: (...args: Args) => Result) => {
-    const entries: Array<{ args: Args; result: Result }> = []
-
     return (...args: Args): Result => {
-      const cached = entries.find(
+      const cached = reactCacheEntriesMock.find(
         (entry) =>
+          Object.is(entry.fn, fn) &&
           entry.args.length === args.length &&
           entry.args.every((argument, index) =>
             Object.is(argument, args[index])
           )
       )
       if (cached) {
-        return cached.result
+        return cached.result as Result
       }
 
       const result = fn(...args)
-      entries.push({ args, result })
+      reactCacheEntriesMock.push({ fn, args, result })
       return result
     }
   }
@@ -49,47 +59,94 @@ vi.mock('~/utils/actions/getPatchVisibilityContext', () => ({
   getPatchVisibilityContext: getPatchVisibilityContextMock
 }))
 
-import { kunGetTagByIdActions, kunGetTagPageDataActions } from '../actions'
+vi.mock('~/utils/actions/verifyHeaderCookie', async () => {
+  const { cache } = await import('react')
+
+  return {
+    verifyHeaderCookie: cache(verifyHeaderCookieMock)
+  }
+})
+
+import { kunGetTagMetadataActions, kunGetTagPageDataActions } from '../actions'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  reactCacheEntriesMock.length = 0
   getPatchVisibilityContextMock.mockResolvedValue({
     blockedTagIds: [],
     nsfwWhere: {}
   })
+  verifyHeaderCookieMock.mockResolvedValue({ uid: 1 })
 })
 
-describe('kunGetTagByIdActions', () => {
-  it('deduplicates equivalent tag lookups by primitive tagId', async () => {
-    const tag = { id: 7, name: '测试标签' }
-    getTagByIdMock.mockResolvedValue(tag)
+const patchParams = {
+  page: 1,
+  limit: 24,
+  selectedType: DEFAULT_GALGAME_FILTER_VALUE,
+  selectedLanguage: DEFAULT_GALGAME_FILTER_VALUE,
+  selectedPlatform: DEFAULT_GALGAME_FILTER_VALUE,
+  sortField: DEFAULT_GALGAME_SORT_FIELD,
+  sortOrder: DEFAULT_GALGAME_SORT_ORDER,
+  yearString: DEFAULT_GALGAME_YEAR_STRING,
+  monthString: DEFAULT_GALGAME_MONTH_STRING,
+  minRatingCount: 0
+}
 
-    const [first, second] = await Promise.all([
-      kunGetTagByIdActions({ tagId: 7 }),
-      kunGetTagByIdActions({ tagId: 7 })
+describe('kunGetTagMetadataActions', () => {
+  it('shares an anonymous auth result and skips all data queries', async () => {
+    verifyHeaderCookieMock.mockResolvedValue(null)
+
+    const [metadataResult, pageResult] = await Promise.all([
+      kunGetTagMetadataActions({ tagId: 13 }),
+      kunGetTagPageDataActions({ ...patchParams, tagId: 13 })
     ])
 
-    expect(first).toEqual(tag)
-    expect(second).toEqual(tag)
-    expect(getTagByIdMock).toHaveBeenCalledTimes(1)
-    expect(getTagByIdMock).toHaveBeenCalledWith({ tagId: 7 })
+    expect(metadataResult).toBeNull()
+    expect(pageResult).toBeNull()
+    expect(verifyHeaderCookieMock).toHaveBeenCalledTimes(1)
+    expect(getTagByIdMock).not.toHaveBeenCalled()
+    expect(getPatchVisibilityContextMock).not.toHaveBeenCalled()
+    expect(getPatchByTagMock).not.toHaveBeenCalled()
+  })
+
+  it('deduplicates in-flight auth and tag lookups for logged-in users', async () => {
+    let resolveAuth: ((value: { uid: number }) => void) | undefined
+    let resolveTag: ((value: { id: number; name: string }) => void) | undefined
+    const pendingAuth = new Promise<{ uid: number }>((resolve) => {
+      resolveAuth = resolve
+    })
+    const pendingTag = new Promise<{ id: number; name: string }>((resolve) => {
+      resolveTag = resolve
+    })
+    const tag = { id: 14, name: '登录标签' }
+    const response = { galgames: [], total: 0 }
+    verifyHeaderCookieMock.mockReturnValue(pendingAuth)
+    getTagByIdMock.mockReturnValue(pendingTag)
+    getPatchByTagMock.mockResolvedValue(response)
+
+    const metadataPromise = kunGetTagMetadataActions({ tagId: tag.id })
+    const pageDataPromise = kunGetTagPageDataActions({
+      ...patchParams,
+      tagId: tag.id
+    })
+
+    await vi.waitFor(() => {
+      expect(verifyHeaderCookieMock).toHaveBeenCalledTimes(1)
+    })
+    resolveAuth?.({ uid: 1 })
+    await vi.waitFor(() => {
+      expect(getTagByIdMock).toHaveBeenCalledTimes(1)
+      expect(getPatchByTagMock).toHaveBeenCalledTimes(1)
+    })
+
+    resolveTag?.(tag)
+    await expect(
+      Promise.all([metadataPromise, pageDataPromise])
+    ).resolves.toEqual([tag, { tag, response }])
   })
 })
 
 describe('kunGetTagPageDataActions', () => {
-  const patchParams = {
-    page: 1,
-    limit: 24,
-    selectedType: DEFAULT_GALGAME_FILTER_VALUE,
-    selectedLanguage: DEFAULT_GALGAME_FILTER_VALUE,
-    selectedPlatform: DEFAULT_GALGAME_FILTER_VALUE,
-    sortField: DEFAULT_GALGAME_SORT_FIELD,
-    sortOrder: DEFAULT_GALGAME_SORT_ORDER,
-    yearString: DEFAULT_GALGAME_YEAR_STRING,
-    monthString: DEFAULT_GALGAME_MONTH_STRING,
-    minRatingCount: 0
-  }
-
   it('starts the patch query before the tag query settles', async () => {
     let resolveTag: ((value: { id: number; name: string }) => void) | undefined
     const pendingTag = new Promise<{ id: number; name: string }>((resolve) => {

@@ -56,7 +56,11 @@ describe('searchDocToGalgameCard', () => {
   })
 
   it('tags 仅取前三', () => {
-    expect(searchDocToGalgameCard(baseDoc).tags).toEqual(['恋爱', '魔女', '校园'])
+    expect(searchDocToGalgameCard(baseDoc).tags).toEqual([
+      '恋爱',
+      '魔女',
+      '校园'
+    ])
   })
 
   it('created 从 Unix 秒还原为 ISO 字符串', () => {

@@ -35,6 +35,9 @@ export const isKunWhitelistedEmailDomain = (email: string): boolean => {
   if (atIndex === -1) {
     return false
   }
-  const domain = email.slice(atIndex + 1).trim().toLowerCase()
+  const domain = email
+    .slice(atIndex + 1)
+    .trim()
+    .toLowerCase()
   return KUN_EMAIL_DOMAIN_WHITELIST_SET.has(domain)
 }

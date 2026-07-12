@@ -56,12 +56,13 @@ describe('queryGalgameIndex 分页总数', () => {
   it('有查询词时用计数查询的精确 totalHits，而非主查询浅页高估值', async () => {
     // 主查询（hitsPerPage=12）浅页返回阈值过滤前的 148；
     // 计数查询（hitsPerPage=maxTotalHits）返回阈值之上的真实 36。
-    searchMock.mockImplementation((_q: string, options: { hitsPerPage: number }) =>
-      Promise.resolve(
-        options.hitsPerPage === GALGAME_MAX_TOTAL_HITS
-          ? { hits: [], totalHits: 36 }
-          : { hits: [sampleDoc], totalHits: 148 }
-      )
+    searchMock.mockImplementation(
+      (_q: string, options: { hitsPerPage: number }) =>
+        Promise.resolve(
+          options.hitsPerPage === GALGAME_MAX_TOTAL_HITS
+            ? { hits: [], totalHits: 36 }
+            : { hits: [sampleDoc], totalHits: 148 }
+        )
     )
 
     const result = await queryGalgameIndex({
@@ -92,12 +93,13 @@ describe('queryGalgameIndex 分页总数', () => {
   })
 
   it('翻到不同页，total 恒等于计数查询结果（不随页漂移）', async () => {
-    searchMock.mockImplementation((_q: string, options: { hitsPerPage: number }) =>
-      Promise.resolve(
-        options.hitsPerPage === GALGAME_MAX_TOTAL_HITS
-          ? { hits: [], totalHits: 36 }
-          : { hits: [], totalHits: 148 }
-      )
+    searchMock.mockImplementation(
+      (_q: string, options: { hitsPerPage: number }) =>
+        Promise.resolve(
+          options.hitsPerPage === GALGAME_MAX_TOTAL_HITS
+            ? { hits: [], totalHits: 36 }
+            : { hits: [], totalHits: 148 }
+        )
     )
 
     const page1 = await queryGalgameIndex({
@@ -144,7 +146,9 @@ describe('queryGalgameIndex 分页总数', () => {
     expect(countQ).toBe(mainQ)
     expect(countOpts.sort).toEqual(mainOpts.sort)
     expect(countOpts.matchingStrategy).toBe(mainOpts.matchingStrategy)
-    expect(countOpts.attributesToSearchOn).toEqual(mainOpts.attributesToSearchOn)
+    expect(countOpts.attributesToSearchOn).toEqual(
+      mainOpts.attributesToSearchOn
+    )
     expect(countOpts.rankingScoreThreshold).toBe(mainOpts.rankingScoreThreshold)
     expect(countOpts.filter).toBe(mainOpts.filter)
   })

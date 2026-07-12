@@ -267,7 +267,9 @@ const getBlacklistPatterns = async (): Promise<string[]> => {
 const runModerationBatch = async () => {
   // 早于此刻的租约视为过期 (worker 崩溃), 连同未认领的行一起纳入候选; 认领时按行
   // 二次校验租约, 避免与仍在处理该行的其它 worker 撞车
-  const leaseStaleBefore = new Date(Date.now() - MODERATION_LEASE_SECONDS * 1000)
+  const leaseStaleBefore = new Date(
+    Date.now() - MODERATION_LEASE_SECONDS * 1000
+  )
   const tasks = await prisma.moderation_task.findMany({
     where: claimablePredicate(new Date(), leaseStaleBefore),
     // 按 next_attempt 升序取: 与 [status, next_attempt] 索引同序, Postgres 直接索引

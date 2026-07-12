@@ -28,7 +28,9 @@ if (process.env.MEILISEARCH_ADMIN_API_KEY) {
     console.log('Running command: pnpm search:engine')
     execSync('pnpm search:engine', { stdio: 'inherit' })
   } catch {
-    console.warn('搜索引擎启动失败，已跳过；搜索将回退 Prisma 实现，不影响本次安装')
+    console.warn(
+      '搜索引擎启动失败，已跳过；搜索将回退 Prisma 实现，不影响本次安装'
+    )
   }
 } else {
   console.log('未配置 MEILISEARCH_ADMIN_API_KEY，跳过搜索引擎启动')

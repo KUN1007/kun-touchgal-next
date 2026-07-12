@@ -9,7 +9,9 @@ try {
   runCommand('pnpm search:engine')
   runCommand('pnpm search:init')
   runCommand('pnpm search:sync-all')
-  console.log('\n搜索引擎与索引已就绪，可打开 KUN_MEILISEARCH_ENABLED 灰度查询路径')
+  console.log(
+    '\n搜索引擎与索引已就绪，可打开 KUN_MEILISEARCH_ENABLED 灰度查询路径'
+  )
 } catch (error) {
   console.error(error)
   process.exit(1)

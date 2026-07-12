@@ -93,10 +93,7 @@ describe('patchToSearchDoc', () => {
     updated: new Date('2024-03-10T00:00:00Z'),
     resource_update_time: new Date('2024-03-10T00:00:00Z'),
     alias: [{ name: '魔女的夜宴' }, { name: 'sanoba witch' }],
-    tag: [
-      { tag: { id: 1, name: '恋爱' } },
-      { tag: { id: 2, name: '魔女' } }
-    ],
+    tag: [{ tag: { id: 1, name: '恋爱' } }, { tag: { id: 2, name: '魔女' } }],
     company: [{ company: { id: 3, name: 'Yuzusoft' } }],
     rating_stat: { avg_overall: 8.6, count: 87 }
   }

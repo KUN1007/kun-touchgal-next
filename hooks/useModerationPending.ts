@@ -2,9 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
 
 // 账户设置页读取自身头像 / 签名审核状态, 使「审核中」提示在刷新后持久展示
-export const useModerationPending = (
-  field: 'avatarPending' | 'bioPending'
-) => {
+export const useModerationPending = (field: 'avatarPending' | 'bioPending') => {
   const [pending, setPending] = useState(false)
   // 用户本次提交后忽略仍在途的初始 GET, 避免旧状态覆盖 POST 刚设的 pending
   const submittedRef = useRef(false)
@@ -17,7 +15,12 @@ export const useModerationPending = (
           avatarPending: boolean
           bioPending: boolean
         }>('/user/setting/moderation-status')
-        if (!ignore && !submittedRef.current && res && typeof res !== 'string') {
+        if (
+          !ignore &&
+          !submittedRef.current &&
+          res &&
+          typeof res !== 'string'
+        ) {
           setPending(res[field])
         }
       } catch {

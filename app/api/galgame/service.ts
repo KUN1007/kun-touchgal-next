@@ -1,7 +1,7 @@
 import { createHash } from 'crypto'
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
-import { delKv, getKv, setKv } from '~/lib/redis'
+import { delKv, getKv, setKv, setKvIfAbsent } from '~/lib/redis'
 import { GALGAME_LIST_CACHE_DURATION } from '~/config/cache'
 import { galgameSchema } from '~/validations/galgame'
 import {
@@ -14,6 +14,7 @@ import {
   buildGalgameWhere
 } from '../utils/galgameQuery'
 import { buildVisibilityCacheKey } from '../utils/visibilityCacheKey'
+import { kunCacheSingleflight } from '~/app/api/utils/cacheSingleflight'
 import { parseGalgameFilterArray } from '~/utils/galgameFilter'
 import { isMeiliEnabled } from '~/lib/meilisearch'
 import {
@@ -111,6 +112,21 @@ const setGalgameListCache = async (
 ) => {
   try {
     await setKv(cacheKey, JSON.stringify(response), GALGAME_LIST_CACHE_DURATION)
+  } catch (error) {
+    logGalgameListCacheError('Failed to write galgame list cache:', error)
+  }
+}
+
+const setGalgameListCacheIfAbsent = async (
+  cacheKey: string,
+  response: GalgameListResponse
+) => {
+  try {
+    await setKvIfAbsent(
+      cacheKey,
+      JSON.stringify(response),
+      GALGAME_LIST_CACHE_DURATION
+    )
   } catch (error) {
     logGalgameListCacheError('Failed to write galgame list cache:', error)
   }
@@ -220,6 +236,25 @@ const getGalgameFromPrisma = async (
   return { galgames, total }
 }
 
+const queryGalgameList = async (
+  input: z.infer<typeof galgameSchema>,
+  years: string[],
+  months: string[],
+  visibility: PatchVisibilityContext
+): Promise<GalgameListResponse> => {
+  if (isMeiliEnabled()) {
+    try {
+      return await getGalgameFromSearch(input, years, months, visibility)
+    } catch (error) {
+      logGalgameListCacheError(
+        'Meilisearch 列表查询失败，降级为 Prisma 实现:',
+        error
+      )
+    }
+  }
+  return getGalgameFromPrisma(input, years, months, visibility.visibilityWhere)
+}
+
 export const getGalgame = async (
   input: z.infer<typeof galgameSchema>,
   visibility: PatchVisibilityContext
@@ -239,29 +274,17 @@ export const getGalgame = async (
     return cached.response
   }
 
-  let response: GalgameListResponse | null = null
-  if (isMeiliEnabled()) {
-    try {
-      response = await getGalgameFromSearch(input, years, months, visibility)
-    } catch (error) {
-      logGalgameListCacheError(
-        'Meilisearch 列表查询失败，降级为 Prisma 实现:',
-        error
-      )
-    }
-  }
-  if (!response) {
-    response = await getGalgameFromPrisma(
-      input,
-      years,
-      months,
-      visibility.visibilityWhere
-    )
+  // 缓存读失败 (canWrite=false) 不参与单飞, 避免阻塞在锁上
+  if (!cached.canWrite) {
+    return queryGalgameList(input, years, months, visibility)
   }
 
-  if (cached.canWrite) {
-    await setGalgameListCache(cacheKey, response)
-  }
-
-  return response
+  return kunCacheSingleflight({
+    cacheKey,
+    readCache: async () => (await getCachedGalgameList(cacheKey)).response,
+    writeCache: (response) => setGalgameListCache(cacheKey, response),
+    writeCacheIfAbsent: (response) =>
+      setGalgameListCacheIfAbsent(cacheKey, response),
+    query: () => queryGalgameList(input, years, months, visibility)
+  })
 }

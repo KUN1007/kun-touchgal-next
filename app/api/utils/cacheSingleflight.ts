@@ -1,0 +1,67 @@
+import { acquireKvLock, releaseKvLock } from '~/lib/redis'
+
+const CACHE_SINGLEFLIGHT_LOCK_TTL_SECONDS = 10
+// 递进退避: 首次延迟刻意非零 (调用方刚读到 miss, 立即重读几乎必再 miss),
+// 快查询在首次 50ms 即可命中; 后续延迟拉长以覆盖慢查询降级窗口
+const CACHE_SINGLEFLIGHT_RETRY_DELAYS_MS = [50, 150, 250]
+
+const sleep = (ms: number) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+
+interface KunCacheSingleflightOptions<T> {
+  cacheKey: string
+  readCache: () => Promise<T | null>
+  writeCache: (response: T) => Promise<void>
+  writeCacheIfAbsent: (response: T) => Promise<void>
+  query: () => Promise<T>
+}
+
+// 单飞: 缓存未命中时仅持锁者回源并写缓存, 其余请求短暂等待后重读缓存。
+// 调用方需先处理缓存命中与不可写 (canWrite=false / 不缓存视角) 的分支。
+export const kunCacheSingleflight = async <T>({
+  cacheKey,
+  readCache,
+  writeCache,
+  writeCacheIfAbsent,
+  query
+}: KunCacheSingleflightOptions<T>): Promise<T> => {
+  const lockKey = `${cacheKey}:lock`
+  let lockToken: string | null
+  try {
+    lockToken = await acquireKvLock(
+      lockKey,
+      CACHE_SINGLEFLIGHT_LOCK_TTL_SECONDS
+    )
+  } catch (error) {
+    // Redis 异常不同于锁竞争, 直接回源, 不进入等待循环
+    // eslint-disable-next-line no-console
+    console.error(`Failed to acquire cache lock for ${cacheKey}:`, error)
+    return query()
+  }
+
+  if (!lockToken) {
+    for (const delayMs of CACHE_SINGLEFLIGHT_RETRY_DELAYS_MS) {
+      await sleep(delayMs)
+      const retried = await readCache()
+      if (retried !== null) {
+        return retried
+      }
+    }
+    // 等待超时 (持锁者异常或查询过慢), 直接回源保证可用,
+    // 并以 NX 回写补位缺席的持锁者, 避免锁 TTL 内缓存持续为空
+    const response = await query()
+    void writeCacheIfAbsent(response)
+    return response
+  }
+
+  try {
+    const response = await query()
+    await writeCache(response)
+    return response
+  } finally {
+    // 锁有 TTL 自愈且释放带 token 校验, 无需阻塞响应等待释放
+    void releaseKvLock(lockKey, lockToken).catch(() => undefined)
+  }
+}

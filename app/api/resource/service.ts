@@ -4,35 +4,23 @@ import { resourceSchema } from '~/validations/resource'
 import {
   getCachedResourceList,
   getResourceListCacheKey,
-  setResourceListCache
+  setResourceListCache,
+  setResourceListCacheIfAbsent
 } from './cache'
 import {
   getResourceVisibilityWhere,
   type KunViewer
 } from '~/app/api/utils/contentVisibility'
+import { kunCacheSingleflight } from '~/app/api/utils/cacheSingleflight'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 import type { PatchResource, ResourceListResponse } from '~/types/api/resource'
 
-export const getPatchResource = async (
+const queryPatchResource = async (
   input: z.infer<typeof resourceSchema>,
   visibilityWhere: Prisma.patchWhereInput,
-  viewer: KunViewer | null,
-  bypassCache: boolean
+  statusWhere: Prisma.patch_resourceWhereInput
 ): Promise<ResourceListResponse> => {
   const { sortField, sortOrder, page, limit } = input
-  const cacheKey = bypassCache
-    ? null
-    : await getResourceListCacheKey(input, visibilityWhere)
-
-  const cached = await getCachedResourceList(cacheKey)
-  if (cached.response) {
-    return cached.response
-  }
-
-  // 共享缓存路径按公开视角查询, 避免 viewer 相关内容写入缓存
-  const statusWhere = bypassCache
-    ? getResourceVisibilityWhere(viewer)
-    : { status: 0 }
 
   const offset = (page - 1) * limit
 
@@ -118,10 +106,40 @@ export const getPatchResource = async (
     }
   }))
 
-  const response = { resources, total }
-  if (cached.canWrite && cacheKey) {
-    await setResourceListCache(cacheKey, response)
+  return { resources, total }
+}
+
+export const getPatchResource = async (
+  input: z.infer<typeof resourceSchema>,
+  visibilityWhere: Prisma.patchWhereInput,
+  viewer: KunViewer | null,
+  bypassCache: boolean
+): Promise<ResourceListResponse> => {
+  const cacheKey = bypassCache
+    ? null
+    : await getResourceListCacheKey(input, visibilityWhere)
+
+  const cached = await getCachedResourceList(cacheKey)
+  if (cached.response) {
+    return cached.response
   }
 
-  return response
+  // 共享缓存路径按公开视角查询, 避免 viewer 相关内容写入缓存
+  const statusWhere = bypassCache
+    ? getResourceVisibilityWhere(viewer)
+    : { status: 0 }
+
+  // bypassCache / 版本号读取失败 (cacheKey 为 null) 与缓存读失败均不参与单飞
+  if (!cacheKey || !cached.canWrite) {
+    return queryPatchResource(input, visibilityWhere, statusWhere)
+  }
+
+  return kunCacheSingleflight({
+    cacheKey,
+    readCache: async () => (await getCachedResourceList(cacheKey)).response,
+    writeCache: (response) => setResourceListCache(cacheKey, response),
+    writeCacheIfAbsent: (response) =>
+      setResourceListCacheIfAbsent(cacheKey, response),
+    query: () => queryPatchResource(input, visibilityWhere, statusWhere)
+  })
 }

@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'crypto'
 import { z } from 'zod'
 import { RESOURCE_LIST_CACHE_DURATION } from '~/config/cache'
-import { delKv, getKv, getKvs, setKv } from '~/lib/redis'
+import { delKv, getKv, getKvs, setKv, setKvIfAbsent } from '~/lib/redis'
 import { resourceSchema } from '~/validations/resource'
 import { buildVisibilityCacheKey } from '~/app/api/utils/visibilityCacheKey'
 import type { Prisma } from '~/prisma/generated/prisma/client'
@@ -125,6 +125,21 @@ export const setResourceListCache = async (
 ) => {
   try {
     await setKv(
+      cacheKey,
+      JSON.stringify(response),
+      RESOURCE_LIST_CACHE_DURATION
+    )
+  } catch (error) {
+    logResourceListCacheError('Failed to write resource list cache:', error)
+  }
+}
+
+export const setResourceListCacheIfAbsent = async (
+  cacheKey: string,
+  response: ResourceListResponse
+) => {
+  try {
+    await setKvIfAbsent(
       cacheKey,
       JSON.stringify(response),
       RESOURCE_LIST_CACHE_DURATION

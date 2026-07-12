@@ -13,9 +13,11 @@ export const revalidate = 0
 export const metadata: Metadata = kunMetadata
 
 export default async function Kun() {
-  const setting = await kunGetRedirectConfigActions()
-  const response = await kunGetDisableRegisterStatusActions()
-  const moderation = await kunGetModerationSettingActions()
+  const [setting, response, moderation] = await Promise.all([
+    kunGetRedirectConfigActions(),
+    kunGetDisableRegisterStatusActions(),
+    kunGetModerationSettingActions()
+  ])
 
   if (
     typeof response === 'string' ||

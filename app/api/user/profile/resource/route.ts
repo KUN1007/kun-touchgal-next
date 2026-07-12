@@ -4,7 +4,7 @@ import { kunParseGetQuery } from '~/app/api/utils/parseQuery'
 import { prisma } from '~/prisma/index'
 import { getUserInfoSchema } from '~/validations/user'
 import { getPatchVisibilityWhere } from '~/app/api/utils/getPatchVisibilityWhere'
-import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
+import { createAuthLoader } from '~/middleware/_verifyHeaderCookie'
 import type { UserResource } from '~/types/api/user'
 import { getUserPatchResource } from './service'
 export async function GET(req: NextRequest) {
@@ -12,12 +12,17 @@ export async function GET(req: NextRequest) {
   if (typeof input === 'string') {
     return NextResponse.json(input)
   }
-  const payload = await verifyHeaderCookie(req)
-  if (!payload) {
+  const loadAuth = createAuthLoader(req)
+  const auth = await loadAuth()
+  if (!auth) {
     return NextResponse.json('用户登陆失效')
   }
-  const visibilityWhere = await getPatchVisibilityWhere(req)
+  const visibilityWhere = await getPatchVisibilityWhere(req, loadAuth)
 
-  const response = await getUserPatchResource(input, visibilityWhere, payload)
+  const response = await getUserPatchResource(
+    input,
+    visibilityWhere,
+    auth.payload
+  )
   return NextResponse.json(response)
 }

@@ -3,7 +3,7 @@
 import { cache } from 'react'
 import { cookies } from 'next/headers'
 import { parseBlockedTagIds } from '~/utils/blockedTag'
-import { verifyKunToken, verifyKunTokenWithUser } from '~/app/api/utils/jwt'
+import { loadAuthUser } from './loadAuthUser'
 
 export const getBlockedTagIds = cache(async () => {
   const cookieStore = await cookies()
@@ -19,7 +19,7 @@ export const getBlockedTagIds = cache(async () => {
     return parseBlockedTagIds(cachedBlockedTagIds)
   }
 
-  const result = await verifyKunTokenWithUser(token)
+  const result = await loadAuthUser()
   if (!result) {
     return []
   }
@@ -38,18 +38,18 @@ export const getAuthenticatedBlockedTagIds = cache(async () => {
     'kun-patch-setting-store|state|data|kunBlockedTagIds'
   )?.value
   if (cachedBlockedTagIds !== undefined) {
-    const payload = await verifyKunToken(token)
-    if (!payload) {
+    const result = await loadAuthUser()
+    if (!result) {
       return null
     }
 
     return {
-      payload,
+      payload: result.payload,
       blockedTagIds: parseBlockedTagIds(cachedBlockedTagIds)
     }
   }
 
-  const result = await verifyKunTokenWithUser(token)
+  const result = await loadAuthUser()
   if (!result) {
     return null
   }

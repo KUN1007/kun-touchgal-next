@@ -2,8 +2,12 @@ import { parseCookies } from '~/utils/cookies'
 import { parseBlockedTagIds } from '~/utils/blockedTag'
 import { verifyKunToken, verifyKunTokenWithUser } from './jwt'
 import type { NextRequest } from 'next/server'
+import type { AuthLoader } from '~/middleware/_verifyHeaderCookie'
 
-export const getBlockedTagIds = async (req: NextRequest) => {
+export const getBlockedTagIds = async (
+  req: NextRequest,
+  loadAuth?: AuthLoader
+) => {
   const cookies = parseCookies(req.headers.get('cookie') ?? '')
   const token = cookies['kun-galgame-patch-moe-token']
   if (!token) {
@@ -16,7 +20,7 @@ export const getBlockedTagIds = async (req: NextRequest) => {
     return parseBlockedTagIds(cachedBlockedTagIds)
   }
 
-  const result = await verifyKunTokenWithUser(token)
+  const result = await (loadAuth ? loadAuth() : verifyKunTokenWithUser(token))
   if (!result) {
     return []
   }

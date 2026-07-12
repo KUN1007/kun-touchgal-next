@@ -6,6 +6,7 @@ import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { patchTagChangeSchema } from '~/validations/patch'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { queueSearchSync } from '~/server/search/sync'
+import { invalidateTagListCache } from '~/app/api/tag/cache'
 
 const handleAddPatchTag = async (
   input: z.infer<typeof patchTagChangeSchema>
@@ -59,6 +60,7 @@ export const POST = async (req: NextRequest) => {
 
   const changed = await handleAddPatchTag(input)
   if (changed) {
+    await invalidateTagListCache()
     queueSearchSync(input.patchId)
     try {
       await invalidatePatchContentCache(patch.unique_id)
@@ -120,6 +122,7 @@ export const PUT = async (req: NextRequest) => {
 
   const changed = await handleRemovePatchTag(input)
   if (changed) {
+    await invalidateTagListCache()
     queueSearchSync(input.patchId)
     try {
       await invalidatePatchContentCache(patch.unique_id)

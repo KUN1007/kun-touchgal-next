@@ -1,5 +1,6 @@
 import { prisma } from '~/prisma/index'
 import { fetchVndbVn } from '~/lib/arnebiae/vndb'
+import { invalidateCompanyListCache } from '~/app/api/company/cache'
 import type { VndbProducer } from '~/lib/arnebiae/vndb'
 
 const uniq = <T>(arr: T[]) => Array.from(new Set(arr))
@@ -39,6 +40,7 @@ export const ensurePatchCompaniesFromVNDB = async (
 ) => {
   const id = (vndbId || '').trim()
   if (!id) return { ensured: 0, related: 0 }
+  let changed = false
 
   try {
     const data = await fetchVndbVn<{
@@ -81,6 +83,7 @@ export const ensurePatchCompaniesFromVNDB = async (
 
     if (toCreate.length) {
       await prisma.patch_company.createMany({ data: toCreate })
+      changed = true
     }
 
     const allCompanies = await prisma.patch_company.findMany({
@@ -119,11 +122,16 @@ export const ensurePatchCompaniesFromVNDB = async (
           where: { id: { in: newCompanyIds } },
           data: { count: { increment: 1 } }
         })
+        changed = true
       }
     }
 
     return { ensured: toCreate.length, related: companyIds.length }
   } catch {
     return { ensured: 0, related: 0 }
+  } finally {
+    if (changed) {
+      await invalidateCompanyListCache()
+    }
   }
 }

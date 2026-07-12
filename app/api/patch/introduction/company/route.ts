@@ -6,6 +6,7 @@ import { prisma } from '~/prisma'
 import { patchCompanyChangeSchema } from '~/validations/patch'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { queueSearchSync } from '~/server/search/sync'
+import { invalidateCompanyListCache } from '~/app/api/company/cache'
 
 const handlePatchCompanyAction = (type: 'add' | 'delete') => {
   const isAdd = type === 'add'
@@ -76,6 +77,7 @@ export const POST = async (req: NextRequest) => {
 
   const changed = await handlePatchCompanyAction('add')(input)
   if (changed) {
+    await invalidateCompanyListCache()
     queueSearchSync(input.patchId)
     try {
       await invalidatePatchContentCache(patch.unique_id)
@@ -110,6 +112,7 @@ export const PUT = async (req: NextRequest) => {
 
   const changed = await handlePatchCompanyAction('delete')(input)
   if (changed) {
+    await invalidateCompanyListCache()
     queueSearchSync(input.patchId)
     try {
       await invalidatePatchContentCache(patch.unique_id)

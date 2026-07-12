@@ -58,7 +58,7 @@ export const Container = ({ initialTags, initialTotal, uid }: Props) => {
   const [searching, setSearching] = useState(false)
 
   useEffect(() => {
-    if (!uid) {
+    if (!isMounted || !uid) {
       return
     }
 

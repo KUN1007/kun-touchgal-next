@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { createTagSchema } from '~/validations/tag'
+import { invalidateTagListCache } from './cache'
 
 export const createTag = async (
   input: z.infer<typeof createTagSchema>,
@@ -31,6 +32,7 @@ export const createTag = async (
       alias: true
     }
   })
+  await invalidateTagListCache()
 
   return newTag
 }

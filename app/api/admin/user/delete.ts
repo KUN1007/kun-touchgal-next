@@ -4,6 +4,8 @@ import { deleteKunToken } from '~/app/api/utils/jwt'
 import { deleteResource } from '../resource/delete'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { recomputePatchRatingStats } from '~/app/api/patch/rating/stat'
+import { invalidateTagListCache } from '~/app/api/tag/cache'
+import { invalidateCompanyListCache } from '~/app/api/company/cache'
 
 const userIdSchema = z.object({
   uid: z.coerce.number({ message: '用户 ID 必须为数字' }).min(1).max(9999999)
@@ -110,6 +112,7 @@ export const deleteUser = async (
     }
   }
 
+  await Promise.all([invalidateTagListCache(), invalidateCompanyListCache()])
   await deleteKunToken(input.uid)
   if (publicResourceCount > 0) {
     await invalidateResourceListCache()

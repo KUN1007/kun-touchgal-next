@@ -1,4 +1,5 @@
 import { prisma } from '~/prisma/index'
+import { invalidateTagListCache } from './cache'
 
 export const deleteTag = async (tagId: number) => {
   const tag = await prisma.patch_tag.findUnique({
@@ -11,6 +12,7 @@ export const deleteTag = async (tagId: number) => {
   await prisma.patch_tag.delete({
     where: { id: tagId }
   })
+  await invalidateTagListCache()
 
   return {}
 }

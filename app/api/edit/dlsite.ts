@@ -1,5 +1,6 @@
 import { prisma } from '~/prisma/index'
 import { fetchDlsiteData } from '~/lib/arnebiae/dlsite'
+import { invalidateCompanyListCache } from '~/app/api/company/cache'
 
 export { fetchDlsiteData } from '~/lib/arnebiae/dlsite'
 export type { DlsiteApiResponse } from '~/lib/arnebiae/dlsite'
@@ -25,6 +26,7 @@ export const ensurePatchCompanyFromDlsite = async (
     }
 
     if (!circleName) return
+    let changed = false
 
     let company = await prisma.patch_company.findFirst({
       where: { name: circleName }
@@ -43,6 +45,7 @@ export const ensurePatchCompanyFromDlsite = async (
           user_id: uid
         }
       })
+      changed = true
     }
 
     if (!company) return
@@ -65,6 +68,11 @@ export const ensurePatchCompanyFromDlsite = async (
           count: { increment: 1 }
         }
       })
+      changed = true
+    }
+
+    if (changed) {
+      await invalidateCompanyListCache()
     }
   } catch {
     // 忽略同步失败，避免阻塞主流程

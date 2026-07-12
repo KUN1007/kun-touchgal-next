@@ -18,23 +18,23 @@ vi.mock('~/lib/redis', () => ({
 
 vi.mock('~/prisma/index', () => ({
   prisma: {
-    patch_tag: {
+    patch_company: {
       findMany: findManyMock,
       count: countMock
     }
   }
 }))
 
-import { invalidateTagListCache } from '~/app/api/tag/cache'
-import { getTag } from '~/app/api/tag/all/service'
+import { invalidateCompanyListCache } from '~/app/api/company/cache'
+import { getCompany } from '~/app/api/company/all/service'
 
-const TAGS = [{ id: 1, name: 'ADV', count: 7, alias: ['AVG'] }]
-const RESPONSE = { tags: TAGS, total: 1 }
+const COMPANIES = [{ id: 1, name: 'Key', count: 7, alias: ['VisualArt’s/Key'] }]
+const RESPONSE = { companies: COMPANIES, total: 1 }
 
-describe('getTag', () => {
+describe('getCompany', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    findManyMock.mockResolvedValue(TAGS)
+    findManyMock.mockResolvedValue(COMPANIES)
     countMock.mockResolvedValue(1)
     getKvMock.mockResolvedValue(null)
     setKvMock.mockResolvedValue(undefined)
@@ -42,20 +42,19 @@ describe('getTag', () => {
   })
 
   it('queries the selected page and writes the response for 300 seconds on cache miss', async () => {
-    const response = await getTag({ page: 2, limit: 100 }, [8, 9])
+    const response = await getCompany({ page: 2, limit: 100 })
 
     expect(response).toEqual(RESPONSE)
     expect(findManyMock).toHaveBeenCalledWith({
-      where: { id: { notIn: [8, 9] } },
       take: 100,
       skip: 100,
-      orderBy: { count: 'desc' },
       select: {
         id: true,
         name: true,
         count: true,
         alias: true
-      }
+      },
+      orderBy: { count: 'desc' }
     })
     const cacheKey = getKvMock.mock.calls[1][0] as string
     expect(setKvMock).toHaveBeenCalledWith(
@@ -70,7 +69,7 @@ describe('getTag', () => {
       .mockResolvedValueOnce('version-1')
       .mockResolvedValueOnce(JSON.stringify(RESPONSE))
 
-    const response = await getTag({ page: 1, limit: 100 }, [])
+    const response = await getCompany({ page: 1, limit: 100 })
 
     expect(response).toEqual(RESPONSE)
     expect(findManyMock).not.toHaveBeenCalled()
@@ -78,25 +77,22 @@ describe('getTag', () => {
     expect(setKvMock).not.toHaveBeenCalled()
   })
 
-  it('isolates pages, limits, and blocked tag sets while normalizing set order', async () => {
-    await getTag({ page: 1, limit: 100 }, [9, 8, 9])
-    await getTag({ page: 1, limit: 100 }, [8, 9])
-    await getTag({ page: 2, limit: 100 }, [8, 9])
-    await getTag({ page: 1, limit: 50 }, [8, 9])
-    await getTag({ page: 1, limit: 100 }, [8])
+  it('isolates pages and limits in cache keys', async () => {
+    await getCompany({ page: 1, limit: 100 })
+    await getCompany({ page: 2, limit: 100 })
+    await getCompany({ page: 1, limit: 50 })
 
-    const cacheKeys = [1, 3, 5, 7, 9].map(
+    const cacheKeys = [1, 3, 5].map(
       (callIndex) => getKvMock.mock.calls[callIndex][0] as string
     )
-    expect(cacheKeys[0]).toBe(cacheKeys[1])
-    expect(new Set(cacheKeys).size).toBe(4)
+    expect(new Set(cacheKeys).size).toBe(3)
   })
 
   it('queries directly and skips cache writes when the version read fails', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     getKvMock.mockRejectedValueOnce(new Error('redis down'))
 
-    const response = await getTag({ page: 1, limit: 100 }, [])
+    const response = await getCompany({ page: 1, limit: 100 })
 
     expect(response).toEqual(RESPONSE)
     expect(findManyMock).toHaveBeenCalledTimes(1)
@@ -110,7 +106,7 @@ describe('getTag', () => {
       .mockResolvedValueOnce('version-1')
       .mockRejectedValueOnce(new Error('redis down'))
 
-    const response = await getTag({ page: 1, limit: 100 }, [])
+    const response = await getCompany({ page: 1, limit: 100 })
 
     expect(response).toEqual(RESPONSE)
     expect(findManyMock).toHaveBeenCalledTimes(1)
@@ -121,7 +117,7 @@ describe('getTag', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     getKvMock.mockResolvedValueOnce('version-1').mockResolvedValueOnce('{')
 
-    const response = await getTag({ page: 1, limit: 100 }, [])
+    const response = await getCompany({ page: 1, limit: 100 })
 
     const cacheKey = getKvMock.mock.calls[1][0] as string
     expect(response).toEqual(RESPONSE)
@@ -137,19 +133,19 @@ describe('getTag', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     setKvMock.mockRejectedValueOnce(new Error('redis down'))
 
-    await expect(getTag({ page: 1, limit: 100 }, [])).resolves.toEqual(RESPONSE)
+    await expect(getCompany({ page: 1, limit: 100 })).resolves.toEqual(RESPONSE)
   })
 
   it('bumps the version and absorbs Redis invalidation failures', async () => {
-    await invalidateTagListCache()
+    await invalidateCompanyListCache()
 
     expect(setKvMock).toHaveBeenCalledWith(
-      'tag:list:version',
+      'company:list:version',
       expect.any(String)
     )
 
     vi.spyOn(console, 'error').mockImplementation(() => {})
     setKvMock.mockRejectedValueOnce(new Error('redis down'))
-    await expect(invalidateTagListCache()).resolves.toBeUndefined()
+    await expect(invalidateCompanyListCache()).resolves.toBeUndefined()
   })
 })

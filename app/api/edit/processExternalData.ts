@@ -1,5 +1,7 @@
 import { prisma } from '~/prisma/index'
 import { handleBatchPatchTags } from './batchTag'
+import { invalidateCompanyListCache } from '~/app/api/company/cache'
+import { invalidateTagListCache } from '~/app/api/tag/cache'
 
 interface SubmittedExternalData {
   vndbTags: string[]
@@ -12,11 +14,16 @@ interface SubmittedExternalData {
   dlsiteCircleName: string
   dlsiteCircleLink: string
 }
+interface ExternalDataMutationState {
+  tagChanged: boolean
+  companyChanged: boolean
+}
 
 const ensureTagsWithSources = async (
   patchId: number,
   tagSources: { names: string[]; source: string }[],
-  uid: number
+  uid: number,
+  mutationState: ExternalDataMutationState
 ) => {
   const tagSourceByName = new Map<string, string>()
 
@@ -29,7 +36,7 @@ const ensureTagsWithSources = async (
   }
 
   const validTags = [...tagSourceByName.keys()]
-  if (!validTags.length) return
+  if (!validTags.length) return false
 
   const existingTags = await prisma.patch_tag.findMany({
     where: { name: { in: validTags } },
@@ -47,6 +54,7 @@ const ensureTagsWithSources = async (
       })),
       skipDuplicates: true
     })
+    mutationState.tagChanged = true
   }
 
   const allTags = await prisma.patch_tag.findMany({
@@ -55,7 +63,7 @@ const ensureTagsWithSources = async (
   })
   const tagIds = allTags.map((t) => t.id)
 
-  if (!tagIds.length) return
+  if (!tagIds.length) return tagsToCreate.length > 0
 
   const existingRelations = await prisma.patch_tag_relation.findMany({
     where: { patch_id: patchId, tag_id: { in: tagIds } },
@@ -73,16 +81,20 @@ const ensureTagsWithSources = async (
       where: { id: { in: newTagIds } },
       data: { count: { increment: 1 } }
     })
+    mutationState.tagChanged = true
   }
+
+  return tagsToCreate.length > 0 || newTagIds.length > 0
 }
 
 const ensureCompanies = async (
   patchId: number,
   names: string[],
-  uid: number
+  uid: number,
+  mutationState: ExternalDataMutationState
 ) => {
   const validNames = [...new Set(names.filter(Boolean))]
-  if (!validNames.length) return
+  if (!validNames.length) return false
 
   const existing = await prisma.patch_company.findMany({
     where: { name: { in: validNames } },
@@ -105,6 +117,7 @@ const ensureCompanies = async (
       })),
       skipDuplicates: true
     })
+    mutationState.companyChanged = true
   }
 
   const allCompanies = await prisma.patch_company.findMany({
@@ -113,7 +126,7 @@ const ensureCompanies = async (
   })
   const companyIds = allCompanies.map((c) => c.id)
 
-  if (!companyIds.length) return
+  if (!companyIds.length) return toCreate.length > 0
 
   const existingRelations = await prisma.patch_company_relation.findMany({
     where: { patch_id: patchId, company_id: { in: companyIds } },
@@ -136,21 +149,26 @@ const ensureCompanies = async (
       where: { id: { in: newCompanyIds } },
       data: { count: { increment: 1 } }
     })
+    mutationState.companyChanged = true
   }
+
+  return toCreate.length > 0 || newCompanyIds.length > 0
 }
 
 const ensureSingleCompany = async (
   patchId: number,
   name: string,
   link: string,
-  uid: number
+  uid: number,
+  mutationState: ExternalDataMutationState
 ) => {
-  if (!name.trim()) return
+  if (!name.trim()) return false
 
   let company = await prisma.patch_company.findFirst({
     where: { name: name.trim() }
   })
 
+  let changed = false
   if (!company) {
     company = await prisma.patch_company.create({
       data: {
@@ -164,6 +182,8 @@ const ensureSingleCompany = async (
         user_id: uid
       }
     })
+    mutationState.companyChanged = true
+    changed = true
   }
 
   const existingRelation = await prisma.patch_company_relation.findFirst({
@@ -178,7 +198,11 @@ const ensureSingleCompany = async (
       where: { id: company.id },
       data: { count: { increment: 1 } }
     })
+    mutationState.companyChanged = true
+    changed = true
   }
+
+  return changed
 }
 
 const ensureAliases = async (patchId: number, aliases: string[]) => {
@@ -206,8 +230,13 @@ export const processSubmittedExternalData = async (
   userTags: string[],
   uid: number
 ) => {
+  const mutationState: ExternalDataMutationState = {
+    tagChanged: false,
+    companyChanged: false
+  }
   if (userTags.length) {
-    await handleBatchPatchTags(patchId, userTags, uid)
+    const result = await handleBatchPatchTags(patchId, userTags, uid)
+    mutationState.tagChanged = result.changed
   }
 
   const tagTask = ensureTagsWithSources(
@@ -217,22 +246,24 @@ export const processSubmittedExternalData = async (
       { names: data.bangumiTags, source: 'bangumi' },
       { names: data.steamTags, source: 'steam' }
     ],
-    uid
+    uid,
+    mutationState
   )
 
   const companyTasks = [
     data.vndbDevelopers.length &&
-      ensureCompanies(patchId, data.vndbDevelopers, uid),
+      ensureCompanies(patchId, data.vndbDevelopers, uid, mutationState),
     data.bangumiDevelopers.length &&
-      ensureCompanies(patchId, data.bangumiDevelopers, uid),
+      ensureCompanies(patchId, data.bangumiDevelopers, uid, mutationState),
     data.steamDevelopers.length &&
-      ensureCompanies(patchId, data.steamDevelopers, uid),
+      ensureCompanies(patchId, data.steamDevelopers, uid, mutationState),
     data.dlsiteCircleName &&
       ensureSingleCompany(
         patchId,
         data.dlsiteCircleName,
         data.dlsiteCircleLink,
-        uid
+        uid,
+        mutationState
       )
   ].filter(Boolean)
 
@@ -241,4 +272,11 @@ export const processSubmittedExternalData = async (
   ].filter(Boolean)
 
   await Promise.allSettled([tagTask, ...companyTasks, ...aliasTasks])
+
+  await Promise.all([
+    mutationState.tagChanged ? invalidateTagListCache() : Promise.resolve(),
+    mutationState.companyChanged
+      ? invalidateCompanyListCache()
+      : Promise.resolve()
+  ])
 }

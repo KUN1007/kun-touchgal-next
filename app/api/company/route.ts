@@ -14,6 +14,7 @@ import {
 } from '../utils/parseQuery'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { getCompanyById } from './service'
+import { invalidateCompanyListCache } from './cache'
 export const GET = async (req: NextRequest) => {
   const input = kunParseGetQuery(req, getCompanyByIdSchema)
   if (typeof input === 'string') {
@@ -64,6 +65,7 @@ const rewriteCompany = async (input: z.infer<typeof updateCompanySchema>) => {
       }
     }
   })
+  await invalidateCompanyListCache()
 
   return newCompany
 }
@@ -125,6 +127,7 @@ const createCompany = async (
       alias: true
     }
   })
+  await invalidateCompanyListCache()
 
   return newCompany
 }
@@ -166,6 +169,7 @@ export const DELETE = async (req: NextRequest) => {
   } catch {
     return NextResponse.json('未找到对应的会社')
   }
+  await invalidateCompanyListCache()
 
   return NextResponse.json({})
 }

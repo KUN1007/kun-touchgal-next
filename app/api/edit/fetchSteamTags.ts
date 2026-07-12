@@ -1,6 +1,8 @@
 import { prisma } from '~/prisma/index'
 import { fetchSteamAppData } from '~/lib/arnebiae/steam'
 import { lowQualitySteamTags } from '~/lib/steamDirtyTag'
+import { invalidateCompanyListCache } from '~/app/api/company/cache'
+import { invalidateTagListCache } from '~/app/api/tag/cache'
 import type { SteamAppData } from '~/lib/arnebiae/steam'
 
 const dirtyTagSet = new Set(lowQualitySteamTags)
@@ -11,7 +13,9 @@ const processTags = async (
   uid: number
 ) => {
   const filteredTags = data.tags.filter((t) => !dirtyTagSet.has(t))
-  if (!filteredTags.length) return { ensured: 0, related: 0 }
+  if (!filteredTags.length) {
+    return { ensured: 0, related: 0, changed: false }
+  }
 
   const existingTags = await prisma.patch_tag.findMany({
     where: { name: { in: filteredTags } },
@@ -20,6 +24,7 @@ const processTags = async (
   const existingNameSet = new Set(existingTags.map((t) => t.name))
 
   const tagsToCreate = filteredTags.filter((t) => !existingNameSet.has(t))
+  let changed = tagsToCreate.length > 0
 
   if (tagsToCreate.length) {
     await prisma.patch_tag.createMany({
@@ -59,10 +64,11 @@ const processTags = async (
         where: { id: { in: newTagIds } },
         data: { count: { increment: 1 } }
       })
+      changed = true
     }
   }
 
-  return { ensured: tagsToCreate.length, related: tagIds.length }
+  return { ensured: tagsToCreate.length, related: tagIds.length, changed }
 }
 
 const processCompanies = async (
@@ -70,6 +76,7 @@ const processCompanies = async (
   data: SteamAppData,
   uid: number
 ) => {
+  let changed = false
   for (const dev of data.developers) {
     const devName = dev.name?.trim()
     if (!devName) continue
@@ -91,6 +98,7 @@ const processCompanies = async (
           user_id: uid
         }
       })
+      changed = true
     }
 
     const existingRelation = await prisma.patch_company_relation.findFirst({
@@ -106,8 +114,10 @@ const processCompanies = async (
         where: { id: company.id },
         data: { count: { increment: 1 } }
       })
+      changed = true
     }
   }
+  return changed
 }
 
 const processAliases = async (patchId: number, data: SteamAppData) => {
@@ -149,10 +159,16 @@ export const ensurePatchDataFromSteam = async (
     const data = await fetchSteamAppData(steamId)
 
     const tagResult = await processTags(patchId, data, uid)
-    await processCompanies(patchId, data, uid)
+    if (tagResult.changed) {
+      await invalidateTagListCache()
+    }
+    const companiesChanged = await processCompanies(patchId, data, uid)
+    if (companiesChanged) {
+      await invalidateCompanyListCache()
+    }
     await processAliases(patchId, data)
 
-    return tagResult
+    return { ensured: tagResult.ensured, related: tagResult.related }
   } catch {
     return { ensured: 0, related: 0 }
   }

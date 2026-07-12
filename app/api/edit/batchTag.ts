@@ -87,5 +87,8 @@ export const handleBatchPatchTags = async (
     { timeout: 60000 }
   )
 
-  return { success: true }
+  return {
+    success: true,
+    changed: tagsToAdd.length > 0 || tagsToRemove.length > 0
+  }
 }

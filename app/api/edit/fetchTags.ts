@@ -1,6 +1,7 @@
 import { prisma } from '~/prisma/index'
 import { fetchVndbVn } from '~/lib/arnebiae/vndb'
 import { TAG_MAP } from '~/lib/tagMap'
+import { invalidateTagListCache } from '~/app/api/tag/cache'
 import type { VndbTag } from '~/lib/arnebiae/vndb'
 
 export const ensurePatchTagsFromVNDB = async (
@@ -61,6 +62,7 @@ export const ensurePatchTagsFromVNDB = async (
       const mappedName = TAG_MAP[t.name] || t.name
       return !conflictNameSet.has(mappedName)
     })
+    let changed = reallyToCreate.length > 0
 
     if (reallyToCreate.length) {
       await prisma.patch_tag.createMany({
@@ -115,7 +117,11 @@ export const ensurePatchTagsFromVNDB = async (
           where: { id: { in: newTagIds } },
           data: { count: { increment: 1 } }
         })
+        changed = true
       }
+    }
+    if (changed) {
+      await invalidateTagListCache()
     }
 
     return { ensured: reallyToCreate.length, related: tagIds.length }

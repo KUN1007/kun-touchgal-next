@@ -1,6 +1,7 @@
 import { prisma } from '~/prisma/index'
 import { BANGUMI_API_BASE, BANGUMI_HEADERS } from '~/constants/bangumi'
 import { lowQualityTags } from '~/lib/bgmDirtyTag'
+import { invalidateTagListCache } from '~/app/api/tag/cache'
 
 interface BangumiTag {
   name: string
@@ -53,6 +54,7 @@ export const ensurePatchTagsFromBangumi = async (
     const tagsToCreate = filteredTags.filter(
       (t) => !existingNameSet.has(t.name)
     )
+    let changed = tagsToCreate.length > 0
 
     if (tagsToCreate.length) {
       await prisma.patch_tag.createMany({
@@ -94,7 +96,11 @@ export const ensurePatchTagsFromBangumi = async (
           where: { id: { in: newTagIds } },
           data: { count: { increment: 1 } }
         })
+        changed = true
       }
+    }
+    if (changed) {
+      await invalidateTagListCache()
     }
 
     return { ensured: tagsToCreate.length, related: tagIds.length }

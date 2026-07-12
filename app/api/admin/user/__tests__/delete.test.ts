@@ -16,7 +16,9 @@ const {
   recomputeManyMock,
   recomputeOneMock,
   deleteTokenMock,
-  invalidateCacheMock
+  invalidateCacheMock,
+  invalidateTagCacheMock,
+  invalidateCompanyCacheMock
 } = vi.hoisted(() => ({
   findUserMock: vi.fn(),
   findResourcesMock: vi.fn(),
@@ -33,7 +35,9 @@ const {
   recomputeManyMock: vi.fn(),
   recomputeOneMock: vi.fn(),
   deleteTokenMock: vi.fn(),
-  invalidateCacheMock: vi.fn()
+  invalidateCacheMock: vi.fn(),
+  invalidateTagCacheMock: vi.fn(),
+  invalidateCompanyCacheMock: vi.fn()
 }))
 
 const events: string[] = []
@@ -68,6 +72,14 @@ vi.mock('~/app/api/admin/resource/delete', () => ({
 
 vi.mock('~/app/api/resource/cache', () => ({
   invalidateResourceListCache: invalidateCacheMock
+}))
+
+vi.mock('~/app/api/tag/cache', () => ({
+  invalidateTagListCache: invalidateTagCacheMock
+}))
+
+vi.mock('~/app/api/company/cache', () => ({
+  invalidateCompanyListCache: invalidateCompanyCacheMock
 }))
 
 vi.mock('~/app/api/patch/rating/stat', () => ({
@@ -126,6 +138,12 @@ beforeEach(() => {
   invalidateCacheMock.mockImplementation(async () => {
     events.push('invalidate-cache')
   })
+  invalidateTagCacheMock.mockImplementation(async () => {
+    events.push('invalidate-tag-cache')
+  })
+  invalidateCompanyCacheMock.mockImplementation(async () => {
+    events.push('invalidate-company-cache')
+  })
   transactionMock.mockImplementation(
     async (callback: (tx: typeof transactionClient) => Promise<unknown>) => {
       events.push('transaction-start')
@@ -163,6 +181,8 @@ describe('deleteUser', () => {
       'delete-user',
       'recompute-many',
       'transaction-end',
+      'invalidate-tag-cache',
+      'invalidate-company-cache',
       'delete-token',
       'invalidate-cache'
     ])
@@ -187,5 +207,34 @@ describe('deleteUser', () => {
     expect(transactionMock).toHaveBeenCalledTimes(2)
     expect(deleteUserMock).toHaveBeenCalledTimes(2)
     expect(deleteTokenMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('invalidates cascading lists before token cleanup can fail', async () => {
+    deleteTokenMock.mockImplementation(async () => {
+      events.push('delete-token')
+      throw new Error('redis down')
+    })
+
+    await expect(deleteUser({ uid: 7 }, 99)).rejects.toThrow('redis down')
+
+    expect(invalidateTagCacheMock).toHaveBeenCalledTimes(1)
+    expect(invalidateCompanyCacheMock).toHaveBeenCalledTimes(1)
+    expect(invalidateCacheMock).not.toHaveBeenCalled()
+    expect(events.slice(-3)).toEqual([
+      'invalidate-tag-cache',
+      'invalidate-company-cache',
+      'delete-token'
+    ])
+  })
+
+  it('does not invalidate list caches when the transaction fails', async () => {
+    isConflictMock.mockReturnValue(false)
+    transactionMock.mockRejectedValue(new Error('database down'))
+
+    await expect(deleteUser({ uid: 7 }, 99)).rejects.toThrow('database down')
+
+    expect(invalidateCacheMock).not.toHaveBeenCalled()
+    expect(invalidateTagCacheMock).not.toHaveBeenCalled()
+    expect(invalidateCompanyCacheMock).not.toHaveBeenCalled()
   })
 })

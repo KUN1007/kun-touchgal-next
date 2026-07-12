@@ -66,7 +66,7 @@ export const KunMasonry = ({
     )
   }, [children])
 
-  const itemKeys = useMemo(
+  const rawItemKeys = useMemo(
     () =>
       items.map((child, index) => {
         if (isValidElement(child) && child.key != null) {
@@ -76,6 +76,21 @@ export const KunMasonry = ({
       }),
     [items]
   )
+
+  // key 集合不变时复用上轮引用，使 layout / 清理 effect 跳过重算；
+  // 渲染期写 ref 安全：输出只取决于 keys 内容（与 rawItemKeys 逐项相等），不依赖 ref 的跨渲染历史。
+  const stableItemKeysRef = useRef<string[]>(rawItemKeys)
+  const itemKeys = useMemo(() => {
+    const prev = stableItemKeysRef.current
+    if (
+      prev.length === rawItemKeys.length &&
+      prev.every((key, index) => key === rawItemKeys[index])
+    ) {
+      return prev
+    }
+    stableItemKeysRef.current = rawItemKeys
+    return rawItemKeys
+  }, [rawItemKeys])
 
   const containerRef = useRef<HTMLDivElement>(null)
   const itemElements = useRef<Map<string, HTMLDivElement>>(new Map())

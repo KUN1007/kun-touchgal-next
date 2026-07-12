@@ -196,31 +196,37 @@ export const Ratings = ({ id }: Props) => {
     }
   }, [ratings, loading, targetRatingId])
 
-  const handleCreated = (rating?: KunPatchRating) => {
-    if (rating && (!hideNoContent || hasShortSummary(rating))) {
-      setRatings((prev) => [rating, ...prev])
-      setTotal((prev) => prev + 1)
-    }
-  }
+  const handleCreated = useCallback(
+    (rating?: KunPatchRating) => {
+      if (rating && (!hideNoContent || hasShortSummary(rating))) {
+        setRatings((prev) => [rating, ...prev])
+        setTotal((prev) => prev + 1)
+      }
+    },
+    [hideNoContent]
+  )
 
-  const handlePatchUpdated = (rating: KunPatchRating) => {
-    if (
-      hideNoContent &&
-      !hasShortSummary(rating) &&
-      rating.id !== targetRatingId
-    ) {
-      setRatings((prev) => prev.filter((r) => r.id !== rating.id))
-      setTotal((prev) => Math.max(0, prev - 1))
-      return
-    }
+  const handlePatchUpdated = useCallback(
+    (rating: KunPatchRating) => {
+      if (
+        hideNoContent &&
+        !hasShortSummary(rating) &&
+        rating.id !== targetRatingId
+      ) {
+        setRatings((prev) => prev.filter((r) => r.id !== rating.id))
+        setTotal((prev) => Math.max(0, prev - 1))
+        return
+      }
 
-    setRatings((prev) => prev.map((r) => (r.id === rating.id ? rating : r)))
-  }
+      setRatings((prev) => prev.map((r) => (r.id === rating.id ? rating : r)))
+    },
+    [hideNoContent, targetRatingId]
+  )
 
-  const handleDeleted = (ratingId: number) => {
+  const handleDeleted = useCallback((ratingId: number) => {
     setRatings((prev) => prev.filter((r) => r.id !== ratingId))
     setTotal((prev) => Math.max(0, prev - 1))
-  }
+  }, [])
 
   if (!user.uid) {
     return <KunNull message="请登陆后查看游戏评价" />

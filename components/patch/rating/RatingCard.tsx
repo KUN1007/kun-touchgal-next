@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { Card, CardBody, CardHeader } from '@heroui/card'
 import { Button, Chip, Tooltip, Textarea } from '@heroui/react'
 import {
@@ -58,12 +58,12 @@ const getScoreColor = (score: number) => {
   return 'text-rose-500'
 }
 
-export const RatingCard = ({
+export const RatingCard = memo(function RatingCard({
   rating,
   patchId,
   onRatingUpdated,
   onDeleted
-}: Props) => {
+}: Props) {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const user = useUserStore((state) => state.user)
   const [isShowSummary, setIsShowSummary] = useState(
@@ -344,4 +344,4 @@ export const RatingCard = ({
       </Modal>
     </Card>
   )
-}
+})

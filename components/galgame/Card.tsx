@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { Card, CardBody } from '@heroui/card'
 import { Image } from '@heroui/image'
 import Link from 'next/link'
@@ -52,7 +52,10 @@ interface Props {
   openOnNewTab?: boolean
 }
 
-export const GalgameCard = ({ patch, openOnNewTab = true }: Props) => {
+export const GalgameCard = memo(function GalgameCard({
+  patch,
+  openOnNewTab = true
+}: Props) {
   const [imageLoaded, setImageLoaded] = useState(false)
   const attributeLabels = getCardAttributeLabels(patch)
   const averageRating = patch.averageRating
@@ -150,4 +153,4 @@ export const GalgameCard = ({ patch, openOnNewTab = true }: Props) => {
       </CardBody>
     </Card>
   )
-}
+})

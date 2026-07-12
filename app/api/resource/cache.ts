@@ -8,8 +8,11 @@ import type { Prisma } from '~/prisma/generated/prisma/client'
 import type { ResourceListResponse } from '~/types/api/resource'
 
 const RESOURCE_LIST_CACHE_KEY_PREFIX = 'resource:list'
-const RESOURCE_LIST_CACHE_CONTENT_VERSION_KEY = 'resource:list:version:content'
-const RESOURCE_LIST_CACHE_STATS_VERSION_KEY = 'resource:list:version:stats'
+// 资源内容/统计变更的单一信号源, 供 patch 详情资源缓存复用同一失效版本号
+export const RESOURCE_LIST_CACHE_CONTENT_VERSION_KEY =
+  'resource:list:version:content'
+export const RESOURCE_LIST_CACHE_STATS_VERSION_KEY =
+  'resource:list:version:stats'
 
 const logResourceListCacheError = (message: string, error: unknown) => {
   // eslint-disable-next-line no-console

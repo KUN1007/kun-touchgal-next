@@ -1,14 +1,39 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { findManyMock, markdownToHtmlMock } = vi.hoisted(() => ({
+const {
+  findManyMock,
+  countMock,
+  likeFindManyMock,
+  markdownToHtmlMock,
+  getKvMock,
+  getKvsMock,
+  setKvMock,
+  setKvIfAbsentMock,
+  delKvMock,
+  acquireKvLockMock,
+  releaseKvLockMock
+} = vi.hoisted(() => ({
   findManyMock: vi.fn(),
-  markdownToHtmlMock: vi.fn()
+  countMock: vi.fn(),
+  likeFindManyMock: vi.fn(),
+  markdownToHtmlMock: vi.fn(),
+  getKvMock: vi.fn(),
+  getKvsMock: vi.fn(),
+  setKvMock: vi.fn(),
+  setKvIfAbsentMock: vi.fn(),
+  delKvMock: vi.fn(),
+  acquireKvLockMock: vi.fn(),
+  releaseKvLockMock: vi.fn()
 }))
 
 vi.mock('~/prisma/index', () => ({
   prisma: {
     patch_resource: {
-      findMany: findManyMock
+      findMany: findManyMock,
+      count: countMock
+    },
+    user_patch_resource_like_relation: {
+      findMany: likeFindManyMock
     }
   }
 }))
@@ -17,50 +42,71 @@ vi.mock('~/app/api/utils/render/markdownToHtml', () => ({
   markdownToHtml: markdownToHtmlMock
 }))
 
+vi.mock('~/lib/redis', () => ({
+  getKv: getKvMock,
+  getKvs: getKvsMock,
+  setKv: setKvMock,
+  setKvIfAbsent: setKvIfAbsentMock,
+  delKv: delKvMock,
+  acquireKvLock: acquireKvLockMock,
+  releaseKvLock: releaseKvLockMock
+}))
+
 import { getPatchResource } from '~/app/api/patch/resource/get'
 
-describe('getPatchResource', () => {
-  it('selects only the user fields exposed by the resource response', async () => {
-    findManyMock.mockResolvedValue([
-      {
-        id: 1,
-        name: 'English patch',
-        section: 'Patch files',
-        patch: { unique_id: 'patch-123' },
-        type: ['translation'],
-        language: ['en'],
-        note: 'Release notes',
-        platform: ['windows'],
-        links: [
-          {
-            id: 2,
-            storage: 's3',
-            size: '10 MB',
-            code: 'download-code',
-            password: 'download-password',
-            hash: 'sha256',
-            content: 'archive.zip',
-            sort_order: 1,
-            download: 5
-          }
-        ],
-        _count: { like_by: 3 },
-        like_by: [],
-        status: 0,
-        user_id: 7,
-        patch_id: 123,
-        created: new Date('2025-01-02T03:04:05.000Z'),
-        user: {
-          id: 7,
-          name: 'Alice',
-          avatar: 'alice.webp',
-          role: 1,
-          _count: { patch_resource: 4 }
-        }
-      }
-    ])
-    markdownToHtmlMock.mockResolvedValue('<p>Release notes</p>')
+const buildRow = (overrides: Record<string, unknown> = {}) => ({
+  id: 1,
+  name: 'English patch',
+  section: 'Patch files',
+  patch: { unique_id: 'patch-123' },
+  type: ['translation'],
+  language: ['en'],
+  note: 'Release notes',
+  platform: ['windows'],
+  links: [
+    {
+      id: 2,
+      storage: 's3',
+      size: '10 MB',
+      code: 'download-code',
+      password: 'download-password',
+      hash: 'sha256',
+      content: 'archive.zip',
+      sort_order: 1,
+      download: 5
+    }
+  ],
+  _count: { like_by: 3 },
+  status: 0,
+  user_id: 7,
+  patch_id: 123,
+  created: new Date('2025-01-02T03:04:05.000Z'),
+  user: {
+    id: 7,
+    name: 'Alice',
+    avatar: 'alice.webp',
+    role: 1,
+    _count: { patch_resource: 4 }
+  },
+  ...overrides
+})
 
+describe('getPatchResource', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    getKvsMock.mockResolvedValue(['v1', 'v1'])
+    getKvMock.mockResolvedValue(null)
+    countMock.mockResolvedValue(0)
+    likeFindManyMock.mockResolvedValue([])
+    findManyMock.mockResolvedValue([buildRow()])
+    markdownToHtmlMock.mockResolvedValue('<p>Release notes</p>')
+    setKvMock.mockResolvedValue(undefined)
+    setKvIfAbsentMock.mockResolvedValue(true)
+    acquireKvLockMock.mockResolvedValue('token-1')
+    releaseKvLockMock.mockResolvedValue(undefined)
+  })
+
+  it('selects only the user fields exposed by the resource response', async () => {
     const resources = await getPatchResource(
       { patchId: 123 },
       { uid: 7, role: 1 }
@@ -86,5 +132,70 @@ describe('getPatchResource', () => {
         }
       }
     })
+  })
+
+  it('queries the public view (status 0, no per-viewer like) and caches it', async () => {
+    await getPatchResource({ patchId: 123 }, null)
+
+    expect(findManyMock).toHaveBeenCalledTimes(1)
+    const args = findManyMock.mock.calls[0]?.[0]
+    expect(args.where).toEqual({ patch_id: 123, status: 0 })
+    expect(args.include.like_by).toBeUndefined()
+    expect(setKvMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('overlays personal like state on the shared cache for logged-in users', async () => {
+    getKvMock.mockResolvedValue(
+      JSON.stringify([{ id: 1, isLike: false, likeCount: 3 }])
+    )
+    likeFindManyMock.mockResolvedValue([{ resource_id: 1 }])
+
+    const resources = await getPatchResource(
+      { patchId: 123 },
+      { uid: 7, role: 1 }
+    )
+
+    expect(resources[0]?.isLike).toBe(true)
+    expect(likeFindManyMock).toHaveBeenCalledWith({
+      where: { user_id: 7, resource_id: { in: [1] } },
+      select: { resource_id: true }
+    })
+    expect(findManyMock).not.toHaveBeenCalled()
+    expect(acquireKvLockMock).not.toHaveBeenCalled()
+  })
+
+  it('does not overlay like state or query relations for anonymous viewers', async () => {
+    getKvMock.mockResolvedValue(
+      JSON.stringify([{ id: 1, isLike: false, likeCount: 3 }])
+    )
+
+    const resources = await getPatchResource({ patchId: 123 }, null)
+
+    expect(resources[0]?.isLike).toBe(false)
+    expect(likeFindManyMock).not.toHaveBeenCalled()
+  })
+
+  it('bypasses the shared cache and queries the per-viewer view for admins', async () => {
+    findManyMock.mockResolvedValue([
+      buildRow({ like_by: [{ user_id: 9, resource_id: 1 }] })
+    ])
+
+    const resources = await getPatchResource(
+      { patchId: 123 },
+      { uid: 9, role: 5 }
+    )
+
+    expect(resources[0]?.isLike).toBe(true)
+    expect(getKvsMock).not.toHaveBeenCalled()
+    expect(getKvMock).not.toHaveBeenCalled()
+    expect(acquireKvLockMock).not.toHaveBeenCalled()
+    expect(setKvMock).not.toHaveBeenCalled()
+
+    const args = findManyMock.mock.calls[0]?.[0]
+    expect(args.where).toEqual({
+      patch_id: 123,
+      status: { in: [0, 2, 3] }
+    })
+    expect(args.include.like_by).toEqual({ where: { user_id: 9 } })
   })
 })

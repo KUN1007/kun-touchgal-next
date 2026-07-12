@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { convert } from 'html-to-text'
 import { prisma } from '~/prisma/index'
 import { patchCommentUpdateSchema } from '~/validations/patch'
 import {
@@ -87,5 +88,5 @@ export const updateComment = async (
   })
 
   await invalidatePatchCommentCache(comment.patch_id)
-  return {}
+  return { contentHtml, contentPreview: convert(contentHtml).trim() }
 }

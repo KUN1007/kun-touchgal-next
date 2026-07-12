@@ -4,7 +4,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '@heroui/button'
 import { ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react'
 import { createRoot } from 'react-dom/client'
-import DOMPurify from 'isomorphic-dompurify'
 import { useMounted } from '~/hooks/useMounted'
 import { KunExternalLink } from '~/components/kun/external-link/ExternalLink'
 import { sanitizeUserHref } from '~/utils/safeUrl'
@@ -23,9 +22,7 @@ export const CommentContent = ({ comment }: Props) => {
   const contentRef = useRef<HTMLDivElement>(null)
   const previousContentRef = useRef(comment.content)
   const isMounted = useMounted()
-  const [sanitizedContent, setSanitizedContent] = useState(() =>
-    DOMPurify.sanitize(comment.content)
-  )
+  const [sanitizedContent, setSanitizedContent] = useState(comment.content)
   const [collapsedMaxHeight, setCollapsedMaxHeight] = useState(
     DEFAULT_COLLAPSED_MAX_HEIGHT
   )
@@ -39,7 +36,7 @@ export const CommentContent = ({ comment }: Props) => {
     }
 
     previousContentRef.current = comment.content
-    setSanitizedContent(DOMPurify.sanitize(comment.content))
+    setSanitizedContent(comment.content)
     setIsExpanded(false)
   }, [comment.content])
 

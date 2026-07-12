@@ -70,20 +70,22 @@ export const CommentDropdown = ({ comment, setComments }: Props) => {
     }
 
     setUpdating(true)
-    const res = await kunFetchPut<KunResponse<PatchComment>>('/patch/comment', {
+    const res = await kunFetchPut<
+      KunResponse<{ contentHtml: string; contentPreview: string }>
+    >('/patch/comment', {
       commentId,
       content: editContent.trim(),
       isSpoiler: editIsSpoiler
     })
-    kunErrorHandler(res, () => {
+    kunErrorHandler(res, (data) => {
       setEditContent('')
       setComments((prev) =>
         prev.map((c) => {
           if (c.id === commentId) {
             return {
               ...c,
-              content: editContent,
-              contentPreview: editContent,
+              content: data.contentHtml,
+              contentPreview: data.contentPreview,
               isSpoiler: editIsSpoiler
             }
           }
@@ -94,8 +96,8 @@ export const CommentDropdown = ({ comment, setComments }: Props) => {
                 r.id === commentId
                   ? {
                       ...r,
-                      content: editContent,
-                      contentPreview: editContent,
+                      content: data.contentHtml,
+                      contentPreview: data.contentPreview,
                       isSpoiler: editIsSpoiler
                     }
                   : r

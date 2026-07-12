@@ -1,7 +1,6 @@
 'use client'
 
-import DOMPurify from 'isomorphic-dompurify'
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '@heroui/react'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
 import { ChevronDown, ChevronUp, Download } from 'lucide-react'
@@ -24,10 +23,7 @@ export const ResourceDownload = ({ resource }: Props) => {
   const [isNoteOverflowing, setIsNoteOverflowing] = useState(false)
   const noteContentRef = useRef<HTMLDivElement>(null)
 
-  const note = useMemo(
-    () => DOMPurify.sanitize(resource.noteHtml),
-    [resource.noteHtml]
-  )
+  const note = resource.noteHtml
 
   const toggleLinks = (resourceId: number) => {
     setShowLinks((prev) => ({

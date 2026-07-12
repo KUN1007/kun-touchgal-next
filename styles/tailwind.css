@@ -4,3 +4,39 @@
 
 @source '../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}';
 @custom-variant dark (&:is(.dark *));
+
+@theme {
+  --animate-bell-shake: bell-shake 2.5s ease-in-out infinite;
+  --animate-dot-in: dot-in 0.2s ease-out;
+
+  @keyframes bell-shake {
+    0%,
+    20%,
+    100% {
+      transform: rotate(0deg);
+    }
+    4% {
+      transform: rotate(-10deg);
+    }
+    8% {
+      transform: rotate(10deg);
+    }
+    12% {
+      transform: rotate(-10deg);
+    }
+    16% {
+      transform: rotate(10deg);
+    }
+  }
+
+  @keyframes dot-in {
+    from {
+      transform: scale(0);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+}

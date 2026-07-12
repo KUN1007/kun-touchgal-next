@@ -3,9 +3,7 @@
 import { Button } from '@heroui/button'
 import { Tooltip } from '@heroui/tooltip'
 import { Bell, BellRing } from 'lucide-react'
-import { AnimatePresence, motion } from 'framer-motion'
 import { useRouter } from '@bprogress/next'
-import { bellShakeVariants, dotVariants } from '~/motion/bell'
 
 interface AnimatedNotificationBellProps {
   hasUnreadMessages: boolean
@@ -39,30 +37,17 @@ export const UserMessageBell = ({
         className="relative"
         aria-label="我的消息"
       >
-        <motion.div
-          initial="initial"
-          animate={hasUnreadMessages ? 'animate' : 'initial'}
-          whileHover="hover"
-          variants={bellShakeVariants}
-        >
+        <div className={hasUnreadMessages ? 'animate-bell-shake' : ''}>
           {hasUnreadMessages ? (
             <BellRing className="size-6 text-primary" />
           ) : (
             <Bell className="size-6 text-default-500" />
           )}
-        </motion.div>
+        </div>
 
-        <AnimatePresence>
-          {hasUnreadMessages && (
-            <motion.div
-              className="absolute rounded-full bottom-1 right-1 size-2 bg-danger"
-              variants={dotVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-            />
-          )}
-        </AnimatePresence>
+        {hasUnreadMessages && (
+          <div className="absolute rounded-full bottom-1 right-1 size-2 animate-dot-in bg-danger" />
+        )}
       </Button>
     </Tooltip>
   )

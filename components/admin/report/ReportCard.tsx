@@ -24,7 +24,6 @@ import {
 } from '~/constants/galgame'
 import { kunFetchPost } from '~/utils/kunFetch'
 import toast from 'react-hot-toast'
-import { convert } from 'html-to-text'
 import type { AdminReport } from '~/types/api/admin'
 
 interface Props {
@@ -34,7 +33,7 @@ interface Props {
 
 const buildTargetPreview = (report: AdminReport) => {
   if (report.targetType === 'comment' && report.comment) {
-    return convert(report.comment.content).slice(0, 300)
+    return report.comment.contentPreview
   }
   if (report.targetType === 'rating' && report.rating) {
     const summary = report.rating.shortSummary.trim()

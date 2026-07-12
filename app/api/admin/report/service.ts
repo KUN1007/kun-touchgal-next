@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { convert } from 'html-to-text'
 import { prisma } from '~/prisma/index'
 import { adminReportPaginationSchema } from '~/validations/admin'
 import type { AdminReport, AdminReportTargetType } from '~/types/api/admin'
@@ -67,7 +68,10 @@ export const getReport = async (
       name: report.patch.name
     },
     comment: report.comment
-      ? { id: report.comment.id, content: report.comment.content }
+      ? {
+          id: report.comment.id,
+          contentPreview: convert(report.comment.content).trim().slice(0, 300)
+        }
       : null,
     rating: report.rating
       ? {

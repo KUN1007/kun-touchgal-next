@@ -98,7 +98,7 @@ export interface AdminReportPatchSummary {
 
 export interface AdminReportCommentSummary {
   id: number
-  content: string
+  contentPreview: string
 }
 
 export interface AdminReportRatingSummary {

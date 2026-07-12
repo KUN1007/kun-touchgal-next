@@ -134,7 +134,9 @@ describe('buildGalgameSearchFilter', () => {
         exactId: { kind: 'vndb', value: 'v17' },
         contentLimit: 'sfw'
       })
-    ).toBe('(vndbId = "v17" OR vndbRelationId = "v17") AND contentLimit = "sfw"')
+    ).toBe(
+      '(vndbId = "v17" OR vndbRelationId = "v17") AND contentLimit = "sfw"'
+    )
   })
 
   it('组合条件按 AND 连接', () => {
@@ -216,6 +218,21 @@ describe('buildAttributesToSearchOn', () => {
 describe('buildSearchQuery', () => {
   it('包含关键词以空格连接', () => {
     expect(buildSearchQuery(['魔女', '夜宴'], [])).toBe('魔女 夜宴')
+  })
+
+  it('移除中文复合查询中的独立停用词', () => {
+    expect(buildSearchQuery(['魔女的'], [])).toBe('魔女')
+    expect(buildSearchQuery(['魔女的夜宴'], [])).toBe('魔女 夜宴')
+    expect(buildSearchQuery(['的', '魔女'], [])).toBe('魔女')
+  })
+
+  it('保留非独立停用词与纯停用词查询', () => {
+    expect(buildSearchQuery(['的确如此'], [])).toBe('的确如此')
+    expect(buildSearchQuery(['的'], [])).toBe('的')
+  })
+
+  it('排除 phrase 不移除停用词', () => {
+    expect(buildSearchQuery([], ['魔女的'])).toBe('-"魔女的"')
   })
 
   it('词首 - 从包含关键词中剥离，避免翻转为排除', () => {

@@ -1,3 +1,5 @@
+import { GALGAME_STOP_WORD, GALGAME_STOP_WORDS } from './settings'
+
 // 将 zod 校验后的筛选参数翻译为 Meilisearch filter 表达式。
 // 纯函数，语义逐项对照 app/api/utils/galgameQuery.ts 的 Prisma 实现
 
@@ -211,6 +213,24 @@ const sanitizeIncludedKeyword = (keyword: string) =>
     .replace(/(^|\s)-+(?=\S)/g, '$1')
     .trim()
 
+const searchSegmenter = new Intl.Segmenter('zh-CN', { granularity: 'word' })
+
+// Meilisearch 的 CJK 分词不会稳定地把配置的单字停用词从复合查询中移除：
+// 例如「魔女的」仍按低相关候选打分，随后被 rankingScoreThreshold 全部剔除。
+// 查询侧按词边界移除相同停用词；Intl.Segmenter 可保留「的确」等非独立词。
+const normalizeIncludedStopWords = (keyword: string) => {
+  if (!GALGAME_STOP_WORDS.some((word) => keyword.includes(word))) {
+    return keyword
+  }
+
+  let normalized = ''
+  for (const { segment } of searchSegmenter.segment(keyword)) {
+    normalized += GALGAME_STOP_WORD[segment] === true ? ' ' : segment
+  }
+
+  return normalized.replace(/\s+/g, ' ').trim()
+}
+
 // 排除关键词统一 quote 成负向 phrase（-"..."），避免词内 - 的负向范围歧义；
 // 查询串的 phrase 语法不支持转义，双引号换成空格防提前闭合
 const formatNegativeKeyword = (keyword: string) => {
@@ -221,14 +241,23 @@ const formatNegativeKeyword = (keyword: string) => {
 export const buildSearchQuery = (
   includedKeywords: string[],
   excludedKeywords: string[]
-): string =>
-  [
-    ...includedKeywords.map(sanitizeIncludedKeyword),
-    ...excludedKeywords.map(formatNegativeKeyword)
-  ]
+): string => {
+  const sanitizedIncludes = includedKeywords
+    .map(sanitizeIncludedKeyword)
+    .filter(Boolean)
+  const normalizedIncludes = sanitizedIncludes
+    .map(normalizeIncludedStopWords)
+    .filter(Boolean)
+
+  // 纯停用词仍保留原查询，避免 q 变为空字符串后退化为「浏览全部」。
+  const includes =
+    normalizedIncludes.length > 0 ? normalizedIncludes : sanitizedIncludes
+
+  return [...includes, ...excludedKeywords.map(formatNegativeKeyword)]
     .filter(Boolean)
     .join(' ')
     .trim()
+}
 
 // 唯一 include 关键词且形如外部 ID、无 exclude 关键词 → 视为精确直查。
 // 全文匹配这些 ID 会前缀渗漏（v1965 命中 v19650/v19658）且依赖分词，精确 filter 唯一确定。

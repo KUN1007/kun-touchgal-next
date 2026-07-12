@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import {
   Dropdown,
   DropdownItem,
@@ -90,7 +90,7 @@ const GALGAME_SORT_MONTHS = [
   '12'
 ]
 
-export const FilterBar = ({
+export const FilterBar = memo(function FilterBar({
   selectedType,
   setSelectedType,
   sortField,
@@ -109,7 +109,7 @@ export const FilterBar = ({
   setMinRatingCount,
   defaultMinRatingCount = DEFAULT_GALGAME_MIN_RATING_COUNT,
   endYear
-}: Props) => {
+}: Props) {
   const yearOptions = useMemo(() => getGalgameSortYears(endYear), [endYear])
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const currentSortLabel =
@@ -390,4 +390,4 @@ export const FilterBar = ({
       )}
     </Card>
   )
-}
+})

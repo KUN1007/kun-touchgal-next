@@ -101,14 +101,11 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
     await invalidateResourceListCache()
   }
 
-  for (const link of s3Links) {
-    await deletePatchResourceLink(
-      link.content,
-      link.patchId,
-      link.hash,
-      link.s3Key
+  await Promise.all(
+    s3Links.map((link) =>
+      deletePatchResourceLink(link.content, link.patchId, link.hash, link.s3Key)
     )
-  }
+  )
 
   return response
 }

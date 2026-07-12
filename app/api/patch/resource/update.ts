@@ -264,14 +264,11 @@ export const updatePatchResource = async (
     await invalidateResourceListCache()
   }
 
-  for (const link of s3LinksToDelete) {
-    await deletePatchResourceLink(
-      link.content,
-      link.patchId,
-      link.hash,
-      link.s3Key
+  await Promise.all(
+    s3LinksToDelete.map((link) =>
+      deletePatchResourceLink(link.content, link.patchId, link.hash, link.s3Key)
     )
-  }
+  )
 
   return updatedResource
 }

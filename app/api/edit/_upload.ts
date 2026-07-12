@@ -2,6 +2,7 @@ import sharp from 'sharp'
 
 import { uploadImageToS3 } from '~/lib/s3'
 import { checkBufferSize } from '~/app/api/utils/checkBufferSize'
+import { withEncodeSlot } from '~/server/image/encodeLimit'
 
 export const uploadPatchBanner = async (
   image: ArrayBuffer,
@@ -15,20 +16,23 @@ export const uploadPatchBanner = async (
     return '上传文件不能为空'
   }
 
-  const banner = await sharp(image)
-    .resize(1920, 1080, {
-      fit: 'inside',
-      withoutEnlargement: true
-    })
-    .avif({ quality: 60 })
-    .toBuffer()
-  const miniBanner = await sharp(image)
-    .resize(460, 259, {
-      fit: 'inside',
-      withoutEnlargement: true
-    })
-    .avif({ quality: 60 })
-    .toBuffer()
+  const { banner, miniBanner } = await withEncodeSlot(async () => {
+    const banner = await sharp(image)
+      .resize(1920, 1080, {
+        fit: 'inside',
+        withoutEnlargement: true
+      })
+      .avif({ quality: 60 })
+      .toBuffer()
+    const miniBanner = await sharp(image)
+      .resize(460, 259, {
+        fit: 'inside',
+        withoutEnlargement: true
+      })
+      .avif({ quality: 60 })
+      .toBuffer()
+    return { banner, miniBanner }
+  })
 
   if (!checkBufferSize(miniBanner, 1.007)) {
     return '图片体积过大'
@@ -43,12 +47,11 @@ export const uploadPatchBanner = async (
 
   if (originalImage) {
     uploadTasks.push(
-      sharp(originalImage)
-        .avif({ quality: 60 })
-        .toBuffer()
-        .then((fullBanner) =>
-          uploadImageToS3(`${bucketName}/banner-full.avif`, fullBanner)
-        )
+      withEncodeSlot(() =>
+        sharp(originalImage).avif({ quality: 60 }).toBuffer()
+      ).then((fullBanner) =>
+        uploadImageToS3(`${bucketName}/banner-full.avif`, fullBanner)
+      )
     )
   }
 

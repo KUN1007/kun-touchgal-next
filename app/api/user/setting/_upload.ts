@@ -2,6 +2,7 @@ import sharp from 'sharp'
 
 import { uploadImageToS3 } from '~/lib/s3'
 import { checkBufferSize } from '~/app/api/utils/checkBufferSize'
+import { withEncodeSlot } from '~/server/image/encodeLimit'
 
 // 头像 S3 key 的唯一定义处, 上传 / 审核暂存 / 审核落地共用
 export const getUserAvatarKeys = (uid: number) => {
@@ -24,20 +25,23 @@ export const uploadUserAvatar = async (
     return '上传文件不能为空'
   }
 
-  const avatar = await sharp(image)
-    .resize(256, 256, {
-      fit: 'inside',
-      withoutEnlargement: true
-    })
-    .avif({ quality: 60 })
-    .toBuffer()
-  const miniAvatar = await sharp(image)
-    .resize(100, 100, {
-      fit: 'inside',
-      withoutEnlargement: true
-    })
-    .avif({ quality: 50 })
-    .toBuffer()
+  const { avatar, miniAvatar } = await withEncodeSlot(async () => {
+    const avatar = await sharp(image)
+      .resize(256, 256, {
+        fit: 'inside',
+        withoutEnlargement: true
+      })
+      .avif({ quality: 60 })
+      .toBuffer()
+    const miniAvatar = await sharp(image)
+      .resize(100, 100, {
+        fit: 'inside',
+        withoutEnlargement: true
+      })
+      .avif({ quality: 50 })
+      .toBuffer()
+    return { avatar, miniAvatar }
+  })
 
   if (!checkBufferSize(avatar, 1.007)) {
     return '图片体积过大'

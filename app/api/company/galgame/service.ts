@@ -10,6 +10,7 @@ import {
   buildGalgameOrderBy,
   buildGalgameWhere
 } from '~/app/api/utils/galgameQuery'
+import { withGalgameListCache } from '~/app/api/utils/galgameListCache'
 import { parseGalgameFilterArray } from '~/utils/galgameFilter'
 import { isMeiliEnabled } from '~/lib/meilisearch'
 import {
@@ -124,13 +125,12 @@ const legacyGetPatchByCompany = async (
   return { galgames, total }
 }
 
-export const getPatchByCompany = async (
+const queryPatchByCompany = async (
   input: z.infer<typeof getPatchByCompanySchema>,
+  years: string[],
+  months: string[],
   visibility: PatchVisibilityContext
 ) => {
-  const years = parseGalgameFilterArray(input.yearString)
-  const months = parseGalgameFilterArray(input.monthString)
-
   if (isMeiliEnabled()) {
     try {
       return await getPatchByCompanyFromSearch(input, years, months, visibility)
@@ -146,4 +146,25 @@ export const getPatchByCompany = async (
     months,
     visibility.visibilityWhere
   )
+}
+
+export const getPatchByCompany = async (
+  input: z.infer<typeof getPatchByCompanySchema>,
+  visibility: PatchVisibilityContext
+) => {
+  const years = parseGalgameFilterArray(input.yearString)
+  const months = parseGalgameFilterArray(input.monthString)
+
+  return withGalgameListCache({
+    cacheKeyPrefix: `galgame:list:company:${input.companyId}`,
+    input: {
+      ...input,
+      // minRatingCount 仅在 rating 排序时生效, 归一化避免同一结果分裂多个 key
+      minRatingCount: input.sortField === 'rating' ? input.minRatingCount : 0
+    },
+    years,
+    months,
+    visibilityWhere: visibility.visibilityWhere,
+    query: () => queryPatchByCompany(input, years, months, visibility)
+  })
 }

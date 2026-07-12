@@ -1,11 +1,15 @@
 import { z } from 'zod'
+import { kunCacheSingleflight } from '~/app/api/utils/cacheSingleflight'
 import {
+  PATCH_NOT_FOUND,
   buildCachedPatch,
   getCachedPatchContent,
   setCachedPatchContent,
+  setCachedPatchContentIfAbsent,
   withPatchFavoriteStatus
 } from './_content'
 import { getPatchSummaryByUniqueId } from './_queries'
+import { getPatchCacheKey } from './cache'
 import type { KunViewer } from '~/app/api/utils/contentVisibility'
 
 const uniqueIdSchema = z.object({
@@ -17,21 +21,34 @@ export const getPatchById = async (
   viewer: KunViewer | null
 ) => {
   const uid = viewer?.uid ?? 0
-  const cachedPatch = await getCachedPatchContent(input.uniqueId)
+  const { uniqueId } = input
+  const cachedPatch = await getCachedPatchContent(uniqueId)
   if (cachedPatch) {
-    return withPatchFavoriteStatus(input.uniqueId, cachedPatch, uid)
+    return withPatchFavoriteStatus(uniqueId, cachedPatch, uid)
   }
 
-  const { uniqueId } = input
+  const patch = await kunCacheSingleflight({
+    cacheKey: getPatchCacheKey(uniqueId),
+    readCache: () => getCachedPatchContent(uniqueId),
+    writeCache: async (response) => {
+      if (response !== PATCH_NOT_FOUND) {
+        await setCachedPatchContent(uniqueId, response)
+      }
+    },
+    writeCacheIfAbsent: async (response) => {
+      if (response !== PATCH_NOT_FOUND) {
+        await setCachedPatchContentIfAbsent(uniqueId, response)
+      }
+    },
+    query: async () => {
+      const summary = await getPatchSummaryByUniqueId(uniqueId)
+      return summary ? buildCachedPatch(summary) : PATCH_NOT_FOUND
+    }
+  })
 
-  const patch = await getPatchSummaryByUniqueId(uniqueId)
-
-  if (!patch) {
+  if (patch === PATCH_NOT_FOUND) {
     return '未找到对应 Galgame'
   }
 
-  const response = buildCachedPatch(patch)
-  await setCachedPatchContent(input.uniqueId, response)
-
-  return withPatchFavoriteStatus(input.uniqueId, response, uid)
+  return withPatchFavoriteStatus(uniqueId, patch, uid)
 }

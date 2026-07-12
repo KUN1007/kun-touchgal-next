@@ -52,11 +52,20 @@ export const kunCacheSingleflight = async <T>({
     // 等待超时 (持锁者异常或查询过慢), 直接回源保证可用,
     // 并以 NX 回写补位缺席的持锁者, 避免锁 TTL 内缓存持续为空
     const response = await query()
-    void writeCacheIfAbsent(response)
+    void writeCacheIfAbsent(response).catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error(`Failed to write fallback cache for ${cacheKey}:`, error)
+    })
     return response
   }
 
   try {
+    // 调用方首次读到 miss 后, 前一持锁者可能已完成写入并释放锁
+    const cached = await readCache()
+    if (cached !== null) {
+      return cached
+    }
+
     const response = await query()
     await writeCache(response)
     return response

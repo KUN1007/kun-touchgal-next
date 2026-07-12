@@ -2,7 +2,7 @@ import {
   PATCH_CACHE_DURATION,
   PATCH_INTRODUCTION_CACHE_DURATION
 } from '~/config/cache'
-import { getKv, setKv } from '~/lib/redis'
+import { getKv, setKv, setKvIfAbsent } from '~/lib/redis'
 import { prisma } from '~/prisma/index'
 import { roundOneDecimal } from '~/utils/rating/average'
 import { markdownToHtmlExtend } from '~/app/api/utils/render/markdownToHtmlExtend'
@@ -24,6 +24,9 @@ import type {
 } from './_queries'
 
 export type CachedPatch = Omit<Patch, 'isFavorite'>
+
+// 单飞回源中表示"未找到对应 Galgame"的哨兵, 该结果不写入缓存
+export const PATCH_NOT_FOUND = Symbol('kun-patch-not-found')
 
 type PatchSummaryContent = NonNullable<
   Awaited<ReturnType<typeof getPatchSummaryByUniqueId>>
@@ -160,6 +163,28 @@ export const setCachedPatchIntroduction = async (
   intro: PatchIntroduction
 ) => {
   await setKv(
+    getPatchIntroductionCacheKey(uniqueId),
+    JSON.stringify(intro),
+    PATCH_INTRODUCTION_CACHE_DURATION
+  )
+}
+
+export const setCachedPatchContentIfAbsent = async (
+  uniqueId: string,
+  patch: CachedPatch
+) => {
+  await setKvIfAbsent(
+    getPatchCacheKey(uniqueId),
+    JSON.stringify(patch),
+    PATCH_CACHE_DURATION
+  )
+}
+
+export const setCachedPatchIntroductionIfAbsent = async (
+  uniqueId: string,
+  intro: PatchIntroduction
+) => {
+  await setKvIfAbsent(
     getPatchIntroductionCacheKey(uniqueId),
     JSON.stringify(intro),
     PATCH_INTRODUCTION_CACHE_DURATION

@@ -5,6 +5,7 @@ import { prisma } from '~/prisma/index'
 import { adminHandleReportSchema } from '~/validations/admin'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
+import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 
 const handleReport = async (
   input: z.infer<typeof adminHandleReportSchema>,
@@ -112,6 +113,10 @@ const handleReport = async (
       await recomputePatchRatingStat(ratingPatchId, tx)
     }
   })
+
+  if (input.action === 'delete' && targetType === 'comment' && targetId) {
+    await invalidatePatchCommentCache(report.patch_id)
+  }
 
   return {}
 }

@@ -6,6 +6,7 @@ import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { recomputePatchRatingStats } from '~/app/api/patch/rating/stat'
 import { invalidateTagListCache } from '~/app/api/tag/cache'
 import { invalidateCompanyListCache } from '~/app/api/company/cache'
+import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 
 const userIdSchema = z.object({
   uid: z.coerce.number({ message: '用户 ID 必须为数字' }).min(1).max(9999999)
@@ -52,6 +53,12 @@ export const deleteUser = async (
       section: 'patch',
       status: 0
     }
+  })
+  // 删除前收集该用户 status=0 评论涉及的 patch, 级联删除后逐个失效评论缓存
+  const commentedPatches = await prisma.patch_comment.findMany({
+    where: { user_id: input.uid, status: 0 },
+    select: { patch_id: true },
+    distinct: ['patch_id']
   })
 
   if (resourceIds.length) {
@@ -117,6 +124,9 @@ export const deleteUser = async (
   if (publicResourceCount > 0) {
     await invalidateResourceListCache()
   }
+  await Promise.all(
+    commentedPatches.map((c) => invalidatePatchCommentCache(c.patch_id))
+  )
 
   return result
 }

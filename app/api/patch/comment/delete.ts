@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
+import { invalidatePatchCommentCache } from './cache'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 
 const commentIdSchema = z.object({
@@ -25,6 +26,7 @@ const commentForDeleteSelect = {
   id: true,
   user_id: true,
   parent_id: true,
+  patch_id: true,
   status: true,
   patch: { select: { unique_id: true } },
   parent: { select: { user_id: true } }
@@ -83,7 +85,7 @@ export const deleteComment = async (
     return '该评论正在审核中, 暂时无法删除'
   }
 
-  return await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     // 删除前用递归 CTE 一次收集整棵回复子树的 id,
     // 统一清理尚未有最终裁决的审核任务
     const descendantRows = await tx.$queryRaw<{ id: number }[]>`
@@ -108,6 +110,8 @@ export const deleteComment = async (
       descendantRows.map((row) => row.id),
       tx
     )
-    return {}
   })
+
+  await invalidatePatchCommentCache(comment.patch_id)
+  return {}
 }

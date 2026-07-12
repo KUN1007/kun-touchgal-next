@@ -11,6 +11,7 @@ import { sendDeferredCommentNotifications } from '~/server/moderation/apply'
 import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 import { queueSearchSync } from '~/server/search/sync'
 import { deleteComment as adminDeleteComment } from '~/app/api/admin/comment/delete'
 import { deleteRating as adminDeleteRating } from '~/app/api/admin/rating/delete'
@@ -43,6 +44,11 @@ const approveAppeal = async (
       contentHtml = ''
       contentHtmlVersion = 0
     }
+    const comment = await prisma.patch_comment.findUnique({
+      where: { id: contentId },
+      select: { patch_id: true }
+    })
+    patchId = comment?.patch_id ?? null
   } else if (type === 'rating') {
     const rating = await prisma.patch_rating.findUnique({
       where: { id: contentId },
@@ -142,6 +148,9 @@ const approveAppeal = async (
   // 事务提交后的副作用, 与 AI 审核通过路径保持一致
   if (type === 'comment') {
     await sendDeferredCommentNotifications(contentId)
+    if (patchId !== null) {
+      await invalidatePatchCommentCache(patchId)
+    }
   }
   if (type === 'resource') {
     if (patchId !== null) {

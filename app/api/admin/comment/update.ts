@@ -5,6 +5,7 @@ import {
   COMMENT_HTML_VERSION,
   markdownToHtmlComment
 } from '~/app/api/utils/render/markdownToHtmlComment'
+import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 
 export const updateComment = async (
   input: z.infer<typeof patchCommentUpdateSchema>,
@@ -33,7 +34,7 @@ export const updateComment = async (
     contentHtmlVersion = 0
   }
 
-  return await prisma.$transaction(async (prisma) => {
+  await prisma.$transaction(async (prisma) => {
     await prisma.patch_comment.update({
       where: { id: commentId },
       data: {
@@ -51,7 +52,8 @@ export const updateComment = async (
         content: `管理员 ${admin.name} 更新了一条评论的内容\n原评论: ${JSON.stringify(comment)}`
       }
     })
-
-    return {}
   })
+
+  await invalidatePatchCommentCache(comment.patch_id)
+  return {}
 }

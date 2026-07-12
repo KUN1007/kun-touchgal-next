@@ -6,6 +6,7 @@ import { createMentionMessage } from '~/app/api/utils/createMentionMessage'
 import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
 import { queueSearchSync } from '~/server/search/sync'
 import { purgeCloudflareCache } from '~/app/api/utils/purgeCloudflareCache'
@@ -119,6 +120,7 @@ export const applyModerationVerdict = async (
   let claimed = false
   let resourcePatchId: number | null = null
   let commentApproved = false
+  let commentPatchId: number | null = null
 
   await prisma.$transaction(async (tx) => {
     // user 级联删除先锁 user 行, 再删内容与 task; 普通删除路径则是
@@ -183,6 +185,15 @@ export const applyModerationVerdict = async (
           data: { status: approved ? 0 : 2 }
         })
         commentApproved = approved && updated.count > 0
+        // 通过转正常 (1→0) 后评论进入公开基线, 需失效共享缓存;
+        // 拒绝 (1→2) 待审评论本不在基线, 无需失效
+        if (commentApproved) {
+          const approvedComment = await tx.patch_comment.findUnique({
+            where: { id: task.content_id ?? 0 },
+            select: { patch_id: true }
+          })
+          commentPatchId = approvedComment?.patch_id ?? null
+        }
         break
       }
       case 'rating': {
@@ -292,6 +303,9 @@ export const applyModerationVerdict = async (
   // post-commit side effects
   if (commentApproved) {
     await sendDeferredCommentNotifications(task.content_id ?? 0)
+    if (commentPatchId !== null) {
+      await invalidatePatchCommentCache(commentPatchId)
+    }
   }
   if (resourcePatchId !== null) {
     queueSearchSync(resourcePatchId)

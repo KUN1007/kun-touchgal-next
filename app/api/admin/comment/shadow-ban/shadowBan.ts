@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { adminUpdateCommentShadowBanSchema } from '~/validations/admin'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
+import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 
 const statusLabel: Record<number, string> = {
   0: '正常',
@@ -25,6 +26,7 @@ export const updateCommentShadowBan = async (
     select: {
       id: true,
       status: true,
+      patch_id: true,
       user: { select: { name: true } }
     }
   })
@@ -56,5 +58,6 @@ export const updateCommentShadowBan = async (
     })
   })
 
+  await invalidatePatchCommentCache(comment.patch_id)
   return {}
 }

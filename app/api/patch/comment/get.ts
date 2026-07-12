@@ -11,73 +11,101 @@ import {
   getCommentVisibilitySql,
   type KunViewer
 } from '~/app/api/utils/contentVisibility'
+import { withPatchCommentPageCache } from './cache'
 import type { PatchComment } from '~/types/api/patch'
 
-export const getPatchComment = async (
+// 共享缓存基线视角: status=0 公开可见, isLike 一律 false
+const PUBLIC_VIEWER: KunViewer = { uid: 0, role: 0 }
+
+type CommentLocator = {
+  id: number
+  patch_id: number
+  parent_id: number | null
+  created: Date
+}
+
+// 管理员可见他人待审核内容, 有自己待审 (status=1) 评论的用户可见自己的待审,
+// 两者响应都不同于公开基线, 必须绕过共享缓存走完整视角
+const shouldBypassCommentCache = async (patchId: number, viewer: KunViewer) => {
+  if (viewer.role >= 3) {
+    return true
+  }
+  if (viewer.uid <= 0) {
+    return false
+  }
+
+  const pendingCount = await prisma.patch_comment.count({
+    where: { patch_id: patchId, user_id: viewer.uid, status: 1 }
+  })
+  return pendingCount > 0
+}
+
+// 深链定位: 找到目标评论所属的根评论并换算其所在页
+const resolveCurrentPage = async (
   input: z.infer<typeof getPatchCommentSchema>,
   viewer: KunViewer
 ) => {
   const { patchId, page, limit, commentId } = input
-  const uid = viewer.uid
-  const visibilityWhere = getCommentRatingVisibilityWhere(viewer)
+  if (!commentId) {
+    return page
+  }
+
   const visibilitySql = getCommentVisibilitySql(viewer)
-  type CommentLocator = {
-    id: number
-    patch_id: number
-    parent_id: number | null
-    created: Date
-  }
-
-  const findRootComment = async (targetCommentId: number) => {
-    const rows = await prisma.$queryRaw<CommentLocator[]>`
-      WITH RECURSIVE ancestors AS (
-        SELECT id, patch_id, parent_id, created
-        FROM patch_comment
-        WHERE id = ${targetCommentId} AND patch_id = ${patchId}
-          AND ${visibilitySql}
-        UNION ALL
-        SELECT pc.id, pc.patch_id, pc.parent_id, pc.created
-        FROM patch_comment pc
-        INNER JOIN ancestors a ON pc.id = a.parent_id
-        WHERE pc.patch_id = ${patchId} AND ${visibilitySql}
-      )
+  const rows = await prisma.$queryRaw<CommentLocator[]>`
+    WITH RECURSIVE ancestors AS (
       SELECT id, patch_id, parent_id, created
-      FROM ancestors
-      WHERE parent_id IS NULL
-      LIMIT 1
-    `
-
-    return rows[0] ?? null
+      FROM patch_comment
+      WHERE id = ${commentId} AND patch_id = ${patchId}
+        AND ${visibilitySql}
+      UNION ALL
+      SELECT pc.id, pc.patch_id, pc.parent_id, pc.created
+      FROM patch_comment pc
+      INNER JOIN ancestors a ON pc.id = a.parent_id
+      WHERE pc.patch_id = ${patchId} AND ${visibilitySql}
+    )
+    SELECT id, patch_id, parent_id, created
+    FROM ancestors
+    WHERE parent_id IS NULL
+    LIMIT 1
+  `
+  const rootComment = rows[0] ?? null
+  if (!rootComment) {
+    return page
   }
 
-  let currentPage = page
-  if (commentId) {
-    const rootComment = await findRootComment(commentId)
-    if (rootComment) {
-      const commentsBeforeTargetRoot = await prisma.patch_comment.count({
-        where: {
-          patch_id: patchId,
-          parent_id: null,
-          AND: [
-            visibilityWhere,
+  const commentsBeforeTargetRoot = await prisma.patch_comment.count({
+    where: {
+      patch_id: patchId,
+      parent_id: null,
+      AND: [
+        getCommentRatingVisibilityWhere(viewer),
+        {
+          OR: [
+            { created: { gt: rootComment.created } },
             {
-              OR: [
-                { created: { gt: rootComment.created } },
-                {
-                  AND: [
-                    { created: rootComment.created },
-                    { id: { gt: rootComment.id } }
-                  ]
-                }
+              AND: [
+                { created: rootComment.created },
+                { id: { gt: rootComment.id } }
               ]
             }
           ]
         }
-      })
-
-      currentPage = Math.floor(commentsBeforeTargetRoot / limit) + 1
+      ]
     }
-  }
+  })
+
+  return Math.floor(commentsBeforeTargetRoot / limit) + 1
+}
+
+// 构建某一页的评论树与总数 (isLike 一律 false, 由调用方按 uid 叠加)
+const buildCommentPage = async (
+  patchId: number,
+  limit: number,
+  currentPage: number,
+  viewer: KunViewer
+): Promise<{ comments: PatchComment[]; total: number }> => {
+  const visibilityWhere = getCommentRatingVisibilityWhere(viewer)
+  const visibilitySql = getCommentVisibilitySql(viewer)
 
   const commentSelect = {
     id: true,
@@ -150,22 +178,6 @@ export const getPatchComment = async (
     }
   }
 
-  const allCommentIds = [
-    ...rootComments.map((c) => c.id),
-    ...descendantComments.map((c) => c.id)
-  ]
-  const likedSet =
-    uid > 0 && allCommentIds.length > 0
-      ? new Set(
-          (
-            await prisma.user_patch_comment_like_relation.findMany({
-              where: { user_id: uid, comment_id: { in: allCommentIds } },
-              select: { comment_id: true }
-            })
-          ).map((r) => r.comment_id)
-        )
-      : new Set<number>()
-
   const commentMap = new Map(
     [...rootComments, ...descendantComments].map((c) => [c.id, c])
   )
@@ -219,7 +231,7 @@ export const getPatchComment = async (
           id: reply.id,
           uniqueId: reply.patch.unique_id,
           content: htmlMap.get(reply.id) ?? '',
-          isLike: likedSet.has(reply.id),
+          isLike: false,
           isSpoiler: reply.is_spoiler,
           status: reply.status,
           likeCount: reply._count.like_by,
@@ -251,7 +263,7 @@ export const getPatchComment = async (
       id: comment.id,
       uniqueId: comment.patch.unique_id,
       content: htmlMap.get(comment.id) ?? '',
-      isLike: likedSet.has(comment.id),
+      isLike: false,
       isSpoiler: comment.is_spoiler,
       status: comment.status,
       likeCount: comment._count.like_by,
@@ -271,6 +283,61 @@ export const getPatchComment = async (
       replyToUser: null
     }
   })
+
+  return { comments, total }
+}
+
+// 树只有根与其直接回复两层, 收集全部评论 id 用于 isLike 叠加
+const collectCommentIds = (comments: PatchComment[]) => {
+  const ids: number[] = []
+  for (const comment of comments) {
+    ids.push(comment.id)
+    for (const reply of comment.reply) {
+      ids.push(reply.id)
+    }
+  }
+  return ids
+}
+
+const applyCommentLikes = async (comments: PatchComment[], uid: number) => {
+  if (uid <= 0 || comments.length === 0) {
+    return
+  }
+
+  const ids = collectCommentIds(comments)
+  const likedRows = await prisma.user_patch_comment_like_relation.findMany({
+    where: { user_id: uid, comment_id: { in: ids } },
+    select: { comment_id: true }
+  })
+  const likedSet = new Set(likedRows.map((r) => r.comment_id))
+
+  for (const comment of comments) {
+    comment.isLike = likedSet.has(comment.id)
+    for (const reply of comment.reply) {
+      reply.isLike = likedSet.has(reply.id)
+    }
+  }
+}
+
+export const getPatchComment = async (
+  input: z.infer<typeof getPatchCommentSchema>,
+  viewer: KunViewer
+) => {
+  const { patchId, limit } = input
+
+  const bypass = await shouldBypassCommentCache(patchId, viewer)
+  const effectiveViewer = bypass ? viewer : PUBLIC_VIEWER
+
+  const currentPage = await resolveCurrentPage(input, effectiveViewer)
+
+  const buildPage = () =>
+    buildCommentPage(patchId, limit, currentPage, effectiveViewer)
+
+  const { comments, total } = bypass
+    ? await buildPage()
+    : await withPatchCommentPageCache(patchId, currentPage, limit, buildPage)
+
+  await applyCommentLikes(comments, viewer.uid)
 
   return { comments, total, currentPage }
 }

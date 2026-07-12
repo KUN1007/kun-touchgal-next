@@ -4,6 +4,7 @@ import { Prisma } from '~/prisma/generated/prisma/client'
 import { adminDeleteCommentSchema } from '~/validations/admin'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
+import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 
 const adminLogContentLimit = 10007
 const adminDeleteCommentSummaryLimit = 10
@@ -72,7 +73,9 @@ export const deleteComment = async (
     return '未找到该管理员'
   }
 
-  return await prisma.$transaction(async (prisma) => {
+  const patchIds = [...new Set(comments.map((comment) => comment.patch_id))]
+
+  await prisma.$transaction(async (prisma) => {
     const targetIds = comments.map((comment) => comment.id)
 
     // 级联删除会带走整棵回复子树, 删除前先收集全部后代 id
@@ -114,7 +117,11 @@ export const deleteComment = async (
         content: buildDeleteLogContent(admin.name, comments)
       }
     })
-
-    return {}
   })
+
+  await Promise.all(
+    patchIds.map((patchId) => invalidatePatchCommentCache(patchId))
+  )
+
+  return {}
 }

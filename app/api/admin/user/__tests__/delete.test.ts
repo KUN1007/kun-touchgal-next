@@ -18,7 +18,9 @@ const {
   deleteTokenMock,
   invalidateCacheMock,
   invalidateTagCacheMock,
-  invalidateCompanyCacheMock
+  invalidateCompanyCacheMock,
+  findCommentedPatchesMock,
+  invalidateCommentCacheMock
 } = vi.hoisted(() => ({
   findUserMock: vi.fn(),
   findResourcesMock: vi.fn(),
@@ -37,7 +39,9 @@ const {
   deleteTokenMock: vi.fn(),
   invalidateCacheMock: vi.fn(),
   invalidateTagCacheMock: vi.fn(),
-  invalidateCompanyCacheMock: vi.fn()
+  invalidateCompanyCacheMock: vi.fn(),
+  findCommentedPatchesMock: vi.fn(),
+  invalidateCommentCacheMock: vi.fn()
 }))
 
 const events: string[] = []
@@ -58,6 +62,7 @@ vi.mock('~/prisma/index', () => ({
       count: countResourcesMock
     },
     patch_rating: { findMany: findRatingsMock },
+    patch_comment: { findMany: findCommentedPatchesMock },
     $transaction: transactionMock
   }
 }))
@@ -80,6 +85,10 @@ vi.mock('~/app/api/tag/cache', () => ({
 
 vi.mock('~/app/api/company/cache', () => ({
   invalidateCompanyListCache: invalidateCompanyCacheMock
+}))
+
+vi.mock('~/app/api/patch/comment/cache', () => ({
+  invalidatePatchCommentCache: invalidateCommentCacheMock
 }))
 
 vi.mock('~/app/api/patch/rating/stat', () => ({
@@ -144,6 +153,10 @@ beforeEach(() => {
   invalidateCompanyCacheMock.mockImplementation(async () => {
     events.push('invalidate-company-cache')
   })
+  findCommentedPatchesMock.mockResolvedValue([{ patch_id: 20 }])
+  invalidateCommentCacheMock.mockImplementation(async () => {
+    events.push('invalidate-comment-cache')
+  })
   transactionMock.mockImplementation(
     async (callback: (tx: typeof transactionClient) => Promise<unknown>) => {
       events.push('transaction-start')
@@ -184,7 +197,8 @@ describe('deleteUser', () => {
       'invalidate-tag-cache',
       'invalidate-company-cache',
       'delete-token',
-      'invalidate-cache'
+      'invalidate-cache',
+      'invalidate-comment-cache'
     ])
   })
   it('retries serializable conflicts without repeating resource cleanup', async () => {

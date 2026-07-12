@@ -11,6 +11,7 @@ import {
   hasPendingModeration,
   preScreenText
 } from '~/server/moderation/submit'
+import { invalidatePatchCommentCache } from './cache'
 
 export const updateComment = async (
   input: z.infer<typeof patchCommentUpdateSchema>,
@@ -84,5 +85,7 @@ export const updateComment = async (
       )
     }
   })
+
+  await invalidatePatchCommentCache(comment.patch_id)
   return {}
 }

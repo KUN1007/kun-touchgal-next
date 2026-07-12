@@ -8,6 +8,7 @@ import {
   markdownToHtmlComment
 } from '~/app/api/utils/render/markdownToHtmlComment'
 import { createModerationTask, preScreenText } from '~/server/moderation/submit'
+import { invalidatePatchCommentCache } from './cache'
 import type { PatchComment } from '~/types/api/patch'
 
 export const createPatchComment = async (
@@ -134,6 +135,8 @@ export const createPatchComment = async (
     created: String(data.created),
     updated: String(data.updated)
   }
+
+  await invalidatePatchCommentCache(input.patchId)
 
   return newComment
 }

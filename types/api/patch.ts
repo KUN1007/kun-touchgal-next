@@ -111,6 +111,7 @@ export interface PatchComment {
   id: number
   uniqueId: string
   content: string
+  contentPreview?: string
   isLike: boolean
   isSpoiler: boolean
   status: number

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { convert } from 'html-to-text'
 import { prisma } from '~/prisma/index'
 import { patchCommentCreateSchema } from '~/validations/patch'
 import { createDedupMessage } from '~/app/api/utils/message'
@@ -117,13 +118,16 @@ export const createPatchComment = async (
     )
   }
 
+  const renderedHtml =
+    contentHtmlVersion === COMMENT_HTML_VERSION && contentHtml
+      ? contentHtml
+      : await markdownToHtmlComment(data.content)
+
   const newComment: Omit<PatchComment, 'user'> = {
     id: data.id,
     uniqueId: data.patch?.unique_id ?? '',
-    content:
-      contentHtmlVersion === COMMENT_HTML_VERSION && contentHtml
-        ? contentHtml
-        : await markdownToHtmlComment(data.content),
+    content: renderedHtml,
+    contentPreview: convert(renderedHtml).trim(),
     isLike: false,
     isSpoiler: data.is_spoiler,
     status: data.status,

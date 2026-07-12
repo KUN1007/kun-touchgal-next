@@ -31,7 +31,6 @@ import {
 import toast from 'react-hot-toast'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import { useUserStore } from '~/store/userStore'
-import { convert } from 'html-to-text'
 import type { PatchComment } from '~/types/api/patch'
 
 interface Props {
@@ -81,14 +80,24 @@ export const CommentDropdown = ({ comment, setComments }: Props) => {
       setComments((prev) =>
         prev.map((c) => {
           if (c.id === commentId) {
-            return { ...c, content: editContent, isSpoiler: editIsSpoiler }
+            return {
+              ...c,
+              content: editContent,
+              contentPreview: editContent,
+              isSpoiler: editIsSpoiler
+            }
           }
           if (c.reply.some((r) => r.id === commentId)) {
             return {
               ...c,
               reply: c.reply.map((r) =>
                 r.id === commentId
-                  ? { ...r, content: editContent, isSpoiler: editIsSpoiler }
+                  ? {
+                      ...r,
+                      content: editContent,
+                      contentPreview: editContent,
+                      isSpoiler: editIsSpoiler
+                    }
                   : r
               )
             }
@@ -237,7 +246,7 @@ export const CommentDropdown = ({ comment, setComments }: Props) => {
               以及所有回复该评论的评论, 该操作不可撤销
             </p>
             <p className="pl-4 border-l-4 border-primary-500">
-              {convert(comment.content)}
+              {comment.contentPreview ?? ''}
             </p>
           </ModalBody>
           <ModalFooter>
@@ -261,7 +270,7 @@ export const CommentDropdown = ({ comment, setComments }: Props) => {
           <ModalHeader className="flex flex-col gap-1">举报评论</ModalHeader>
           <ModalBody>
             <Textarea
-              label={`举报 ${convert(comment.content).slice(0, 20)}`}
+              label={`举报 ${(comment.contentPreview ?? '').slice(0, 20)}`}
               isRequired
               placeholder="请填写举报原因"
               value={reportValue}

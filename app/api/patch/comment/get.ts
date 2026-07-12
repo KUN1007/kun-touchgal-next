@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { convert } from 'html-to-text'
 import { prisma } from '~/prisma/index'
 import { Prisma } from '~/prisma/generated/prisma/client'
 import {
@@ -231,6 +232,7 @@ const buildCommentPage = async (
           id: reply.id,
           uniqueId: reply.patch.unique_id,
           content: htmlMap.get(reply.id) ?? '',
+          contentPreview: convert(htmlMap.get(reply.id) ?? '').trim(),
           isLike: false,
           isSpoiler: reply.is_spoiler,
           status: reply.status,
@@ -263,6 +265,7 @@ const buildCommentPage = async (
       id: comment.id,
       uniqueId: comment.patch.unique_id,
       content: htmlMap.get(comment.id) ?? '',
+      contentPreview: convert(htmlMap.get(comment.id) ?? '').trim(),
       isLike: false,
       isSpoiler: comment.is_spoiler,
       status: comment.status,

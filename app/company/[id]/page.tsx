@@ -1,6 +1,9 @@
 import { generateKunMetadataTemplate } from './metadata'
 import { CompanyDetailContainer } from '~/components/company/detail/Container'
-import { kunGetCompanyByIdActions, kunCompanyGalgameActions } from './actions'
+import {
+  kunGetCompanyByIdActions,
+  kunGetCompanyPageDataActions
+} from './actions'
 import { ErrorComponent } from '~/components/error/ErrorComponent'
 import { KunBreadcrumbTitle } from '~/components/kun/BreadcrumbTitle'
 import type { SortField, SortOrder } from '~/components/galgame/_sort'
@@ -49,6 +52,7 @@ export const generateMetadata = async ({
 export default async function Kun({ params, searchParams }: Props) {
   const { id } = await params
   const res = await searchParams
+  const companyId = Number(id)
   const sortField =
     (getSearchParamValue(res?.sortField) as SortField | undefined) ||
     DEFAULT_GALGAME_SORT_FIELD
@@ -74,13 +78,8 @@ export default async function Kun({ params, searchParams }: Props) {
         )
       : 0
 
-  const company = await kunGetCompanyByIdActions({ companyId: Number(id) })
-  if (typeof company === 'string') {
-    return <ErrorComponent error={company} />
-  }
-
-  const response = await kunCompanyGalgameActions({
-    companyId: Number(id),
+  const result = await kunGetCompanyPageDataActions({
+    companyId,
     page: currentPage,
     limit: 24,
     selectedType,
@@ -92,9 +91,11 @@ export default async function Kun({ params, searchParams }: Props) {
     monthString,
     minRatingCount
   })
-  if (typeof response === 'string') {
-    return <ErrorComponent error={response} />
+  if (typeof result === 'string') {
+    return <ErrorComponent error={result} />
   }
+
+  const { company, response } = result
 
   return (
     <>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { cn } from '~/utils/cn'
 import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { KunAvatar } from '~/components/kun/floating-card/KunAvatar'
@@ -23,25 +23,24 @@ import { Textarea } from '@heroui/input'
 import { Pencil, Trash2 } from 'lucide-react'
 import { kunFetchPut, kunFetchDelete } from '~/utils/kunFetch'
 import toast from 'react-hot-toast'
-import type { PrivateMessage } from '~/types/api/conversation'
-
-type MessageUpdateData =
-  | { action: 'delete' }
-  | { action: 'edit'; content: string; editedAt: string | Date }
+import type {
+  MessageUpdateData,
+  PrivateMessage
+} from '~/types/api/conversation'
 
 interface Props {
   message: PrivateMessage
   isOwn: boolean
   conversationId: number
-  onMessageUpdated: (data: MessageUpdateData) => void
+  onMessageUpdated: (messageId: number, data: MessageUpdateData) => void
 }
 
-export const ChatMessage = ({
+export const ChatMessage = memo(function ChatMessage({
   message,
   isOwn,
   conversationId,
   onMessageUpdated
-}: Props) => {
+}: Props) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const { isOpen, onOpen, onOpenChange, onClose } = useDisclosure()
   const [editContent, setEditContent] = useState(message.content)
@@ -66,7 +65,7 @@ export const ChatMessage = ({
     } else {
       toast.success('消息已编辑')
       onClose()
-      onMessageUpdated({
+      onMessageUpdated(message.id, {
         action: 'edit',
         content: response.content,
         editedAt: response.editedAt
@@ -86,7 +85,7 @@ export const ChatMessage = ({
       toast.error(response)
     } else {
       toast.success('消息已删除')
-      onMessageUpdated({ action: 'delete' })
+      onMessageUpdated(message.id, { action: 'delete' })
     }
     setIsSubmitting(false)
   }
@@ -229,4 +228,4 @@ export const ChatMessage = ({
       </Modal>
     </>
   )
-}
+})

@@ -14,12 +14,11 @@ import { kunFetchGet, kunFetchPut } from '~/utils/kunFetch'
 import { useUserStore } from '~/store/userStore'
 import { useMessageStore } from '~/store/messageStore'
 import toast from 'react-hot-toast'
-import type { PrivateMessage } from '~/types/api/conversation'
+import type {
+  MessageUpdateData,
+  PrivateMessage
+} from '~/types/api/conversation'
 import type { MessageUnreadStatus } from '~/types/api/message'
-
-type MessageUpdateData =
-  | { action: 'delete' }
-  | { action: 'edit'; content: string; editedAt: string | Date }
 
 interface Props {
   conversationId: number
@@ -239,9 +238,7 @@ export const ChatContainer = ({
                   message={msg}
                   isOwn={msg.sender.id === user.uid}
                   conversationId={conversationId}
-                  onMessageUpdated={(data) =>
-                    handleMessageUpdated(msg.id, data)
-                  }
+                  onMessageUpdated={handleMessageUpdated}
                 />
               ))}
             </>

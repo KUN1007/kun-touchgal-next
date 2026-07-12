@@ -15,3 +15,7 @@ export interface PrivateMessage {
   created: string | Date
   sender: KunUser
 }
+
+export type MessageUpdateData =
+  | { action: 'delete' }
+  | { action: 'edit'; content: string; editedAt: string | Date }

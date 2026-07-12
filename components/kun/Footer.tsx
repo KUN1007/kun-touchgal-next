@@ -1,5 +1,3 @@
-'use client'
-
 import { kunMoyuMoe } from '~/config/moyu-moe'
 import Link from 'next/link'
 import Image from 'next/image'

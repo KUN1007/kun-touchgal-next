@@ -6,8 +6,6 @@ import { Suspense } from 'react'
 import { getAuthenticatedBlockedTagIds } from '~/utils/actions/getBlockedTagIds'
 import type { Metadata } from 'next'
 
-export const revalidate = 120
-
 export const metadata: Metadata = kunMetadata
 
 export default async function Kun() {

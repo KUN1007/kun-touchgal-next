@@ -21,8 +21,6 @@ import {
 } from '~/utils/galgameFilter'
 import { getCurrentSiteYear } from '~/utils/time'
 
-export const revalidate = 120
-
 interface Props {
   params: Promise<{ id: string }>
   searchParams?: Promise<{

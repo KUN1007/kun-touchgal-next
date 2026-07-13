@@ -4,8 +4,6 @@ import { ErrorComponent } from '~/components/error/ErrorComponent'
 import { kunMetadata } from './metadata'
 import type { Metadata } from 'next'
 
-export const revalidate = 120
-
 export const metadata: Metadata = kunMetadata
 
 export default async function Kun() {

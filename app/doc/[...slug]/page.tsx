@@ -12,6 +12,7 @@ import { KunBreadcrumbTitle } from '~/components/kun/BreadcrumbTitle'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-static'
+export const dynamicParams = false
 
 interface Props {
   params: Promise<{

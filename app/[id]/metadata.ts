@@ -16,21 +16,24 @@ export const generateKunMetadataTemplate = (
     return generateNullMetadata('')
   }
 
+  const description = convert(intro.introduction, {
+    wordwrap: false,
+    selectors: [{ selector: 'p', format: 'inline' }]
+  }).slice(0, 170)
+  const socialDescription = convert(intro.introduction).slice(0, 170)
+
   return {
     title: pageTitle,
     keywords: [patch.name, ...patch.alias],
     authors: kunMoyuMoe.author,
     creator: patch.user.name,
     publisher: patch.user.name,
-    description: convert(intro.introduction, {
-      wordwrap: false,
-      selectors: [{ selector: 'p', format: 'inline' }]
-    }).slice(0, 170),
+    description,
     openGraph: {
       title: patch.alias.length
         ? `${patch.name} | ${patch.alias[0]}`
         : `${patch.name}`,
-      description: convert(intro.introduction).slice(0, 170),
+      description: socialDescription,
       type: 'article',
       publishedTime: patch.created,
       modifiedTime: patch.updated,
@@ -48,7 +51,7 @@ export const generateKunMetadataTemplate = (
       title: patch.alias.length
         ? `${patch.name} | ${patch.alias[0]}`
         : `${patch.name}`,
-      description: convert(intro.introduction).slice(0, 170),
+      description: socialDescription,
       images: [patch.banner]
     },
     alternates: {

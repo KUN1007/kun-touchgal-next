@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { getUnreadMessageStatus } from '~/app/api/message/unread/service'
+import { invalidateUnread } from '~/app/api/message/unread/cache'
 
 const markConversationAsRead = async (conversationId: number, uid: number) => {
   const conversation = await prisma.user_conversation.findUnique({
@@ -55,6 +56,7 @@ export const PUT = async (
     return NextResponse.json(readResponse)
   }
 
+  await invalidateUnread(payload.uid)
   const response = await getUnreadMessageStatus(payload.uid)
   return NextResponse.json(response)
 }

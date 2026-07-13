@@ -4,6 +4,7 @@ import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { clearReadMessageSchema } from '~/validations/message'
 import { getUnreadMessageStatus } from '../unread/service'
+import { invalidateUnread } from '~/app/api/message/unread/cache'
 
 const MESSAGE_BATCH_SIZE = 5000
 
@@ -131,6 +132,7 @@ export const PUT = async (req: NextRequest) => {
   }
 
   await readMessage(payload.uid)
+  await invalidateUnread(payload.uid)
   const response = await getUnreadMessageStatus(payload.uid)
   return NextResponse.json(response)
 }

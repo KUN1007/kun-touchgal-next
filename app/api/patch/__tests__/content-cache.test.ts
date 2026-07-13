@@ -69,6 +69,7 @@ vi.mock('~/app/api/utils/render/markdownToHtmlExtend', () => ({
 
 import { getPatchById } from '~/app/api/patch/get'
 import { getPatchPageData } from '~/app/api/patch/pageData'
+import { getPatchIntroduction } from '~/app/api/patch/introduction/service'
 import {
   getPatchCacheKey,
   getPatchIntroductionCacheKey
@@ -279,5 +280,47 @@ describe('getPatchPageData', () => {
     expect(result).toMatchObject({
       patch: { id: 7, uniqueId, isFavorite: false }
     })
+  })
+})
+
+describe('getPatchIntroduction', () => {
+  it('缓存命中时不查询数据库、不加锁', async () => {
+    await getPatchIntroduction(input)
+    findUniqueMock.mockClear()
+    acquireKvLockMock.mockClear()
+
+    const result = await getPatchIntroduction(input)
+
+    expect(findUniqueMock).not.toHaveBeenCalled()
+    expect(acquireKvLockMock).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ introduction: '<p># intro</p>' })
+  })
+
+  it('并发 miss 时仅持锁者回源, 等待者从缓存读取', async () => {
+    const [first, second] = await Promise.all([
+      getPatchIntroduction(input),
+      getPatchIntroduction(input)
+    ])
+
+    expect(findUniqueMock).toHaveBeenCalledTimes(1)
+    expect(markdownMock).toHaveBeenCalledTimes(1)
+    expect(acquireKvLockMock).toHaveBeenCalledWith(
+      `${getPatchIntroductionCacheKey(uniqueId)}:intro:lock`,
+      expect.any(Number)
+    )
+    expect(first).toEqual(second)
+    expect(first).toMatchObject({ introduction: '<p># intro</p>' })
+    expect(kvStore.has(getPatchIntroductionCacheKey(uniqueId))).toBe(true)
+  })
+
+  it('查无此作品时返回错误消息且不写缓存', async () => {
+    findUniqueMock.mockResolvedValue(null)
+
+    await expect(getPatchIntroduction(input)).resolves.toBe(
+      '未找到对应 Galgame'
+    )
+
+    expect(setKvMock).not.toHaveBeenCalled()
+    expect(setKvIfAbsentMock).not.toHaveBeenCalled()
   })
 })

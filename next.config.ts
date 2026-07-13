@@ -51,7 +51,7 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   serverExternalPackages: ['oidc-provider'],
   experimental: {
-    optimizePackageImports: ['@heroui/react', 'lucide-react', 'date-fns']
+    optimizePackageImports: ['@heroui/react', 'framer-motion']
     // turbotrace: {
     //   logLevel: 'error',
     //   logDetail: false,

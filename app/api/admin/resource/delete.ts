@@ -6,6 +6,7 @@ import {
   sanitizeResourceLinksForAuditLog
 } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
 import { queueSearchSync } from '~/server/search/sync'
@@ -69,6 +70,11 @@ export const deleteResource = async (
 
   if (patchResource.status === 0 && patchResource.section === 'patch') {
     await invalidateResourceListCache()
+  }
+
+  // 删除待审核 (2/3) 资源: 作者 hasPendingResource 可能翻假, 失效以尽早停止 bypass
+  if (patchResource.status === 2 || patchResource.status === 3) {
+    await invalidateUserPendingResourceCache(patchResource.user_id)
   }
 
   await Promise.all(

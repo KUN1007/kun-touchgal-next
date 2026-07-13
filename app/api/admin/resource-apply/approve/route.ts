@@ -7,6 +7,7 @@ import { kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { approvePatchResourceSchema } from '~/validations/admin'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
 import { queueSearchSync } from '~/server/search/sync'
 
 const approvePatchResource = async (
@@ -64,6 +65,9 @@ const approvePatchResource = async (
   if (resource.section === 'patch') {
     await invalidateResourceListCache()
   }
+
+  // 资源通过人工审批 (2→0): 作者 hasPendingResource 可能翻假, 失效以尽早停止 bypass
+  await invalidateUserPendingResourceCache(resource.user_id)
 
   return response
 }

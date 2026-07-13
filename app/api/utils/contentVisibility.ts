@@ -1,5 +1,5 @@
-import { prisma } from '~/prisma/index'
 import { Prisma } from '~/prisma/generated/prisma/client'
+import { hasPendingResource } from '~/app/api/utils/pendingResourceCache'
 
 export interface KunViewer {
   uid: number
@@ -57,8 +57,5 @@ export const shouldBypassSharedCache = async (viewer: KunViewer | null) => {
     return true
   }
 
-  const pendingResourceCount = await prisma.patch_resource.count({
-    where: { user_id: viewer.uid, status: { in: [2, 3] } }
-  })
-  return pendingResourceCount > 0
+  return hasPendingResource(viewer.uid)
 }

@@ -8,6 +8,7 @@ import {
   recalcPatchType
 } from './_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
 import { queueSearchSync } from '~/server/search/sync'
 import {
   MODERATION_SKIP,
@@ -262,6 +263,11 @@ export const updatePatchResource = async (
     updatedResource.status === 0 && updatedResource.section === 'patch'
   if (wasListed || isListed) {
     await invalidateResourceListCache()
+  }
+
+  // 编辑触发审核拦截 (0→3): 作者的 hasPendingResource 由 false 翻真, 立即失效
+  if (resource.status !== 3 && updatedResource.status === 3) {
+    await invalidateUserPendingResourceCache(resource.user_id)
   }
 
   await Promise.all(

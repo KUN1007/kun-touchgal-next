@@ -3,6 +3,7 @@ import { prisma } from '~/prisma/index'
 import { deletePatchResourceLink, recalcPatchType } from './_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
+import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { queueSearchSync } from '~/server/search/sync'
 
@@ -59,6 +60,11 @@ export const deleteResource = async (
 
   if (patchResource.status === 0 && patchResource.section === 'patch') {
     await invalidateResourceListCache()
+  }
+
+  // 管理员删除待审核 (2/3) 资源: 作者 hasPendingResource 可能翻假, 失效以尽早停止 bypass
+  if (patchResource.status === 2 || patchResource.status === 3) {
+    await invalidateUserPendingResourceCache(resourceUserUid)
   }
 
   await Promise.all(

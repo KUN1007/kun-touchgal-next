@@ -6,6 +6,7 @@ import { markdownToHtml } from '~/app/api/utils/render/markdownToHtml'
 import { bindUploadedResource, recalcPatchType } from './_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
+import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
 import { queueSearchSync } from '~/server/search/sync'
 import {
   MODERATION_SKIP,
@@ -183,6 +184,11 @@ export const createPatchResource = async (
 
   if (resource.status === 0 && resource.section === 'patch') {
     await invalidateResourceListCache()
+  }
+
+  // 新资源进入待审核 (2/3): 作者的 hasPendingResource 由 false 翻真, 立即失效
+  if (resource.status === 2 || resource.status === 3) {
+    await invalidateUserPendingResourceCache(uid)
   }
 
   if (needApproval) {

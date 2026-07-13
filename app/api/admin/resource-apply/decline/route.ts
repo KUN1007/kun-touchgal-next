@@ -10,6 +10,7 @@ import {
   recalcPatchType
 } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
 import { queueSearchSync } from '~/server/search/sync'
 
 const declinePatchResource = async (
@@ -66,6 +67,9 @@ const declinePatchResource = async (
   if (resource.section === 'patch' && resource.status === 0) {
     await invalidateResourceListCache()
   }
+
+  // 拒绝即删除待审资源: 作者 hasPendingResource 可能翻假, 失效以尽早停止 bypass
+  await invalidateUserPendingResourceCache(resource.user_id)
 
   await Promise.all(
     s3Links.map((link) =>

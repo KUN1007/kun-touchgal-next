@@ -8,6 +8,7 @@ import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
+import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
 import { queueSearchSync } from '~/server/search/sync'
 import { purgeCloudflareCache } from '~/app/api/utils/purgeCloudflareCache'
 import { copyObject, deleteFileFromS3 } from '~/lib/s3'
@@ -310,6 +311,8 @@ export const applyModerationVerdict = async (
   if (resourcePatchId !== null) {
     queueSearchSync(resourcePatchId)
     await invalidateResourceListCache()
+    // 资源离开待审核 (3→0/1): 作者 hasPendingResource 可能翻假, 失效以尽早停止 bypass
+    await invalidateUserPendingResourceCache(task.user_id)
   }
   if (task.content_type === 'avatar') {
     const payload = task.payload as unknown as ModerationAvatarPayload

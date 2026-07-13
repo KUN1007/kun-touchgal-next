@@ -19,8 +19,8 @@ import {
 } from '~/server/search/filter-builder'
 import { queryGalgameIndex } from '~/server/search/query'
 import {
-  resolveCompanyIdsByName,
-  resolveTagIdsByName
+  resolveCompanyIdsByNames,
+  resolveTagIdsByNames
 } from '~/server/search/resolve'
 import type { PatchVisibilityContext } from '~/app/api/utils/getPatchVisibilityContext'
 import type { SearchSuggestionType } from '~/types/api/search'
@@ -72,30 +72,45 @@ const searchGalgameWithMeili = async (
       (item) => item.type === type && normalizeMode(item.mode) === mode
     )
 
-  // 有 id 的建议项直接用 id；无 id 的按名称/别名解析为 id 集合
+  const includeTags = suggestions('tag', 'include')
+  const excludeTags = suggestions('tag', 'exclude')
+  const includeCompanies = suggestions('company', 'include')
+  const excludeCompanies = suggestions('company', 'exclude')
+
+  // 无 id 的建议项按名称解析:每类型合并为单条查询,避免按建议数扇出 PG 往返
+  const noIdNames = (items: SearchSuggestionType[]) =>
+    items.filter((item) => typeof item.id !== 'number').map((item) => item.name)
+
+  const [tagNameToIds, companyNameToIds] = await Promise.all([
+    resolveTagIdsByNames([
+      ...noIdNames(includeTags),
+      ...noIdNames(excludeTags)
+    ]),
+    resolveCompanyIdsByNames([
+      ...noIdNames(includeCompanies),
+      ...noIdNames(excludeCompanies)
+    ])
+  ])
+
+  // 有 id 的建议项直接用 id;无 id 的取解析出的 id 集合(未命中为空组,include 空组即空结果)
   const resolveGroups = (
     items: SearchSuggestionType[],
-    resolveByName: (name: string) => Promise<number[]>
+    nameToIds: Map<string, number[]>
   ) =>
-    Promise.all(
-      items.map((item) =>
-        typeof item.id === 'number'
-          ? Promise.resolve([item.id])
-          : resolveByName(item.name)
-      )
+    items.map((item) =>
+      typeof item.id === 'number' ? [item.id] : (nameToIds.get(item.name) ?? [])
     )
 
-  const [
-    includeTagIdGroups,
-    excludeTagIdGroups,
-    includeCompanyIdGroups,
-    excludeCompanyIdGroups
-  ] = await Promise.all([
-    resolveGroups(suggestions('tag', 'include'), resolveTagIdsByName),
-    resolveGroups(suggestions('tag', 'exclude'), resolveTagIdsByName),
-    resolveGroups(suggestions('company', 'include'), resolveCompanyIdsByName),
-    resolveGroups(suggestions('company', 'exclude'), resolveCompanyIdsByName)
-  ])
+  const includeTagIdGroups = resolveGroups(includeTags, tagNameToIds)
+  const excludeTagIdGroups = resolveGroups(excludeTags, tagNameToIds)
+  const includeCompanyIdGroups = resolveGroups(
+    includeCompanies,
+    companyNameToIds
+  )
+  const excludeCompanyIdGroups = resolveGroups(
+    excludeCompanies,
+    companyNameToIds
+  )
 
   const filter = buildGalgameSearchFilter({
     selectedType,

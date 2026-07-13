@@ -20,12 +20,23 @@ export const reconcileSearchIndex =
     }
     const index = client.index(GALGAME_INDEX)
 
-    const pgRows = await prisma.patch.findMany({
-      select: { id: true, updated: true }
-    })
-    const pgUpdatedById = new Map(
-      pgRows.map((row) => [row.id, Math.floor(row.updated.getTime() / 1000)])
-    )
+    const pgUpdatedById = new Map<number, number>()
+    let lastId = 0
+    for (;;) {
+      const pgRows = await prisma.patch.findMany({
+        where: { id: { gt: lastId } },
+        orderBy: { id: 'asc' },
+        take: RECONCILE_BATCH_SIZE,
+        select: { id: true, updated: true }
+      })
+      if (pgRows.length === 0) {
+        break
+      }
+      for (const row of pgRows) {
+        pgUpdatedById.set(row.id, Math.floor(row.updated.getTime() / 1000))
+      }
+      lastId = pgRows[pgRows.length - 1].id
+    }
 
     const indexUpdatedById = new Map<number, number>()
     for (let offset = 0; ; offset += RECONCILE_BATCH_SIZE) {

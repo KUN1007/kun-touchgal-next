@@ -54,7 +54,9 @@ export const renderCommentHtml = async (markdown: string) => {
 }
 
 export const markdownToHtmlComment = async (markdown: string) => {
-  return renderMarkdownHtmlWithCache('comment', markdown, () =>
-    renderCommentHtml(markdown)
+  return renderMarkdownHtmlWithCache(
+    `comment-v${COMMENT_HTML_VERSION}`,
+    markdown,
+    () => renderCommentHtml(markdown)
   )
 }

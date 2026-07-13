@@ -98,6 +98,32 @@ const resolveCurrentPage = async (
   return Math.floor(commentsBeforeTargetRoot / limit) + 1
 }
 
+// 回落渲染后就地写回, 使版本过期的历史评论收敛到 content_html 快路径,
+// 缩短 COMMENT_HTML_VERSION 递增到 backfill 跑完之间的重复渲染窗口。
+// updateMany 的版本前置条件保证并发/重复请求下幂等: 已被 backfill 或其他
+// 请求更新到当前版本的行不会被再次覆盖。写回失败不影响本次响应, 下次自愈。
+const persistStaleCommentHtml = async (
+  renders: { id: number; html: string }[]
+) => {
+  // 逐条 autocommit 而非单个 $transaction: 各行自愈写相互独立、无原子性需求,
+  // 提交即释放行锁且单条失败不牵连其他, 对齐 flushPatchViewsTask 的 autocommit 约定
+  for (const { id, html } of renders) {
+    try {
+      await prisma.patch_comment.updateMany({
+        where: { id, content_html_version: { not: COMMENT_HTML_VERSION } },
+        data: {
+          content_html: html,
+          content_html_version: COMMENT_HTML_VERSION
+        }
+      })
+    } catch (error) {
+      // 单条写回失败不影响其他行与本次响应, 下次请求幂等重试
+      // eslint-disable-next-line no-console
+      console.error('Failed to persist backfilled comment html:', error)
+    }
+  }
+}
+
 // 构建某一页的评论树与总数 (isLike 一律 false, 由调用方按 uid 叠加)
 const buildCommentPage = async (
   patchId: number,
@@ -206,16 +232,23 @@ const buildCommentPage = async (
   }
 
   const allComments = [...rootComments, ...descendantComments]
+  const staleRenders: { id: number; html: string }[] = []
   const htmlEntries = await Promise.all(
     allComments.map(async (c) => {
-      const html =
-        c.content_html_version === COMMENT_HTML_VERSION && c.content_html
-          ? c.content_html
-          : await markdownToHtmlComment(c.content)
+      if (c.content_html_version === COMMENT_HTML_VERSION && c.content_html) {
+        return [c.id, c.content_html] as const
+      }
+      // 版本不匹配的历史评论: 回落实时渲染, 并记下待写回自愈
+      const html = await markdownToHtmlComment(c.content)
+      staleRenders.push({ id: c.id, html })
       return [c.id, html] as const
     })
   )
   const htmlMap = new Map<number, string>(htmlEntries)
+
+  if (staleRenders.length > 0) {
+    void persistStaleCommentHtml(staleRenders)
+  }
 
   const comments: PatchComment[] = rootComments.map((comment) => {
     const replies = replyMap.get(comment.id) || []

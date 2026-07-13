@@ -9,6 +9,7 @@ type MarkdownHtmlCacheVariant =
   | 'standard'
   | 'extend'
   | 'comment'
+  | `comment-v${number}`
   | `extend-v${number}`
 type MarkdownHtmlRenderer = () => Promise<string>
 type MarkdownHtmlCacheOptions = {

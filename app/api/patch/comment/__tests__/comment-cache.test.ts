@@ -12,7 +12,8 @@ const {
   countMock,
   rootFindManyMock,
   likeFindManyMock,
-  queryRawMock
+  queryRawMock,
+  updateManyMock
 } = vi.hoisted(() => {
   const kvStore = new Map<string, string>()
   const lockStore = new Set<string>()
@@ -45,7 +46,8 @@ const {
     countMock: vi.fn(),
     rootFindManyMock: vi.fn(),
     likeFindManyMock: vi.fn(),
-    queryRawMock: vi.fn()
+    queryRawMock: vi.fn(),
+    updateManyMock: vi.fn(async () => ({ count: 1 }))
   }
 })
 
@@ -62,7 +64,8 @@ vi.mock('~/prisma/index', () => ({
   prisma: {
     patch_comment: {
       count: countMock,
-      findMany: rootFindManyMock
+      findMany: rootFindManyMock,
+      updateMany: updateManyMock
     },
     user_patch_comment_like_relation: {
       findMany: likeFindManyMock
@@ -166,5 +169,22 @@ describe('getPatchComment 缓存', () => {
 
     expect(rootFindManyMock).toHaveBeenCalledTimes(1)
     expect(result.comments[0].id).toBe(100)
+  })
+
+  it('版本过期的历史评论回落渲染并写回自愈', async () => {
+    rootFindManyMock.mockResolvedValueOnce([
+      { ...rootComment, content_html: '<p>old</p>', content_html_version: 0 }
+    ])
+
+    const result = await getPatchComment(input, viewer)
+
+    // 版本不匹配 → 回落 markdownToHtmlComment (mock: `<p>${content}</p>`)
+    expect(result.comments[0].content).toBe('<p>hello</p>')
+    // fire-and-forget 写回, flush 微任务后断言幂等前置条件
+    await Promise.resolve()
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: 100, content_html_version: { not: 1 } },
+      data: { content_html: '<p>hello</p>', content_html_version: 1 }
+    })
   })
 })

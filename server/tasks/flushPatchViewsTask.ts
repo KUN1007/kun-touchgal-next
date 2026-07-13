@@ -3,6 +3,7 @@ import { Prisma } from '~/prisma/generated/prisma/client'
 import { prisma } from '~/prisma'
 import {
   acknowledgePatchViewBuffer,
+  acknowledgePatchViewBufferEntries,
   checkoutPatchViewBuffer
 } from '~/app/api/patch/views/buffer'
 import { withTaskLock } from './withTaskLock'
@@ -11,7 +12,7 @@ const FLUSH_BATCH_SIZE = 1000
 const FLUSH_LOCK_KEY = 'patch:views:flush:lock'
 const FLUSH_LOCK_TTL_SECONDS = 600
 
-const flushPatchViews = async () => {
+export const flushPatchViews = async () => {
   const buffer = await checkoutPatchViewBuffer()
   if (!buffer) {
     return
@@ -26,24 +27,24 @@ const flushPatchViews = async () => {
     return
   }
 
-  await prisma.$transaction(async (tx) => {
-    for (let i = 0; i < validEntries.length; i += FLUSH_BATCH_SIZE) {
-      const batch = validEntries.slice(i, i + FLUSH_BATCH_SIZE)
-      const caseFragments = batch.map(
-        ([uniqueId, count]) => Prisma.sql`WHEN ${uniqueId} THEN ${count}`
-      )
-      const uniqueIdList = batch.map(([uniqueId]) => uniqueId)
+  for (let i = 0; i < validEntries.length; i += FLUSH_BATCH_SIZE) {
+    const batch = validEntries.slice(i, i + FLUSH_BATCH_SIZE)
+    const caseFragments = batch.map(
+      ([uniqueId, count]) => Prisma.sql`WHEN ${uniqueId} THEN ${count}`
+    )
+    const uniqueIdList = batch.map(([uniqueId]) => uniqueId)
 
-      await tx.$executeRaw`
-          UPDATE patch
-          SET view = view + CASE unique_id
-            ${Prisma.join(caseFragments, ' ')}
-            ELSE 0
-          END
-          WHERE unique_id IN (${Prisma.join(uniqueIdList)})
-        `
-    }
-  })
+    await prisma.$executeRaw`
+        UPDATE patch
+        SET view = view + CASE unique_id
+          ${Prisma.join(caseFragments, ' ')}
+          ELSE 0
+        END
+        WHERE unique_id IN (${Prisma.join(uniqueIdList)})
+      `
+
+    await acknowledgePatchViewBufferEntries(buffer.key, uniqueIdList)
+  }
 
   await acknowledgePatchViewBuffer(buffer.key)
 }

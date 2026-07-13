@@ -58,3 +58,17 @@ export const acknowledgePatchViewBuffer = async (key: string) => {
 
   await runRedisCommand(() => redis.del(key))
 }
+
+export const acknowledgePatchViewBufferEntries = async (
+  key: string,
+  uniqueIds: string[]
+) => {
+  if (key !== PATCH_VIEWS_PENDING_KEY) {
+    throw new Error('Invalid patch view buffer pending key')
+  }
+  if (uniqueIds.length === 0) {
+    return
+  }
+
+  await runRedisCommand(() => redis.hdel(key, ...uniqueIds))
+}

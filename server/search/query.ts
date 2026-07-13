@@ -1,4 +1,7 @@
+import { createHash } from 'crypto'
 import { getMeiliClient } from '~/lib/meilisearch'
+import { getKv, setKv } from '~/lib/redis'
+import { SEARCH_TOTAL_HITS_CACHE_DURATION } from '~/config/cache'
 import { GALGAME_INDEX, GALGAME_MAX_TOTAL_HITS } from './settings'
 import type { GalgameSearchDoc } from './document'
 
@@ -62,8 +65,45 @@ export const searchDocToGalgameCard = (doc: GalgameSearchDoc): GalgameCard => ({
   averageRating: doc.avgRating ? Math.round(doc.avgRating * 10) / 10 : 0
 })
 
+// 精确总数只取决于检索条件、与页码无关：翻页与热词重复查询共享同一份计数，
+// 命中缓存即可跳过 hitsPerPage=maxTotalHits 的全候选打分计数查询。
+const buildTotalHitsCacheKey = (query: GalgameIndexQuery): string => {
+  const parts = [
+    query.q ?? '',
+    query.filter ?? '',
+    (query.sort ?? []).join(','),
+    (query.attributesToSearchOn ?? []).join(',')
+  ].join('|')
+  const hash = createHash('sha1').update(parts).digest('hex').slice(0, 16)
+  return `search:total:${hash}`
+}
+
+const readTotalHitsCache = async (cacheKey: string): Promise<number | null> => {
+  try {
+    const cached = await getKv(cacheKey)
+    if (!cached) {
+      return null
+    }
+    const parsed = Number(cached)
+    return Number.isFinite(parsed) ? parsed : null
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('读取搜索计数缓存失败:', error)
+    return null
+  }
+}
+
+const writeTotalHitsCache = async (cacheKey: string, totalHits: number) => {
+  try {
+    await setKv(cacheKey, String(totalHits), SEARCH_TOTAL_HITS_CACHE_DURATION)
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('写入搜索计数缓存失败:', error)
+  }
+}
+
 // 索引负责"找到哪些文档、按什么顺序"，并直接携带卡片渲染所需字段。
-// 主查询取当前页卡片；有相关性阈值时另发一个计数查询取精确总数（见下）。
+// 主查询取当前页卡片；有相关性阈值时另需精确总数（见下），优先读缓存、未命中才发计数查询。
 export const queryGalgameIndex = async (
   query: GalgameIndexQuery
 ): Promise<{ galgames: GalgameCard[]; total: number }> => {
@@ -91,11 +131,8 @@ export const queryGalgameIndex = async (
     rankingScoreThreshold
   }
 
-  // 设了 rankingScoreThreshold 后，Meili 有限分页的 totalHits 只穷举到当前页窗为止：
-  // 浅页返回"阈值过滤前"的候选数（偏大），翻到阈值截断处才崩塌 —— 页数会随翻页缩水。
-  // 用一个 hitsPerPage=maxTotalHits、不取字段的计数查询强制其对全部候选打分，拿到阈值之上
-  // 的精确总数；与主查询并行发出。无阈值（浏览态）时无此问题，直接用主查询的 totalHits。
-  const [res, count] = await Promise.all([
+  // 主查询：取当前页卡片
+  const mainSearch = () =>
     index.search(
       query.q ?? '',
       {
@@ -105,22 +142,63 @@ export const queryGalgameIndex = async (
         attributesToRetrieve: GALGAME_CARD_DOC_FIELDS
       },
       { signal: AbortSignal.timeout(SEARCH_QUERY_TIMEOUT_MS) }
-    ),
-    rankingScoreThreshold === undefined
-      ? Promise.resolve(null)
-      : index.search(
-          query.q ?? '',
-          {
-            ...baseOptions,
-            page: 1,
-            hitsPerPage: GALGAME_MAX_TOTAL_HITS,
-            // 只需要 totalHits：空数组让每个 hit 回传为 {}，常见词命中数千候选时
-            // 比 ['id'] 省约 75% 传输（实测 の：71KB→17.5KB）
-            attributesToRetrieve: []
-          },
-          { signal: AbortSignal.timeout(SEARCH_QUERY_TIMEOUT_MS) }
-        )
-  ])
+    )
+
+  // 浏览态（无阈值）：Meili 的 totalHits 本就精确，无需计数查询
+  if (rankingScoreThreshold === undefined) {
+    const res = await mainSearch()
+    return {
+      galgames: res.hits.map(searchDocToGalgameCard),
+      total: res.totalHits
+    }
+  }
+
+  // 设了 rankingScoreThreshold 后，Meili 有限分页的 totalHits 只穷举到当前页窗为止：
+  // 浅页返回"阈值过滤前"的候选数（偏大），翻到阈值截断处才崩塌 —— 页数会随翻页缩水。
+  // 需一个 hitsPerPage=maxTotalHits 的计数查询强制其对全部候选打分，拿到阈值之上的精确总数。
+  // 该总数与页码无关：优先读缓存，命中即跳过这条昂贵查询，只发主查询。
+  const cacheKey = buildTotalHitsCacheKey(query)
+  const cachedTotal = await readTotalHitsCache(cacheKey)
+  if (cachedTotal !== null) {
+    const res = await mainSearch()
+    return {
+      galgames: res.hits.map(searchDocToGalgameCard),
+      total: cachedTotal
+    }
+  }
+
+  // 缓存未命中：主查询与计数查询并行。主查询先发起，保持"主先计数后"的调用顺序。
+  // 计数查询单独兜底 —— 它超时/失败时回退到主查询的 totalHits（浅页偏大的近似值），
+  // 绝不因此拒绝整次搜索、把成功的主查询结果连带丢弃并降级到重 Prisma 实现
+  //（那会在 Meili 高负载期把最重的多 OR/join 查询倾泻到有限连接池上，酿成级联）。
+  const mainPromise = mainSearch()
+  const countPromise = index
+    .search(
+      query.q ?? '',
+      {
+        ...baseOptions,
+        page: 1,
+        hitsPerPage: GALGAME_MAX_TOTAL_HITS,
+        // 只需要 totalHits：空数组让每个 hit 回传为 {}，常见词命中数千候选时
+        // 比 ['id'] 省约 75% 传输（实测 の：71KB→17.5KB）
+        attributesToRetrieve: []
+      },
+      { signal: AbortSignal.timeout(SEARCH_QUERY_TIMEOUT_MS) }
+    )
+    .catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error('计数查询失败，回退到主查询 totalHits（近似）:', error)
+      return null
+    })
+
+  const [res, count] = await Promise.all([mainPromise, countPromise])
+
+  // 仅精确总数才入缓存；近似回退值不写，避免把降级期的偏大估算固化 60s。
+  // 写入 fire-and-forget：数据已算完，不为一次 Redis 写（最坏 2s commandTimeout）拖尾延迟；
+  // writeTotalHitsCache 内部已吞异常，void 不产生 unhandled rejection
+  if (count) {
+    void writeTotalHitsCache(cacheKey, count.totalHits)
+  }
 
   return {
     galgames: res.hits.map(searchDocToGalgameCard),

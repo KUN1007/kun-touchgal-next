@@ -1,11 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GalgameSearchDoc } from '~/server/search/document'
 
-// 隔离 Meilisearch 客户端：queryGalgameIndex 只依赖 getMeiliClient
-const { searchMock } = vi.hoisted(() => ({ searchMock: vi.fn() }))
+// 隔离 Meilisearch 客户端与 Redis：queryGalgameIndex 依赖 getMeiliClient 和 totalHits 缓存
+const { searchMock, getKvMock, setKvMock } = vi.hoisted(() => ({
+  searchMock: vi.fn(),
+  getKvMock: vi.fn(),
+  setKvMock: vi.fn()
+}))
 vi.mock('~/lib/meilisearch', () => ({
   getMeiliClient: () => ({ index: () => ({ search: searchMock }) }),
   isMeiliEnabled: () => true
+}))
+vi.mock('~/lib/redis', () => ({
+  getKv: getKvMock,
+  setKv: setKvMock
 }))
 
 import {
@@ -51,6 +59,9 @@ const sampleDoc: GalgameSearchDoc = {
 describe('queryGalgameIndex 分页总数', () => {
   beforeEach(() => {
     searchMock.mockReset()
+    // 默认缓存未命中，现有用例照常发主查询 + 计数查询
+    getKvMock.mockReset().mockResolvedValue(null)
+    setKvMock.mockReset().mockResolvedValue(undefined)
   })
 
   it('有查询词时用计数查询的精确 totalHits，而非主查询浅页高估值', async () => {
@@ -170,5 +181,93 @@ describe('queryGalgameIndex 分页总数', () => {
       expect.objectContaining({ rankingScoreThreshold: undefined }),
       expect.anything()
     )
+  })
+
+  it('计数查询失败时回退到主查询 totalHits，不拒绝整次搜索、不写缓存', async () => {
+    // 主查询成功返回浅页高估 148；计数查询超时/失败（reject）。
+    // 期望：不抛错、total 退化为主查询近似值 148，且近似值不入缓存（不污染后续 60s）。
+    searchMock.mockImplementation(
+      (_q: string, options: { hitsPerPage: number }) =>
+        options.hitsPerPage === GALGAME_MAX_TOTAL_HITS
+          ? Promise.reject(new Error('count timeout'))
+          : Promise.resolve({ hits: [sampleDoc], totalHits: 148 })
+    )
+
+    const result = await queryGalgameIndex({
+      q: 'atri',
+      filter: '',
+      page: 1,
+      hitsPerPage: 12
+    })
+
+    expect(result.total).toBe(148)
+    expect(result.galgames).toHaveLength(1)
+    expect(setKvMock).not.toHaveBeenCalled()
+  })
+
+  it('totalHits 命中缓存时跳过计数查询，且与页码无关', async () => {
+    searchMock.mockImplementation(
+      (_q: string, options: { hitsPerPage: number }) =>
+        Promise.resolve(
+          options.hitsPerPage === GALGAME_MAX_TOTAL_HITS
+            ? { hits: [], totalHits: 36 }
+            : { hits: [sampleDoc], totalHits: 148 }
+        )
+    )
+
+    // 首次：缓存未命中 → 主查询 + 计数查询，精确 total=36 写入缓存
+    const first = await queryGalgameIndex({
+      q: 'atri',
+      filter: '',
+      page: 1,
+      hitsPerPage: 12
+    })
+    expect(first.total).toBe(36)
+    expect(searchMock).toHaveBeenCalledTimes(2)
+    expect(setKvMock).toHaveBeenCalledOnce()
+    const cachedValue = setKvMock.mock.calls[0][1]
+    expect(cachedValue).toBe('36')
+
+    // 再次：翻到不同页、命中缓存 → 只发主查询，跳过 20000 候选计数查询
+    searchMock.mockClear()
+    getKvMock.mockResolvedValueOnce(cachedValue)
+    const second = await queryGalgameIndex({
+      q: 'atri',
+      filter: '',
+      page: 3,
+      hitsPerPage: 12
+    })
+    expect(second.total).toBe(36)
+    expect(searchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('缓存键随 filter 变化（可见性隔离），但与页码无关', async () => {
+    // filter 编码了可见性（contentLimit / 屏蔽标签）。它必须进缓存键，否则不同可见性的
+    // 用户会命中同一份 totalHits —— 跨用户串味。此断言守护该不变量：若日后从
+    // buildTotalHitsCacheKey 漏掉 filter，两键相等，本例即红。
+    searchMock.mockImplementation(
+      (_q: string, options: { hitsPerPage: number }) =>
+        Promise.resolve(
+          options.hitsPerPage === GALGAME_MAX_TOTAL_HITS
+            ? { hits: [], totalHits: 36 }
+            : { hits: [sampleDoc], totalHits: 148 }
+        )
+    )
+
+    await queryGalgameIndex({
+      q: 'atri',
+      filter: "contentLimit = 'sfw'",
+      page: 1,
+      hitsPerPage: 12
+    })
+    await queryGalgameIndex({ q: 'atri', filter: '', page: 1, hitsPerPage: 12 })
+    expect(getKvMock.mock.calls[0][0]).not.toBe(getKvMock.mock.calls[1][0])
+
+    // 相同检索条件、不同页 → 同键（totalHits 页无关，翻页复用）。
+    // 若日后把 page/hitsPerPage 混进键造成碎片化，两键不等，本例即红。
+    getKvMock.mockClear()
+    await queryGalgameIndex({ q: 'atri', filter: '', page: 1, hitsPerPage: 12 })
+    await queryGalgameIndex({ q: 'atri', filter: '', page: 5, hitsPerPage: 12 })
+    expect(getKvMock.mock.calls[0][0]).toBe(getKvMock.mock.calls[1][0])
   })
 })

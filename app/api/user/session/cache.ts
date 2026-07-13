@@ -43,13 +43,6 @@ export const getUserSessionCacheScope = async (
   return { generation, version }
 }
 
-const isSameCacheScope = (
-  current: UserSessionCacheScope,
-  expected: UserSessionCacheScope
-) =>
-  current.generation === expected.generation &&
-  current.version === expected.version
-
 const parseCachedUserSession = (value: string | null): UserState | null => {
   if (!value) {
     return null
@@ -86,11 +79,8 @@ export const setCachedUserSession = async (
   user: UserState,
   scope: UserSessionCacheScope
 ) => {
-  const currentScope = await getUserSessionCacheScope(uid)
-  if (!isSameCacheScope(currentScope, scope)) {
-    return
-  }
-
+  // key 已按 generation:version 命名空间化: 竞态下用旧 scope 写入只会落在读侧
+  // 算不到的死键上并随 TTL 过期, 不产生脏读, 故无需重读 scope 做 CAS 守卫
   await setKv(
     getUserSessionCacheKey(uid, scope),
     JSON.stringify(user),
@@ -151,11 +141,7 @@ export const setCachedAuthUser = async (
   user: AuthUserCache,
   scope: UserSessionCacheScope
 ) => {
-  const currentScope = await getUserSessionCacheScope(uid)
-  if (!isSameCacheScope(currentScope, scope)) {
-    return
-  }
-
+  // 同 setCachedUserSession: 命名空间化的 key 已保证旧 scope 写入不可读, 免 CAS 重读
   await setKv(
     getAuthUserCacheKey(uid, scope),
     JSON.stringify(user),

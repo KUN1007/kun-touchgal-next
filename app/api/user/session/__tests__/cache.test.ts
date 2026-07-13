@@ -63,14 +63,12 @@ describe('auth-user 缓存', () => {
     await expect(getCachedAuthUser(uid, newScope)).resolves.toBeNull()
   })
 
-  it('写入前 scope 已漂移时放弃写入 (compare-and-set)', async () => {
+  it('scope 漂移后用旧 scope 写入在当前 scope 下不可见 (命名空间隔离)', async () => {
     const staleScope = await getUserSessionCacheScope(uid)
     await invalidateUserSession(uid)
-    setKvMock.mockClear()
 
     await setCachedAuthUser(uid, authUser, staleScope)
 
-    expect(setKvMock).not.toHaveBeenCalled()
     const currentScope = await getUserSessionCacheScope(uid)
     await expect(getCachedAuthUser(uid, currentScope)).resolves.toBeNull()
   })

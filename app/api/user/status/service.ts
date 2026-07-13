@@ -73,32 +73,37 @@ const getPendingProfileValues = async (uid: number) => {
 }
 
 export const getUserStatus = async (uid: number) => {
-  const user = await prisma.user.findUnique({
-    where: { id: uid },
-    select: {
-      id: true,
-      name: true,
-      avatar: true,
-      bio: true,
-      moemoepoint: true,
-      role: true,
-      status: true,
-      daily_check_in: true,
-      daily_image_count: true,
-      daily_upload_size: true,
-      enable_email_notice: true,
-      allow_private_message: true,
-      blocked_tag_ids: true
-    }
-  })
+  // 三者仅依赖 uid、互不依赖: 并行拉取以缩短会话缓存未命中路径的串行长度。
+  // null / status===2 的早退在结果就绪后判定, 代价是错误路径多跑 pending/redirect (罕见)
+  const [user, { pendingAvatar, pendingBio }, redirectConfig] =
+    await Promise.all([
+      prisma.user.findUnique({
+        where: { id: uid },
+        select: {
+          id: true,
+          name: true,
+          avatar: true,
+          bio: true,
+          moemoepoint: true,
+          role: true,
+          status: true,
+          daily_check_in: true,
+          daily_image_count: true,
+          daily_upload_size: true,
+          enable_email_notice: true,
+          allow_private_message: true,
+          blocked_tag_ids: true
+        }
+      }),
+      getPendingProfileValues(uid),
+      getRedirectConfig()
+    ])
   if (!user) {
     return '用户未找到'
   }
   if (user.status === 2) {
     return '用户登陆失效'
   }
-  const { pendingAvatar, pendingBio } = await getPendingProfileValues(uid)
-  const redirectConfig = await getRedirectConfig()
   const responseData: UserState = {
     uid: user.id,
     name: user.name,

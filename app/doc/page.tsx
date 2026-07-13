@@ -6,6 +6,8 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = kunMetadata
 
+export const dynamic = 'force-static'
+
 export default function Kun() {
   const posts = getAllPosts()
 

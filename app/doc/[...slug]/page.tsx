@@ -11,6 +11,8 @@ import { BlogHeader } from '~/components/doc/BlogHeader'
 import { KunBreadcrumbTitle } from '~/components/kun/BreadcrumbTitle'
 import type { Metadata } from 'next'
 
+export const dynamic = 'force-static'
+
 interface Props {
   params: Promise<{
     slug: string[]

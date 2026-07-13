@@ -1,5 +1,12 @@
 import { z } from 'zod'
 import { nonEmptyFileSchema } from './file'
+import { MARKDOWN_HTML_CACHE_MAX_MARKDOWN_BYTES } from '~/config/cache'
+
+const introductionTextEncoder = new TextEncoder()
+
+const isIntroductionWithinByteLimit = (value: string) =>
+  introductionTextEncoder.encode(value).length <=
+  MARKDOWN_HTML_CACHE_MAX_MARKDOWN_BYTES
 
 const duplicateQueryField = (maxLength: number) =>
   z.preprocess((value) => {
@@ -76,7 +83,10 @@ export const patchCreateSchema = z.object({
     .string()
     .trim()
     .min(10, { message: '游戏介绍是必填项, 最少 10 个字符' })
-    .max(100007, { message: '游戏介绍最多 100007 字' }),
+    .max(100007, { message: '游戏介绍最多 100007 字' })
+    .refine(isIntroductionWithinByteLimit, {
+      message: '游戏介绍内容体积过大，请精简后再提交'
+    }),
   alias: z
     .string()
     .max(2333, { message: '别名字符串总长度不可超过 3000 个字符' }),
@@ -108,7 +118,10 @@ export const patchUpdateSchema = z.object({
     .string()
     .trim()
     .min(10, { message: '游戏介绍是必填项, 最少 10 个字符' })
-    .max(100007, { message: '游戏介绍最多 100007 字' }),
+    .max(100007, { message: '游戏介绍最多 100007 字' })
+    .refine(isIntroductionWithinByteLimit, {
+      message: '游戏介绍内容体积过大，请精简后再提交'
+    }),
   tag: z.array(
     z
       .string()

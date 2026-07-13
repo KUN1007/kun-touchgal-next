@@ -32,6 +32,8 @@ const getAllowedHosts = (): Set<string> => {
   return hosts
 }
 
+const ALLOWED_HOSTS = getAllowedHosts()
+
 export const verifyKunCsrf = (req: NextRequest): string | null => {
   if (!STATE_CHANGING_METHODS.has(req.method)) {
     return null
@@ -45,21 +47,20 @@ export const verifyKunCsrf = (req: NextRequest): string | null => {
     return '非法请求来源'
   }
 
-  const allowed = getAllowedHosts()
-  if (allowed.size === 0) {
+  if (ALLOWED_HOSTS.size === 0) {
     return '服务端未配置允许的请求来源'
   }
 
   const origin = req.headers.get('origin')
   if (origin) {
     const host = parseHost(origin)
-    return host && allowed.has(host) ? null : '非法请求来源'
+    return host && ALLOWED_HOSTS.has(host) ? null : '非法请求来源'
   }
 
   const referer = req.headers.get('referer')
   if (referer) {
     const host = parseHost(referer)
-    return host && allowed.has(host) ? null : '非法请求来源'
+    return host && ALLOWED_HOSTS.has(host) ? null : '非法请求来源'
   }
 
   return '非法请求来源'

@@ -15,8 +15,11 @@ import {
 } from '~/lib/redis'
 import { prisma } from '~/prisma/index'
 import {
+  getCachedAuthUser,
+  getUserSessionCacheScope,
   getUserSessionInvalidationKv,
-  invalidateUserSession
+  invalidateUserSession,
+  setCachedAuthUser
 } from '~/app/api/user/session/cache'
 import type { LoginSession } from '~/types/api/session'
 
@@ -458,19 +461,31 @@ const verifyAndLoadUser = async (refreshToken: string) => {
     if (!payload) {
       return null
     }
-    const user = await prisma.user.findUnique({
-      where: { id: payload.uid },
-      select: {
-        id: true,
-        name: true,
-        role: true,
-        status: true,
-        blocked_tag_ids: true
-      }
-    })
+
+    const scope = await getUserSessionCacheScope(payload.uid).catch(() => null)
+    const cached = scope
+      ? await getCachedAuthUser(payload.uid, scope).catch(() => null)
+      : null
+
+    const user =
+      cached ??
+      (await prisma.user.findUnique({
+        where: { id: payload.uid },
+        select: {
+          id: true,
+          name: true,
+          role: true,
+          status: true,
+          blocked_tag_ids: true
+        }
+      }))
     if (!user || user.status === 2) {
       await deleteKunToken(payload.uid)
       return null
+    }
+
+    if (!cached && scope) {
+      await setCachedAuthUser(payload.uid, user, scope).catch(() => undefined)
     }
 
     return {

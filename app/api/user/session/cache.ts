@@ -98,6 +98,71 @@ export const setCachedUserSession = async (
   )
 }
 
+// 鉴权热点路径 (verifyAndLoadUser) 专用的轻量用户缓存: 只存封禁判定与
+// payload 覆盖需要的字段, 复用 UserState 会话缓存的 generation+version 失效,
+// 与 getUserSessionByToken 路径共享同一套写路径 invalidate 接线
+export interface AuthUserCache {
+  id: number
+  name: string
+  role: number
+  status: number
+  blocked_tag_ids: number[]
+}
+
+const getAuthUserCacheKey = (
+  uid: number,
+  { generation, version }: UserSessionCacheScope
+) => `session:authuser:${generation}:${version}:${uid}`
+
+const parseCachedAuthUser = (value: string | null): AuthUserCache | null => {
+  if (!value) {
+    return null
+  }
+
+  try {
+    const user = JSON.parse(value) as Partial<AuthUserCache>
+    if (
+      typeof user.id !== 'number' ||
+      typeof user.name !== 'string' ||
+      typeof user.role !== 'number' ||
+      typeof user.status !== 'number' ||
+      !Array.isArray(user.blocked_tag_ids)
+    ) {
+      return null
+    }
+
+    return user as AuthUserCache
+  } catch {
+    return null
+  }
+}
+
+export const getCachedAuthUser = async (
+  uid: number,
+  scope: UserSessionCacheScope
+) => {
+  const cached = await getKv(getAuthUserCacheKey(uid, scope))
+
+  return parseCachedAuthUser(cached)
+}
+
+export const setCachedAuthUser = async (
+  uid: number,
+  user: AuthUserCache,
+  scope: UserSessionCacheScope
+) => {
+  const currentScope = await getUserSessionCacheScope(uid)
+  if (!isSameCacheScope(currentScope, scope)) {
+    return
+  }
+
+  await setKv(
+    getAuthUserCacheKey(uid, scope),
+    JSON.stringify(user),
+    USER_SESSION_CACHE_TTL_SECONDS
+  )
+}
+
 export const invalidateUserSession = async (uid: number) => {
   try {
     await setKv(getUserSessionVersionKey(uid), randomUUID())

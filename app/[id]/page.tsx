@@ -31,7 +31,7 @@ export const generateMetadata = async ({
   }
 
   const [pageData, nsfwHeader] = await Promise.all([
-    kunGetPatchPageDataActions({ uniqueId: id }),
+    kunGetPatchPageDataActions(id),
     getNSFWHeader()
   ])
   if (typeof pageData === 'string') {
@@ -52,7 +52,7 @@ export default async function Kun({ params }: Props) {
   }
 
   const [pageData, payload, nsfwHeader] = await Promise.all([
-    kunGetPatchPageDataActions({ uniqueId: id }),
+    kunGetPatchPageDataActions(id),
     verifyHeaderCookie(),
     getNSFWHeader()
   ])

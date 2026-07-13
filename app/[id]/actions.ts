@@ -11,18 +11,16 @@ const uniqueIdSchema = z.object({
   uniqueId: z.string().min(8).max(8)
 })
 
-export const kunGetPatchPageDataActions = cache(
-  async (params: z.infer<typeof uniqueIdSchema>) => {
-    const input = safeParseSchema(uniqueIdSchema, params)
-    if (typeof input === 'string') {
-      return input
-    }
-    const payload = await verifyHeaderCookie()
-
-    const response = await getPatchPageData(input, payload)
-    return response
+export const kunGetPatchPageDataActions = cache(async (uniqueId: string) => {
+  const input = safeParseSchema(uniqueIdSchema, { uniqueId })
+  if (typeof input === 'string') {
+    return input
   }
-)
+  const payload = await verifyHeaderCookie()
+
+  const response = await getPatchPageData(input, payload)
+  return response
+})
 
 export const kunUpdatePatchViewsActions = async (
   params: z.infer<typeof uniqueIdSchema>

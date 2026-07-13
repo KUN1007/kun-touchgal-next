@@ -122,6 +122,48 @@ describe('reconcileSearchIndex keyset 分批加载 PG', () => {
     expect(syncCall?.[0].where.id.in).toEqual([1])
   })
 
+  it('大批同步跨多个构建子块仍聚合进单次写入批, 拼接透传行序不重排', async () => {
+    // 120 > DOC_BUILD_CHUNK_SIZE(50): 强制 doc 构建切成多个子块并让出事件循环
+    const ids = Array.from({ length: 120 }, (_, i) => i + 1)
+    // 模拟 Postgres 对 IN 查询不保证返回序: 用非单调乱序(偶数升序在前、奇数升序在
+    // 后)回 rows, 证明子块拼接原样透传 findMany 返回序、不重排。生产按 Meili id
+    // upsert 不依赖顺序, 此处仅锁定拼接逻辑本身
+    const scrambled = [
+      ...ids.filter((id) => id % 2 === 0),
+      ...ids.filter((id) => id % 2 === 1)
+    ]
+    patchFindManyMock.mockImplementation(
+      (args: { where?: { id?: { gt?: number; in?: number[] } } }) => {
+        if (args.where?.id?.in) {
+          return Promise.resolve(
+            scrambled.map((id) => ({ id, updated: t(200) }))
+          )
+        }
+        if (args.where?.id?.gt === 0) {
+          return Promise.resolve(ids.map((id) => ({ id, updated: t(200) })))
+        }
+        return Promise.resolve([])
+      }
+    )
+    // 索引侧为空 → 120 条全部落后需同步
+    getDocumentsMock.mockResolvedValue({ results: [], total: 0 })
+    patchToSearchDocMock.mockImplementation((p: { id: number }) =>
+      Promise.resolve({ id: p.id })
+    )
+
+    const result = await reconcileSearchIndex()
+
+    expect(result.synced).toBe(120)
+    expect(result.deleted).toBe(0)
+    // 120 < RECONCILE_BATCH_SIZE(1000): 多个构建子块聚合成一次 addDocuments, 写入边界不变
+    expect(addDocumentsMock).toHaveBeenCalledTimes(1)
+    const written = addDocumentsMock.mock.calls[0][0] as { id: number }[]
+    expect(written).toHaveLength(120)
+    // 输出顺序 == findMany 实际返回序(乱序): 子块拼接不重排; 重排型 bug 会在此被抓
+    expect(written.map((d) => d.id)).toEqual(scrambled)
+    expect(patchToSearchDocMock).toHaveBeenCalledTimes(120)
+  })
+
   it('空表时首查即以 gt 0 起、单次即终止，无删除无同步', async () => {
     patchFindManyMock.mockResolvedValueOnce([])
     getDocumentsMock.mockResolvedValue({ results: [], total: 0 })

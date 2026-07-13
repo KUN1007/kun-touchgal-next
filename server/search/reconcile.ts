@@ -1,9 +1,16 @@
 import { prisma } from '~/prisma/index'
 import { getMeiliClient } from '~/lib/meilisearch'
 import { GALGAME_INDEX } from './settings'
-import { PATCH_SEARCH_SELECT, patchToSearchDoc } from './document'
+import {
+  PATCH_SEARCH_SELECT,
+  patchToSearchDoc,
+  type GalgameSearchDoc
+} from './document'
 
 const RECONCILE_BATCH_SIZE = 1000
+// markdown 转换是同步 CPU: 每构建这么多文档就让出一次事件循环, 把突发摊平成协作
+// 切片, 避免饿死同 cron 进程的 moderation / retry 等定时任务
+const DOC_BUILD_CHUNK_SIZE = 50
 
 export interface SearchReconcileResult {
   total: number
@@ -78,7 +85,12 @@ export const reconcileSearchIndex =
         where: { id: { in: batchIds } },
         select: PATCH_SEARCH_SELECT
       })
-      const docs = await Promise.all(rows.map(patchToSearchDoc))
+      const docs: GalgameSearchDoc[] = []
+      for (let j = 0; j < rows.length; j += DOC_BUILD_CHUNK_SIZE) {
+        const chunk = rows.slice(j, j + DOC_BUILD_CHUNK_SIZE)
+        docs.push(...(await Promise.all(chunk.map(patchToSearchDoc))))
+        await new Promise((resolve) => setImmediate(resolve))
+      }
       const task = await index.addDocuments(docs).waitTask({ timeout: 600000 })
       if (task.status !== 'succeeded') {
         throw new Error(`对账写入失败: ${JSON.stringify(task.error)}`)

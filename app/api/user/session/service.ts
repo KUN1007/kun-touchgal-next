@@ -53,14 +53,13 @@ export const getUserSessionByToken = async (
     return null
   }
 
-  const user = await getUserState(payload.uid)
+  const [user, unread] = await Promise.all([
+    getUserState(payload.uid),
+    getUnreadMessageStatus(payload.uid).catch(() => emptyUnreadStatus)
+  ])
   if (!user) {
     return null
   }
-
-  const unread = await getUnreadMessageStatus(payload.uid).catch(
-    () => emptyUnreadStatus
-  )
 
   return { user, unread }
 }

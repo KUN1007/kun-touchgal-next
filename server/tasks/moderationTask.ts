@@ -5,6 +5,7 @@ import type { moderation_taskModel } from '~/prisma/generated/prisma/models'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 import { getKv, setKv } from '~/lib/redis'
 import { getFileFromS3 } from '~/lib/s3'
+import { withEncodeSlot } from '~/server/image/encodeLimit'
 import { KUN_MODERATION_VERDICT_CACHE_KEY } from '~/config/redis'
 import {
   MODERATION_BATCH_SIZE,
@@ -142,7 +143,9 @@ const processAvatarTask = async (task: moderation_taskModel) => {
     AbortSignal.timeout(MODERATION_S3_TIMEOUT_MS)
   )
   // vision APIs handle jpeg far more reliably than avif
-  const jpeg = await sharp(buffer).jpeg({ quality: 85 }).toBuffer()
+  const jpeg = await withEncodeSlot(() =>
+    sharp(buffer).jpeg({ quality: 85 }).toBuffer()
+  )
   const result = await moderateImage(jpeg.toString('base64'))
   await applyAiResult(task, result)
 }

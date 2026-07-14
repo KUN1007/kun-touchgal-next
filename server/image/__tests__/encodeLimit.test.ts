@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'vitest'
-import { withEncodeSlot } from '~/server/image/encodeLimit'
+import { describe, it, expect, vi } from 'vitest'
+import {
+  EncodeBusyError,
+  MAX_QUEUE_DEPTH,
+  QUEUE_TIMEOUT_MS,
+  withEncodeSlot
+} from '~/server/image/encodeLimit'
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
 
@@ -116,5 +121,51 @@ describe('withEncodeSlot', () => {
 
     gates.forEach((gate) => gate.resolve())
     await Promise.all(tasks)
+  })
+
+  it('等待队列达到上限后拒绝新的编码请求', async () => {
+    // 占满 2 个并发槽
+    const blockers = Array.from({ length: 2 }, () => defer<void>())
+    const activeTasks = blockers.map((b) => withEncodeSlot(() => b.promise))
+
+    // 再填满 MAX_QUEUE_DEPTH 个等待者
+    const queuedGate = defer<void>()
+    const queuedTasks = Array.from({ length: MAX_QUEUE_DEPTH }, () =>
+      withEncodeSlot(() => queuedGate.promise)
+    )
+
+    // 队列已满, 第 MAX_QUEUE_DEPTH + 1 个立即被拒
+    await expect(withEncodeSlot(async () => 1)).rejects.toBeInstanceOf(
+      EncodeBusyError
+    )
+
+    // 放行, 恢复干净的模块状态供后续用例复用
+    blockers.forEach((b) => b.resolve())
+    queuedGate.resolve()
+    await Promise.all([...activeTasks, ...queuedTasks])
+  })
+
+  it('排队超时后 reject 等待者并释放其占用', async () => {
+    vi.useFakeTimers()
+    try {
+      const gate = defer<void>()
+      // 占满 2 个并发槽 (真正在跑)
+      const activeTasks = Array.from({ length: 2 }, () =>
+        withEncodeSlot(() => gate.promise)
+      )
+
+      // 第 3 个进入排队, 到点后应超时被拒
+      const queued = withEncodeSlot(async () => 'done')
+      const assertion = expect(queued).rejects.toBeInstanceOf(EncodeBusyError)
+      await vi.advanceTimersByTimeAsync(QUEUE_TIMEOUT_MS)
+      await assertion
+
+      // 放行占位任务, 恢复干净状态
+      gate.resolve()
+      await vi.runAllTimersAsync()
+      await Promise.all(activeTasks)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

@@ -2,7 +2,8 @@ import sharp from 'sharp'
 
 import { uploadImageToS3 } from '~/lib/s3'
 import { checkBufferSize } from '~/app/api/utils/checkBufferSize'
-import { withEncodeSlot } from '~/server/image/encodeLimit'
+import { withEncodeSlotOrBusy } from '~/server/image/encodeLimit'
+import { ensureWithinPixelLimit } from '~/server/image/pixelGuard'
 
 export const uploadIntroductionImage = async (
   name: string,
@@ -13,7 +14,12 @@ export const uploadIntroductionImage = async (
     return '上传文件不能为空'
   }
 
-  const minImage = await withEncodeSlot(() =>
+  const pixelError = await ensureWithinPixelLimit(image)
+  if (pixelError) {
+    return pixelError
+  }
+
+  const minImage = await withEncodeSlotOrBusy(() =>
     sharp(image)
       .resize(1920, 1080, {
         fit: 'inside',
@@ -22,6 +28,10 @@ export const uploadIntroductionImage = async (
       .avif({ quality: 30 })
       .toBuffer()
   )
+
+  if (typeof minImage === 'string') {
+    return minImage
+  }
 
   if (!checkBufferSize(minImage, 1.007)) {
     return '图片体积过大'

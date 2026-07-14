@@ -2,20 +2,8 @@ import sharp from 'sharp'
 
 import { uploadImageToS3 } from '~/lib/s3'
 import { checkBufferSize } from '~/app/api/utils/checkBufferSize'
-import { withEncodeSlot } from '~/server/image/encodeLimit'
-import { MAX_IMAGE_PIXELS } from '~/validations/file'
-
-const ensureWithinPixelLimit = async (
-  buffer: ArrayBuffer
-): Promise<string | undefined> => {
-  const { width, height } = await sharp(buffer).metadata()
-  if (!width || !height) {
-    return '无法解析图片尺寸'
-  }
-  if (width * height > MAX_IMAGE_PIXELS) {
-    return '图片尺寸过大'
-  }
-}
+import { withEncodeSlotOrBusy } from '~/server/image/encodeLimit'
+import { ensureWithinPixelLimit } from '~/server/image/pixelGuard'
 
 export const uploadPatchBanner = async (
   image: ArrayBuffer,
@@ -41,7 +29,7 @@ export const uploadPatchBanner = async (
   }
 
   const encodeFull = originalImage
-    ? withEncodeSlot(() =>
+    ? withEncodeSlotOrBusy(() =>
         sharp(originalImage)
           .resize(3840, null, {
             fit: 'inside',
@@ -52,8 +40,8 @@ export const uploadPatchBanner = async (
       )
     : undefined
 
-  const [{ banner, miniBanner }, fullBanner] = await Promise.all([
-    withEncodeSlot(async () => {
+  const [main, fullBanner] = await Promise.all([
+    withEncodeSlotOrBusy(async () => {
       const banner = await sharp(image)
         .resize(1920, 1080, {
           fit: 'inside',
@@ -72,6 +60,14 @@ export const uploadPatchBanner = async (
     }),
     encodeFull
   ])
+
+  if (typeof main === 'string') {
+    return main
+  }
+  if (typeof fullBanner === 'string') {
+    return fullBanner
+  }
+  const { banner, miniBanner } = main
 
   if (!checkBufferSize(banner, 5)) {
     return '图片体积过大'

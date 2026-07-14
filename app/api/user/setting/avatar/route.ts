@@ -74,7 +74,7 @@ const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
     await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: uid },
-        data: { avatar_status: 1 }
+        data: { avatar_status: 1, daily_image_count: { increment: 1 } }
       })
       await createModerationTask(
         {
@@ -102,7 +102,11 @@ const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
 
   await prisma.user.update({
     where: { id: uid },
-    data: { avatar: imageLink, avatar_status: 0 }
+    data: {
+      avatar: imageLink,
+      avatar_status: 0,
+      daily_image_count: { increment: 1 }
+    }
   })
 
   if (moderation.queue) {

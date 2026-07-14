@@ -2,7 +2,8 @@ import sharp from 'sharp'
 
 import { uploadImageToS3 } from '~/lib/s3'
 import { checkBufferSize } from '~/app/api/utils/checkBufferSize'
-import { withEncodeSlot } from '~/server/image/encodeLimit'
+import { withEncodeSlotOrBusy } from '~/server/image/encodeLimit'
+import { ensureWithinPixelLimit } from '~/server/image/pixelGuard'
 
 // 头像正式 S3 key 的唯一定义处 (发布位置, 每用户固定); 审核暂存 key 见
 // getUserAvatarPendingKeys —— 刻意分离, 不让暂存对象再共用一个固定 key
@@ -36,7 +37,12 @@ export const uploadUserAvatar = async (
     return '上传文件不能为空'
   }
 
-  const { avatar, miniAvatar } = await withEncodeSlot(async () => {
+  const pixelError = await ensureWithinPixelLimit(image)
+  if (pixelError) {
+    return pixelError
+  }
+
+  const encoded = await withEncodeSlotOrBusy(async () => {
     const avatar = await sharp(image)
       .resize(256, 256, {
         fit: 'inside',
@@ -53,6 +59,11 @@ export const uploadUserAvatar = async (
       .toBuffer()
     return { avatar, miniAvatar }
   })
+
+  if (typeof encoded === 'string') {
+    return encoded
+  }
+  const { avatar, miniAvatar } = encoded
 
   if (!checkBufferSize(avatar, 1.007)) {
     return '图片体积过大'

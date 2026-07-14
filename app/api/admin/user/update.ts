@@ -82,6 +82,9 @@ export const updateUser = async (
     return {}
   })
 
+  // 改权(降权/封禁)必须用 deleteKunToken: 它硬删 access token 使旧凭证校验先行
+  // 失败, 是「旧鉴权缓存不被采信」的根闸门。不可替换为只轮转缓存 version 的
+  // invalidateUserSession —— 后者轮转失败会被吞掉, 存活旧 token 将命中旧权限缓存
   await deleteKunToken(uid)
   return result
 }

@@ -159,4 +159,24 @@ describe('verifyAndLoadUser 用户缓存', () => {
     })
     expect(result?.user).toEqual(dbUser)
   })
+
+  it('token 已被 deleteKunToken 删除时, 即便旧缓存仍在也拒绝且不读缓存 (闸门 A 不变量)', async () => {
+    // 模拟 deleteKunToken 已 delKvs 掉 access token: redis 中该 token 键为空
+    getKvsMock.mockResolvedValue([null, null])
+    // 旧鉴权缓存尚未随 version 轮转失效, 仍是一条 role=4 超管记录
+    getCachedAuthUserMock.mockResolvedValue({
+      id: 7,
+      name: 'kun',
+      role: 4,
+      status: 0,
+      blocked_tag_ids: []
+    })
+
+    const result = await verifyKunTokenWithUser(token)
+
+    expect(result).toBeNull()
+    // 凭证已删 → 在读缓存之前即短路, 陈旧缓存永不被采信
+    expect(getCachedAuthUserMock).not.toHaveBeenCalled()
+    expect(findUniqueMock).not.toHaveBeenCalled()
+  })
 })

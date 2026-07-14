@@ -1,10 +1,15 @@
+import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { kunParseFormData } from '~/app/api/utils/parseQuery'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { prisma } from '~/prisma/index'
 import { avatarSchema } from '~/validations/user'
 import { purgeCloudflareCache } from '~/app/api/utils/purgeCloudflareCache'
-import { getUserAvatarKeys, uploadUserAvatar } from '../_upload'
+import {
+  getUserAvatarKeys,
+  getUserAvatarPendingKeys,
+  uploadUserAvatar
+} from '../_upload'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
 import {
   createModerationTask,
@@ -44,7 +49,13 @@ const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
 
   const moderation = await preScreenMedia()
 
-  const res = await uploadUserAvatar(avatar, uid, moderation.intercept)
+  // 审核拦截时用每次上传唯一的暂存 key, 使送审读取与 apply 复制绑定同一不可变对象,
+  // 并发双上传各写各的 key, 无从互相覆盖
+  const pendingKeys = moderation.intercept
+    ? getUserAvatarPendingKeys(uid, randomUUID())
+    : undefined
+
+  const res = await uploadUserAvatar(avatar, uid, pendingKeys)
   if (typeof res === 'string') {
     return res
   }
@@ -56,9 +67,10 @@ const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
   const imageBedUrl = process.env.KUN_VISUAL_NOVEL_IMAGE_BED_URL
   const keys = getUserAvatarKeys(uid)
 
-  if (moderation.intercept) {
-    // 新头像暂存于 pending key, 通过审核后由 apply.ts 复制到正式 key
-    const pendingLink = `${imageBedUrl}/${keys.pendingMiniKey}?v=${avatarVersion}`
+  // pendingKeys 存在 ⟺ moderation.intercept: 走暂存审核流程
+  if (pendingKeys) {
+    // 新头像暂存于唯一 pending key, 通过审核后由 apply.ts 复制到正式 key
+    const pendingLink = `${imageBedUrl}/${pendingKeys.pendingMiniKey}?v=${avatarVersion}`
     await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: uid },
@@ -69,8 +81,8 @@ const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
           contentType: 'avatar',
           userId: uid,
           payload: {
-            pendingKey: keys.pendingKey,
-            pendingMiniKey: keys.pendingMiniKey,
+            pendingKey: pendingKeys.pendingKey,
+            pendingMiniKey: pendingKeys.pendingMiniKey,
             avatarKey: keys.avatarKey,
             avatarMiniKey: keys.avatarMiniKey,
             avatarLink: imageLink,
@@ -82,7 +94,7 @@ const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
       )
     })
     await invalidateUserSession(uid)
-    await purgeCloudflareCache([`${imageBedUrl}/${keys.pendingMiniKey}`])
+    // pending 用每次唯一的新 key, CDN 无旧缓存可刷, 无需 purge (正式落地分支才需)
 
     // 显性告知作者头像审核中: 返回 pending 预览与审核标志
     return { avatar: pendingLink, pending: true }

@@ -22,9 +22,11 @@ export const remarkKunWrapImage: Plugin<[], Node> = () => {
 
       const siblings = parent.children
       const collected: any[] = []
+      const kept: any[] = []
 
-      for (let j = index + 1; j < siblings.length; ) {
-        const sib = siblings[j]
+      let end = index + 1
+      for (; end < siblings.length; end++) {
+        const sib = siblings[end]
 
         if (sib?.type === 'element' && /^h[1-6]$/.test(sib.tagName)) {
           break
@@ -38,7 +40,6 @@ export const remarkKunWrapImage: Plugin<[], Node> = () => {
 
         if (hasImg) {
           collected.push(sib)
-          siblings.splice(j, 1)
           continue
         }
 
@@ -46,7 +47,7 @@ export const remarkKunWrapImage: Plugin<[], Node> = () => {
           break
         }
 
-        j++
+        kept.push(sib)
       }
 
       if (collected.length === 0) {
@@ -61,7 +62,7 @@ export const remarkKunWrapImage: Plugin<[], Node> = () => {
         children: collected
       }
 
-      siblings.splice(index + 1, 0, wrapper)
+      siblings.splice(index + 1, end - index - 1, wrapper, ...kept)
     })
   }
 }

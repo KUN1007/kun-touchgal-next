@@ -5,6 +5,10 @@ import { prisma } from '~/prisma/index'
 import { uploadIntroductionImage } from './_upload'
 import { imageSchema } from '~/validations/edit'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
+import {
+  claimDailyImageQuota,
+  refundDailyImageQuota
+} from '~/app/api/utils/imageQuota'
 
 const uploadImage = async (uid: number, image: ArrayBuffer) => {
   const user = await prisma.user.findUnique({
@@ -13,21 +17,27 @@ const uploadImage = async (uid: number, image: ArrayBuffer) => {
   if (!user) {
     return '用户未找到'
   }
-  if (user.daily_image_count >= 50) {
+  // 编码前原子抢占每日额度: 抢不到直接拒绝, 不进入编码队列 (限制 "已承诺的总工作量").
+  // 取代原先 "先读计数判断再递增" 的两步写法, 杜绝并发下的 TOCTOU 越额
+  if (!(await claimDailyImageQuota(uid))) {
     return '您今日上传的图片已达到 50 张限额'
   }
 
   const newFileName = `${uid}-${Date.now()}`
 
-  const res = await uploadIntroductionImage(newFileName, image, uid)
+  // 抢占后编码 / 上传失败则退还额度; 上传成功则额度落定 (S3 资源已消耗)
+  let res: string | undefined
+  try {
+    res = await uploadIntroductionImage(newFileName, image, uid)
+  } catch (error) {
+    await refundDailyImageQuota(uid)
+    throw error
+  }
   if (typeof res === 'string') {
+    await refundDailyImageQuota(uid)
     return res
   }
 
-  await prisma.user.update({
-    where: { id: uid },
-    data: { daily_image_count: { increment: 1 } }
-  })
   await invalidateUserSession(uid)
 
   const imageLink = `${process.env.KUN_VISUAL_NOVEL_IMAGE_BED_URL}/user/image/${uid}/${newFileName}.avif`

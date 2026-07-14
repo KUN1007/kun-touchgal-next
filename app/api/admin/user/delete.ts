@@ -7,6 +7,8 @@ import { recomputePatchRatingStats } from '~/app/api/patch/rating/stat'
 import { invalidateTagListCache } from '~/app/api/tag/cache'
 import { invalidateCompanyListCache } from '~/app/api/company/cache'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
+import { recalcPatchType } from '~/app/api/patch/resource/_helper'
+import { queueSearchSync } from '~/server/search/sync'
 
 const userIdSchema = z.object({
   uid: z.coerce.number({ message: '用户 ID 必须为数字' }).min(1).max(9999999)
@@ -68,6 +70,7 @@ export const deleteUser = async (
   }
 
   let result: Record<string, never>
+  let affectedPatchIds: number[] = []
   let retryCount = 0
   while (true) {
     try {
@@ -84,6 +87,22 @@ export const deleteUser = async (
             }
           })
 
+          // 该用户在他人补丁下的资源随 user.delete() 级联消失, 但 patch 的
+          // type/language/platform 聚合不会自动重算. S3 资源已由上方 deleteResource
+          // 各自重算, 此处 Serializable 快照只读到剩余的非 S3 资源 (漏算集);
+          // 自己的 patch 会被级联删故过滤掉. 排序固定通告锁序, 与 hidden.ts 同理避免死锁
+          const resourcePatches = await prisma.patch_resource.findMany({
+            where: {
+              user_id: input.uid,
+              patch: { user_id: { not: input.uid } }
+            },
+            select: { patch_id: true },
+            distinct: ['patch_id']
+          })
+          affectedPatchIds = resourcePatches
+            .map((resource) => resource.patch_id)
+            .sort((a, b) => a - b)
+
           await prisma.user.delete({
             where: { id: input.uid }
           })
@@ -97,6 +116,12 @@ export const deleteUser = async (
               .map((rating) => rating.patch_id),
             prisma
           )
+
+          // 级联删除已移除资源行但不触发聚合重算, 补齐之
+          // (recalcPatchType 内含 patch 内容缓存失效, 与 create/update/delete/hidden 一致)
+          for (const patchId of affectedPatchIds) {
+            await recalcPatchType(patchId, prisma)
+          }
 
           await prisma.admin_log.create({
             data: {
@@ -127,6 +152,9 @@ export const deleteUser = async (
   await Promise.all(
     commentedPatches.map((c) => invalidatePatchCommentCache(c.patch_id))
   )
+  for (const patchId of affectedPatchIds) {
+    queueSearchSync(patchId)
+  }
 
   return result
 }

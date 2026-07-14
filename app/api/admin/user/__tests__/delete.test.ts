@@ -20,7 +20,10 @@ const {
   invalidateTagCacheMock,
   invalidateCompanyCacheMock,
   findCommentedPatchesMock,
-  invalidateCommentCacheMock
+  invalidateCommentCacheMock,
+  findResourcesInTransactionMock,
+  recalcPatchTypeMock,
+  queueSearchSyncMock
 } = vi.hoisted(() => ({
   findUserMock: vi.fn(),
   findResourcesMock: vi.fn(),
@@ -41,7 +44,10 @@ const {
   invalidateTagCacheMock: vi.fn(),
   invalidateCompanyCacheMock: vi.fn(),
   findCommentedPatchesMock: vi.fn(),
-  invalidateCommentCacheMock: vi.fn()
+  invalidateCommentCacheMock: vi.fn(),
+  findResourcesInTransactionMock: vi.fn(),
+  recalcPatchTypeMock: vi.fn(),
+  queueSearchSyncMock: vi.fn()
 }))
 
 const events: string[] = []
@@ -49,6 +55,7 @@ const transactionClient = {
   $executeRaw: executeRawMock,
   $queryRaw: queryRawMock,
   patch_rating: { findMany: findRatingsInTransactionMock },
+  patch_resource: { findMany: findResourcesInTransactionMock },
   user: { delete: deleteUserMock },
   admin_log: { create: createLogMock }
 }
@@ -96,6 +103,14 @@ vi.mock('~/app/api/patch/rating/stat', () => ({
   recomputePatchRatingStat: recomputeOneMock
 }))
 
+vi.mock('~/app/api/patch/resource/_helper', () => ({
+  recalcPatchType: recalcPatchTypeMock
+}))
+
+vi.mock('~/server/search/sync', () => ({
+  queueSearchSync: queueSearchSyncMock
+}))
+
 import { deleteUser } from '~/app/api/admin/user/delete'
 
 beforeEach(() => {
@@ -123,6 +138,13 @@ beforeEach(() => {
     { patch_id: 11, status: 0, patch: { user_id: 7 } },
     { patch_id: 12, status: 2, patch: { user_id: 100 } }
   ])
+  findResourcesInTransactionMock.mockResolvedValue([])
+  recalcPatchTypeMock.mockImplementation(async (patchId: number) => {
+    events.push(`recalc-${patchId}`)
+  })
+  queueSearchSyncMock.mockImplementation((patchId: number) => {
+    events.push(`sync-${patchId}`)
+  })
   executeRawMock.mockResolvedValue(1)
   queryRawMock.mockResolvedValue([
     { id: 1, patch_id: 10, status: 0, patch_user_id: 100 },
@@ -201,8 +223,51 @@ describe('deleteUser', () => {
       'invalidate-comment-cache'
     ])
   })
+
+  it('recomputes and re-syncs surviving patches whose non-s3 resources cascade away', async () => {
+    // 他人 (user_id !== 7) 补丁下、无 S3 link 的资源: 只随 user.delete() 级联消失,
+    // S3 收集看不到它们. 返回乱序以验证按 patch_id 排序取通告锁 (确定性锁序)
+    findResourcesInTransactionMock.mockResolvedValue([
+      { patch_id: 32 },
+      { patch_id: 30 }
+    ])
+
+    await expect(deleteUser({ uid: 7 }, 99)).resolves.toEqual({})
+
+    expect(findResourcesInTransactionMock).toHaveBeenCalledWith({
+      where: { user_id: 7, patch: { user_id: { not: 7 } } },
+      select: { patch_id: true },
+      distinct: ['patch_id']
+    })
+    // 事务内、级联删除后按升序重算, 每次都用事务客户端持通告锁
+    expect(recalcPatchTypeMock.mock.calls).toEqual([
+      [30, transactionClient],
+      [32, transactionClient]
+    ])
+    // 事务提交后再入搜索同步队列
+    expect(queueSearchSyncMock.mock.calls).toEqual([[30], [32]])
+    expect(events).toEqual([
+      'transaction-start',
+      'delete-user',
+      'recompute-many',
+      'recalc-30',
+      'recalc-32',
+      'transaction-end',
+      'invalidate-tag-cache',
+      'invalidate-company-cache',
+      'delete-token',
+      'invalidate-cache',
+      'invalidate-comment-cache',
+      'sync-30',
+      'sync-32'
+    ])
+  })
   it('retries serializable conflicts without repeating resource cleanup', async () => {
     findResourcesMock.mockResolvedValue([{ id: 55 }])
+    // 首次尝试(将因冲突回滚)与重试各收集到不同的受影响 patch
+    findResourcesInTransactionMock
+      .mockResolvedValueOnce([{ patch_id: 91 }])
+      .mockResolvedValueOnce([{ patch_id: 92 }])
     let attempt = 0
     transactionMock.mockImplementation(
       async (callback: (tx: typeof transactionClient) => Promise<unknown>) => {
@@ -221,6 +286,13 @@ describe('deleteUser', () => {
     expect(transactionMock).toHaveBeenCalledTimes(2)
     expect(deleteUserMock).toHaveBeenCalledTimes(2)
     expect(deleteTokenMock).toHaveBeenCalledTimes(1)
+    // recalcPatchType 事务内两次尝试各跑一次; 事务后搜索同步只用最后一次成功
+    // 事务的 affectedPatchIds, 不泄漏被回滚的首次尝试收集的 patch
+    expect(recalcPatchTypeMock.mock.calls).toEqual([
+      [91, transactionClient],
+      [92, transactionClient]
+    ])
+    expect(queueSearchSyncMock.mock.calls).toEqual([[92]])
   })
 
   it('invalidates cascading lists before token cleanup can fail', async () => {

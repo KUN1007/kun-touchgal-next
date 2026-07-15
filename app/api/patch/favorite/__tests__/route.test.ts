@@ -12,6 +12,7 @@ const {
   relationDeleteManyMock,
   relationCreateManyMock,
   messageDeleteManyMock,
+  executeRawMock,
   transactionMock,
   createDedupMessageMock,
   invalidateFavoriteCacheMock,
@@ -27,6 +28,7 @@ const {
   relationDeleteManyMock: vi.fn(),
   relationCreateManyMock: vi.fn(),
   messageDeleteManyMock: vi.fn(),
+  executeRawMock: vi.fn(),
   transactionMock: vi.fn(),
   createDedupMessageMock: vi.fn(),
   invalidateFavoriteCacheMock: vi.fn(),
@@ -34,6 +36,7 @@ const {
 }))
 
 const transactionClient = {
+  $executeRaw: executeRawMock,
   user_patch_favorite_folder_relation: {
     deleteMany: relationDeleteManyMock,
     createMany: relationCreateManyMock,
@@ -99,6 +102,7 @@ beforeEach(() => {
   })
   folderFindUniqueMock.mockResolvedValue({ user_id: 99 })
   relationFindUniqueMock.mockResolvedValue(null)
+  executeRawMock.mockResolvedValue(1)
   relationDeleteManyMock.mockResolvedValue({ count: 0 })
   relationCreateManyMock.mockResolvedValue({ count: 1 })
   createDedupMessageMock.mockResolvedValue(undefined)
@@ -126,6 +130,20 @@ describe('PUT /api/patch/favorite', () => {
       data: { folder_id: 3, patch_id: 7 },
       skipDuplicates: true
     })
+  })
+
+  it('takes a (namespace, folderId) advisory lock before any relation access', async () => {
+    await PUT(mockRequest)
+
+    expect(executeRawMock).toHaveBeenCalledTimes(1)
+    const [strings, ...values] = executeRawMock.mock.calls[0]
+    expect(strings.join('')).toContain('pg_advisory_xact_lock')
+    expect(strings.join('')).toContain('::int')
+    // [FAVORITE_LOCK_NAMESPACE, folderId]: 域常量隔离, 不与 patch type/rating 锁碰撞
+    expect(values).toEqual([481003, 3])
+    expect(executeRawMock.mock.invocationCallOrder[0]).toBeLessThan(
+      relationDeleteManyMock.mock.invocationCallOrder[0]
+    )
   })
 
   it('removes via deleteMany count without issuing a create', async () => {

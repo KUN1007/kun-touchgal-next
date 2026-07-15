@@ -11,6 +11,11 @@ import {
   invalidatePatchContentCache
 } from '../cache'
 
+// 通告锁命名空间 (pg_advisory_xact_lock 首参): 与 patch type (481001) / 评分统计
+// (481002) 锁分属不同域, 互不阻塞. folder 私有于用户, 同一 (folder, patch) 的并发
+// toggle 必共享 folderId, 故按 (域, folderId) 串行即精确覆盖竞态, 且不牵连跨用户/跨夹
+const FAVORITE_LOCK_NAMESPACE = 481003
+
 const togglePatchFavorite = async (
   input: z.infer<typeof togglePatchFavoriteSchema>,
   uid: number
@@ -46,6 +51,11 @@ const togglePatchFavorite = async (
   // deleteMany + createMany(skipDuplicates) 使并发双击不会触发 P2002/P2025
   const response = await prisma
     .$transaction(async (tx) => {
+      // 串行化同一收藏夹的并发 toggle: 拿锁后 deleteMany 读到的是已提交状态, 使 toggle
+      // 恢复可线性化并顺带消除重复通知. ::int 显式定型以匹配 (int, int) 重载 (pg adapter
+      // 原生参数默认 text, 缺 cast 会命中不存在的 (text, text) 重载报 42883)
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${FAVORITE_LOCK_NAMESPACE}::int, ${input.folderId}::int)`
+
       const removed = await tx.user_patch_favorite_folder_relation.deleteMany({
         where: {
           folder_id: input.folderId,

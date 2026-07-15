@@ -14,6 +14,7 @@ import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
 import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
 import { kickS3DeletionDrain } from '~/server/storage/s3Outbox'
+import { invalidateUnread } from '~/app/api/message/unread/cache'
 
 const declinePatchResource = async (
   input: z.infer<typeof declinePatchResourceSchema>,
@@ -58,12 +59,15 @@ const declinePatchResource = async (
       }))
     )
 
-    await createMessage({
-      type: 'system',
-      content: `您上传的资源「${resource.name || resource.patch.name}」未通过审核，原因：${reason}`,
-      recipient_id: resource.user_id,
-      link: `/${resource.patch.unique_id}?tab=resources&resourceSection=${resource.section}`
-    })
+    await createMessage(
+      {
+        type: 'system',
+        content: `您上传的资源「${resource.name || resource.patch.name}」未通过审核，原因：${reason}`,
+        recipient_id: resource.user_id,
+        link: `/${resource.patch.unique_id}?tab=resources&resourceSection=${resource.section}`
+      },
+      prisma
+    )
 
     await prisma.admin_log.create({
       data: {
@@ -88,6 +92,8 @@ const declinePatchResource = async (
 
   // 拒绝即删除待审资源: 作者 hasPendingResource 可能翻假, 失效以尽早停止 bypass
   await invalidateUserPendingResourceCache(resource.user_id)
+
+  await invalidateUnread(resource.user_id).catch(() => undefined)
 
   // 即时消费删除出箱；抢不到锁则由定时任务兜底
   kickS3DeletionDrain()

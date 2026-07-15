@@ -5,6 +5,7 @@ import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { createMessage } from '~/app/api/utils/message'
 import { kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { declineCreatorSchema } from '~/validations/admin'
+import { invalidateUnread } from '~/app/api/message/unread/cache'
 
 const approveCreator = async (
   input: z.infer<typeof declineCreatorSchema>,
@@ -35,19 +36,22 @@ const approveCreator = async (
     return '未找到该管理员'
   }
 
-  return prisma.$transaction(async (prisma) => {
+  const result = await prisma.$transaction(async (prisma) => {
     await prisma.user_message.update({
       where: { id: messageId },
       // status: 0 - unread, 1 - read, 2 - approve, 3 - decline
       data: { status: { set: 3 } }
     })
 
-    await createMessage({
-      type: 'apply',
-      content: `您的创作者申请未通过，原因：${reason}`,
-      recipient_id: message.sender_id ?? undefined,
-      link: '/'
-    })
+    await createMessage(
+      {
+        type: 'apply',
+        content: `您的创作者申请未通过，原因：${reason}`,
+        recipient_id: message.sender_id ?? undefined,
+        link: '/'
+      },
+      prisma
+    )
 
     await prisma.admin_log.create({
       data: {
@@ -59,6 +63,7 @@ const approveCreator = async (
 
     return {}
   })
+  return result
 }
 
 export const PUT = async (req: NextRequest) => {

@@ -6,6 +6,7 @@ import { createMessage } from '~/app/api/utils/message'
 import { kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { approveCreatorSchema } from '~/validations/admin'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
+import { invalidateUnread } from '~/app/api/message/unread/cache'
 
 const approveCreator = async (
   input: z.infer<typeof approveCreatorSchema>,
@@ -48,12 +49,15 @@ const approveCreator = async (
       data: { role: { set: 2 } }
     })
 
-    await createMessage({
-      type: 'apply',
-      content: '恭喜，您的创作者申请已通过！',
-      recipient_id: message.sender_id ?? undefined,
-      link: '/apply/success'
-    })
+    await createMessage(
+      {
+        type: 'apply',
+        content: '恭喜，您的创作者申请已通过！',
+        recipient_id: message.sender_id ?? undefined,
+        link: '/apply/success'
+      },
+      prisma
+    )
 
     await prisma.admin_log.create({
       data: {

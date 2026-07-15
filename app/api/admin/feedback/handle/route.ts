@@ -6,6 +6,7 @@ import { adminHandleFeedbackSchema } from '~/validations/admin'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { sliceUntilDelimiterFromEnd } from '~/app/api/utils/sliceUntilDelimiterFromEnd'
 import { createMessage } from '~/app/api/utils/message'
+import { invalidateUnread } from '~/app/api/message/unread/cache'
 
 const handleFeedback = async (
   input: z.infer<typeof adminHandleFeedbackSchema>
@@ -24,22 +25,29 @@ const handleFeedback = async (
   const handleResult = input.content ? input.content : '无处理留言'
   const feedbackContent = `您的反馈已处理\n\n反馈内容：${SLICED_CONTENT}\n处理回复：${handleResult}`
 
-  return prisma.$transaction(async (prisma) => {
+  const result = await prisma.$transaction(async (prisma) => {
     await prisma.user_message.update({
       where: { id: input.messageId },
       // status: 0 - unread, 1 - read, 2 - approve, 3 - decline
       data: { status: { set: 1 } }
     })
 
-    await createMessage({
-      type: 'feedback',
-      content: feedbackContent,
-      recipient_id: message?.sender_id ?? undefined,
-      link: '/'
-    })
+    await createMessage(
+      {
+        type: 'feedback',
+        content: feedbackContent,
+        recipient_id: message?.sender_id ?? undefined,
+        link: '/'
+      },
+      prisma
+    )
 
     return {}
   })
+  if (message?.sender_id) {
+    await invalidateUnread(message.sender_id).catch(() => undefined)
+  }
+  return result
 }
 
 export const POST = async (req: NextRequest) => {

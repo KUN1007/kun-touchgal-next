@@ -89,7 +89,9 @@ describe('verifyKunCsrf', () => {
     ).toBeNull()
     expect(
       verifyKunCsrf(
-        makeReq({ headers: withCsrf({ referer: 'https://evil.example.com/x' }) })
+        makeReq({
+          headers: withCsrf({ referer: 'https://evil.example.com/x' })
+        })
       )
     ).toBe('非法请求来源')
   })

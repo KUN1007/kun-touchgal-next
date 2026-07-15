@@ -1,7 +1,10 @@
 import { prisma } from '~/prisma'
 import cron from 'node-cron'
 import { KUN_PATCH_WEBSITE_SYNC_PATCH_TYPE_ENDPOINT } from '~/config/external-api'
-import { enqueueSearchOutbox, kickSearchOutboxDrain } from '~/server/search/sync'
+import {
+  enqueueSearchOutbox,
+  kickSearchOutboxDrain
+} from '~/server/search/sync'
 import { withTaskLock } from './withTaskLock'
 
 const SYNC_PATCH_TYPE_LOCK_KEY = 'cron:sync-kun-patch-type:lock'

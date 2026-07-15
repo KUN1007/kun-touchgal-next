@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
+import { invalidateUnread } from '~/app/api/message/unread/cache'
 import {
   getConversationMessagesSchema,
   sendPrivateMessageSchema,
@@ -98,6 +99,7 @@ export const sendMessage = async (
   })
 
   const isUserA = conversation.user_a_id === uid
+  const recipientId = isUserA ? conversation.user_b_id : conversation.user_a_id
   await prisma.user_conversation.update({
     where: { id: conversationId },
     data: {
@@ -108,6 +110,8 @@ export const sendMessage = async (
         : { user_a_unread_count: { increment: 1 } })
     }
   })
+
+  await invalidateUnread(recipientId).catch(() => undefined)
 
   return {
     id: message.id,

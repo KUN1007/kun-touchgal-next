@@ -40,7 +40,10 @@ import { flushPatchViews } from '~/server/tasks/flushPatchViewsTask'
 
 const PENDING = 'kun:touchgal:views:buffer:pending'
 
-const bufferOf = (entries: Record<string, string>) => ({ key: PENDING, entries })
+const bufferOf = (entries: Record<string, string>) => ({
+  key: PENDING,
+  entries
+})
 
 describe('flushPatchViews 逐批 autocommit + 逐批 ack', () => {
   beforeEach(() => {

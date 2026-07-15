@@ -10,6 +10,7 @@ import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
 import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
+import { invalidateUnread } from '~/app/api/message/unread/cache'
 
 const approvePatchResource = async (
   input: z.infer<typeof approvePatchResourceSchema>,
@@ -45,12 +46,15 @@ const approvePatchResource = async (
     // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
     await enqueueSearchOutbox(prisma, resource.patch_id)
 
-    await createMessage({
-      type: 'system',
-      content: `您上传的资源「${resource.name || resource.patch.name}」已通过审核，感谢分享！`,
-      recipient_id: resource.user_id,
-      link: `/${resource.patch.unique_id}?tab=resources&resourceSection=${resource.section}&resourceId=${resource.id}`
-    })
+    await createMessage(
+      {
+        type: 'system',
+        content: `您上传的资源「${resource.name || resource.patch.name}」已通过审核，感谢分享！`,
+        recipient_id: resource.user_id,
+        link: `/${resource.patch.unique_id}?tab=resources&resourceSection=${resource.section}&resourceId=${resource.id}`
+      },
+      prisma
+    )
 
     await prisma.admin_log.create({
       data: {
@@ -75,6 +79,8 @@ const approvePatchResource = async (
 
   // 资源通过人工审批 (2→0): 作者 hasPendingResource 可能翻假, 失效以尽早停止 bypass
   await invalidateUserPendingResourceCache(resource.user_id)
+
+  await invalidateUnread(resource.user_id).catch(() => undefined)
 
   return response
 }

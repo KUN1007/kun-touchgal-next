@@ -7,6 +7,7 @@ import {
   markdownToHtmlComment
 } from '~/app/api/utils/render/markdownToHtmlComment'
 import { createMessage } from '~/app/api/utils/message'
+import { invalidateUnread } from '~/app/api/message/unread/cache'
 import { sendDeferredCommentNotifications } from '~/server/moderation/apply'
 import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
 import {
@@ -155,6 +156,8 @@ const approveAppeal = async (
     }
     throw error
   }
+
+  await invalidateUnread(appeal.user_id).catch(() => undefined)
 
   // 事务提交后的副作用, 与 AI 审核通过路径保持一致
   if (type === 'comment') {
@@ -370,6 +373,8 @@ const rejectAppeal = async (
   if (typeof outcome === 'string') {
     return outcome
   }
+
+  await invalidateUnread(appeal.user_id).catch(() => undefined)
 
   // 提交后副作用: 仅当本事务真正执行删除时触发, 与既有 adminDelete* 的提交后失效对齐;
   // best-effort, Redis 故障不回滚已提交的 DB 删除 (M-04/M-05)

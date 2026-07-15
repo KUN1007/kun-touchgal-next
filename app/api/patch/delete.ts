@@ -1,10 +1,11 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
-import { deletePatchResourceLink } from './resource/_helper'
+import { enqueueResourceLinkDeletions } from './resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
 import { queueSearchRemove, enqueueSearchOutbox } from '~/server/search/sync'
+import { kickS3DeletionDrain } from '~/server/storage/s3Outbox'
 
 const patchIdSchema = z.object({
   patchId: z.coerce.number().min(1).max(9999999)
@@ -56,6 +57,8 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
     })
     // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
     await enqueueSearchOutbox(prisma, patchId)
+    // 事务性入队 S3 删除：与行删除原子提交，取代提交后 Promise.all 的不可恢复删除
+    await enqueueResourceLinkDeletions(prisma, s3Links)
 
     // 内容已级联删除, 删除后再清理其未决审核任务与未处理申诉 (content_id 无外键, 用删除前收集的 id);
     // 清理置于删除后, 与 submitAppeal 的内容行锁配合, 杜绝并发申诉提交造成的 TOCTOU 孤儿
@@ -103,11 +106,8 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
     await invalidateResourceListCache()
   }
 
-  await Promise.all(
-    s3Links.map((link) =>
-      deletePatchResourceLink(link.content, link.patchId, link.hash, link.s3Key)
-    )
-  )
+  // 即时消费删除出箱；抢不到锁则由定时任务兜底
+  kickS3DeletionDrain()
 
   return response
 }

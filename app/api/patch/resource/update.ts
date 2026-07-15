@@ -4,12 +4,13 @@ import { patchResourceUpdateSchema } from '~/validations/patch'
 import { markdownToHtml } from '~/app/api/utils/render/markdownToHtml'
 import {
   bindUploadedResource,
-  deletePatchResourceLink,
+  enqueueResourceLinkDeletions,
   recalcPatchType
 } from './_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
 import { enqueueSearchOutbox, queueSearchSync } from '~/server/search/sync'
+import { kickS3DeletionDrain } from '~/server/storage/s3Outbox'
 import {
   MODERATION_SKIP,
   createModerationTask,
@@ -200,6 +201,9 @@ export const updatePatchResource = async (
     await recalcPatchType(patchId, prisma)
     // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
     await enqueueSearchOutbox(prisma, patchId)
+    // 事务性入队 S3 删除 (被移除/重绑的旧链接)：与行变更原子提交，取代提交后
+    // Promise.all 的不可恢复删除
+    await enqueueResourceLinkDeletions(prisma, s3LinksToDelete)
 
     if (moderation.queue) {
       await createModerationTask(
@@ -272,11 +276,8 @@ export const updatePatchResource = async (
     await invalidateUserPendingResourceCache(resource.user_id)
   }
 
-  await Promise.all(
-    s3LinksToDelete.map((link) =>
-      deletePatchResourceLink(link.content, link.patchId, link.hash, link.s3Key)
-    )
-  )
+  // 即时消费删除出箱；抢不到锁则由定时任务兜底
+  kickS3DeletionDrain()
 
   return updatedResource
 }

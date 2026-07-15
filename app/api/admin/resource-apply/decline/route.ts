@@ -6,12 +6,13 @@ import { createMessage } from '~/app/api/utils/message'
 import { kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { declinePatchResourceSchema } from '~/validations/admin'
 import {
-  deletePatchResourceLink,
+  enqueueResourceLinkDeletions,
   recalcPatchType
 } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
 import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
+import { kickS3DeletionDrain } from '~/server/storage/s3Outbox'
 
 const declinePatchResource = async (
   input: z.infer<typeof declinePatchResourceSchema>,
@@ -45,6 +46,16 @@ const declinePatchResource = async (
     await recalcPatchType(resource.patch_id, prisma)
     // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
     await enqueueSearchOutbox(prisma, resource.patch_id)
+    // 事务性入队 S3 删除：与行删除原子提交，取代提交后 Promise.all 的不可恢复删除
+    await enqueueResourceLinkDeletions(
+      prisma,
+      s3Links.map((link) => ({
+        content: link.content,
+        patchId: resource.patch_id,
+        hash: link.hash,
+        s3Key: link.s3_key
+      }))
+    )
 
     await createMessage({
       type: 'system',
@@ -73,16 +84,8 @@ const declinePatchResource = async (
   // 拒绝即删除待审资源: 作者 hasPendingResource 可能翻假, 失效以尽早停止 bypass
   await invalidateUserPendingResourceCache(resource.user_id)
 
-  await Promise.all(
-    s3Links.map((link) =>
-      deletePatchResourceLink(
-        link.content,
-        resource.patch_id,
-        link.hash,
-        link.s3_key
-      )
-    )
-  )
+  // 即时消费删除出箱；抢不到锁则由定时任务兜底
+  kickS3DeletionDrain()
 
   return response
 }

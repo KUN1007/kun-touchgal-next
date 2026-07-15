@@ -3,6 +3,7 @@ import { copyObject, deleteFileFromS3, headObject } from '~/lib/s3'
 import { acquireKvLock, delKv, getKv, releaseKvLock } from '~/lib/redis'
 import { prisma } from '~/prisma/index'
 import type { Prisma } from '~/prisma/generated/prisma/client'
+import { enqueueS3Deletion } from '~/server/storage/s3Outbox'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
 import {
@@ -86,6 +87,12 @@ export const bindUploadedResource = async (
       await deleteFileFromS3(meta.s3Key).catch(() => undefined)
       await delKv(`upload:${token}`)
     } catch (error) {
+      // 复制结果不确定：S3 可能已完成 CopyObject 但响应超时/中断，留下无 DB 引用的
+      // finalKey 孤儿 (随机段, 重试会生成新 key 使其永久泄漏)。DeleteObject 幂等
+      // (未创建则 no-op)：即时清理；即时删除亦失败时入删除写出箱由 worker 兜底重试
+      await deleteFileFromS3(finalKey).catch(() =>
+        enqueueS3Deletion(prisma, [finalKey]).catch(() => undefined)
+      )
       await prisma.user
         .updateMany({
           where: {
@@ -106,23 +113,43 @@ export const bindUploadedResource = async (
   }
 }
 
-export const deletePatchResourceLink = async (
+// 解析资源链接对应的 S3 对象 key：优先用持久化的 s3_key，缺失则回落 legacy 命名
+// (早期未存 s3_key 的历史数据)。返回 null 表示无法定位对象 (content 异常)。
+export const resolveS3Key = (
   content: string,
   patchId: number,
   hash: string,
   s3Key?: string
-) => {
+): string | null => {
   if (s3Key) {
-    await deleteFileFromS3(s3Key)
-    return
+    return s3Key
   }
 
   const fileName = content.split('/').pop()
   if (!fileName) {
-    return
+    return null
   }
-  const legacyKey = `patch/${patchId}/resource/${hash}/${fileName}`
-  await deleteFileFromS3(legacyKey)
+  return `patch/${patchId}/resource/${hash}/${fileName}`
+}
+
+// 把一批资源链接的 S3 key 解析后入删除写出箱。client 传业务删除所在事务的 tx，使
+// 删除意图与行删除原子提交——取代原「提交后 Promise.all 删 S3、崩溃即丢失」的不可
+// 恢复路径；实际删除交由单一消费者 drainS3DeletionOutbox 幂等重试。
+export const enqueueResourceLinkDeletions = async (
+  client: Prisma.TransactionClient,
+  links: {
+    content: string
+    patchId: number
+    hash: string
+    s3Key?: string
+  }[]
+) => {
+  const keys = links
+    .map((link) =>
+      resolveS3Key(link.content, link.patchId, link.hash, link.s3Key)
+    )
+    .filter((key): key is string => key !== null)
+  await enqueueS3Deletion(client, keys)
 }
 
 export const sanitizeResourceLinksForAuditLog = <

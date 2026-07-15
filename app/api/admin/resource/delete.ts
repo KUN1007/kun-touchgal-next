@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import {
-  deletePatchResourceLink,
+  enqueueResourceLinkDeletions,
   recalcPatchType,
   sanitizeResourceLinksForAuditLog
 } from '~/app/api/patch/resource/_helper'
@@ -10,6 +10,7 @@ import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResou
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
 import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
+import { kickS3DeletionDrain } from '~/server/storage/s3Outbox'
 
 const resourceIdSchema = z.object({
   resourceId: z.coerce
@@ -52,6 +53,16 @@ export const deleteResource = async (
     await recalcPatchType(patchResource.patch_id, prisma)
     // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
     await enqueueSearchOutbox(prisma, patchResource.patch_id)
+    // 事务性入队 S3 删除：与行删除原子提交，取代提交后 Promise.all 的不可恢复删除
+    await enqueueResourceLinkDeletions(
+      prisma,
+      s3Links.map((link) => ({
+        content: link.content,
+        patchId: patchResource.patch_id,
+        hash: link.hash,
+        s3Key: link.s3_key
+      }))
+    )
 
     const sanitizedResource = {
       ...patchResource,
@@ -79,16 +90,8 @@ export const deleteResource = async (
     await invalidateUserPendingResourceCache(patchResource.user_id)
   }
 
-  await Promise.all(
-    s3Links.map((link) =>
-      deletePatchResourceLink(
-        link.content,
-        patchResource.patch_id,
-        link.hash,
-        link.s3_key
-      )
-    )
-  )
+  // 即时消费删除出箱；抢不到锁则由定时任务兜底
+  kickS3DeletionDrain()
 
   return response
 }

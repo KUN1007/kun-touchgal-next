@@ -10,7 +10,8 @@ const {
   patchDeleteMock,
   deleteTasksMock,
   deleteAppealsMock,
-  deleteLinkMock,
+  enqueueDeletionsMock,
+  kickDrainMock,
   invalidateCacheMock,
   queueSearchRemoveMock
 } = vi.hoisted(() => ({
@@ -23,7 +24,8 @@ const {
   patchDeleteMock: vi.fn(),
   deleteTasksMock: vi.fn(),
   deleteAppealsMock: vi.fn(),
-  deleteLinkMock: vi.fn(),
+  enqueueDeletionsMock: vi.fn(),
+  kickDrainMock: vi.fn(),
   invalidateCacheMock: vi.fn(),
   queueSearchRemoveMock: vi.fn()
 }))
@@ -44,7 +46,11 @@ vi.mock('~/prisma/index', () => ({
 }))
 
 vi.mock('~/app/api/patch/resource/_helper', () => ({
-  deletePatchResourceLink: deleteLinkMock
+  enqueueResourceLinkDeletions: enqueueDeletionsMock
+}))
+
+vi.mock('~/server/storage/s3Outbox', () => ({
+  kickS3DeletionDrain: kickDrainMock
 }))
 
 vi.mock('~/app/api/resource/cache', () => ({
@@ -99,7 +105,7 @@ beforeEach(() => {
   patchDeleteMock.mockResolvedValue({})
   deleteTasksMock.mockResolvedValue(undefined)
   deleteAppealsMock.mockResolvedValue(undefined)
-  deleteLinkMock.mockResolvedValue(undefined)
+  enqueueDeletionsMock.mockResolvedValue(undefined)
   invalidateCacheMock.mockResolvedValue(undefined)
   transactionMock.mockImplementation(
     async (callback: (tx: typeof transactionClient) => Promise<unknown>) =>
@@ -126,19 +132,14 @@ describe('deletePatchById', () => {
       transactionClient
     )
 
-    expect(deleteLinkMock).toHaveBeenCalledTimes(2)
-    expect(deleteLinkMock).toHaveBeenCalledWith(
-      'content-1',
-      7,
-      'hash-1',
-      'key-1'
-    )
-    expect(deleteLinkMock).toHaveBeenCalledWith(
-      'content-2',
-      7,
-      'hash-2',
-      'key-2'
-    )
+    // S3 删除意图在事务内入队 (与行删除原子提交)，而非提交后 Promise.all 直删
+    expect(enqueueDeletionsMock).toHaveBeenCalledTimes(1)
+    expect(enqueueDeletionsMock).toHaveBeenCalledWith(transactionClient, [
+      { content: 'content-1', patchId: 7, hash: 'hash-1', s3Key: 'key-1' },
+      { content: 'content-2', patchId: 7, hash: 'hash-2', s3Key: 'key-2' }
+    ])
+    // 提交后即时消费出箱
+    expect(kickDrainMock).toHaveBeenCalledTimes(1)
 
     expect(invalidateCacheMock).toHaveBeenCalledTimes(1)
     expect(queueSearchRemoveMock).toHaveBeenCalledWith(7)

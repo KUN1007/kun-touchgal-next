@@ -60,7 +60,8 @@ vi.mock('~/server/moderation/appeal', () => ({
 }))
 
 vi.mock('~/server/search/sync', () => ({
-  queueSearchRemove: queueSearchRemoveMock
+  queueSearchRemove: queueSearchRemoveMock,
+  enqueueSearchOutbox: vi.fn()
 }))
 
 import { deletePatchById } from '~/app/api/patch/delete'

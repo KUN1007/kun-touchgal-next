@@ -9,7 +9,7 @@ import {
 } from './_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
-import { queueSearchSync } from '~/server/search/sync'
+import { enqueueSearchOutbox, queueSearchSync } from '~/server/search/sync'
 import {
   MODERATION_SKIP,
   createModerationTask,
@@ -198,6 +198,8 @@ export const updatePatchResource = async (
       data: { resource_update_time: new Date() }
     })
     await recalcPatchType(patchId, prisma)
+    // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
+    await enqueueSearchOutbox(prisma, patchId)
 
     if (moderation.queue) {
       await createModerationTask(

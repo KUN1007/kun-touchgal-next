@@ -1,0 +1,16 @@
+// 搜索索引写出箱：补丁的增量同步意图在此排队，由单一 worker (drainSearchOutbox)
+// 加锁串行消费——读取补丁最新状态后写入 Meilisearch。单 writer + 读最新 从根本上
+// 消除并发写的反序覆盖；应用失败的行滞留于此等待下一轮，取代原 Redis search:retry 集合。
+// patch_id 不设外键：补丁删除后仍需入队一条意图，由消费者据 DB 现状执行删除索引。
+model search_outbox {
+  // 每个补丁至多一行待同步意图，冲突即累加 seq
+  patch_id Int @id
+  // 每次入队自增，作为认领令牌：消费者成功应用后仅当 seq 未被并发入队改动才删除该行，
+  // 从而不丢失处理期间到达的新变更
+  seq      Int @default(0)
+
+  created DateTime @default(now())
+  updated DateTime @updatedAt
+
+  @@index([updated])
+}

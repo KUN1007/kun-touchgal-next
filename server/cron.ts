@@ -12,7 +12,7 @@ const getKUNGalgameTasks = async (): Promise<ScheduledTask[]> => {
     { syncKunPatchTypeTask },
     { flushPatchViewsTask },
     { moderationTask },
-    { searchRetryTask },
+    { searchOutboxTask },
     { searchCountsRefreshTask },
     { searchReconcileTask }
   ] = await Promise.all([
@@ -21,7 +21,7 @@ const getKUNGalgameTasks = async (): Promise<ScheduledTask[]> => {
     import('./tasks/syncKunPatchTypeTask'),
     import('./tasks/flushPatchViewsTask'),
     import('./tasks/moderationTask'),
-    import('./tasks/searchRetryTask'),
+    import('./tasks/searchOutboxTask'),
     import('./tasks/searchCountsRefreshTask'),
     import('./tasks/searchReconcileTask')
   ])
@@ -32,7 +32,7 @@ const getKUNGalgameTasks = async (): Promise<ScheduledTask[]> => {
     syncKunPatchTypeTask,
     flushPatchViewsTask,
     moderationTask,
-    searchRetryTask,
+    searchOutboxTask,
     searchCountsRefreshTask,
     searchReconcileTask
   ]

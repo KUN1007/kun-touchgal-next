@@ -5,7 +5,7 @@ import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { patchTagChangeSchema } from '~/validations/patch'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
-import { queueSearchSync } from '~/server/search/sync'
+import { enqueueSearchOutbox, queueSearchSync } from '~/server/search/sync'
 import { invalidateTagListCache } from '~/app/api/tag/cache'
 
 const handleAddPatchTag = async (
@@ -33,6 +33,8 @@ const handleAddPatchTag = async (
       where: { id: { in: toCreate } },
       data: { count: { increment: 1 } }
     })
+    // 事务性入队：与标签/会社变更原子提交，关闭崩溃丢失窗口
+    await enqueueSearchOutbox(prisma, patchId)
     return true
   })
 }
@@ -95,6 +97,8 @@ const handleRemovePatchTag = async (
       where: { id: { in: toDelete } },
       data: { count: { decrement: 1 } }
     })
+    // 事务性入队：与标签/会社变更原子提交，关闭崩溃丢失窗口
+    await enqueueSearchOutbox(prisma, patchId)
     return true
   })
 }

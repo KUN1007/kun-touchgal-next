@@ -3,7 +3,7 @@ import { prisma } from '~/prisma/index'
 import { patchUpdateSchema } from '~/validations/edit'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { processSubmittedExternalData } from './processExternalData'
-import { queueSearchSync } from '~/server/search/sync'
+import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
 
 export const updateGalgame = async (
   input: z.infer<typeof patchUpdateSchema>,
@@ -64,21 +64,25 @@ export const updateGalgame = async (
     released
   } = input
 
-  await prisma.patch.update({
-    where: { id },
-    data: {
-      name,
-      vndb_id: normalizedVndbId ? normalizedVndbId : null,
-      vndb_relation_id: normalizedVndbRelationId
-        ? normalizedVndbRelationId
-        : null,
-      bangumi_id: bangumiId ? Number(bangumiId) : null,
-      steam_id: steamId ? Number(steamId) : null,
-      dlsite_code: normalizedDlsiteCode ? normalizedDlsiteCode : null,
-      introduction,
-      content_limit: contentLimit,
-      released
-    }
+  // 事务性入队：patch 字段更新与写出箱入队原子提交，关闭崩溃丢失窗口
+  await prisma.$transaction(async (tx) => {
+    await tx.patch.update({
+      where: { id },
+      data: {
+        name,
+        vndb_id: normalizedVndbId ? normalizedVndbId : null,
+        vndb_relation_id: normalizedVndbRelationId
+          ? normalizedVndbRelationId
+          : null,
+        bangumi_id: bangumiId ? Number(bangumiId) : null,
+        steam_id: steamId ? Number(steamId) : null,
+        dlsite_code: normalizedDlsiteCode ? normalizedDlsiteCode : null,
+        introduction,
+        content_limit: contentLimit,
+        released
+      }
+    })
+    await enqueueSearchOutbox(tx, id)
   })
 
   await prisma.$transaction(async (prisma) => {

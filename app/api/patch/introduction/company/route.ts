@@ -5,7 +5,7 @@ import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { prisma } from '~/prisma'
 import { patchCompanyChangeSchema } from '~/validations/patch'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
-import { queueSearchSync } from '~/server/search/sync'
+import { enqueueSearchOutbox, queueSearchSync } from '~/server/search/sync'
 import { invalidateCompanyListCache } from '~/app/api/company/cache'
 
 const handlePatchCompanyAction = (type: 'add' | 'delete') => {
@@ -47,6 +47,9 @@ const handlePatchCompanyAction = (type: 'add' | 'delete') => {
         where: { id: { in: affected } },
         data: { count: { increment: isAdd ? 1 : -1 } }
       })
+
+      // 事务性入队：与标签/会社变更原子提交，关闭崩溃丢失窗口
+      await enqueueSearchOutbox(prisma, patchId)
 
       return true
     })

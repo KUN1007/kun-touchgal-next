@@ -7,7 +7,7 @@ import { kunMoyuMoe } from '~/config/moyu-moe'
 import { postToIndexNow } from './_postToIndexNow'
 import { processSubmittedExternalData } from './processExternalData'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
-import { queueSearchSync } from '~/server/search/sync'
+import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
 
 type CreateGalgameInput = Omit<
   z.infer<typeof patchCreateSchema>,
@@ -140,6 +140,10 @@ export const createGalgame = async (input: CreateGalgameInput, uid: number) => {
           moemoepoint: { increment: 3 }
         }
       })
+
+      // 事务性入队：与 patch.create 原子提交，关闭崩溃丢失窗口；tags 由后续
+      // processSubmittedExternalData 独立事务写入，drain 读最新状态仍会纳入
+      await enqueueSearchOutbox(prisma, newId)
 
       return { patchId: newId }
     },

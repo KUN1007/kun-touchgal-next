@@ -2,7 +2,10 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
-import { queueSearchSync } from '~/server/search/sync'
+import {
+  enqueueSearchOutbox,
+  kickSearchOutboxDrain
+} from '~/server/search/sync'
 import { adminUpdateResourceHiddenSchema } from '~/validations/admin'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 
@@ -63,8 +66,10 @@ export const updateResourceHidden = async (
 
     // 资源可见性改变, 重算受影响补丁的 type/language/platform 聚合标签
     // 与 create/update/delete/approve 等既有流程保持一致
+    // 事务性入队与重算同循环：与补丁变更原子提交，关闭崩溃丢失窗口
     for (const patchId of patchIds) {
       await recalcPatchType(patchId, prisma)
+      await enqueueSearchOutbox(prisma, patchId)
     }
 
     await prisma.admin_log.create({
@@ -78,9 +83,8 @@ export const updateResourceHidden = async (
     })
   })
 
-  for (const patchId of patchIds) {
-    queueSearchSync(patchId)
-  }
+  // 事务内已逐 id 入队，此处一次 kick 触发 drain 处理整箱（避免逐 id 各 kick）
+  kickSearchOutboxDrain()
 
   await invalidateResourceListCache()
 

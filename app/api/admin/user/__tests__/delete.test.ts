@@ -23,7 +23,8 @@ const {
   invalidateCommentCacheMock,
   findResourcesInTransactionMock,
   recalcPatchTypeMock,
-  queueSearchSyncMock
+  enqueueSearchOutboxMock,
+  kickDrainMock
 } = vi.hoisted(() => ({
   findUserMock: vi.fn(),
   findResourcesMock: vi.fn(),
@@ -47,7 +48,8 @@ const {
   invalidateCommentCacheMock: vi.fn(),
   findResourcesInTransactionMock: vi.fn(),
   recalcPatchTypeMock: vi.fn(),
-  queueSearchSyncMock: vi.fn()
+  enqueueSearchOutboxMock: vi.fn(),
+  kickDrainMock: vi.fn()
 }))
 
 const events: string[] = []
@@ -108,7 +110,8 @@ vi.mock('~/app/api/patch/resource/_helper', () => ({
 }))
 
 vi.mock('~/server/search/sync', () => ({
-  queueSearchSync: queueSearchSyncMock
+  enqueueSearchOutbox: enqueueSearchOutboxMock,
+  kickSearchOutboxDrain: kickDrainMock
 }))
 
 import { deleteUser } from '~/app/api/admin/user/delete'
@@ -142,8 +145,13 @@ beforeEach(() => {
   recalcPatchTypeMock.mockImplementation(async (patchId: number) => {
     events.push(`recalc-${patchId}`)
   })
-  queueSearchSyncMock.mockImplementation((patchId: number) => {
-    events.push(`sync-${patchId}`)
+  enqueueSearchOutboxMock.mockImplementation(
+    async (_client: unknown, patchId: number) => {
+      events.push(`enqueue-${patchId}`)
+    }
+  )
+  kickDrainMock.mockImplementation(() => {
+    events.push('kick-drain')
   })
   executeRawMock.mockResolvedValue(1)
   queryRawMock.mockResolvedValue([
@@ -220,7 +228,8 @@ describe('deleteUser', () => {
       'invalidate-company-cache',
       'delete-token',
       'invalidate-cache',
-      'invalidate-comment-cache'
+      'invalidate-comment-cache',
+      'kick-drain'
     ])
   })
 
@@ -244,22 +253,28 @@ describe('deleteUser', () => {
       [30, transactionClient],
       [32, transactionClient]
     ])
-    // 事务提交后再入搜索同步队列
-    expect(queueSearchSyncMock.mock.calls).toEqual([[30], [32]])
+    // 事务内逐 id 入队（与重算同循环、同事务，原子提交）
+    expect(enqueueSearchOutboxMock.mock.calls).toEqual([
+      [transactionClient, 30],
+      [transactionClient, 32]
+    ])
+    // 事务提交后仅一次 kick 触发 drain 处理整箱（不再逐 id 各 kick）
+    expect(kickDrainMock).toHaveBeenCalledTimes(1)
     expect(events).toEqual([
       'transaction-start',
       'delete-user',
       'recompute-many',
       'recalc-30',
+      'enqueue-30',
       'recalc-32',
+      'enqueue-32',
       'transaction-end',
       'invalidate-tag-cache',
       'invalidate-company-cache',
       'delete-token',
       'invalidate-cache',
       'invalidate-comment-cache',
-      'sync-30',
-      'sync-32'
+      'kick-drain'
     ])
   })
   it('retries serializable conflicts without repeating resource cleanup', async () => {
@@ -286,13 +301,18 @@ describe('deleteUser', () => {
     expect(transactionMock).toHaveBeenCalledTimes(2)
     expect(deleteUserMock).toHaveBeenCalledTimes(2)
     expect(deleteTokenMock).toHaveBeenCalledTimes(1)
-    // recalcPatchType 事务内两次尝试各跑一次; 事务后搜索同步只用最后一次成功
-    // 事务的 affectedPatchIds, 不泄漏被回滚的首次尝试收集的 patch
+    // recalcPatchType 与 enqueueSearchOutbox 事务内两次尝试各跑一次; 首次尝试(91)
+    // 的入队在回滚事务内、随事务一并丢弃(与 recalc 同), 不泄漏靠事务原子性
     expect(recalcPatchTypeMock.mock.calls).toEqual([
       [91, transactionClient],
       [92, transactionClient]
     ])
-    expect(queueSearchSyncMock.mock.calls).toEqual([[92]])
+    expect(enqueueSearchOutboxMock.mock.calls).toEqual([
+      [transactionClient, 91],
+      [transactionClient, 92]
+    ])
+    // 事务后 kick 仅一次(不随重试次数增加)
+    expect(kickDrainMock).toHaveBeenCalledTimes(1)
   })
 
   it('invalidates cascading lists before token cleanup can fail', async () => {

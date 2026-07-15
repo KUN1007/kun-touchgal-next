@@ -47,6 +47,9 @@ export const POST = async (req: NextRequest) => {
     return NextResponse.json('未能从 VNDB 获取到会社信息')
   }
 
+  // C-lite 入队（非事务性）：ensurePatchCompaniesFromVNDB 的写入为尽力而为的多步
+  // 提交，事务化会改变其容错语义（全或无）；vndb 会社同步为管理员低频操作，崩溃窗口
+  // 由每日对账兜底，故此处保留事务后入队而不做事务性入队。
   queueSearchSync(input.patchId)
 
   const companies = await prisma.patch_company.findMany({

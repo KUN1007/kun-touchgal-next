@@ -58,7 +58,8 @@ vi.mock('~/app/api/user/session/cache', () => ({
 }))
 
 vi.mock('~/server/search/sync', () => ({
-  queueSearchSync: vi.fn()
+  queueSearchSync: vi.fn(),
+  enqueueSearchOutbox: vi.fn()
 }))
 
 vi.mock('~/app/api/utils/purgeCloudflareCache', () => ({

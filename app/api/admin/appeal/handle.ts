@@ -12,7 +12,7 @@ import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
-import { queueSearchSync } from '~/server/search/sync'
+import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
 import { deleteComment as adminDeleteComment } from '~/app/api/admin/comment/delete'
 import { deleteRating as adminDeleteRating } from '~/app/api/admin/rating/delete'
 import { deleteResource as adminDeleteResource } from '~/app/api/admin/resource/delete'
@@ -106,6 +106,8 @@ const approveAppeal = async (
         updatedCount = updated.count
         if (updated.count > 0 && patchId !== null) {
           await recalcPatchType(patchId, tx)
+          // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
+          await enqueueSearchOutbox(tx, patchId)
         }
       }
       if (updatedCount === 0) {

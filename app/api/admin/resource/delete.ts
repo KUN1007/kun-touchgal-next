@@ -9,7 +9,7 @@ import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
-import { queueSearchSync } from '~/server/search/sync'
+import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
 
 const resourceIdSchema = z.object({
   resourceId: z.coerce
@@ -50,6 +50,8 @@ export const deleteResource = async (
     await deletePendingModerationTasks('resource', input.resourceId, prisma)
     await deletePendingAppeals('resource', input.resourceId, prisma)
     await recalcPatchType(patchResource.patch_id, prisma)
+    // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
+    await enqueueSearchOutbox(prisma, patchResource.patch_id)
 
     const sanitizedResource = {
       ...patchResource,

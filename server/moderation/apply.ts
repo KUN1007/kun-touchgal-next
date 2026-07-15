@@ -9,7 +9,7 @@ import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
-import { queueSearchSync } from '~/server/search/sync'
+import { enqueueSearchOutbox, queueSearchSync } from '~/server/search/sync'
 import { purgeCloudflareCache } from '~/app/api/utils/purgeCloudflareCache'
 import { copyObject, deleteFileFromS3 } from '~/lib/s3'
 import {
@@ -226,6 +226,8 @@ export const applyModerationVerdict = async (
           // visible resource set changed, keep aggregates consistent with
           // the admin hidden flow
           await recalcPatchType(resource.patch_id, tx)
+          // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
+          await enqueueSearchOutbox(tx, resource.patch_id)
           resourcePatchId = resource.patch_id
         }
         break

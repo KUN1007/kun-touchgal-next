@@ -8,7 +8,10 @@ import { invalidateTagListCache } from '~/app/api/tag/cache'
 import { invalidateCompanyListCache } from '~/app/api/company/cache'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
-import { queueSearchSync } from '~/server/search/sync'
+import {
+  enqueueSearchOutbox,
+  kickSearchOutboxDrain
+} from '~/server/search/sync'
 
 const userIdSchema = z.object({
   uid: z.coerce.number({ message: '用户 ID 必须为数字' }).min(1).max(9999999)
@@ -119,8 +122,10 @@ export const deleteUser = async (
 
           // 级联删除已移除资源行但不触发聚合重算, 补齐之
           // (recalcPatchType 内含 patch 内容缓存失效, 与 create/update/delete/hidden 一致)
+          // 事务性入队与重算同循环：与补丁变更原子提交，关闭崩溃丢失窗口
           for (const patchId of affectedPatchIds) {
             await recalcPatchType(patchId, prisma)
+            await enqueueSearchOutbox(prisma, patchId)
           }
 
           await prisma.admin_log.create({
@@ -152,9 +157,8 @@ export const deleteUser = async (
   await Promise.all(
     commentedPatches.map((c) => invalidatePatchCommentCache(c.patch_id))
   )
-  for (const patchId of affectedPatchIds) {
-    queueSearchSync(patchId)
-  }
+  // 事务内已逐 id 入队，此处一次 kick 触发 drain 处理整箱（避免逐 id 各 kick）
+  kickSearchOutboxDrain()
 
   return result
 }

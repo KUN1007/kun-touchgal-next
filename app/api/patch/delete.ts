@@ -4,7 +4,7 @@ import { deletePatchResourceLink } from './resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
-import { queueSearchRemove } from '~/server/search/sync'
+import { queueSearchRemove, enqueueSearchOutbox } from '~/server/search/sync'
 
 const patchIdSchema = z.object({
   patchId: z.coerce.number().min(1).max(9999999)
@@ -54,6 +54,8 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
     await prisma.patch.delete({
       where: { id: patchId }
     })
+    // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
+    await enqueueSearchOutbox(prisma, patchId)
 
     // 内容已级联删除, 删除后再清理其未决审核任务与未处理申诉 (content_id 无外键, 用删除前收集的 id);
     // 清理置于删除后, 与 submitAppeal 的内容行锁配合, 杜绝并发申诉提交造成的 TOCTOU 孤儿

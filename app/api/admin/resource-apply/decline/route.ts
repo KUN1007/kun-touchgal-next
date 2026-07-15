@@ -11,7 +11,7 @@ import {
 } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
-import { queueSearchSync } from '~/server/search/sync'
+import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
 
 const declinePatchResource = async (
   input: z.infer<typeof declinePatchResourceSchema>,
@@ -43,6 +43,8 @@ const declinePatchResource = async (
       where: { id: resourceId }
     })
     await recalcPatchType(resource.patch_id, prisma)
+    // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
+    await enqueueSearchOutbox(prisma, resource.patch_id)
 
     await createMessage({
       type: 'system',

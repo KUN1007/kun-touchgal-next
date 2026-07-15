@@ -27,7 +27,11 @@ export const KunNavigationBreadcrumb = () => {
     '/friend-link'
   ]
 
-  if (hideBreadcrumbRoutes.includes(pathname)) {
+  if (
+    hideBreadcrumbRoutes.includes(pathname) ||
+    pathname === '/admin' ||
+    pathname.startsWith('/admin/')
+  ) {
     return null
   }
 

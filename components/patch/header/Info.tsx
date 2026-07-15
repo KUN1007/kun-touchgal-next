@@ -58,7 +58,7 @@ export const PatchHeaderInfo = ({ patch }: PatchHeaderInfoProps) => {
     <div className="bg-content1 text-content1-foreground shadow-medium rounded-large">
       <div className="p-0">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div className="relative w-full h-full overflow-hidden md:col-span-1 aspect-video md:rounded-l-xl">
+          <div className="relative w-full h-full overflow-hidden md:col-span-1 aspect-video rounded-t-xl md:rounded-l-xl md:rounded-tr-none">
             <BannerImage banner={patch.banner} name={patch.name} />
 
             <EditBanner patch={patch} />

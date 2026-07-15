@@ -100,17 +100,23 @@ const resolveCurrentPage = async (
 
 // 回落渲染后就地写回, 使版本过期的历史评论收敛到 content_html 快路径,
 // 缩短 COMMENT_HTML_VERSION 递增到 backfill 跑完之间的重复渲染窗口。
-// updateMany 的版本前置条件保证并发/重复请求下幂等: 已被 backfill 或其他
-// 请求更新到当前版本的行不会被再次覆盖。写回失败不影响本次响应, 下次自愈。
+// CAS 条件 (content_html_version != CURRENT + updated) 的两道防线:
+//   1. 版本条件: 已被 backfill/其他请求更新到当前版本的行不会再次覆盖 (避免并发自愈重写)
+//   2. updated 条件: 评论内容被修改过则不覆盖 (避免旧内容的渲染结果误写入新内容记录)
+// 写回失败不影响本次响应, 下次请求幂等重试。
 const persistStaleCommentHtml = async (
-  renders: { id: number; html: string }[]
+  renders: { id: number; html: string; updated: Date }[]
 ) => {
   // 逐条 autocommit 而非单个 $transaction: 各行自愈写相互独立、无原子性需求,
   // 提交即释放行锁且单条失败不牵连其他, 对齐 flushPatchViewsTask 的 autocommit 约定
-  for (const { id, html } of renders) {
+  for (const { id, html, updated } of renders) {
     try {
       await prisma.patch_comment.updateMany({
-        where: { id, content_html_version: { not: COMMENT_HTML_VERSION } },
+        where: {
+          id,
+          content_html_version: { not: COMMENT_HTML_VERSION },
+          updated
+        },
         data: {
           content_html: html,
           content_html_version: COMMENT_HTML_VERSION
@@ -232,7 +238,7 @@ const buildCommentPage = async (
   }
 
   const allComments = [...rootComments, ...descendantComments]
-  const staleRenders: { id: number; html: string }[] = []
+  const staleRenders: { id: number; html: string; updated: Date }[] = []
   const htmlEntries = await Promise.all(
     allComments.map(async (c) => {
       if (c.content_html_version === COMMENT_HTML_VERSION && c.content_html) {
@@ -240,14 +246,14 @@ const buildCommentPage = async (
       }
       // 版本不匹配的历史评论: 回落实时渲染, 并记下待写回自愈
       const html = await markdownToHtmlComment(c.content)
-      staleRenders.push({ id: c.id, html })
+      staleRenders.push({ id: c.id, html, updated: c.updated })
       return [c.id, html] as const
     })
   )
   const htmlMap = new Map<number, string>(htmlEntries)
 
   if (staleRenders.length > 0) {
-    void persistStaleCommentHtml(staleRenders)
+    void persistStaleCommentHtml(staleRenders).catch(() => undefined)
   }
 
   const comments: PatchComment[] = rootComments.map((comment) => {

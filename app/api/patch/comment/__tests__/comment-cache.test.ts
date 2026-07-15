@@ -180,10 +180,14 @@ describe('getPatchComment 缓存', () => {
 
     // 版本不匹配 → 回落 markdownToHtmlComment (mock: `<p>${content}</p>`)
     expect(result.comments[0].content).toBe('<p>hello</p>')
-    // fire-and-forget 写回, flush 微任务后断言幂等前置条件
+    // fire-and-forget 写回, flush 微任务后断言幂等前置条件 (updated 用于防止并发修改时误写旧渲染)
     await Promise.resolve()
     expect(updateManyMock).toHaveBeenCalledWith({
-      where: { id: 100, content_html_version: { not: 1 } },
+      where: {
+        id: 100,
+        content_html_version: { not: 1 },
+        updated: new Date('2026-01-01T00:00:00.000Z')
+      },
       data: { content_html: '<p>hello</p>', content_html_version: 1 }
     })
   })

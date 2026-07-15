@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { prisma } from '~/prisma/index'
+import { prisma, isPrismaTransactionConflict } from '~/prisma/index'
 import type { moderation_appealModel } from '~/prisma/generated/prisma/models'
 import { adminHandleAppealSchema } from '~/validations/admin'
 import {
@@ -9,7 +9,10 @@ import {
 import { createMessage } from '~/app/api/utils/message'
 import { sendDeferredCommentNotifications } from '~/server/moderation/apply'
 import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
-import { recalcPatchType } from '~/app/api/patch/resource/_helper'
+import {
+  recalcPatchType,
+  enqueueResourceLinkDeletions
+} from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import {
   invalidatePatchContentCache,
@@ -17,9 +20,9 @@ import {
 } from '~/app/api/patch/cache'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
-import { deleteComment as adminDeleteComment } from '~/app/api/admin/comment/delete'
-import { deleteRating as adminDeleteRating } from '~/app/api/admin/rating/delete'
-import { deleteResource as adminDeleteResource } from '~/app/api/admin/resource/delete'
+import { deletePendingModerationTasks } from '~/server/moderation/submit'
+import { deletePendingAppeals } from '~/server/moderation/appeal'
+import { kickS3DeletionDrain } from '~/server/storage/s3Outbox'
 import { APPEAL_RESULT_NOTICE, APPEAL_SETTINGS_LINK } from '~/constants/appeal'
 import { MODERATION_CONTENT_TYPE_MAP } from '~/constants/moderation'
 import type { AppealPayload } from '~/types/api/appeal'
@@ -178,6 +181,12 @@ const approveAppeal = async (
   return {}
 }
 
+type RejectOutcome = {
+  contentDeleted: boolean
+  didDelete: boolean
+  affectedUniqueId: string
+}
+
 const rejectAppeal = async (
   appeal: moderation_appealModel,
   adminName: string,
@@ -185,109 +194,199 @@ const rejectAppeal = async (
 ) => {
   const type = appeal.content_type
   const contentId = appeal.content_id
+  const hiddenStatus = type === 'resource' ? 1 : 2
 
-  // 先抢占状态: 防止并发重复处理, 也避免删除服务内的
-  // deletePendingAppeals 清理钩子删掉本行申诉记录
-  const claim = await prisma.moderation_appeal.updateMany({
-    where: { id: appeal.id, status: 'pending' },
-    data: { status: 'rejected', handled_by: uid }
-  })
-  if (claim.count === 0) {
-    return '该申诉已被处理, 请刷新后重试'
-  }
-
-  // 仅删除仍处于隐藏状态的内容; 已被其他途径恢复的内容不删除, 只关闭申诉
-  let contentStatus: number | null = null
+  // 事务外预取: patch_id 供提交后缓存失效; resource 另取 links/name 供 S3 出箱与审计快照
+  // (对齐 adminDeleteResource 的事务外预取; 事务内 guarded delete 会挡住并发改状态的资源)
+  let patchId: number | null = null
+  let resourceLinksForS3: {
+    content: string
+    patchId: number
+    hash: string
+    s3Key: string
+  }[] = []
   if (type === 'comment') {
     const comment = await prisma.patch_comment.findUnique({
       where: { id: contentId },
-      select: { status: true }
+      select: { patch_id: true }
     })
-    contentStatus = comment?.status ?? null
+    patchId = comment?.patch_id ?? null
   } else if (type === 'rating') {
     const rating = await prisma.patch_rating.findUnique({
       where: { id: contentId },
-      select: { status: true }
+      select: { patch_id: true }
     })
-    contentStatus = rating?.status ?? null
+    patchId = rating?.patch_id ?? null
   } else {
     const resource = await prisma.patch_resource.findUnique({
       where: { id: contentId },
-      select: { status: true }
+      include: { patch: { select: { name: true } }, links: true }
     })
-    contentStatus = resource?.status ?? null
-  }
-  const hiddenStatus = type === 'resource' ? 1 : 2
-  const contentHidden = contentStatus === hiddenStatus
-
-  // 抢占后删除前发生任何失败, 都还原申诉为待处理, 避免"已拒绝但内容仍在"的不一致;
-  // 但内容若已被并发删除 (如整个 patch 被删), 则保持 rejected —— 复活 pending 只会造孤儿申诉
-  const revertClaim = async () => {
-    const contentExists =
-      type === 'comment'
-        ? !!(await prisma.patch_comment.findUnique({
-            where: { id: contentId },
-            select: { id: true }
-          }))
-        : type === 'rating'
-          ? !!(await prisma.patch_rating.findUnique({
-              where: { id: contentId },
-              select: { id: true }
-            }))
-          : !!(await prisma.patch_resource.findUnique({
-              where: { id: contentId },
-              select: { id: true }
-            }))
-    if (!contentExists) {
-      return
+    patchId = resource?.patch_id ?? null
+    if (resource) {
+      resourceLinksForS3 = resource.links
+        .filter((link) => link.storage === 's3')
+        .map((link) => ({
+          content: link.content,
+          patchId: resource.patch_id,
+          hash: link.hash,
+          s3Key: link.s3_key
+        }))
     }
-    await prisma.moderation_appeal.updateMany({
-      where: { id: appeal.id, status: 'rejected' },
-      data: { status: 'pending', handled_by: null }
-    })
   }
 
-  // 仅删除仍处于隐藏状态的内容; 已被其他途径恢复为可见的内容不删除, 只关闭申诉
-  let contentDeleted = false
-  if (contentHidden) {
-    try {
-      const res =
-        type === 'comment'
-          ? await adminDeleteComment({ commentIds: [contentId] }, uid)
-          : type === 'rating'
-            ? await adminDeleteRating({ ratingIds: [contentId] }, uid)
-            : await adminDeleteResource({ resourceId: contentId }, uid)
-      // "未找到" 表示内容已被并发删除, 视为达到目标状态; 其他错误消息还原抢占
-      if (typeof res === 'string' && !res.startsWith('未找到')) {
-        await revertClaim()
-        return res
+  // claim + guarded delete + 通知 + 审计同事务原子提交:
+  //   - guarded delete 以 status 条件 + 行锁闭合"读状态→删除"窗口: 并发恢复 (approveAppeal /
+  //     admin 取消隐藏) 要么先提交使删除匹配 0 行而跳过, 要么被行锁阻塞后见已删——不再误删已恢复内容 (R1)
+  //   - 通知与审计随删除同事务, 失败整体回滚, 杜绝"已删已拒但无通知/无审计"的部分状态 (R3)
+  //   - 失败整体回滚自动还原 claim, 无需 check-then-write 的 revertClaim, 杜绝孤儿 pending 申诉 (R2)
+  const commit = async (): Promise<RejectOutcome | string> => {
+    let retryCount = 0
+    while (true) {
+      try {
+        return await prisma.$transaction(async (tx) => {
+          const claim = await tx.moderation_appeal.updateMany({
+            where: { id: appeal.id, status: 'pending' },
+            data: { status: 'rejected', handled_by: uid }
+          })
+          if (claim.count === 0) {
+            throw new AppealHandleError('该申诉已被处理, 请刷新后重试')
+          }
+
+          let didDelete = false
+          let contentDeleted = false
+          let affectedUniqueId = ''
+
+          if (type === 'comment') {
+            // 删除前用递归 CTE 收集根+后代 id, 供删除后清理其审核任务与 pending 申诉
+            const descendants = await tx.$queryRaw<{ id: number }[]>`
+              WITH RECURSIVE descendants AS (
+                SELECT id FROM patch_comment WHERE id = ${contentId}
+                UNION ALL
+                SELECT pc.id FROM patch_comment pc
+                INNER JOIN descendants d ON pc.parent_id = d.id
+              )
+              SELECT id FROM descendants
+            `
+            const deleted = await tx.patch_comment.deleteMany({
+              where: { id: contentId, status: hiddenStatus }
+            })
+            if (deleted.count > 0) {
+              const ids = descendants.map((row) => row.id)
+              await deletePendingModerationTasks('comment', ids, tx)
+              await deletePendingAppeals('comment', ids, tx)
+              didDelete = true
+              contentDeleted = true
+            } else {
+              // 未匹配: 内容已被恢复 (仍存在→保留) 或已被并发删除 (不存在→达标)
+              const still = await tx.patch_comment.findUnique({
+                where: { id: contentId },
+                select: { id: true }
+              })
+              contentDeleted = !still
+            }
+          } else if (type === 'rating') {
+            // FOR UPDATE 锁定评分行并读事务内当前状态, 与并发恢复串行化
+            const locked = await tx.$queryRaw<{ status: number }[]>`
+              SELECT status FROM patch_rating WHERE id = ${contentId} FOR UPDATE
+            `
+            if (locked.length > 0 && locked[0].status === hiddenStatus) {
+              await tx.patch_rating.deleteMany({ where: { id: contentId } })
+              await deletePendingModerationTasks('rating', contentId, tx)
+              await deletePendingAppeals('rating', contentId, tx)
+              // 隐藏态(2)评分不计入 ratingSummary, 删除无需重算统计 (对齐 adminDeleteRating)
+              didDelete = true
+              contentDeleted = true
+            } else {
+              contentDeleted = locked.length === 0
+            }
+          } else {
+            const deleted = await tx.patch_resource.deleteMany({
+              where: { id: contentId, status: hiddenStatus }
+            })
+            if (deleted.count > 0 && patchId !== null) {
+              await deletePendingModerationTasks('resource', contentId, tx)
+              await deletePendingAppeals('resource', contentId, tx)
+              affectedUniqueId = await recalcPatchType(patchId, tx)
+              await enqueueSearchOutbox(tx, patchId)
+              await enqueueResourceLinkDeletions(tx, resourceLinksForS3)
+              didDelete = true
+              contentDeleted = true
+            } else {
+              const still = await tx.patch_resource.findUnique({
+                where: { id: contentId },
+                select: { id: true }
+              })
+              contentDeleted = !still
+            }
+          }
+
+          await createMessage(
+            {
+              type: 'system',
+              content: contentDeleted
+                ? APPEAL_RESULT_NOTICE.rejected(
+                    MODERATION_CONTENT_TYPE_MAP[type]
+                  )
+                : APPEAL_RESULT_NOTICE.rejectedKept(
+                    MODERATION_CONTENT_TYPE_MAP[type]
+                  ),
+              link: '',
+              recipient_id: appeal.user_id
+            },
+            tx
+          )
+
+          await tx.admin_log.create({
+            data: {
+              type: 'decline',
+              user_id: uid,
+              content: `管理员 ${adminName} 拒绝了申诉 (ID: ${appeal.id}, 类型: ${type}, 内容 ID: ${contentId}, 用户 ID: ${appeal.user_id})${
+                didDelete
+                  ? ', 内容已删除'
+                  : contentDeleted
+                    ? ', 内容已被其他操作删除, 未重复执行'
+                    : ', 内容已被其他操作恢复, 未执行删除'
+              }`
+            }
+          })
+
+          return { contentDeleted, didDelete, affectedUniqueId }
+        })
+      } catch (error) {
+        if (error instanceof AppealHandleError) {
+          return error.message
+        }
+        if (isPrismaTransactionConflict(error) && retryCount < 2) {
+          retryCount++
+          continue
+        }
+        throw error
       }
-    } catch (error) {
-      await revertClaim()
-      throw error
     }
-    contentDeleted = true
-  } else if (contentStatus === null) {
-    // 内容已被其他途径删除, 与拒绝目标一致
-    contentDeleted = true
   }
 
-  await createMessage({
-    type: 'system',
-    content: contentDeleted
-      ? APPEAL_RESULT_NOTICE.rejected(MODERATION_CONTENT_TYPE_MAP[type])
-      : APPEAL_RESULT_NOTICE.rejectedKept(MODERATION_CONTENT_TYPE_MAP[type]),
-    link: '',
-    recipient_id: appeal.user_id
-  })
+  const outcome = await commit()
+  if (typeof outcome === 'string') {
+    return outcome
+  }
 
-  await prisma.admin_log.create({
-    data: {
-      type: 'decline',
-      user_id: uid,
-      content: `管理员 ${adminName} 拒绝了申诉 (ID: ${appeal.id}, 类型: ${type}, 内容 ID: ${contentId}, 用户 ID: ${appeal.user_id})${contentDeleted ? ', 内容已删除' : ', 内容已被其他操作处理, 未执行删除'}`
+  // 提交后副作用: 仅当本事务真正执行删除时触发, 与既有 adminDelete* 的提交后失效对齐;
+  // best-effort, Redis 故障不回滚已提交的 DB 删除 (M-04/M-05)
+  if (outcome.didDelete && patchId !== null) {
+    if (type === 'comment') {
+      await invalidatePatchCommentCache(patchId)
+      await invalidatePatchContentCacheByPatchId(patchId).catch(() => undefined)
+    } else if (type === 'rating') {
+      await invalidatePatchContentCacheByPatchId(patchId).catch(() => undefined)
+    } else {
+      queueSearchSync(patchId)
+      await invalidatePatchContentCache(outcome.affectedUniqueId).catch(
+        () => undefined
+      )
+      kickS3DeletionDrain()
     }
-  })
+  }
 
   return {}
 }

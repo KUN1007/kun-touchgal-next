@@ -25,7 +25,8 @@ const {
   recalcPatchTypeMock,
   enqueueSearchOutboxMock,
   kickDrainMock,
-  invalidatePatchContentCacheMock
+  invalidatePatchContentCacheMock,
+  invalidateContentByPatchIdMock
 } = vi.hoisted(() => ({
   findUserMock: vi.fn(),
   findResourcesMock: vi.fn(),
@@ -51,7 +52,8 @@ const {
   recalcPatchTypeMock: vi.fn(),
   enqueueSearchOutboxMock: vi.fn(),
   kickDrainMock: vi.fn(),
-  invalidatePatchContentCacheMock: vi.fn()
+  invalidatePatchContentCacheMock: vi.fn(),
+  invalidateContentByPatchIdMock: vi.fn()
 }))
 
 const events: string[] = []
@@ -112,7 +114,8 @@ vi.mock('~/app/api/patch/resource/_helper', () => ({
 }))
 
 vi.mock('~/app/api/patch/cache', () => ({
-  invalidatePatchContentCache: invalidatePatchContentCacheMock
+  invalidatePatchContentCache: invalidatePatchContentCacheMock,
+  invalidatePatchContentCacheByPatchId: invalidateContentByPatchIdMock
 }))
 
 vi.mock('~/server/search/sync', () => ({
@@ -195,6 +198,7 @@ beforeEach(() => {
     events.push('invalidate-comment-cache')
   })
   invalidatePatchContentCacheMock.mockResolvedValue(undefined)
+  invalidateContentByPatchIdMock.mockResolvedValue(undefined)
   transactionMock.mockImplementation(
     async (callback: (tx: typeof transactionClient) => Promise<unknown>) => {
       events.push('transaction-start')
@@ -290,6 +294,24 @@ describe('deleteUser', () => {
       'kick-drain'
     ])
   })
+
+  it('失效级联删除的评论与评分所在 patch 的详情缓存 (M-05)', async () => {
+    findCommentedPatchesMock.mockResolvedValue([
+      { patch_id: 40 },
+      { patch_id: 41 }
+    ])
+    findRatingsInTransactionMock.mockResolvedValue([
+      { patch_id: 50, status: 0, patch: { user_id: 8 } },
+      { patch_id: 51, status: 2, patch: { user_id: 8 } },
+      { patch_id: 52, status: 0, patch: { user_id: 7 } }
+    ])
+
+    await expect(deleteUser({ uid: 7 }, 99)).resolves.toEqual({})
+
+    // 评论 patch (40,41) + 他人补丁下 status=0 评分 patch (50); 隐藏(51)与自己补丁(52)排除
+    expect(invalidateContentByPatchIdMock).toHaveBeenCalledWith([40, 41, 50])
+  })
+
   it('retries serializable conflicts without repeating resource cleanup', async () => {
     findResourcesMock.mockResolvedValue([{ id: 55 }])
     // 首次尝试(将因冲突回滚)与重试各收集到不同的受影响 patch

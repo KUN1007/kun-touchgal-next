@@ -3,6 +3,7 @@ import { isPrismaTransactionConflict, prisma } from '~/prisma/index'
 import { adminDeleteRatingSchema } from '~/validations/admin'
 import { Prisma } from '~/prisma/generated/prisma/client'
 import { recomputePatchRatingStats } from '~/app/api/patch/rating/stat'
+import { invalidatePatchContentCacheByPatchId } from '~/app/api/patch/cache'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
 
@@ -140,6 +141,9 @@ export const deleteRating = async (
       retryCount++
     }
   }
+
+  // 事务提交后失效补丁详情缓存: ratingSummary 随评分统计变化 (M-05)
+  await invalidatePatchContentCacheByPatchId(patchIds).catch(() => undefined)
 
   return {}
 }

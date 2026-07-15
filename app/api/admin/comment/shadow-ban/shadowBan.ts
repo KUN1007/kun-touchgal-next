@@ -3,6 +3,7 @@ import { prisma } from '~/prisma/index'
 import { adminUpdateCommentShadowBanSchema } from '~/validations/admin'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
+import { invalidatePatchContentCacheByPatchId } from '~/app/api/patch/cache'
 
 const statusLabel: Record<number, string> = {
   0: '正常',
@@ -59,5 +60,9 @@ export const updateCommentShadowBan = async (
   })
 
   await invalidatePatchCommentCache(comment.patch_id)
+  // 隐藏/恢复评论改变 _count.comment, 失效补丁详情缓存 (M-05)
+  await invalidatePatchContentCacheByPatchId(comment.patch_id).catch(
+    () => undefined
+  )
   return {}
 }

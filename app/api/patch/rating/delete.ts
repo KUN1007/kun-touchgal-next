@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { recomputePatchRatingStat } from './stat'
+import { invalidatePatchContentCacheByPatchId } from '~/app/api/patch/cache'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 
 const ratingIdSchema = z.object({
@@ -33,6 +34,11 @@ export const deletePatchRating = async (
     await deletePendingModerationTasks('rating', input.ratingId, tx)
     await recomputePatchRatingStat(rating.patch_id, tx)
   })
+
+  // 事务提交后失效补丁详情缓存: ratingSummary 随评分统计变化 (M-05)
+  await invalidatePatchContentCacheByPatchId(rating.patch_id).catch(
+    () => undefined
+  )
 
   return {}
 }

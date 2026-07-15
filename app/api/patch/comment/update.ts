@@ -13,6 +13,7 @@ import {
   preScreenText
 } from '~/server/moderation/submit'
 import { invalidatePatchCommentCache } from './cache'
+import { invalidatePatchContentCacheByPatchId } from '~/app/api/patch/cache'
 
 export const updateComment = async (
   input: z.infer<typeof patchCommentUpdateSchema>,
@@ -88,5 +89,11 @@ export const updateComment = async (
   })
 
   await invalidatePatchCommentCache(comment.patch_id)
+  // 仅重新送审 (status 0→1) 改 _count.comment; 普通编辑正文不影响详情缓存 (M-05)
+  if (moderation.intercept) {
+    await invalidatePatchContentCacheByPatchId(comment.patch_id).catch(
+      () => undefined
+    )
+  }
   return { contentHtml, contentPreview: convert(contentHtml).trim() }
 }

@@ -7,7 +7,8 @@ const {
   preScreenTextMock,
   createModerationTaskMock,
   createDedupMessageMock,
-  createMentionMessageMock
+  createMentionMessageMock,
+  invalidateContentMock
 } = vi.hoisted(() => ({
   createCommentMock: vi.fn(),
   transactionMock: vi.fn(),
@@ -15,7 +16,8 @@ const {
   preScreenTextMock: vi.fn(),
   createModerationTaskMock: vi.fn(),
   createDedupMessageMock: vi.fn(),
-  createMentionMessageMock: vi.fn()
+  createMentionMessageMock: vi.fn(),
+  invalidateContentMock: vi.fn(async () => undefined)
 }))
 
 const transactionClient = {
@@ -47,6 +49,10 @@ vi.mock('~/app/api/utils/render/markdownToHtmlComment', () => ({
 vi.mock('~/server/moderation/submit', () => ({
   createModerationTask: createModerationTaskMock,
   preScreenText: preScreenTextMock
+}))
+
+vi.mock('~/app/api/patch/cache', () => ({
+  invalidatePatchContentCache: invalidateContentMock
 }))
 
 import { createPatchComment } from '~/app/api/patch/comment/create'
@@ -140,5 +146,11 @@ describe('createPatchComment', () => {
     expect(result).toEqual(
       expect.objectContaining({ content: '<p>retry</p>', status: 0 })
     )
+  })
+
+  it('评论创建后按 unique_id 失效补丁详情缓存 (M-05)', async () => {
+    await createPatchComment(input, 7)
+
+    expect(invalidateContentMock).toHaveBeenCalledWith('patch-10')
   })
 })

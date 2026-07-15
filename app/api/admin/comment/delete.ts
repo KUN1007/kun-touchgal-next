@@ -5,6 +5,7 @@ import { adminDeleteCommentSchema } from '~/validations/admin'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
+import { invalidatePatchContentCacheByPatchId } from '~/app/api/patch/cache'
 
 const adminLogContentLimit = 10007
 const adminDeleteCommentSummaryLimit = 10
@@ -122,6 +123,8 @@ export const deleteComment = async (
   await Promise.all(
     patchIds.map((patchId) => invalidatePatchCommentCache(patchId))
   )
+  // 批量删除评论改变 _count.comment, 失效补丁详情缓存 (M-05)
+  await invalidatePatchContentCacheByPatchId(patchIds).catch(() => undefined)
 
   return {}
 }

@@ -6,6 +6,7 @@ import { adminHandleReportSchema } from '~/validations/admin'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
+import { invalidatePatchContentCacheByPatchId } from '~/app/api/patch/cache'
 
 const handleReport = async (
   input: z.infer<typeof adminHandleReportSchema>,
@@ -116,6 +117,16 @@ const handleReport = async (
 
   if (input.action === 'delete' && targetType === 'comment' && targetId) {
     await invalidatePatchCommentCache(report.patch_id)
+    // 删除公开评论改变 _count.comment, 失效补丁详情缓存 (M-05)
+    await invalidatePatchContentCacheByPatchId(report.patch_id).catch(
+      () => undefined
+    )
+  }
+  // 删除评分改变 ratingSummary, 失效补丁详情缓存 (M-05)
+  if (ratingPatchId !== undefined && ratingPatchId !== null) {
+    await invalidatePatchContentCacheByPatchId(ratingPatchId).catch(
+      () => undefined
+    )
   }
 
   return {}

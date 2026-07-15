@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { patchRatingCreateSchema } from '~/validations/patch'
 import { recomputePatchRatingStat } from './stat'
+import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { createModerationTask, preScreenText } from '~/server/moderation/submit'
 import type { KunPatchRating } from '~/types/api/galgame'
 
@@ -74,6 +75,9 @@ export const createPatchRating = async (
     await recomputePatchRatingStat(patchId, tx)
     return created
   })
+
+  // 事务提交后失效补丁详情缓存: ratingSummary 随评分统计变化 (M-05)
+  await invalidatePatchContentCache(data.patch.unique_id).catch(() => undefined)
 
   return {
     id: data.id,

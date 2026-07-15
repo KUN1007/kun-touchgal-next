@@ -10,6 +10,7 @@ import {
 } from '~/app/api/utils/render/markdownToHtmlComment'
 import { createModerationTask, preScreenText } from '~/server/moderation/submit'
 import { invalidatePatchCommentCache } from './cache'
+import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import type { PatchComment } from '~/types/api/patch'
 
 export const createPatchComment = async (
@@ -141,6 +142,8 @@ export const createPatchComment = async (
   }
 
   await invalidatePatchCommentCache(input.patchId)
+  // 新增评论改变 _count.comment, 失效补丁详情缓存 (M-05)
+  await invalidatePatchContentCache(data.patch.unique_id).catch(() => undefined)
 
   return newComment
 }

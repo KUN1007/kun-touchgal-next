@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { PATCH_FAVORITE_CACHE_DURATION } from '~/config/cache'
 import { PATCH_INTRODUCTION_HTML_VERSION } from '~/app/api/utils/render/htmlVersion'
 import { delKv, delKvs, getKv, getKvs, setKv } from '~/lib/redis'
+import { prisma } from '~/prisma/index'
 
 const PATCH_CACHE_KEY = 'patch'
 const PATCH_INTRODUCTION_CACHE_KEY = 'patch:introduction'
@@ -127,6 +128,25 @@ export const invalidatePatchContentCache = async (uniqueId: string) => {
     delKv(getPatchCacheKey(uniqueId)),
     delKv(getPatchIntroductionCacheKey(uniqueId))
   ])
+}
+
+// 只持有数字 patch_id 的写路径 (评分/评论统计变更) 用它失效补丁详情缓存:
+// 详情缓存内嵌 ratingSummary 与 _count(评论/资源/收藏), 缓存键按 unique_id.
+// 调用方须在事务提交后 best-effort 调用 (事务内失效会被并发读回填旧值, 见 M-04)
+export const invalidatePatchContentCacheByPatchId = async (
+  patchIds: number | number[]
+) => {
+  const ids = Array.isArray(patchIds) ? [...new Set(patchIds)] : [patchIds]
+  if (!ids.length) {
+    return
+  }
+  const patches = await prisma.patch.findMany({
+    where: { id: { in: ids } },
+    select: { unique_id: true }
+  })
+  await Promise.all(
+    patches.map((patch) => invalidatePatchContentCache(patch.unique_id))
+  )
 }
 
 export const invalidatePatchFavoriteCache = async (

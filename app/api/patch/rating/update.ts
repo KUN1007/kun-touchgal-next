@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { patchRatingUpdateSchema } from '~/validations/patch'
 import { recomputePatchRatingStat } from './stat'
+import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import {
   MODERATION_SKIP,
   createModerationTask,
@@ -101,6 +102,9 @@ export const updatePatchRating = async (
     await recomputePatchRatingStat(rating.patch_id, tx)
     return updated
   })
+
+  // 事务提交后失效补丁详情缓存: ratingSummary 随评分统计变化 (M-05)
+  await invalidatePatchContentCache(data.patch.unique_id).catch(() => undefined)
 
   return {
     id: data.id,

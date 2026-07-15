@@ -3,7 +3,10 @@ import { isPrismaTransactionConflict, prisma } from '~/prisma/index'
 import { deleteKunToken } from '~/app/api/utils/jwt'
 import { deleteResource } from '../resource/delete'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
-import { invalidatePatchContentCache } from '~/app/api/patch/cache'
+import {
+  invalidatePatchContentCache,
+  invalidatePatchContentCacheByPatchId
+} from '~/app/api/patch/cache'
 import { recomputePatchRatingStats } from '~/app/api/patch/rating/stat'
 import { invalidateTagListCache } from '~/app/api/tag/cache'
 import { invalidateCompanyListCache } from '~/app/api/company/cache'
@@ -76,6 +79,7 @@ export const deleteUser = async (
   let result: Record<string, never>
   let affectedPatchIds: number[] = []
   let affectedUniqueIds: string[] = []
+  let ratingAffectedPatchIds: number[] = []
   let retryCount = 0
   while (true) {
     try {
@@ -112,15 +116,15 @@ export const deleteUser = async (
             where: { id: input.uid }
           })
 
-          await recomputePatchRatingStats(
-            ratedPatches
-              .filter(
-                (rating) =>
-                  rating.status === 0 && rating.patch.user_id !== input.uid
-              )
-              .map((rating) => rating.patch_id),
-            prisma
-          )
+          // 覆盖式赋值: Serializable 重试时不累加 (与 affectedUniqueIds 同理)
+          const ratingPatchIds = ratedPatches
+            .filter(
+              (rating) =>
+                rating.status === 0 && rating.patch.user_id !== input.uid
+            )
+            .map((rating) => rating.patch_id)
+          await recomputePatchRatingStats(ratingPatchIds, prisma)
+          ratingAffectedPatchIds = ratingPatchIds
 
           // 级联删除已移除资源行但不触发聚合重算, 补齐之
           // (patch 内容缓存失效已移出事务, 由提交后统一失效; 与 create/update/delete/hidden 一致)
@@ -168,6 +172,11 @@ export const deleteUser = async (
       invalidatePatchContentCache(uniqueId).catch(() => undefined)
     )
   )
+  // 级联删除的公开评论/评分改 _count.comment 与 ratingSummary, 失效对应 patch 详情缓存 (M-05)
+  await invalidatePatchContentCacheByPatchId([
+    ...commentedPatches.map((c) => c.patch_id),
+    ...ratingAffectedPatchIds
+  ]).catch(() => undefined)
   // 事务内已逐 id 入队，此处一次 kick 触发 drain 处理整箱（避免逐 id 各 kick）
   kickSearchOutboxDrain()
 

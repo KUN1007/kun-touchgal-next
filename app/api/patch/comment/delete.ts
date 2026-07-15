@@ -3,6 +3,7 @@ import { prisma } from '~/prisma/index'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
 import { invalidatePatchCommentCache } from './cache'
+import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 
 const commentIdSchema = z.object({
@@ -113,5 +114,9 @@ export const deleteComment = async (
   })
 
   await invalidatePatchCommentCache(comment.patch_id)
+  // 删除评论改变 _count.comment, 失效补丁详情缓存 (M-05)
+  await invalidatePatchContentCache(comment.patch.unique_id).catch(
+    () => undefined
+  )
   return {}
 }

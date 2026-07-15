@@ -3,6 +3,7 @@ import { prisma } from '~/prisma/index'
 import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
 import { adminUpdateRatingShadowBanSchema } from '~/validations/admin'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
+import { invalidatePatchContentCacheByPatchId } from '~/app/api/patch/cache'
 
 const statusLabel: Record<number, string> = {
   0: '正常',
@@ -59,6 +60,11 @@ export const updateRatingShadowBan = async (
 
     await recomputePatchRatingStat(rating.patch_id, prisma)
   })
+
+  // 事务提交后失效补丁详情缓存: ratingSummary 随评分统计变化 (M-05)
+  await invalidatePatchContentCacheByPatchId(rating.patch_id).catch(
+    () => undefined
+  )
 
   return {}
 }

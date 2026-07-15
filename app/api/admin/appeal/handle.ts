@@ -11,7 +11,10 @@ import { sendDeferredCommentNotifications } from '~/server/moderation/apply'
 import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
-import { invalidatePatchContentCache } from '~/app/api/patch/cache'
+import {
+  invalidatePatchContentCache,
+  invalidatePatchContentCacheByPatchId
+} from '~/app/api/patch/cache'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
 import { deleteComment as adminDeleteComment } from '~/app/api/admin/comment/delete'
@@ -166,6 +169,10 @@ const approveAppeal = async (
       await invalidatePatchContentCache(resourceUniqueId).catch(() => undefined)
     }
     await invalidateResourceListCache()
+  }
+  // comment 恢复 (2→0) 改 _count.comment, rating 恢复改 ratingSummary, 失效详情缓存 (M-05)
+  if ((type === 'comment' || type === 'rating') && patchId !== null) {
+    await invalidatePatchContentCacheByPatchId(patchId).catch(() => undefined)
   }
 
   return {}

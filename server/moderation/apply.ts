@@ -6,7 +6,10 @@ import { createMentionMessage } from '~/app/api/utils/createMentionMessage'
 import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
-import { invalidatePatchContentCache } from '~/app/api/patch/cache'
+import {
+  invalidatePatchContentCache,
+  invalidatePatchContentCacheByPatchId
+} from '~/app/api/patch/cache'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
@@ -124,6 +127,7 @@ export const applyModerationVerdict = async (
   let resourceUniqueId: string | null = null
   let commentApproved = false
   let commentPatchId: number | null = null
+  let ratingPatchId: number | null = null
 
   await prisma.$transaction(async (tx) => {
     // user 级联删除先锁 user 行, 再删内容与 task; 普通删除路径则是
@@ -211,6 +215,7 @@ export const applyModerationVerdict = async (
             data: { status: approved ? 0 : 2 }
           })
           await recomputePatchRatingStat(rating.patch_id, tx)
+          ratingPatchId = rating.patch_id
         }
         break
       }
@@ -310,7 +315,17 @@ export const applyModerationVerdict = async (
     await sendDeferredCommentNotifications(task.content_id ?? 0)
     if (commentPatchId !== null) {
       await invalidatePatchCommentCache(commentPatchId)
+      // 评论通过 (1→0) 进入公开基线改 _count.comment, 失效补丁详情缓存 (M-05)
+      await invalidatePatchContentCacheByPatchId(commentPatchId).catch(
+        () => undefined
+      )
     }
+  }
+  // 评价审核落定 (1→0/2) 改 ratingSummary, 失效补丁详情缓存 (M-05)
+  if (ratingPatchId !== null) {
+    await invalidatePatchContentCacheByPatchId(ratingPatchId).catch(
+      () => undefined
+    )
   }
   if (resourcePatchId !== null) {
     queueSearchSync(resourcePatchId)

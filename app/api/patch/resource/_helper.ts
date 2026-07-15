@@ -176,7 +176,7 @@ const PATCH_TYPE_LOCK_NAMESPACE = 481001
 const recalcPatchTypeLocked = async (
   patchId: number,
   tx: Prisma.TransactionClient
-) => {
+): Promise<string> => {
   // pg_advisory_xact_lock: 事务级通告锁, 提交/回滚时自动释放. 使同一 patch 的
   // 「读全部可见资源 → 写 type/language/platform」原子化, 消除重叠事务 (审核重叠批次、
   // 管理员与用户并发操作) 的丢更新. 用 $executeRaw (而非 $queryRaw): pg adapter 无法
@@ -202,7 +202,10 @@ const recalcPatchTypeLocked = async (
     select: { unique_id: true }
   })
 
-  await invalidatePatchContentCache(patch.unique_id)
+  // 缓存失效移出事务: 事务内删 Redis 会 (1) 提交前失效、并发读回填旧值、提交后无二次
+  // 删致旧值滞留至 TTL; (2) Redis 故障回滚本应只依赖 PostgreSQL 的写入. 返回 unique_id
+  // 交由调用方在事务提交后 best-effort 失效
+  return patch.unique_id
 }
 
 // 现有调用方全部在事务内 (审核 apply / 申诉 / 资源增删改 / 管理端), 传入其 tx: 锁随该
@@ -213,9 +216,15 @@ const recalcPatchTypeLocked = async (
 export const recalcPatchType = async (
   patchId: number,
   tx?: Prisma.TransactionClient
-) => {
+): Promise<string> => {
   if (!tx) {
-    return prisma.$transaction((t) => recalcPatchTypeLocked(patchId, t))
+    // 不传 tx 的兜底: 自开事务, 提交后再失效缓存 (与传 tx 时调用方的后置失效等价)
+    const uniqueId = await prisma.$transaction((t) =>
+      recalcPatchTypeLocked(patchId, t)
+    )
+    await invalidatePatchContentCache(uniqueId).catch(() => undefined)
+    return uniqueId
   }
+  // 传 tx: 返回 unique_id, 调用方须在事务提交后 invalidatePatchContentCache
   return recalcPatchTypeLocked(patchId, tx)
 }

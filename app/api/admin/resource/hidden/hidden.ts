@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import {
   enqueueSearchOutbox,
   kickSearchOutboxDrain
@@ -52,6 +53,7 @@ export const updateResourceHidden = async (
     ...new Set(targets.map((resource) => resource.patch_id))
   ].sort((a, b) => a - b)
 
+  const affectedUniqueIds: string[] = []
   await prisma.$transaction(async (prisma) => {
     // 先作废在途审核任务再改 status: 锁顺序 (task→资源行) 与 worker apply 对齐,
     // 消除与 worker 的 AB-BA 死锁; 管理员裁决为最终, 在途裁决不应再覆盖.
@@ -68,7 +70,7 @@ export const updateResourceHidden = async (
     // 与 create/update/delete/approve 等既有流程保持一致
     // 事务性入队与重算同循环：与补丁变更原子提交，关闭崩溃丢失窗口
     for (const patchId of patchIds) {
-      await recalcPatchType(patchId, prisma)
+      affectedUniqueIds.push(await recalcPatchType(patchId, prisma))
       await enqueueSearchOutbox(prisma, patchId)
     }
 
@@ -85,6 +87,13 @@ export const updateResourceHidden = async (
 
   // 事务内已逐 id 入队，此处一次 kick 触发 drain 处理整箱（避免逐 id 各 kick）
   kickSearchOutboxDrain()
+
+  // 事务提交后失效: 事务内失效会被并发读回填旧值 (M-04), 且 Redis 故障不应回滚写入
+  await Promise.all(
+    affectedUniqueIds.map((uniqueId) =>
+      invalidatePatchContentCache(uniqueId).catch(() => undefined)
+    )
+  )
 
   await invalidateResourceListCache()
 

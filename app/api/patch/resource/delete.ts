@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { enqueueResourceLinkDeletions, recalcPatchType } from './_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
@@ -42,6 +43,7 @@ export const deleteResource = async (
 
   const s3Links = patchResource.links.filter((link) => link.storage === 's3')
 
+  let affectedUniqueId = ''
   const response = await prisma.$transaction(async (prisma) => {
     await prisma.user.update({
       where: { id: resourceUserUid },
@@ -52,7 +54,7 @@ export const deleteResource = async (
       where: { id: input.resourceId }
     })
     await deletePendingModerationTasks('resource', input.resourceId, prisma)
-    await recalcPatchType(patchResource.patch_id, prisma)
+    affectedUniqueId = await recalcPatchType(patchResource.patch_id, prisma)
     // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
     await enqueueSearchOutbox(prisma, patchResource.patch_id)
     // 事务性入队 S3 删除：与行删除原子提交，取代提交后 Promise.all 的不可恢复删除
@@ -69,6 +71,8 @@ export const deleteResource = async (
   })
 
   queueSearchSync(patchResource.patch_id)
+  // 事务提交后失效: 事务内失效会被并发读回填旧值 (M-04), 且 Redis 故障不应回滚写入
+  await invalidatePatchContentCache(affectedUniqueId).catch(() => undefined)
   await invalidateUserSession(resourceUserUid)
 
   if (patchResource.status === 0 && patchResource.section === 'patch') {

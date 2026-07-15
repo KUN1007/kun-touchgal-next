@@ -8,6 +8,7 @@ import {
   recalcPatchType
 } from './_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
 import { enqueueSearchOutbox, queueSearchSync } from '~/server/search/sync'
 import { kickS3DeletionDrain } from '~/server/storage/s3Outbox'
@@ -263,6 +264,10 @@ export const updatePatchResource = async (
   })
 
   queueSearchSync(patchId)
+  // 事务提交后失效: 事务内失效会被并发读回填旧值 (M-04), 且 Redis 故障不应回滚写入
+  await invalidatePatchContentCache(updatedResource.uniqueId).catch(
+    () => undefined
+  )
 
   const wasListed = resource.status === 0 && resource.section === 'patch'
   const isListed =

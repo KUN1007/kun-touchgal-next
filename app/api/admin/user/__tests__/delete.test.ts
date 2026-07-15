@@ -24,7 +24,8 @@ const {
   findResourcesInTransactionMock,
   recalcPatchTypeMock,
   enqueueSearchOutboxMock,
-  kickDrainMock
+  kickDrainMock,
+  invalidatePatchContentCacheMock
 } = vi.hoisted(() => ({
   findUserMock: vi.fn(),
   findResourcesMock: vi.fn(),
@@ -49,7 +50,8 @@ const {
   findResourcesInTransactionMock: vi.fn(),
   recalcPatchTypeMock: vi.fn(),
   enqueueSearchOutboxMock: vi.fn(),
-  kickDrainMock: vi.fn()
+  kickDrainMock: vi.fn(),
+  invalidatePatchContentCacheMock: vi.fn()
 }))
 
 const events: string[] = []
@@ -109,6 +111,10 @@ vi.mock('~/app/api/patch/resource/_helper', () => ({
   recalcPatchType: recalcPatchTypeMock
 }))
 
+vi.mock('~/app/api/patch/cache', () => ({
+  invalidatePatchContentCache: invalidatePatchContentCacheMock
+}))
+
 vi.mock('~/server/search/sync', () => ({
   enqueueSearchOutbox: enqueueSearchOutboxMock,
   kickSearchOutboxDrain: kickDrainMock
@@ -144,6 +150,7 @@ beforeEach(() => {
   findResourcesInTransactionMock.mockResolvedValue([])
   recalcPatchTypeMock.mockImplementation(async (patchId: number) => {
     events.push(`recalc-${patchId}`)
+    return `uid-${patchId}`
   })
   enqueueSearchOutboxMock.mockImplementation(
     async (_client: unknown, patchId: number) => {
@@ -187,6 +194,7 @@ beforeEach(() => {
   invalidateCommentCacheMock.mockImplementation(async () => {
     events.push('invalidate-comment-cache')
   })
+  invalidatePatchContentCacheMock.mockResolvedValue(undefined)
   transactionMock.mockImplementation(
     async (callback: (tx: typeof transactionClient) => Promise<unknown>) => {
       events.push('transaction-start')
@@ -258,6 +266,11 @@ describe('deleteUser', () => {
       [transactionClient, 30],
       [transactionClient, 32]
     ])
+    // M-04: 事务提交后按 unique_id 失效 patch 内容缓存 (提交前失效会被并发读回填旧值)
+    expect(invalidatePatchContentCacheMock.mock.calls).toEqual([
+      ['uid-30'],
+      ['uid-32']
+    ])
     // 事务提交后仅一次 kick 触发 drain 处理整箱（不再逐 id 各 kick）
     expect(kickDrainMock).toHaveBeenCalledTimes(1)
     expect(events).toEqual([
@@ -313,6 +326,8 @@ describe('deleteUser', () => {
     ])
     // 事务后 kick 仅一次(不随重试次数增加)
     expect(kickDrainMock).toHaveBeenCalledTimes(1)
+    // Serializable 重试仅提交最终 attempt: 缓存失效不含被回滚 attempt 的 uid-91
+    expect(invalidatePatchContentCacheMock.mock.calls).toEqual([['uid-92']])
   })
 
   it('invalidates cascading lists before token cleanup can fail', async () => {
@@ -342,5 +357,6 @@ describe('deleteUser', () => {
     expect(invalidateCacheMock).not.toHaveBeenCalled()
     expect(invalidateTagCacheMock).not.toHaveBeenCalled()
     expect(invalidateCompanyCacheMock).not.toHaveBeenCalled()
+    expect(invalidatePatchContentCacheMock).not.toHaveBeenCalled()
   })
 })

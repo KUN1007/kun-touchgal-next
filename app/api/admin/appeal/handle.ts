@@ -11,6 +11,7 @@ import { sendDeferredCommentNotifications } from '~/server/moderation/apply'
 import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
 import { deleteComment as adminDeleteComment } from '~/app/api/admin/comment/delete'
@@ -34,6 +35,8 @@ const approveAppeal = async (
 
   // 事务外预取副作用所需的 patch_id 并渲染评论 HTML
   let patchId: number | null = null
+  // resource 申诉通过后由 recalcPatchType 返回, 供事务提交后失效 patch 内容缓存
+  let resourceUniqueId: string | null = null
   let contentHtml = ''
   let contentHtmlVersion = 0
   if (type === 'comment') {
@@ -105,7 +108,7 @@ const approveAppeal = async (
         })
         updatedCount = updated.count
         if (updated.count > 0 && patchId !== null) {
-          await recalcPatchType(patchId, tx)
+          resourceUniqueId = await recalcPatchType(patchId, tx)
           // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
           await enqueueSearchOutbox(tx, patchId)
         }
@@ -157,6 +160,10 @@ const approveAppeal = async (
   if (type === 'resource') {
     if (patchId !== null) {
       queueSearchSync(patchId)
+    }
+    // 事务提交后失效: 事务内失效会被并发读回填旧值 (M-04), 且 Redis 故障不应回滚写入
+    if (resourceUniqueId !== null) {
+      await invalidatePatchContentCache(resourceUniqueId).catch(() => undefined)
     }
     await invalidateResourceListCache()
   }

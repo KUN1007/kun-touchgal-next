@@ -6,6 +6,7 @@ import { createMentionMessage } from '~/app/api/utils/createMentionMessage'
 import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
@@ -120,6 +121,7 @@ export const applyModerationVerdict = async (
 
   let claimed = false
   let resourcePatchId: number | null = null
+  let resourceUniqueId: string | null = null
   let commentApproved = false
   let commentPatchId: number | null = null
 
@@ -225,7 +227,7 @@ export const applyModerationVerdict = async (
           })
           // visible resource set changed, keep aggregates consistent with
           // the admin hidden flow
-          await recalcPatchType(resource.patch_id, tx)
+          resourceUniqueId = await recalcPatchType(resource.patch_id, tx)
           // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
           await enqueueSearchOutbox(tx, resource.patch_id)
           resourcePatchId = resource.patch_id
@@ -312,6 +314,10 @@ export const applyModerationVerdict = async (
   }
   if (resourcePatchId !== null) {
     queueSearchSync(resourcePatchId)
+    // 事务提交后失效: 事务内失效会被并发读回填旧值 (M-04), 且 Redis 故障不应回滚写入
+    if (resourceUniqueId !== null) {
+      await invalidatePatchContentCache(resourceUniqueId).catch(() => undefined)
+    }
     await invalidateResourceListCache()
     // 资源离开待审核 (3→0/1): 作者 hasPendingResource 可能翻假, 失效以尽早停止 bypass
     await invalidateUserPendingResourceCache(task.user_id)

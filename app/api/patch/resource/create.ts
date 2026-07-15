@@ -5,6 +5,7 @@ import { createMessage } from '~/app/api/utils/message'
 import { markdownToHtml } from '~/app/api/utils/render/markdownToHtml'
 import { bindUploadedResource, recalcPatchType } from './_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
 import { enqueueSearchOutbox, queueSearchSync } from '~/server/search/sync'
@@ -181,6 +182,10 @@ export const createPatchResource = async (
 
   if (currentPatch) {
     queueSearchSync(patchId)
+    // 事务提交后失效: 事务内失效会被并发读回填旧值 (M-04), 且 Redis 故障不应回滚写入
+    await invalidatePatchContentCache(currentPatch.unique_id).catch(
+      () => undefined
+    )
   }
   await invalidateUserSession(uid)
 

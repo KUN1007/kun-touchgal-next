@@ -3,6 +3,7 @@ import { isPrismaTransactionConflict, prisma } from '~/prisma/index'
 import { deleteKunToken } from '~/app/api/utils/jwt'
 import { deleteResource } from '../resource/delete'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { recomputePatchRatingStats } from '~/app/api/patch/rating/stat'
 import { invalidateTagListCache } from '~/app/api/tag/cache'
 import { invalidateCompanyListCache } from '~/app/api/company/cache'
@@ -74,6 +75,7 @@ export const deleteUser = async (
 
   let result: Record<string, never>
   let affectedPatchIds: number[] = []
+  let affectedUniqueIds: string[] = []
   let retryCount = 0
   while (true) {
     try {
@@ -121,12 +123,15 @@ export const deleteUser = async (
           )
 
           // 级联删除已移除资源行但不触发聚合重算, 补齐之
-          // (recalcPatchType 内含 patch 内容缓存失效, 与 create/update/delete/hidden 一致)
+          // (patch 内容缓存失效已移出事务, 由提交后统一失效; 与 create/update/delete/hidden 一致)
           // 事务性入队与重算同循环：与补丁变更原子提交，关闭崩溃丢失窗口
+          // 局部数组每次 attempt 重建并覆盖式赋值, 使 Serializable 重试不累加脏条目
+          const uniqueIds: string[] = []
           for (const patchId of affectedPatchIds) {
-            await recalcPatchType(patchId, prisma)
+            uniqueIds.push(await recalcPatchType(patchId, prisma))
             await enqueueSearchOutbox(prisma, patchId)
           }
+          affectedUniqueIds = uniqueIds
 
           await prisma.admin_log.create({
             data: {
@@ -156,6 +161,12 @@ export const deleteUser = async (
   }
   await Promise.all(
     commentedPatches.map((c) => invalidatePatchCommentCache(c.patch_id))
+  )
+  // 事务提交后失效: 事务内失效会被并发读回填旧值 (M-04), 且 Redis 故障不应回滚写入
+  await Promise.all(
+    affectedUniqueIds.map((uniqueId) =>
+      invalidatePatchContentCache(uniqueId).catch(() => undefined)
+    )
   )
   // 事务内已逐 id 入队，此处一次 kick 触发 drain 处理整箱（避免逐 id 各 kick）
   kickSearchOutboxDrain()

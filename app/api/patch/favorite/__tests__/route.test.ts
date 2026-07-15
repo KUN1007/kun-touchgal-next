@@ -165,7 +165,7 @@ describe('PUT /api/patch/favorite', () => {
         type: 'favorite',
         sender_id: 99,
         recipient_id: 1,
-        link: '/kun123'
+        link: '/kun123?folderId=3'
       }
     })
   })
@@ -179,7 +179,7 @@ describe('PUT /api/patch/favorite', () => {
         content: 'Test Galgame',
         sender_id: 99,
         recipient_id: 1,
-        link: '/kun123'
+        link: '/kun123?folderId=3'
       },
       transactionClient
     )

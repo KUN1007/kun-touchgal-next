@@ -45,7 +45,7 @@ const togglePatchFavorite = async (
     content: patch.name,
     sender_id: uid,
     recipient_id: patch.user_id,
-    link: `/${patch.unique_id}`
+    link: `/${patch.unique_id}?folderId=${input.folderId}`
   }
 
   // deleteMany + createMany(skipDuplicates) 使并发双击不会触发 P2002/P2025

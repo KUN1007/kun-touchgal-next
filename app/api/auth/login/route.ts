@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { randomUUID } from 'crypto'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { kunParsePostBody } from '~/app/api/utils/parseQuery'
@@ -19,6 +20,10 @@ import { checkKunCaptchaExist } from '~/app/api/utils/verifyKunCaptcha'
 import { getRedirectConfig } from '~/app/api/admin/setting/redirect/getRedirectConfig'
 import { updateUserLastLoginTime } from '~/app/api/user/status/service'
 import { getRemoteIp } from '~/app/api/utils/getRemoteIp'
+import {
+  createTwoFactorChallenge,
+  TWO_FACTOR_CHALLENGE_TTL_SECONDS
+} from '~/app/api/auth/_twoFactorChallenge'
 import type { UserState } from '~/store/userStore'
 
 const upgradePasswordHash = async (
@@ -72,15 +77,24 @@ const login = async (
   }
 
   if (user.enable_2fa) {
+    const jti = randomUUID()
+    try {
+      await createTwoFactorChallenge(jti, user.id)
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to create 2FA challenge', error)
+      return '2FA 验证服务暂不可用, 请稍后重试'
+    }
+
     const tempToken = generateKunStatelessToken(
-      { id: user.id, require2FA: true },
-      10 * 60
+      { id: user.id, require2FA: true, jti },
+      TWO_FACTOR_CHALLENGE_TTL_SECONDS
     )
     const cookie = await cookies()
     cookie.set(
       'kun-galgame-patch-moe-2fa-token',
       tempToken,
-      kunCookieOptions(10 * 60)
+      kunCookieOptions(TWO_FACTOR_CHALLENGE_TTL_SECONDS)
     )
     return {
       require2FA: true,

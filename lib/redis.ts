@@ -93,6 +93,23 @@ export const runRedisCommand = async <T>(command: () => Promise<T>) => {
   return command()
 }
 
+export const evalKvScript = async <T>(
+  script: string,
+  keys: string[],
+  args: Array<string | number>
+) => {
+  const keyStrings = keys.map((key) => `${KUN_PATCH_REDIS_PREFIX}:${key}`)
+  const result = await runRedisCommand(() =>
+    redis.eval(
+      script,
+      keyStrings.length,
+      ...keyStrings,
+      ...args.map((arg) => String(arg))
+    )
+  )
+  return result as T
+}
+
 export const setKv = async (key: string, value: string, time?: number) => {
   const keyString = `${KUN_PATCH_REDIS_PREFIX}:${key}`
   if (time) {

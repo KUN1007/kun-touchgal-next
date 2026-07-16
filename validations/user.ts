@@ -106,8 +106,7 @@ export const enableUser2FASchema = z.object({
   token: z
     .string()
     .trim()
-    .min(6, { message: '2FA 验证码必须为 6 位数字' })
-    .max(6, { message: '2FA 验证码必须为 6 位数字' })
+    .regex(/^\d{6}$/, { message: '2FA 验证码必须为 6 位数字' })
 })
 
 export const disableUser2FASchema = enableUser2FASchema.extend({

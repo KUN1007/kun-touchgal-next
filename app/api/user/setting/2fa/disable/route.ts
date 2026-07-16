@@ -4,6 +4,7 @@ import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { disableUser2FASchema } from '~/validations/user'
 import { disable2FA } from '../disable'
+import { consumeTwoFactorBackupCode } from '~/app/api/utils/twoFactorBackupCode'
 
 const parseDisable2FABody = async (req: NextRequest) => {
   const body = await req.json().catch(() => null)
@@ -24,8 +25,7 @@ const verifyAndDisable2FA = async (
     where: { id: uid },
     select: {
       enable_2fa: true,
-      two_factor_secret: true,
-      two_factor_backup: true
+      two_factor_secret: true
     }
   })
 
@@ -37,12 +37,21 @@ const verifyAndDisable2FA = async (
     return '未找到 2FA 密钥'
   }
 
-  const isValid = input.isBackupCode
-    ? user.two_factor_backup.includes(input.token)
-    : Totp.validate({
-        passcode: input.token,
-        secret: user.two_factor_secret
-      })
+  if (input.isBackupCode) {
+    const result = await prisma.$transaction(async (tx) => {
+      const isValid = await consumeTwoFactorBackupCode(uid, input.token, tx)
+      if (!isValid) {
+        return null
+      }
+      return disable2FA(uid, tx)
+    })
+    return result ?? '验证码无效'
+  }
+
+  const isValid = Totp.validate({
+    passcode: input.token,
+    secret: user.two_factor_secret
+  })
 
   if (!isValid) {
     return '验证码无效'

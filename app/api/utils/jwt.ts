@@ -26,6 +26,7 @@ import type { LoginSession } from '~/types/api/session'
 export interface KunGalgameStatelessPayload {
   require2FA: boolean
   id: number
+  jti: string
 }
 
 export interface KunGalgamePayload {

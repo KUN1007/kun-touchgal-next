@@ -12,11 +12,18 @@ import { parseCookies } from '~/utils/cookies'
 import { verify2FA } from '~/app/api/utils/verify2FA'
 import { verifyLogin2FASchema } from '~/validations/auth'
 import { getRemoteIp } from '~/app/api/utils/getRemoteIp'
+import {
+  consumeTwoFactorChallenge,
+  reserveTwoFactorAttempt
+} from '~/app/api/auth/_twoFactorChallenge'
+import { consumeTwoFactorBackupCode } from '~/app/api/utils/twoFactorBackupCode'
+import type { TwoFactorAttemptReservation } from '~/app/api/auth/_twoFactorChallenge'
 import type { UserState } from '~/store/userStore'
 
 const verifyLogin2FA = async (
   input: z.infer<typeof verifyLogin2FASchema>,
   uid: number,
+  jti: string,
   context: { ip: string; userAgent: string }
 ) => {
   const { token, isBackupCode } = input
@@ -32,14 +39,7 @@ const verifyLogin2FA = async (
   let isValid = false
 
   if (isBackupCode) {
-    const affected = await prisma.$executeRaw`
-      UPDATE "user"
-      SET two_factor_backup = array_remove(two_factor_backup, ${token})
-      WHERE id = ${uid}
-        AND enable_2fa = true
-        AND ${token} = ANY(two_factor_backup)
-    `
-    isValid = affected === 1
+    isValid = await consumeTwoFactorBackupCode(uid, token)
   } else {
     isValid = Totp.validate({
       passcode: token,
@@ -52,6 +52,15 @@ const verifyLogin2FA = async (
   }
 
   const cookie = await cookies()
+  const challengeConsumed = await consumeTwoFactorChallenge(
+    jti,
+    uid,
+    context.ip
+  )
+  if (!challengeConsumed) {
+    cookie.delete('kun-galgame-patch-moe-2fa-token')
+    return '2FA 临时令牌已失效, 请重新登录'
+  }
   cookie.delete('kun-galgame-patch-moe-2fa-token')
 
   const accessToken = await generateKunToken(
@@ -104,9 +113,41 @@ export const POST = async (req: NextRequest) => {
     return NextResponse.json('2FA 临时令牌已过期, 时效为 10 分钟')
   }
 
-  const response = await verifyLogin2FA(input, payload.id, {
-    ip: getRemoteIp(req.headers),
-    userAgent: req.headers.get('user-agent') ?? ''
-  })
+  const ip = getRemoteIp(req.headers)
+  let reservation: TwoFactorAttemptReservation
+  try {
+    reservation = await reserveTwoFactorAttempt(payload.jti, payload.id, ip)
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to reserve 2FA attempt', error)
+    return NextResponse.json('2FA 验证服务暂不可用, 请稍后重试')
+  }
+
+  if (!reservation.allowed) {
+    const cookie = await cookies()
+    cookie.delete('kun-galgame-patch-moe-2fa-token')
+    if (reservation.reason === 'expired' || reservation.reason === 'invalid') {
+      return NextResponse.json('2FA 临时令牌已失效, 请重新登录')
+    }
+    return NextResponse.json('2FA 尝试次数过多, 请稍后重新登录')
+  }
+
+  let response: Awaited<ReturnType<typeof verifyLogin2FA>>
+  try {
+    response = await verifyLogin2FA(input, payload.id, payload.jti, {
+      ip,
+      userAgent: req.headers.get('user-agent') ?? ''
+    })
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to verify 2FA', error)
+    return NextResponse.json('2FA 验证服务暂不可用, 请稍后重试')
+  }
+
+  if (typeof response === 'string' && reservation.remainingAttempts === 0) {
+    const cookie = await cookies()
+    cookie.delete('kun-galgame-patch-moe-2fa-token')
+    return NextResponse.json('2FA 尝试次数过多, 请重新登录')
+  }
   return NextResponse.json(response)
 }

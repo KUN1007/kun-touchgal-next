@@ -73,9 +73,6 @@ export const captchaSchema = z.object({
 })
 
 export const verifyLogin2FASchema = z.object({
-  token: z
-    .string()
-    .min(6, { message: '2FA 验证码必须为 6 位数字' })
-    .max(6, { message: '2FA 验证码必须为 6 位数字' }),
+  token: z.string().regex(/^\d{6}$/, { message: '2FA 验证码必须为 6 位数字' }),
   isBackupCode: z.boolean().optional().default(false)
 })

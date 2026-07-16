@@ -25,7 +25,7 @@ export const updatePatchResource = async (
   uid: number,
   userRole: number
 ) => {
-  const { resourceId, patchId, links, ...resourceData } = input
+  const { resourceId, patchId: inputPatchId, links, ...resourceData } = input
   const resource = await prisma.patch_resource.findUnique({
     where: { id: resourceId },
     include: {
@@ -56,9 +56,13 @@ export const updatePatchResource = async (
     }
   }
 
+  if (inputPatchId !== resource.patch_id) {
+    return '资源与 Galgame 不匹配'
+  }
+  const patchId = resource.patch_id
   const currentPatch = await prisma.patch.findUnique({
     where: { id: patchId },
-    select: { name: true }
+    select: { id: true }
   })
   if (!currentPatch) {
     return '未找到该资源对应的 Galgame 信息, 请确认 Galgame 存在'

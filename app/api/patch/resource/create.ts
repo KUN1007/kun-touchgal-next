@@ -21,12 +21,20 @@ export const createPatchResource = async (
   uid: number,
   userRole: number
 ) => {
-  const { patchId, type, language, platform, links, ...resourceData } = input
+  const {
+    patchId: inputPatchId,
+    type,
+    language,
+    platform,
+    links,
+    ...resourceData
+  } = input
 
   const [currentPatch, resourceCount] = await Promise.all([
     prisma.patch.findUnique({
-      where: { id: patchId },
+      where: { id: inputPatchId },
       select: {
+        id: true,
         unique_id: true,
         name: true
       }
@@ -35,6 +43,10 @@ export const createPatchResource = async (
       where: { user_id: uid }
     })
   ])
+  if (!currentPatch) {
+    return '未找到该资源对应的 Galgame 信息, 请确认 Galgame 存在'
+  }
+  const patchId = currentPatch.id
   const needApproval = resourceCount === 0 && userRole < 3
 
   // 首个资源走既有人工审批流 (status=2), 不重复送 AI 审核
@@ -131,21 +143,19 @@ export const createPatchResource = async (
       )
     }
 
-    if (currentPatch) {
-      await prisma.patch.update({
-        where: { id: patchId },
-        data: { resource_update_time: new Date() }
-      })
-      await recalcPatchType(patchId, prisma)
-      // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
-      await enqueueSearchOutbox(prisma, patchId)
-    }
+    await prisma.patch.update({
+      where: { id: patchId },
+      data: { resource_update_time: new Date() }
+    })
+    await recalcPatchType(patchId, prisma)
+    // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
+    await enqueueSearchOutbox(prisma, patchId)
 
     const resource: PatchResource = {
       id: newResource.id,
       name: newResource.name,
       section: newResource.section,
-      uniqueId: currentPatch?.unique_id ?? '',
+      uniqueId: currentPatch.unique_id,
       type: newResource.type,
       language: newResource.language,
       note: newResource.note,
@@ -180,13 +190,11 @@ export const createPatchResource = async (
     return resource
   })
 
-  if (currentPatch) {
-    queueSearchSync(patchId)
-    // 事务提交后失效: 事务内失效会被并发读回填旧值 (M-04), 且 Redis 故障不应回滚写入
-    await invalidatePatchContentCache(currentPatch.unique_id).catch(
-      () => undefined
-    )
-  }
+  queueSearchSync(patchId)
+  // 事务提交后失效: 事务内失效会被并发读回填旧值 (M-04), 且 Redis 故障不应回滚写入
+  await invalidatePatchContentCache(currentPatch.unique_id).catch(
+    () => undefined
+  )
   await invalidateUserSession(uid)
 
   if (resource.status === 0 && resource.section === 'patch') {
@@ -201,11 +209,9 @@ export const createPatchResource = async (
   if (needApproval) {
     await createMessage({
       type: 'system',
-      content: `您的首个资源「${currentPatch?.name ?? ''}」已提交审核，通过后将自动公开显示。`,
+      content: `您的首个资源「${currentPatch.name}」已提交审核，通过后将自动公开显示。`,
       recipient_id: uid,
-      link: currentPatch?.unique_id
-        ? `/${currentPatch.unique_id}?tab=resources&resourceSection=${resource.section}&resourceId=${resource.id}`
-        : '/'
+      link: `/${currentPatch.unique_id}?tab=resources&resourceSection=${resource.section}&resourceId=${resource.id}`
     })
   }
 

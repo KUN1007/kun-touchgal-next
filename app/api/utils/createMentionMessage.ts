@@ -3,7 +3,8 @@ import { markdownToText } from '~/utils/markdownToText'
 import type { CreateMessageType } from '~/types/api/message'
 
 export const extractMentionUserIds = (text: string) => {
-  const regex = /\[@[^\]]+\]\(\/user\/(\d+)\/resource\)/g
+  // 编辑器插入的提及链接指向 /user/{id}/comment, 历史内容存在 /resource 变体
+  const regex = /\[@[^\]]+\]\(\/user\/(\d+)\/(?:comment|resource)\)/g
   return [...text.matchAll(regex)].map((match) => Number(match[1]))
 }
 

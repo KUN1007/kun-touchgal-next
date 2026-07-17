@@ -1,8 +1,19 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition
+} from 'react'
 import { Button } from '@heroui/button'
 import { Tooltip } from '@heroui/tooltip'
+import { useDebounce } from 'use-debounce'
+import { kunFetchGet } from '~/utils/kunFetch'
+import { kunErrorHandler } from '~/utils/kunErrorHandler'
+import { MentionListDropdown } from './MentionListDropdown'
 import {
   Bold,
   Italic,
@@ -124,6 +135,42 @@ const TOOLBAR_ACTIONS: ToolbarAction[] = [
   }
 ]
 
+const MENTION_DROPDOWN_HEIGHT = 320
+
+const getCaretPixelPosition = (
+  textarea: HTMLTextAreaElement,
+  index: number
+) => {
+  const computed = window.getComputedStyle(textarea)
+  const mirror = document.createElement('div')
+  mirror.style.position = 'absolute'
+  mirror.style.visibility = 'hidden'
+  mirror.style.top = '0'
+  mirror.style.left = '-9999px'
+  mirror.style.boxSizing = 'border-box'
+  mirror.style.width = `${textarea.clientWidth}px`
+  mirror.style.whiteSpace = 'pre-wrap'
+  mirror.style.wordWrap = 'break-word'
+  mirror.style.fontFamily = computed.fontFamily
+  mirror.style.fontSize = computed.fontSize
+  mirror.style.fontWeight = computed.fontWeight
+  mirror.style.letterSpacing = computed.letterSpacing
+  mirror.style.lineHeight = computed.lineHeight
+  mirror.style.padding = computed.padding
+  mirror.textContent = textarea.value.slice(0, index)
+  const marker = document.createElement('span')
+  marker.textContent = textarea.value.slice(index, index + 1) || '.'
+  mirror.appendChild(marker)
+  document.body.appendChild(mirror)
+  const position = {
+    top: marker.offsetTop,
+    left: marker.offsetLeft,
+    lineHeight: parseFloat(computed.lineHeight) || 20
+  }
+  document.body.removeChild(mirror)
+  return position
+}
+
 export const KunMarkdownEditor = ({
   value,
   onChange,
@@ -135,6 +182,126 @@ export const KunMarkdownEditor = ({
   const [activeTab, setActiveTab] = useState<'write' | 'preview'>('write')
   const [contentHeight, setContentHeight] = useState(minHeight)
   const previewHtml = useMemo(() => markdownToPreviewHtml(value), [value])
+
+  const [mention, setMention] = useState<{
+    anchor: number
+    query: string
+  } | null>(null)
+  const [mentionStyle, setMentionStyle] = useState<React.CSSProperties>({})
+  const [mentionUsers, setMentionUsers] = useState<KunUser[]>([])
+  const [isMentionPending, startMentionTransition] = useTransition()
+  const [debouncedMentionQuery] = useDebounce(mention?.query ?? '', 500)
+  // Escape 关闭后记住该 @ 的位置, 避免下一次光标变化立即重新打开
+  const dismissedAnchorRef = useRef<number | null>(null)
+  const positionedAnchorRef = useRef<number | null>(null)
+
+  const closeMention = useCallback(() => {
+    setMention(null)
+    setMentionUsers((prev) => (prev.length ? [] : prev))
+    positionedAnchorRef.current = null
+  }, [])
+
+  const detectMention = useCallback(() => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    const textBeforeCaret = textarea.value.slice(0, textarea.selectionEnd)
+    const lineStart = textBeforeCaret.lastIndexOf('\n') + 1
+    const currentLine = textBeforeCaret.slice(lineStart)
+    const lastAtIndex = currentLine.lastIndexOf('@')
+    const query = currentLine.slice(lastAtIndex + 1)
+
+    // 与旧编辑器一致: @ 与光标之间出现空白字符即退出提及模式
+    if (lastAtIndex < 0 || /\s/.test(query)) {
+      dismissedAnchorRef.current = null
+      closeMention()
+      return
+    }
+
+    const anchor = lineStart + lastAtIndex
+    if (dismissedAnchorRef.current === anchor) {
+      return
+    }
+    dismissedAnchorRef.current = null
+    setMention((prev) =>
+      prev && prev.anchor === anchor && prev.query === query
+        ? prev
+        : { anchor, query }
+    )
+
+    // @ 位置不变时下拉位置也不变, 跳过 mirror 布局计算
+    if (positionedAnchorRef.current === anchor) {
+      return
+    }
+    positionedAnchorRef.current = anchor
+
+    const caretPos = getCaretPixelPosition(textarea, anchor)
+    const rect = textarea.getBoundingClientRect()
+    const anchorTop = rect.top + caretPos.top - textarea.scrollTop
+    const left = Math.max(
+      8,
+      Math.min(rect.left + caretPos.left, window.innerWidth - 272)
+    )
+    const spaceBelow = window.innerHeight - (anchorTop + caretPos.lineHeight)
+    if (
+      spaceBelow < MENTION_DROPDOWN_HEIGHT &&
+      anchorTop > window.innerHeight / 2
+    ) {
+      setMentionStyle({ bottom: window.innerHeight - anchorTop + 4, left })
+    } else {
+      setMentionStyle({ top: anchorTop + caretPos.lineHeight, left })
+    }
+  }, [closeMention])
+
+  useEffect(() => {
+    // 服务端 schema 限制 query 最长 20, 超长必然失败, 不发请求
+    if (!debouncedMentionQuery.length || debouncedMentionQuery.length > 20) {
+      setMentionUsers((prev) => (prev.length ? [] : prev))
+      return
+    }
+
+    let cancelled = false
+    startMentionTransition(async () => {
+      try {
+        const response = await kunFetchGet<KunResponse<KunUser[]>>(
+          '/user/mention/search',
+          { query: debouncedMentionQuery }
+        )
+        if (!cancelled) {
+          kunErrorHandler(response, setMentionUsers)
+        }
+      } catch {
+        // 输入过程中的自动搜索, 网络错误静默即可
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [debouncedMentionQuery])
+
+  const handleMentionSelect = useCallback(
+    (user: KunUser) => {
+      const textarea = textareaRef.current
+      if (!textarea || !mention) return
+
+      const end = mention.anchor + 1 + mention.query.length
+      const inserted = `[@${user.name}](/user/${user.id}/comment) `
+      const newText =
+        textarea.value.slice(0, mention.anchor) +
+        inserted +
+        textarea.value.slice(end)
+
+      onChange(newText)
+      closeMention()
+
+      requestAnimationFrame(() => {
+        textarea.focus()
+        const cursor = mention.anchor + inserted.length
+        textarea.setSelectionRange(cursor, cursor)
+      })
+    },
+    [mention, onChange, closeMention]
+  )
 
   const insertFormatting = useCallback(
     (action: ToolbarAction) => {
@@ -194,6 +361,13 @@ export const KunMarkdownEditor = ({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (mention && e.key === 'Escape') {
+        e.preventDefault()
+        dismissedAnchorRef.current = mention.anchor
+        closeMention()
+        return
+      }
+
       const isMod = e.metaKey || e.ctrlKey
 
       if (isMod && e.key === 'b') {
@@ -221,7 +395,7 @@ export const KunMarkdownEditor = ({
         })
       }
     },
-    [value, onChange, insertFormatting]
+    [value, onChange, insertFormatting, mention, closeMention]
   )
 
   const autoResize = useCallback(() => {
@@ -306,15 +480,27 @@ export const KunMarkdownEditor = ({
       {/* Content area */}
       <div className="relative">
         {activeTab === 'write' ? (
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            className="text-default-800 placeholder:text-default-400 w-full resize-none bg-transparent px-4 py-3 text-sm leading-relaxed outline-none"
-            style={{ height: `${contentHeight}px` }}
-          />
+          <>
+            <textarea
+              ref={textareaRef}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onSelect={detectMention}
+              onBlur={closeMention}
+              placeholder={placeholder}
+              className="text-default-800 placeholder:text-default-400 w-full resize-none bg-transparent px-4 py-3 text-sm leading-relaxed outline-none"
+              style={{ height: `${contentHeight}px` }}
+            />
+            {mention && (
+              <MentionListDropdown
+                isPending={isMentionPending}
+                users={mentionUsers}
+                style={mentionStyle}
+                onSelect={handleMentionSelect}
+              />
+            )}
+          </>
         ) : (
           <div
             className="kun-prose overflow-y-auto px-4 py-3 text-sm"

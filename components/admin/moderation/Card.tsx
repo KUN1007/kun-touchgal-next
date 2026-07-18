@@ -14,6 +14,7 @@ import {
   useDisclosure
 } from '@heroui/react'
 import { useState } from 'react'
+import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { kunFetchPut } from '~/utils/kunFetch'
 import { KunTimeAgo } from '~/components/kun/TimeAgo'
@@ -131,7 +132,7 @@ export const ModerationTaskCard = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Avatar
               src={task.user.avatar}
               size="sm"
@@ -142,6 +143,17 @@ export const ModerationTaskCard = ({
             {task.contentId && (
               <span className="text-sm text-default-500">
                 内容 ID: {task.contentId}
+              </span>
+            )}
+            {task.patch && (
+              <span className="text-sm text-default-500">
+                所属游戏:{' '}
+                <Link
+                  className="text-primary-500"
+                  href={`/${task.patch.uniqueId}`}
+                >
+                  {task.patch.name}
+                </Link>
               </span>
             )}
           </div>

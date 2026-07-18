@@ -160,6 +160,11 @@ export interface AdminModerationTask {
   retry: number
   dryRun: boolean
   user: KunUser
+  // 评论 / 评价 / 资源所属的游戏; 头像 / 签名任务或内容已删除时为 null
+  patch: {
+    uniqueId: string
+    name: string
+  } | null
   created: Date | string
   reviewed: Date | string | null
 }

@@ -29,6 +29,52 @@ export const getModerationTasks = async (
     prisma.moderation_task.count({ where })
   ])
 
+  // rating / resource 任务创建时写入 patch_id; comment 任务无 patch_id, 经 patch_comment 反查
+  const patchIds = data.flatMap((task) =>
+    task.patch_id !== null ? [task.patch_id] : []
+  )
+  const commentIds = data.flatMap((task) =>
+    task.content_type === 'comment' && task.content_id !== null
+      ? [task.content_id]
+      : []
+  )
+  const [patches, comments] = await Promise.all([
+    patchIds.length
+      ? prisma.patch.findMany({
+          where: { id: { in: patchIds } },
+          select: { id: true, name: true, unique_id: true }
+        })
+      : [],
+    commentIds.length
+      ? prisma.patch_comment.findMany({
+          where: { id: { in: commentIds } },
+          select: {
+            id: true,
+            patch: { select: { name: true, unique_id: true } }
+          }
+        })
+      : []
+  ])
+  const patchMap = new Map(
+    patches.map((p) => [p.id, { uniqueId: p.unique_id, name: p.name }])
+  )
+  const commentPatchMap = new Map(
+    comments.map((c) => [
+      c.id,
+      { uniqueId: c.patch.unique_id, name: c.patch.name }
+    ])
+  )
+
+  const resolvePatch = (task: (typeof data)[number]) => {
+    if (task.patch_id !== null) {
+      return patchMap.get(task.patch_id) ?? null
+    }
+    if (task.content_type === 'comment' && task.content_id !== null) {
+      return commentPatchMap.get(task.content_id) ?? null
+    }
+    return null
+  }
+
   const tasks: AdminModerationTask[] = data.map((task) => ({
     id: task.id,
     contentType: task.content_type,
@@ -44,6 +90,7 @@ export const getModerationTasks = async (
     retry: task.retry,
     dryRun: task.dry_run,
     user: task.user,
+    patch: resolvePatch(task),
     created: task.created,
     reviewed: task.reviewed
   }))

@@ -6,6 +6,7 @@ import { prisma } from '~/prisma/index'
 import { avatarSchema } from '~/validations/user'
 import { purgeCloudflareCache } from '~/app/api/utils/purgeCloudflareCache'
 import {
+  archiveAvatarForModeration,
   getUserAvatarKeys,
   getUserAvatarPendingKeys,
   uploadUserAvatar
@@ -51,9 +52,10 @@ const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
   const moderation = await preScreenMedia()
 
   // 审核拦截时用每次上传唯一的暂存 key, 使送审读取与 apply 复制绑定同一不可变对象,
-  // 并发双上传各写各的 key, 无从互相覆盖
+  // 并发双上传各写各的 key, 无从互相覆盖; 留档 key 复用同一 nonce, 便于按对象追溯
+  const nonce = randomUUID()
   const pendingKeys = moderation.intercept
-    ? getUserAvatarPendingKeys(uid, randomUUID())
+    ? getUserAvatarPendingKeys(uid, nonce)
     : undefined
 
   // 编码前原子抢占每日额度: 抢不到直接拒绝, 不进入编码 / 上传 (限制 "已承诺的总工作量").
@@ -86,6 +88,11 @@ const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
   if (pendingKeys) {
     // 新头像暂存于唯一 pending key, 通过审核后由 apply.ts 复制到正式 key
     const pendingLink = `${imageBedUrl}/${pendingKeys.pendingMiniKey}?v=${avatarVersion}`
+    const archiveLink = await archiveAvatarForModeration(
+      pendingKeys.pendingKey,
+      uid,
+      nonce
+    )
     await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: uid },
@@ -101,7 +108,8 @@ const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
             avatarKey: keys.avatarKey,
             avatarMiniKey: keys.avatarMiniKey,
             avatarLink: imageLink,
-            pendingLink
+            pendingLink,
+            ...(archiveLink ? { archiveLink } : {})
           },
           dryRun: false
         },
@@ -124,7 +132,13 @@ const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
   })
 
   if (moderation.queue) {
-    // dryRun: 头像直接生效, 任务仅记录 AI 裁决用于校准
+    // dryRun: 头像直接生效, 任务仅记录 AI 裁决用于校准; 正式 key 会被后续上传覆盖,
+    // 留档保证记录里是本次送审的头像
+    const archiveLink = await archiveAvatarForModeration(
+      keys.avatarKey,
+      uid,
+      nonce
+    )
     await createModerationTask({
       contentType: 'avatar',
       userId: uid,
@@ -134,7 +148,8 @@ const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
         avatarKey: keys.avatarKey,
         avatarMiniKey: keys.avatarMiniKey,
         avatarLink: imageLink,
-        pendingLink: imageLink
+        pendingLink: imageLink,
+        ...(archiveLink ? { archiveLink } : {})
       },
       dryRun: true
     })

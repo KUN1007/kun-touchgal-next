@@ -151,6 +151,7 @@ export interface AdminModerationTask {
     name?: string
     bio?: string
     pendingLink?: string
+    archiveLink?: string
   }
   verdict: unknown
   model: string

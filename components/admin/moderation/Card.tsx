@@ -146,10 +146,12 @@ export const ModerationTaskCard = ({
             )}
           </div>
 
-          {task.contentType === 'avatar' && task.payload.pendingLink ? (
+          {task.contentType === 'avatar' &&
+          (task.payload.archiveLink || task.payload.pendingLink) ? (
+            // 优先用永久留档; 留档功能上线前的旧任务回退 pending 链接 (裁决后可能已失效)
             <img
-              src={task.payload.pendingLink}
-              alt="待审核头像"
+              src={task.payload.archiveLink ?? task.payload.pendingLink}
+              alt="送审头像"
               className="size-16 rounded-full object-cover"
             />
           ) : (

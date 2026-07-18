@@ -59,6 +59,8 @@ export interface ModerationAvatarPayload {
   avatarLink: string
   // staging URL shown to the author while the review is pending
   pendingLink: string
+  // 送审对象的永久留档 URL, 供管理队列在裁决后回看; 留档功能上线前的旧任务无此字段
+  archiveLink?: string
 }
 
 export type ModerationPayload = ModerationTextPayload | ModerationAvatarPayload

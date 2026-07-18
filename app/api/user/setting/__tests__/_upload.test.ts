@@ -1,16 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import sharp from 'sharp'
 
-const { uploadImageToS3Mock } = vi.hoisted(() => ({
+const { copyObjectMock, uploadImageToS3Mock } = vi.hoisted(() => ({
+  copyObjectMock: vi.fn(),
   uploadImageToS3Mock: vi.fn()
 }))
 
 vi.mock('~/lib/s3', () => ({
+  copyObject: copyObjectMock,
   uploadImageToS3: uploadImageToS3Mock
 }))
 
 import {
+  archiveAvatarForModeration,
   getUserAvatarKeys,
+  getUserAvatarModerationArchiveKey,
   getUserAvatarPendingKeys,
   uploadUserAvatar
 } from '~/app/api/user/setting/_upload'
@@ -71,6 +75,58 @@ describe('getUserAvatarPendingKeys', () => {
     for (const key of Object.values(pendingKeys)) {
       expect(finalKeys.has(key)).toBe(false)
     }
+  })
+})
+
+describe('getUserAvatarModerationArchiveKey', () => {
+  it('把 nonce 编入路径, 留档对象落在独立 moderation/ 前缀下', () => {
+    expect(getUserAvatarModerationArchiveKey(42, 'nonce-abc')).toBe(
+      'user/avatar/user_42/moderation/nonce-abc.avif'
+    )
+  })
+
+  it('避开 pending/ 前缀 —— 暂存对象的 S3 lifecycle 过期不会命中留档', () => {
+    const archiveKey = getUserAvatarModerationArchiveKey(42, 'nonce-x')
+    expect(archiveKey.includes('/pending/')).toBe(false)
+  })
+
+  it('与正式 key 和暂存 key 均不相交 —— 后续上传覆盖与裁决清理都不影响留档', () => {
+    const otherKeys = new Set([
+      ...Object.values(getUserAvatarKeys(42)),
+      ...Object.values(getUserAvatarPendingKeys(42, 'nonce-x'))
+    ])
+    expect(
+      otherKeys.has(getUserAvatarModerationArchiveKey(42, 'nonce-x'))
+    ).toBe(false)
+  })
+})
+
+describe('archiveAvatarForModeration', () => {
+  beforeEach(() => {
+    copyObjectMock.mockReset()
+    process.env.KUN_VISUAL_NOVEL_IMAGE_BED_URL = 'https://img.example.com'
+  })
+
+  it('复制成功返回留档图床 URL, 且带墙钟超时信号', async () => {
+    copyObjectMock.mockResolvedValue(undefined)
+    const link = await archiveAvatarForModeration('src-key', 42, 'nonce-abc')
+    expect(link).toBe(
+      'https://img.example.com/user/avatar/user_42/moderation/nonce-abc.avif'
+    )
+    expect(copyObjectMock).toHaveBeenCalledWith(
+      'src-key',
+      'user/avatar/user_42/moderation/nonce-abc.avif',
+      expect.any(AbortSignal)
+    )
+  })
+
+  it('复制失败返回 undefined 而不抛出 —— 留档降级不阻断头像上传主流程', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    copyObjectMock.mockRejectedValue(new Error('s3 down'))
+    await expect(
+      archiveAvatarForModeration('src-key', 42, 'nonce-abc')
+    ).resolves.toBeUndefined()
+    errorSpy.mockRestore()
   })
 })
 

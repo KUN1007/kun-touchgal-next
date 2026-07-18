@@ -5,16 +5,14 @@ const {
   companyFindManyMock,
   companyCreateManyMock,
   companyUpdateManyMock,
-  relationFindManyMock,
-  relationCreateManyMock,
+  relationCreateManyAndReturnMock,
   invalidateCompanyCacheMock
 } = vi.hoisted(() => ({
   fetchVndbVnMock: vi.fn(),
   companyFindManyMock: vi.fn(),
   companyCreateManyMock: vi.fn(),
   companyUpdateManyMock: vi.fn(),
-  relationFindManyMock: vi.fn(),
-  relationCreateManyMock: vi.fn(),
+  relationCreateManyAndReturnMock: vi.fn(),
   invalidateCompanyCacheMock: vi.fn()
 }))
 
@@ -34,8 +32,7 @@ vi.mock('~/prisma/index', () => ({
       updateMany: companyUpdateManyMock
     },
     patch_company_relation: {
-      findMany: relationFindManyMock,
-      createMany: relationCreateManyMock
+      createManyAndReturn: relationCreateManyAndReturnMock
     }
   }
 }))
@@ -68,8 +65,7 @@ describe('ensurePatchCompaniesFromVNDB cache invalidation', () => {
     companyFindManyMock.mockResolvedValue([])
     companyCreateManyMock.mockResolvedValue({ count: 1 })
     companyUpdateManyMock.mockResolvedValue({ count: 1 })
-    relationFindManyMock.mockResolvedValue([])
-    relationCreateManyMock.mockResolvedValue({ count: 1 })
+    relationCreateManyAndReturnMock.mockResolvedValue([{ company_id: 1 }])
     invalidateCompanyCacheMock.mockResolvedValue(undefined)
   })
 
@@ -104,5 +100,37 @@ describe('ensurePatchCompaniesFromVNDB cache invalidation', () => {
     })
 
     expect(events).toEqual(['create-company', 'invalidate-company-cache'])
+  })
+
+  it('does not increment count or invalidate when nothing was inserted', async () => {
+    companyFindManyMock
+      .mockResolvedValueOnce([{ id: 5, name: 'Key' }])
+      .mockResolvedValueOnce([{ id: 5 }])
+    relationCreateManyAndReturnMock.mockResolvedValueOnce([])
+
+    await expect(ensurePatchCompaniesFromVNDB(1, 'v1', 7)).resolves.toEqual({
+      ensured: 0,
+      related: 1
+    })
+
+    expect(companyCreateManyMock).not.toHaveBeenCalled()
+    expect(companyUpdateManyMock).not.toHaveBeenCalled()
+    expect(invalidateCompanyCacheMock).not.toHaveBeenCalled()
+  })
+
+  it('increments count only for relations actually inserted', async () => {
+    companyFindManyMock
+      .mockResolvedValueOnce([{ id: 5, name: 'Key' }])
+      .mockResolvedValueOnce([{ id: 5 }])
+    relationCreateManyAndReturnMock.mockResolvedValueOnce([{ company_id: 5 }])
+
+    await expect(ensurePatchCompaniesFromVNDB(1, 'v1', 7)).resolves.toEqual({
+      ensured: 0,
+      related: 1
+    })
+
+    expect(companyUpdateManyMock).toHaveBeenCalledTimes(1)
+    expect(companyUpdateManyMock.mock.calls[0][0].where.id.in).toEqual([5])
+    expect(invalidateCompanyCacheMock).toHaveBeenCalledTimes(1)
   })
 })

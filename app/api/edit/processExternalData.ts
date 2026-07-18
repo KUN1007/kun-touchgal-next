@@ -91,33 +91,43 @@ const ensureCompanies = async (
   patchId: number,
   names: string[],
   uid: number,
-  mutationState: ExternalDataMutationState
+  mutationState: ExternalDataMutationState,
+  officialWebsiteByName: Map<string, string[]>
 ) => {
-  const validNames = [...new Set(names.filter(Boolean))]
+  // 超出 name VarChar(107) 的名字单独丢弃,避免一条坏名使整批 createMany
+  // 失败进而丢掉其余来源的全部关联
+  const validNames = [
+    ...new Set(names.map((n) => n.trim()).filter(Boolean))
+  ].filter((n) => n.length <= 107)
   if (!validNames.length) return false
 
   const existing = await prisma.patch_company.findMany({
     where: { name: { in: validNames } },
-    select: { id: true, name: true }
+    select: { name: true }
   })
   const existingNameSet = new Set(existing.map((c) => c.name))
 
   const toCreate = validNames.filter((n) => !existingNameSet.has(n))
+  let createdCount = 0
   if (toCreate.length) {
-    await prisma.patch_company.createMany({
+    // skipDuplicates 依赖 patch_company_name_key 唯一索引兜底并发创建
+    const created = await prisma.patch_company.createMany({
       data: toCreate.map((name) => ({
         name,
         introduction: '',
         count: 0,
         primary_language: [],
-        official_website: [],
+        official_website: officialWebsiteByName.get(name) ?? [],
         parent_brand: [],
         alias: [],
         user_id: uid
       })),
       skipDuplicates: true
     })
-    mutationState.companyChanged = true
+    createdCount = created.count
+    if (createdCount) {
+      mutationState.companyChanged = true
+    }
   }
 
   const allCompanies = await prisma.patch_company.findMany({
@@ -126,83 +136,28 @@ const ensureCompanies = async (
   })
   const companyIds = allCompanies.map((c) => c.id)
 
-  if (!companyIds.length) return toCreate.length > 0
+  if (!companyIds.length) return createdCount > 0
 
-  const existingRelations = await prisma.patch_company_relation.findMany({
-    where: { patch_id: patchId, company_id: { in: companyIds } },
-    select: { company_id: true }
-  })
-  const existingRelationIds = new Set(
-    existingRelations.map((r) => r.company_id)
-  )
-  const newCompanyIds = companyIds.filter((id) => !existingRelationIds.has(id))
-
-  if (newCompanyIds.length) {
-    await prisma.patch_company_relation.createMany({
-      data: newCompanyIds.map((companyId) => ({
+  // count 只按实际插入的关联递增,避免并发下重复 increment
+  const insertedRelations =
+    await prisma.patch_company_relation.createManyAndReturn({
+      data: companyIds.map((companyId) => ({
         patch_id: patchId,
         company_id: companyId
       })),
+      select: { company_id: true },
       skipDuplicates: true
     })
+
+  if (insertedRelations.length) {
     await prisma.patch_company.updateMany({
-      where: { id: { in: newCompanyIds } },
+      where: { id: { in: insertedRelations.map((r) => r.company_id) } },
       data: { count: { increment: 1 } }
     })
     mutationState.companyChanged = true
   }
 
-  return toCreate.length > 0 || newCompanyIds.length > 0
-}
-
-const ensureSingleCompany = async (
-  patchId: number,
-  name: string,
-  link: string,
-  uid: number,
-  mutationState: ExternalDataMutationState
-) => {
-  if (!name.trim()) return false
-
-  let company = await prisma.patch_company.findFirst({
-    where: { name: name.trim() }
-  })
-
-  let changed = false
-  if (!company) {
-    company = await prisma.patch_company.create({
-      data: {
-        name: name.trim(),
-        introduction: '',
-        count: 0,
-        primary_language: [],
-        official_website: link.trim() ? [link.trim()] : [],
-        parent_brand: [],
-        alias: [],
-        user_id: uid
-      }
-    })
-    mutationState.companyChanged = true
-    changed = true
-  }
-
-  const existingRelation = await prisma.patch_company_relation.findFirst({
-    where: { patch_id: patchId, company_id: company.id }
-  })
-
-  if (!existingRelation) {
-    await prisma.patch_company_relation.create({
-      data: { patch_id: patchId, company_id: company.id }
-    })
-    await prisma.patch_company.update({
-      where: { id: company.id },
-      data: { count: { increment: 1 } }
-    })
-    mutationState.companyChanged = true
-    changed = true
-  }
-
-  return changed
+  return createdCount > 0 || insertedRelations.length > 0
 }
 
 const ensureAliases = async (patchId: number, aliases: string[]) => {
@@ -250,28 +205,35 @@ export const processSubmittedExternalData = async (
     mutationState
   )
 
-  const companyTasks = [
-    data.vndbDevelopers.length &&
-      ensureCompanies(patchId, data.vndbDevelopers, uid, mutationState),
-    data.bangumiDevelopers.length &&
-      ensureCompanies(patchId, data.bangumiDevelopers, uid, mutationState),
-    data.steamDevelopers.length &&
-      ensureCompanies(patchId, data.steamDevelopers, uid, mutationState),
-    data.dlsiteCircleName &&
-      ensureSingleCompany(
+  // 跨来源合并去重后单次处理,避免多来源同名会社并发重复创建
+  const dlsiteCircleName = data.dlsiteCircleName.trim()
+  const dlsiteCircleLink = data.dlsiteCircleLink.trim()
+  const developerNames = [
+    ...data.vndbDevelopers,
+    ...data.bangumiDevelopers,
+    ...data.steamDevelopers,
+    ...(dlsiteCircleName ? [dlsiteCircleName] : [])
+  ]
+  const officialWebsiteByName = new Map<string, string[]>()
+  if (dlsiteCircleName && dlsiteCircleLink) {
+    officialWebsiteByName.set(dlsiteCircleName, [dlsiteCircleLink])
+  }
+
+  const companyTask = developerNames.length
+    ? ensureCompanies(
         patchId,
-        data.dlsiteCircleName,
-        data.dlsiteCircleLink,
+        developerNames,
         uid,
-        mutationState
+        mutationState,
+        officialWebsiteByName
       )
-  ].filter(Boolean)
+    : null
 
   const aliasTasks = [
     data.steamAliases.length && ensureAliases(patchId, data.steamAliases)
   ].filter(Boolean)
 
-  await Promise.allSettled([tagTask, ...companyTasks, ...aliasTasks])
+  await Promise.allSettled([tagTask, companyTask, ...aliasTasks])
 
   await Promise.all([
     mutationState.tagChanged ? invalidateTagListCache() : Promise.resolve(),

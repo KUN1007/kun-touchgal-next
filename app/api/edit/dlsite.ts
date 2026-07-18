@@ -33,35 +33,39 @@ export const ensurePatchCompanyFromDlsite = async (
     })
 
     if (!company) {
-      company = await prisma.patch_company.create({
-        data: {
-          name: circleName,
-          introduction: '',
-          count: 0,
-          primary_language: [],
-          official_website: circleLink ? [circleLink] : [],
-          parent_brand: [],
-          alias: [],
-          user_id: uid
-        }
+      // skipDuplicates 依赖 patch_company_name_key 唯一索引兜底并发创建
+      const created = await prisma.patch_company.createMany({
+        data: [
+          {
+            name: circleName,
+            introduction: '',
+            count: 0,
+            primary_language: [],
+            official_website: circleLink ? [circleLink] : [],
+            parent_brand: [],
+            alias: [],
+            user_id: uid
+          }
+        ],
+        skipDuplicates: true
       })
-      changed = true
+      if (created.count) {
+        changed = true
+      }
+      company = await prisma.patch_company.findFirst({
+        where: { name: circleName }
+      })
     }
 
     if (!company) return
 
-    const existingRelation = await prisma.patch_company_relation.findFirst({
-      where: { patch_id: patchId, company_id: company.id }
+    // count 只按实际插入的关联递增,避免并发下重复 increment
+    const insertedRelation = await prisma.patch_company_relation.createMany({
+      data: [{ patch_id: patchId, company_id: company.id }],
+      skipDuplicates: true
     })
 
-    if (!existingRelation) {
-      await prisma.patch_company_relation.create({
-        data: {
-          patch_id: patchId,
-          company_id: company.id
-        }
-      })
-
+    if (insertedRelation.count) {
       await prisma.patch_company.update({
         where: { id: company.id },
         data: {

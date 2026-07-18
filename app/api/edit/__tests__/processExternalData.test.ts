@@ -8,15 +8,9 @@ const {
   tagRelationFindManyMock,
   tagRelationCreateManyMock,
   companyFindManyMock,
-  companyFindFirstMock,
   companyCreateManyMock,
-  companyCreateMock,
   companyUpdateManyMock,
-  companyUpdateMock,
-  companyRelationFindManyMock,
-  companyRelationFindFirstMock,
-  companyRelationCreateManyMock,
-  companyRelationCreateMock,
+  companyRelationCreateManyAndReturnMock,
   aliasFindManyMock,
   aliasCreateManyMock,
   invalidateTagCacheMock,
@@ -29,15 +23,9 @@ const {
   tagRelationFindManyMock: vi.fn(),
   tagRelationCreateManyMock: vi.fn(),
   companyFindManyMock: vi.fn(),
-  companyFindFirstMock: vi.fn(),
   companyCreateManyMock: vi.fn(),
-  companyCreateMock: vi.fn(),
   companyUpdateManyMock: vi.fn(),
-  companyUpdateMock: vi.fn(),
-  companyRelationFindManyMock: vi.fn(),
-  companyRelationFindFirstMock: vi.fn(),
-  companyRelationCreateManyMock: vi.fn(),
-  companyRelationCreateMock: vi.fn(),
+  companyRelationCreateManyAndReturnMock: vi.fn(),
   aliasFindManyMock: vi.fn(),
   aliasCreateManyMock: vi.fn(),
   invalidateTagCacheMock: vi.fn(),
@@ -69,17 +57,11 @@ vi.mock('~/prisma/index', () => ({
     },
     patch_company: {
       findMany: companyFindManyMock,
-      findFirst: companyFindFirstMock,
       createMany: companyCreateManyMock,
-      create: companyCreateMock,
-      updateMany: companyUpdateManyMock,
-      update: companyUpdateMock
+      updateMany: companyUpdateManyMock
     },
     patch_company_relation: {
-      findMany: companyRelationFindManyMock,
-      findFirst: companyRelationFindFirstMock,
-      createMany: companyRelationCreateManyMock,
-      create: companyRelationCreateMock
+      createManyAndReturn: companyRelationCreateManyAndReturnMock
     },
     patch_alias: {
       findMany: aliasFindManyMock,
@@ -102,34 +84,28 @@ const EMPTY_DATA = {
   dlsiteCircleLink: ''
 }
 
-describe('processSubmittedExternalData cache invalidation', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    handleBatchPatchTagsMock.mockResolvedValue({
-      success: true,
-      changed: false
-    })
-    tagFindManyMock.mockResolvedValue([])
-    tagCreateManyMock.mockResolvedValue({ count: 1 })
-    tagUpdateManyMock.mockResolvedValue({ count: 1 })
-    tagRelationFindManyMock.mockResolvedValue([])
-    tagRelationCreateManyMock.mockResolvedValue({ count: 1 })
-    companyFindManyMock.mockResolvedValue([])
-    companyFindFirstMock.mockResolvedValue(null)
-    companyCreateManyMock.mockResolvedValue({ count: 1 })
-    companyCreateMock.mockResolvedValue({ id: 1 })
-    companyUpdateManyMock.mockResolvedValue({ count: 1 })
-    companyUpdateMock.mockResolvedValue({ count: 1 })
-    companyRelationFindManyMock.mockResolvedValue([])
-    companyRelationFindFirstMock.mockResolvedValue(null)
-    companyRelationCreateManyMock.mockResolvedValue({ count: 1 })
-    companyRelationCreateMock.mockResolvedValue({ id: 1 })
-    aliasFindManyMock.mockResolvedValue([])
-    aliasCreateManyMock.mockResolvedValue({ count: 1 })
-    invalidateTagCacheMock.mockResolvedValue(undefined)
-    invalidateCompanyCacheMock.mockResolvedValue(undefined)
+beforeEach(() => {
+  vi.clearAllMocks()
+  handleBatchPatchTagsMock.mockResolvedValue({
+    success: true,
+    changed: false
   })
+  tagFindManyMock.mockResolvedValue([])
+  tagCreateManyMock.mockResolvedValue({ count: 1 })
+  tagUpdateManyMock.mockResolvedValue({ count: 1 })
+  tagRelationFindManyMock.mockResolvedValue([])
+  tagRelationCreateManyMock.mockResolvedValue({ count: 1 })
+  companyFindManyMock.mockResolvedValue([])
+  companyCreateManyMock.mockResolvedValue({ count: 1 })
+  companyUpdateManyMock.mockResolvedValue({ count: 1 })
+  companyRelationCreateManyAndReturnMock.mockResolvedValue([{ company_id: 1 }])
+  aliasFindManyMock.mockResolvedValue([])
+  aliasCreateManyMock.mockResolvedValue({ count: 1 })
+  invalidateTagCacheMock.mockResolvedValue(undefined)
+  invalidateCompanyCacheMock.mockResolvedValue(undefined)
+})
 
+describe('processSubmittedExternalData cache invalidation', () => {
   it('keeps valid caches when both tasks fail before their first write', async () => {
     tagFindManyMock.mockRejectedValueOnce(new Error('tag read failed'))
     companyFindManyMock.mockRejectedValueOnce(new Error('company read failed'))
@@ -185,7 +161,7 @@ describe('processSubmittedExternalData cache invalidation', () => {
     expect(invalidateTagCacheMock).not.toHaveBeenCalled()
   })
 
-  it('coalesces multiple successful company tasks into one invalidation', async () => {
+  it('coalesces all company sources into one task and one invalidation', async () => {
     await processSubmittedExternalData(
       1,
       {
@@ -198,7 +174,87 @@ describe('processSubmittedExternalData cache invalidation', () => {
       7
     )
 
-    expect(companyCreateManyMock).toHaveBeenCalledTimes(3)
+    expect(companyCreateManyMock).toHaveBeenCalledTimes(1)
+    expect(companyCreateManyMock.mock.calls[0][0].data).toHaveLength(3)
     expect(invalidateCompanyCacheMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('processSubmittedExternalData company dedup', () => {
+  it('creates a same-named company from multiple sources only once', async () => {
+    await processSubmittedExternalData(
+      1,
+      {
+        ...EMPTY_DATA,
+        vndbDevelopers: ['Key'],
+        bangumiDevelopers: ['Key'],
+        steamDevelopers: [' Key '],
+        dlsiteCircleName: 'Key',
+        dlsiteCircleLink: 'https://key.example.com'
+      },
+      [],
+      7
+    )
+
+    expect(companyCreateManyMock).toHaveBeenCalledTimes(1)
+    const createArgs = companyCreateManyMock.mock.calls[0][0]
+    expect(createArgs.data).toHaveLength(1)
+    expect(createArgs.data[0].name).toBe('Key')
+    expect(createArgs.data[0].official_website).toEqual([
+      'https://key.example.com'
+    ])
+    expect(createArgs.skipDuplicates).toBe(true)
+  })
+
+  it('drops names exceeding the 107-char column limit instead of failing the batch', async () => {
+    await processSubmittedExternalData(
+      1,
+      { ...EMPTY_DATA, vndbDevelopers: ['x'.repeat(108), 'Key'] },
+      [],
+      7
+    )
+
+    expect(companyCreateManyMock).toHaveBeenCalledTimes(1)
+    const createArgs = companyCreateManyMock.mock.calls[0][0]
+    expect(createArgs.data).toHaveLength(1)
+    expect(createArgs.data[0].name).toBe('Key')
+  })
+
+  it('increments count only for relations actually inserted', async () => {
+    companyFindManyMock
+      .mockResolvedValueOnce([{ name: 'Key' }])
+      .mockResolvedValueOnce([{ id: 5 }])
+    companyRelationCreateManyAndReturnMock.mockResolvedValueOnce([
+      { company_id: 5 }
+    ])
+
+    await processSubmittedExternalData(
+      1,
+      { ...EMPTY_DATA, vndbDevelopers: ['Key'] },
+      [],
+      7
+    )
+
+    expect(companyCreateManyMock).not.toHaveBeenCalled()
+    expect(companyUpdateManyMock).toHaveBeenCalledTimes(1)
+    expect(companyUpdateManyMock.mock.calls[0][0].where.id.in).toEqual([5])
+  })
+
+  it('skips count increment and invalidation when nothing changed', async () => {
+    companyFindManyMock
+      .mockResolvedValueOnce([{ name: 'Key' }])
+      .mockResolvedValueOnce([{ id: 5 }])
+    companyRelationCreateManyAndReturnMock.mockResolvedValueOnce([])
+
+    await processSubmittedExternalData(
+      1,
+      { ...EMPTY_DATA, vndbDevelopers: ['Key'] },
+      [],
+      7
+    )
+
+    expect(companyCreateManyMock).not.toHaveBeenCalled()
+    expect(companyUpdateManyMock).not.toHaveBeenCalled()
+    expect(invalidateCompanyCacheMock).not.toHaveBeenCalled()
   })
 })

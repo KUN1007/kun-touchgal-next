@@ -82,44 +82,37 @@ export const ensurePatchCompaniesFromVNDB = async (
       .map((n) => companiesByName.get(n)!)
 
     if (toCreate.length) {
-      await prisma.patch_company.createMany({ data: toCreate })
-      changed = true
+      // skipDuplicates 依赖 patch_company_name_key 唯一索引兜底并发创建
+      const created = await prisma.patch_company.createMany({
+        data: toCreate,
+        skipDuplicates: true
+      })
+      if (created.count) {
+        changed = true
+      }
     }
 
     const allCompanies = await prisma.patch_company.findMany({
       where: { name: { in: companyNames } },
-      select: { id: true, name: true }
+      select: { id: true }
     })
-    const nameToId = new Map(allCompanies.map((c) => [c.name, c.id]))
     const companyIds = allCompanies.map((c) => c.id)
 
     if (companyIds.length) {
-      const existingRelations = await prisma.patch_company_relation.findMany({
-        where: {
-          patch_id: patchId,
-          company_id: { in: companyIds }
-        },
-        select: { company_id: true }
-      })
-      const existingCompanyIds = new Set(
-        existingRelations.map((r) => r.company_id)
-      )
+      // count 只按实际插入的关联递增,避免并发下重复 increment
+      const insertedRelations =
+        await prisma.patch_company_relation.createManyAndReturn({
+          data: companyIds.map((cid) => ({
+            patch_id: patchId,
+            company_id: cid
+          })),
+          select: { company_id: true },
+          skipDuplicates: true
+        })
 
-      const newCompanyIds = companyIds.filter(
-        (cid) => !existingCompanyIds.has(cid)
-      )
-
-      await prisma.patch_company_relation.createMany({
-        data: companyNames
-          .map((n) => nameToId.get(n))
-          .filter((cid): cid is number => typeof cid === 'number')
-          .map((cid) => ({ patch_id: patchId, company_id: cid })),
-        skipDuplicates: true
-      })
-
-      if (newCompanyIds.length) {
+      if (insertedRelations.length) {
         await prisma.patch_company.updateMany({
-          where: { id: { in: newCompanyIds } },
+          where: { id: { in: insertedRelations.map((r) => r.company_id) } },
           data: { count: { increment: 1 } }
         })
         changed = true

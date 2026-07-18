@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '~/prisma'
+import { Prisma } from '~/prisma/generated/prisma/client'
 import {
   createCompanySchema,
   getCompanyByIdSchema,
@@ -45,29 +46,40 @@ const rewriteCompany = async (input: z.infer<typeof updateCompanySchema>) => {
     return '这个会社已经存在了'
   }
 
-  const newCompany = await prisma.patch_company.update({
-    where: { id: companyId },
-    data: {
-      name,
-      introduction,
-      alias,
-      primary_language,
-      official_website,
-      parent_brand
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          avatar: true
+  try {
+    const newCompany = await prisma.patch_company.update({
+      where: { id: companyId },
+      data: {
+        name,
+        introduction,
+        alias,
+        primary_language,
+        official_website,
+        parent_brand
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true
+          }
         }
       }
-    }
-  })
-  await invalidateCompanyListCache()
+    })
+    await invalidateCompanyListCache()
 
-  return newCompany
+    return newCompany
+  } catch (error) {
+    // name 唯一索引兜底并发改名
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      return '这个会社已经存在了'
+    }
+    throw error
+  }
 }
 
 export const PUT = async (req: NextRequest) => {
@@ -110,26 +122,37 @@ const createCompany = async (
     return '这个会社已经存在了'
   }
 
-  const newCompany = await prisma.patch_company.create({
-    data: {
-      user_id: uid,
-      name,
-      introduction,
-      alias,
-      primary_language,
-      official_website,
-      parent_brand
-    },
-    select: {
-      id: true,
-      name: true,
-      count: true,
-      alias: true
-    }
-  })
-  await invalidateCompanyListCache()
+  try {
+    const newCompany = await prisma.patch_company.create({
+      data: {
+        user_id: uid,
+        name,
+        introduction,
+        alias,
+        primary_language,
+        official_website,
+        parent_brand
+      },
+      select: {
+        id: true,
+        name: true,
+        count: true,
+        alias: true
+      }
+    })
+    await invalidateCompanyListCache()
 
-  return newCompany
+    return newCompany
+  } catch (error) {
+    // name 唯一索引兜底并发创建
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      return '这个会社已经存在了'
+    }
+    throw error
+  }
 }
 
 export const POST = async (req: NextRequest) => {

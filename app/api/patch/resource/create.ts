@@ -49,10 +49,12 @@ export const createPatchResource = async (
   const patchId = currentPatch.id
   const needApproval = resourceCount === 0 && userRole < 3
 
-  // 首个资源走既有人工审批流 (status=2), 不重复送 AI 审核
-  const moderation = needApproval
-    ? MODERATION_SKIP
-    : await preScreenText(`标题: ${input.name}\n介绍: ${input.note}`)
+  // 首个资源走既有人工审批流 (status=2), 不重复送 AI 审核;
+  // 标题与介绍均为空的资源无文本可审, 直接放行
+  const moderation =
+    needApproval || !`${input.name}${input.note}`.trim()
+      ? MODERATION_SKIP
+      : await preScreenText(`标题: ${input.name}\n介绍: ${input.note}`)
 
   const preparedLinks: Array<{
     storage: string

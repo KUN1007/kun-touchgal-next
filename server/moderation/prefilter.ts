@@ -134,6 +134,23 @@ export const isWhitelistedText = (raw: string) => {
   return rest.length === 0
 }
 
+export interface ModerationBlacklistEntry {
+  pattern: string
+  content_types: string[]
+}
+
+// 取对该 content_type 生效的模式; 空 content_types 表示对全部类型生效
+export const filterBlacklistPatterns = (
+  entries: ModerationBlacklistEntry[],
+  contentType: string
+): string[] =>
+  entries
+    .filter(
+      (entry) =>
+        !entry.content_types.length || entry.content_types.includes(contentType)
+    )
+    .map((entry) => entry.pattern)
+
 export const matchBlacklist = (
   normalizedText: string,
   patterns: string[]

@@ -24,7 +24,12 @@ import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { KunPagination } from '~/components/kun/Pagination'
 import { useMounted } from '~/hooks/useMounted'
 import { ModerationTaskCard } from './Card'
-import { MODERATION_TASK_STATUS_MAP } from '~/constants/moderation'
+import {
+  formatModerationContentTypeLabel,
+  MODERATION_CONTENT_TYPE_MAP,
+  MODERATION_TASK_STATUS_MAP,
+  MODERATION_TEXT_CONTENT_TYPE
+} from '~/constants/moderation'
 import type {
   AdminModerationBlacklistItem,
   AdminModerationStats,
@@ -62,6 +67,7 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
   } = useDisclosure()
   const [blacklist, setBlacklist] = useState<AdminModerationBlacklistItem[]>([])
   const [blacklistPattern, setBlacklistPattern] = useState('')
+  const [blacklistTypes, setBlacklistTypes] = useState<string[]>([])
   const [blacklistLoading, setBlacklistLoading] = useState(false)
 
   const fetchData = async () => {
@@ -121,6 +127,7 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
 
   const handleOpenBlacklist = async (pattern = '') => {
     setBlacklistPattern(pattern)
+    setBlacklistTypes([])
     onOpenBlacklist()
     await fetchBlacklist()
   }
@@ -133,7 +140,7 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
     try {
       const res = await kunFetchPost<KunResponse<{}>>(
         '/admin/moderation/blacklist',
-        { pattern: blacklistPattern.trim() }
+        { pattern: blacklistPattern.trim(), contentTypes: blacklistTypes }
       )
       if (typeof res === 'string') {
         toast.error(res)
@@ -141,6 +148,7 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
       }
       toast.success('已加入黑名单')
       setBlacklistPattern('')
+      setBlacklistTypes([])
       await fetchBlacklist()
     } finally {
       setBlacklistLoading(false)
@@ -284,15 +292,36 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
           <ModalBody className="space-y-4">
             <p className="text-sm text-default-500">
               黑名单为子串匹配（忽略大小写与空白），命中即直接拒绝且不消耗
-              Token，请只添加高置信度的违规特征
+              Token，请只添加高置信度的违规特征。可选择生效类型，不选则对全部类型生效
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 fullWidth
                 placeholder="输入黑名单模式"
                 value={blacklistPattern}
                 onValueChange={setBlacklistPattern}
               />
+              <Select
+                aria-label="生效类型"
+                selectionMode="multiple"
+                placeholder="全部类型"
+                className="sm:max-w-44"
+                selectedKeys={new Set(blacklistTypes)}
+                // 多选模式下 Cmd/Ctrl+A 全选会发出字面量 'all' 而非 Set
+                onSelectionChange={(keys) =>
+                  setBlacklistTypes(
+                    keys === 'all'
+                      ? [...MODERATION_TEXT_CONTENT_TYPE]
+                      : (Array.from(keys) as string[])
+                  )
+                }
+              >
+                {MODERATION_TEXT_CONTENT_TYPE.map((type) => (
+                  <SelectItem key={type}>
+                    {MODERATION_CONTENT_TYPE_MAP[type]}
+                  </SelectItem>
+                ))}
+              </Select>
               <Button
                 color="primary"
                 isLoading={blacklistLoading}
@@ -309,6 +338,9 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
                 >
                   <span className="break-all text-sm">{item.pattern}</span>
                   <div className="flex shrink-0 items-center gap-2">
+                    <Chip size="sm" variant="flat" color="primary">
+                      {formatModerationContentTypeLabel(item.contentTypes)}
+                    </Chip>
                     <Chip size="sm" variant="flat">
                       {item.user.name}
                     </Chip>

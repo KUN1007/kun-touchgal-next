@@ -8,6 +8,16 @@ export const MODERATION_CONTENT_TYPE = [
 
 export type ModerationContentType = (typeof MODERATION_CONTENT_TYPE)[number]
 
+// 走文本审核 (可被黑名单命中) 的 content_type; avatar 为图片审核, 不适用黑名单
+export const MODERATION_TEXT_CONTENT_TYPE = [
+  'comment',
+  'rating',
+  'resource',
+  'bio'
+] as const
+
+export type ModerationTextType = (typeof MODERATION_TEXT_CONTENT_TYPE)[number]
+
 export const MODERATION_CONTENT_TYPE_MAP: Record<string, string> = {
   comment: '评论',
   rating: '评价',
@@ -15,6 +25,12 @@ export const MODERATION_CONTENT_TYPE_MAP: Record<string, string> = {
   avatar: '头像',
   bio: '签名'
 }
+
+// 黑名单生效类型的展示文案; 空数组 = 全部生效
+export const formatModerationContentTypeLabel = (types: string[]) =>
+  types.length
+    ? types.map((type) => MODERATION_CONTENT_TYPE_MAP[type]).join('/')
+    : '全部'
 
 export const MODERATION_TASK_STATUS = [
   'pending',

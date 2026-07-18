@@ -4,6 +4,7 @@ import {
   kunParsePostBody
 } from '~/app/api/utils/parseQuery'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
+import { formatModerationContentTypeLabel } from '~/constants/moderation'
 import { prisma } from '~/prisma/index'
 import {
   adminModerationBlacklistCreateSchema,
@@ -40,6 +41,7 @@ export const GET = async (req: NextRequest) => {
   const items: AdminModerationBlacklistItem[] = data.map((item) => ({
     id: item.id,
     pattern: item.pattern,
+    contentTypes: item.content_types,
     user: item.user,
     created: item.created
   }))
@@ -67,15 +69,20 @@ export const POST = async (req: NextRequest) => {
     return NextResponse.json('该模式已在黑名单中')
   }
 
+  const typeLabel = formatModerationContentTypeLabel(input.contentTypes)
   await prisma.$transaction(async (tx) => {
     await tx.moderation_blacklist.create({
-      data: { pattern: input.pattern, user_id: payload.uid }
+      data: {
+        pattern: input.pattern,
+        content_types: input.contentTypes,
+        user_id: payload.uid
+      }
     })
     await tx.admin_log.create({
       data: {
         type: 'create',
         user_id: payload.uid,
-        content: `管理员添加了审核黑名单模式: ${input.pattern}`
+        content: `管理员添加了审核黑名单模式: ${input.pattern} (生效类型: ${typeLabel})`
       }
     })
   })

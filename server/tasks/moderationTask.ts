@@ -16,7 +16,7 @@ import {
   MODERATION_S3_TIMEOUT_MS,
   MODERATION_VERDICT_CACHE_DURATION
 } from '~/constants/moderation'
-import type { ModerationContentType } from '~/constants/moderation'
+import type { ModerationTextType } from '~/constants/moderation'
 import {
   ModerationConfigError,
   moderateImage,
@@ -32,10 +32,12 @@ import {
   markTaskManual
 } from '~/server/moderation/apply'
 import {
+  filterBlacklistPatterns,
   hashModerationText,
   matchBlacklist,
   normalizeModerationText
 } from '~/server/moderation/prefilter'
+import type { ModerationBlacklistEntry } from '~/server/moderation/prefilter'
 import type {
   ModerationAvatarPayload,
   ModerationTextPayload
@@ -46,8 +48,6 @@ const MODERATION_LOCK_KEY = 'moderation:worker:lock'
 
 // verdicts are cached per content_type: each type has a distinct system prompt,
 // so a verdict from one type must never be replayed onto another
-type ModerationTextType = Exclude<ModerationContentType, 'avatar'>
-
 const verdictCacheKey = (contentType: ModerationTextType, hash: string) =>
   `${KUN_MODERATION_VERDICT_CACHE_KEY}:${contentType}:${hash}`
 
@@ -101,12 +101,15 @@ const applyAiResult = async (
 
 const processTextTask = async (
   task: moderation_taskModel,
-  blacklistPatterns: string[]
+  blacklistEntries: ModerationBlacklistEntry[]
 ) => {
   const payload = task.payload as unknown as ModerationTextPayload
   const normalized = normalizeModerationText(payload.text ?? '')
 
-  const blacklistHit = matchBlacklist(normalized, blacklistPatterns)
+  const blacklistHit = matchBlacklist(
+    normalized,
+    filterBlacklistPatterns(blacklistEntries, task.content_type)
+  )
   if (blacklistHit) {
     await applyModerationVerdict({
       task,
@@ -166,7 +169,7 @@ const claimablePredicate = (
 // 缓存与黑名单为共享只读, 因此可安全并发
 const processTask = async (
   task: moderation_taskModel,
-  blacklistPatterns: string[],
+  blacklistEntries: ModerationBlacklistEntry[],
   leaseStaleBefore: Date
 ) => {
   // 非空 picked_at 说明这是在回收一个过期租约: 上次尝试既没走到结算 (会移出 pending)
@@ -198,7 +201,7 @@ const processTask = async (
     if (task.content_type === 'avatar') {
       await processAvatarTask(task)
     } else {
-      await processTextTask(task, blacklistPatterns)
+      await processTextTask(task, blacklistEntries)
     }
   } catch (error) {
     if (error instanceof ModerationConfigError) {
@@ -252,19 +255,21 @@ const serializationKey = (task: moderation_taskModel): string => {
 // BLACKLIST_CACHE_DURATION_MS 生效)
 const BLACKLIST_CACHE_DURATION_MS = 60 * 1000
 
-let blacklistCache: { patterns: string[]; expire: number } | null = null
+let blacklistCache: {
+  entries: ModerationBlacklistEntry[]
+  expire: number
+} | null = null
 
-const getBlacklistPatterns = async (): Promise<string[]> => {
+const getBlacklistEntries = async (): Promise<ModerationBlacklistEntry[]> => {
   const now = Date.now()
   if (blacklistCache && blacklistCache.expire > now) {
-    return blacklistCache.patterns
+    return blacklistCache.entries
   }
-  const rows = await prisma.moderation_blacklist.findMany({
-    select: { pattern: true }
+  const entries = await prisma.moderation_blacklist.findMany({
+    select: { pattern: true, content_types: true }
   })
-  const patterns = rows.map((item) => item.pattern)
-  blacklistCache = { patterns, expire: now + BLACKLIST_CACHE_DURATION_MS }
-  return patterns
+  blacklistCache = { entries, expire: now + BLACKLIST_CACHE_DURATION_MS }
+  return entries
 }
 
 const runModerationBatch = async () => {
@@ -288,7 +293,7 @@ const runModerationBatch = async () => {
 
   // blacklist 仅文本任务需要: 纯头像批跳过查询, 其余走进程内缓存
   const needsBlacklist = tasks.some((task) => task.content_type !== 'avatar')
-  const blacklistPatterns = needsBlacklist ? await getBlacklistPatterns() : []
+  const blacklistEntries = needsBlacklist ? await getBlacklistEntries() : []
 
   // 把会相互竞态的任务归到同组 (组内串行), 再以有界并发处理各组: 一次慢的 vision
   // 调用不再阻塞排在其后的缓存/文本裁决. 批次只取一次, 并发 worker 通过 cursor++
@@ -310,7 +315,7 @@ const runModerationBatch = async () => {
     let index: number
     while ((index = cursor++) < groupList.length) {
       for (const task of groupList[index]) {
-        await processTask(task, blacklistPatterns, leaseStaleBefore)
+        await processTask(task, blacklistEntries, leaseStaleBefore)
       }
     }
   }

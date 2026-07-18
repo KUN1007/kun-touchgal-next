@@ -172,6 +172,8 @@ export interface AdminModerationTask {
 export interface AdminModerationBlacklistItem {
   id: number
   pattern: string
+  // 生效的文本类型; 空数组 = 全部生效
+  contentTypes: string[]
   user: KunUser
   created: Date | string
 }

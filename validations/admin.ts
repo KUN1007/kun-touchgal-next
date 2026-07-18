@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MODERATION_TEXT_CONTENT_TYPE } from '~/constants/moderation'
 import { kunPasswordRegex } from '~/utils/validate'
 
 export const adminReportTargetTypeSchema = z.enum(['comment', 'rating'])
@@ -325,7 +326,12 @@ export const adminModerationBlacklistCreateSchema = z.object({
     .string()
     .trim()
     .min(2, { message: '黑名单模式至少 2 个字符' })
-    .max(1007, { message: '黑名单模式最多 1007 个字符' })
+    .max(1007, { message: '黑名单模式最多 1007 个字符' }),
+  // 空数组 = 对全部文本类型生效
+  contentTypes: z
+    .array(z.enum(MODERATION_TEXT_CONTENT_TYPE))
+    .max(MODERATION_TEXT_CONTENT_TYPE.length)
+    .default([])
 })
 
 export const adminModerationBlacklistDeleteSchema = z.object({

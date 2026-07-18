@@ -15,6 +15,7 @@ import {
 } from '@heroui/react'
 import { useState } from 'react'
 import Link from 'next/link'
+import { ExternalLink } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { kunFetchPut } from '~/utils/kunFetch'
 import { KunTimeAgo } from '~/components/kun/TimeAgo'
@@ -34,6 +35,18 @@ const statusColorMap: Record<
   rejected: 'danger',
   manual: 'secondary',
   superseded: 'default'
+}
+
+// 与站内消息通知的深链格式一致 (createMentionMessage / rating like 等)
+const contentLinkMap: Partial<
+  Record<string, (uniqueId: string, contentId: number) => string>
+> = {
+  comment: (uniqueId, contentId) =>
+    `/${uniqueId}?tab=comments&commentId=${contentId}`,
+  rating: (uniqueId, contentId) =>
+    `/${uniqueId}?tab=rating&ratingId=${contentId}`,
+  resource: (uniqueId, contentId) =>
+    `/${uniqueId}?tab=resources&resourceId=${contentId}`
 }
 
 interface Props {
@@ -101,6 +114,12 @@ export const ModerationTaskCard = ({
   // 仅审核失败转人工的任务可重试; verdict 非空为 AI 拿不准 (m=1) 转人工
   const canRetry = task.status === 'manual' && task.verdict == null
 
+  const buildContentLink = contentLinkMap[task.contentType]
+  const contentLink =
+    buildContentLink && task.contentId !== null && task.patch
+      ? buildContentLink(task.patch.uniqueId, task.contentId)
+      : null
+
   return (
     <>
       <Card>
@@ -130,6 +149,20 @@ export const ModerationTaskCard = ({
             <span className="text-sm text-default-500">
               #{task.id} · <KunTimeAgo date={task.created} />
             </span>
+            {contentLink && (
+              <Button
+                as={Link}
+                href={contentLink}
+                target="_blank"
+                size="sm"
+                color="primary"
+                variant="flat"
+                className="ml-auto"
+                startContent={<ExternalLink className="size-4" />}
+              >
+                查看内容
+              </Button>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

@@ -40,6 +40,8 @@ const searchTypeOptions: Array<{
   { key: 'id', label: '用户 ID', placeholder: '搜索用户 ID...' }
 ]
 
+const hiddenLabelClassNames = { label: 'sr-only' }
+
 interface Props {
   initialUsers: AdminUser[]
   initialTotal: number
@@ -106,7 +108,10 @@ export const User = ({ initialUsers, initialTotal }: Props) => {
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Select
-          aria-label="搜索类型"
+          label="搜索类型"
+          labelPlacement="outside-left"
+          classNames={hiddenLabelClassNames}
+          id="admin-user-search-type"
           className="w-full sm:max-w-40"
           selectedKeys={new Set([searchType])}
           onSelectionChange={handleSearchTypeChange}
@@ -164,7 +169,10 @@ export const User = ({ initialUsers, initialTotal }: Props) => {
       <div className="flex items-center justify-center gap-2 text-sm text-default-500">
         <span>每页显示</span>
         <Select
-          aria-label="每页显示数量"
+          label="每页显示数量"
+          labelPlacement="outside-left"
+          classNames={hiddenLabelClassNames}
+          id="admin-user-page-size"
           size="sm"
           className="w-20"
           selectedKeys={new Set([String(limit)])}

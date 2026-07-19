@@ -54,9 +54,9 @@ export const KunCaptchaModal = ({
   }, [isOpen, onSuccess])
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
+    <Modal isOpen={isOpen} onClose={onClose} placement="center" hideCloseButton>
       <ModalContent aria-label="人机验证" className="w-fit">
-        <ModalBody className="p-6">
+        <ModalBody className="items-center justify-center p-4">
           <cap-widget
             ref={widgetRef}
             data-cap-api-endpoint="/api/auth/captcha/"

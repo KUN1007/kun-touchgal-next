@@ -19,8 +19,11 @@ img {
 }
 
 /* cap-widget (人机验证) 经 CSS 变量对齐 HeroUI 主题, 暗色模式自动跟随;
-   widget 内部为 shadow DOM, 全局字体规则不穿透, 故 --cap-font 需显式指定 */
+   widget 内部为 shadow DOM, 全局字体规则不穿透, 故 --cap-font 需显式指定;
+   display: flex 将内部 inline-block 的 .captcha 块化, 消除行内基线在
+   宿主底部留下的 descender 空隙 (否则宿主比 widget 高约 6px 且偏上) */
 cap-widget {
+  display: flex;
   --cap-background: hsl(var(--heroui-content1));
   --cap-border-color: hsl(var(--heroui-default-200));
   --cap-border-radius: var(--heroui-radius-large);

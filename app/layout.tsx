@@ -37,7 +37,7 @@ export default function RootLayout({
 
       <body>
         <Providers>
-          <div className="relative flex flex-col items-center justify-center min-h-screen bg-radial">
+          <div className="relative flex flex-col items-center justify-center min-h-dvh bg-radial">
             <Suspense
               fallback={
                 <KunTopBar initialSession={null} isSessionPending={true} />

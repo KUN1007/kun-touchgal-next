@@ -37,6 +37,15 @@ cap-widget {
     'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
 }
 
+/* 验证动画期间 checkbox (旋转 spinner + scale) 与 label (切换位移/模糊) 与外框
+   .captcha 同处宿主一个合成层, 子元素逐帧重绘会连带把 .captcha 的 1px 圆角边框
+   一起重画, 边线在设备像素/圆角抗锯齿边界上时有时无; .captcha 未暴露 part 无法
+   直接稳定, 改为把这两个动画部件各自提升为独立合成层, 其重绘不再脏化父层, 边框稳定 */
+cap-widget::part(checkbox),
+cap-widget::part(label) {
+  will-change: transform;
+}
+
 /** TODO: **/
 * {
   font-family:

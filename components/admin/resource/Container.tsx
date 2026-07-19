@@ -37,7 +37,7 @@ import { useDebounce } from 'use-debounce'
 import { KunPagination } from '~/components/kun/Pagination'
 import type { AdminResource, AdminUser } from '~/types/api/admin'
 
-type ResourceSearchType = 'content' | 'user'
+type ResourceSearchType = 'content' | 'info' | 'user'
 
 const columns = [
   { name: '资源', id: 'name' },
@@ -58,6 +58,11 @@ const searchTypeOptions: Array<{
     key: 'content',
     label: '资源链接',
     placeholder: '输入资源链接（或 BLAKE3 Hash）搜索'
+  },
+  {
+    key: 'info',
+    label: '名称备注',
+    placeholder: '输入资源名称或备注搜索...'
   },
   { key: 'user', label: '用户名', placeholder: '输入用户名搜索...' }
 ]
@@ -151,8 +156,9 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
       setLoading(true)
       try {
         const params: Record<string, string | number> = { page, limit }
-        if (searchType === 'content' && debouncedContent) {
+        if (searchType !== 'user' && debouncedContent) {
           params.search = debouncedContent
+          params.searchType = searchType
         }
         if (searchType === 'user' && selectedUserId) {
           params.userId = selectedUserId
@@ -214,8 +220,9 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
 
     // 刷新列表
     const params: Record<string, string | number> = { page, limit }
-    if (searchType === 'content' && debouncedContent) {
+    if (searchType !== 'user' && debouncedContent) {
       params.search = debouncedContent
+      params.searchType = searchType
     }
     if (searchType === 'user' && selectedUserId) {
       params.userId = selectedUserId
@@ -256,8 +263,9 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
 
     // 刷新列表
     const params: Record<string, string | number> = { page, limit }
-    if (searchType === 'content' && debouncedContent) {
+    if (searchType !== 'user' && debouncedContent) {
       params.search = debouncedContent
+      params.searchType = searchType
     }
     if (searchType === 'user' && selectedUserId) {
       params.userId = selectedUserId

@@ -12,7 +12,8 @@ export const metadata: Metadata = kunMetadata
 export default async function Kun() {
   const response = await kunGetActions({
     page: 1,
-    limit: 30
+    limit: 30,
+    searchType: 'content'
   })
   if (typeof response === 'string') {
     return <ErrorComponent error={response} />

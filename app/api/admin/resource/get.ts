@@ -8,12 +8,28 @@ export const getPatchResource = async (
   input: z.infer<typeof adminResourcePaginationSchema>,
   nsfwEnable: Record<string, string | undefined>
 ) => {
-  const { page, limit, search, userId } = input
+  const { page, limit, search, searchType, userId } = input
   const offset = (page - 1) * limit
 
-  const where = {
-    ...(search
+  const searchFilter = search
+    ? searchType === 'info'
       ? {
+          OR: [
+            {
+              name: {
+                contains: search,
+                mode: 'insensitive' as const
+              }
+            },
+            {
+              note: {
+                contains: search,
+                mode: 'insensitive' as const
+              }
+            }
+          ]
+        }
+      : {
           links: {
             some: {
               OR: [
@@ -33,7 +49,10 @@ export const getPatchResource = async (
             }
           }
         }
-      : {}),
+    : {}
+
+  const where = {
+    ...searchFilter,
     ...(userId ? { user_id: userId } : {}),
     patch: nsfwEnable
   }

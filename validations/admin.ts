@@ -90,8 +90,11 @@ export const adminResourceApplyPaginationSchema = adminPaginationSchema.extend({
   limit: z.coerce.number().min(1).max(500)
 })
 
+export const adminResourceSearchTypeSchema = z.enum(['content', 'info'])
+
 export const adminResourcePaginationSchema = adminPaginationSchema.extend({
   limit: z.coerce.number().min(1).max(500),
+  searchType: adminResourceSearchTypeSchema.default('content'),
   userId: z.coerce.number().min(1).max(9999999).optional()
 })
 

@@ -2,7 +2,6 @@
 
 import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
-import { KunLoading } from '~/components/kun/Loading'
 import { kunFetchPost } from '~/utils/kunFetch'
 import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import { KunHeader } from '~/components/kun/Header'
@@ -10,12 +9,16 @@ import { GalgameCard } from '~/components/galgame/Card'
 import { useSearchStore } from '~/store/searchStore'
 import { SearchHistory } from './SearchHistory'
 import { KunPagination } from '~/components/kun/Pagination'
-import { SearchSuggestion } from './Suggestion'
+import { SearchSuggestion, getSearchSuggestionOptionId } from './Suggestion'
 import { SearchOption } from './Option'
 import { useDebounce } from 'use-debounce'
 import { SearchInput } from './Input'
 import { FilterBar } from '~/components/galgame/FilterBar'
+import { GalgameCardSkeleton } from '~/components/galgame/CardSkeleton'
 import { useSettingStore } from '~/store/settingStore'
+import { cn } from '~/utils/cn'
+import type { FocusEvent } from 'react'
+import type { SearchSuggestionNav } from './Suggestion'
 import type { SearchSuggestionType } from '~/types/api/search'
 import type { SortField, SortOrder } from '~/components/galgame/_sort'
 
@@ -34,6 +37,8 @@ export const SearchPage = ({ filterEndYear }: Props) => {
   const [patches, setPatches] = useState<GalgameCard[]>([])
   const [loading, setLoading] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1)
+  const suggestionNavRef = useRef<SearchSuggestionNav | null>(null)
   const [selectedSuggestions, setSelectedSuggestions] = useState<
     SearchSuggestionType[]
   >([])
@@ -185,6 +190,26 @@ export const SearchPage = ({ filterEndYear }: Props) => {
   }, [])
 
   useEffect(() => {
+    if (!showSuggestions) {
+      setActiveSuggestionIndex(-1)
+    }
+  }, [showSuggestions])
+
+  const handleSearchAreaBlur = (event: FocusEvent<HTMLDivElement>) => {
+    const next = event.relatedTarget as Node | null
+    if (next && event.currentTarget.contains(next)) {
+      return
+    }
+    setShowSuggestions(false)
+    setShowHistory(false)
+  }
+
+  const activeDescendantId =
+    activeSuggestionIndex >= 0
+      ? getSearchSuggestionOptionId(activeSuggestionIndex)
+      : undefined
+
+  useEffect(() => {
     if (selectedSuggestions.length) {
       handleSearch()
     } else {
@@ -226,32 +251,41 @@ export const SearchPage = ({ filterEndYear }: Props) => {
         }
       />
 
-      <SearchInput
-        inputRef={inputRef}
-        query={query}
-        setQuery={setQuery}
-        setShowSuggestions={setShowSuggestions}
-        selectedSuggestions={selectedSuggestions}
-        setSelectedSuggestions={setSelectedSuggestions}
-        setShowHistory={setShowHistory}
-      />
-
-      {showSuggestions && (
-        <SearchSuggestion
+      <div className="relative space-y-6" onBlur={handleSearchAreaBlur}>
+        <SearchInput
           inputRef={inputRef}
-          query={debouncedQuery}
+          query={query}
           setQuery={setQuery}
-          setSelectedSuggestions={setSelectedSuggestions}
-        />
-      )}
-
-      {isSearchStoreHydrated && (
-        <SearchHistory
-          showHistory={showHistory}
+          showSuggestions={showSuggestions}
+          setShowSuggestions={setShowSuggestions}
+          selectedSuggestions={selectedSuggestions}
           setSelectedSuggestions={setSelectedSuggestions}
           setShowHistory={setShowHistory}
+          activeDescendantId={activeDescendantId}
+          suggestionNavRef={suggestionNavRef}
         />
-      )}
+
+        {showSuggestions && (
+          <SearchSuggestion
+            inputRef={inputRef}
+            query={query}
+            debouncedQuery={debouncedQuery}
+            setQuery={setQuery}
+            setSelectedSuggestions={setSelectedSuggestions}
+            activeIndex={activeSuggestionIndex}
+            setActiveIndex={setActiveSuggestionIndex}
+            navRef={suggestionNavRef}
+          />
+        )}
+
+        {isSearchStoreHydrated && (
+          <SearchHistory
+            showHistory={showHistory}
+            setSelectedSuggestions={setSelectedSuggestions}
+            setShowHistory={setShowHistory}
+          />
+        )}
+      </div>
 
       <FilterBar
         selectedType={selectedType}
@@ -273,8 +307,34 @@ export const SearchPage = ({ filterEndYear }: Props) => {
         endYear={filterEndYear}
       />
 
+      <p
+        aria-live="polite"
+        className={cn(
+          'text-sm text-default-500',
+          (loading || !hasSearched || !patches.length) && 'sr-only'
+        )}
+      >
+        {loading
+          ? '正在搜索中'
+          : hasSearched
+            ? patches.length
+              ? `共 ${total} 个结果`
+              : '未找到相关内容'
+            : ''}
+      </p>
+
       {loading ? (
-        <KunLoading hint="正在搜索中..." />
+        <div>
+          <div
+            aria-hidden="true"
+            className="mb-6 h-5 w-28 animate-pulse rounded-lg bg-default-200 motion-reduce:animate-none"
+          />
+          <div className="grid grid-cols-2 gap-2 mx-auto mb-8 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 12 }, (_, index) => (
+              <GalgameCardSkeleton key={index} />
+            ))}
+          </div>
+        </div>
       ) : (
         <div>
           <div className="grid grid-cols-2 gap-2 mx-auto mb-8 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

@@ -1,8 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button, Chip, Tooltip } from '@heroui/react'
 import { cn } from '~/utils/cn'
+import {
+  SEARCH_SUGGESTION_HINT_ID,
+  SEARCH_SUGGESTION_LISTBOX_ID
+} from './Suggestion'
+import type { SearchSuggestionNav } from './Suggestion'
 import type { SearchSuggestionType } from '~/types/api/search'
 import type {
   ChangeEvent,
@@ -17,10 +22,13 @@ interface Props {
   inputRef: RefObject<HTMLInputElement | null>
   query: string
   setQuery: Dispatch<SetStateAction<string>>
+  showSuggestions: boolean
   setShowSuggestions: Dispatch<SetStateAction<boolean>>
   selectedSuggestions: SearchSuggestionType[]
   setSelectedSuggestions: Dispatch<SetStateAction<SearchSuggestionType[]>>
   setShowHistory: Dispatch<SetStateAction<boolean>>
+  activeDescendantId?: string
+  suggestionNavRef: RefObject<SearchSuggestionNav | null>
 }
 
 const KEYWORD_CHIP_CLASS_NAMES = {
@@ -31,12 +39,14 @@ export const SearchInput = ({
   inputRef,
   query,
   setQuery,
+  showSuggestions,
   setShowSuggestions,
   selectedSuggestions,
   setSelectedSuggestions,
-  setShowHistory
+  setShowHistory,
+  activeDescendantId,
+  suggestionNavRef
 }: Props) => {
-  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [isFocused, setIsFocused] = useState(false)
 
   const syncDropdownVisibility = (
@@ -50,18 +60,9 @@ export const SearchInput = ({
     setShowHistory(!hasQuery && !hasSelectedSuggestions)
   }
 
-  const clearBlurTimeout = () => {
-    if (blurTimeoutRef.current) {
-      clearTimeout(blurTimeoutRef.current)
-      blurTimeoutRef.current = null
-    }
-  }
-
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
-
-  useEffect(() => clearBlurTimeout, [])
 
   useEffect(() => {
     if (!isFocused) {
@@ -79,25 +80,20 @@ export const SearchInput = ({
 
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     setQuery(event.target.value)
+    // 同步调用使 query 清空与下拉关闭落在同一次提交,防止退格删空时闪烁;
+    // focus 与程序化 setQuery 路径由上方 effect 兜底,两处缺一不可
+    syncDropdownVisibility(event.target.value, selectedSuggestions)
   }
 
   const handleInputFocus = () => {
-    clearBlurTimeout()
     setIsFocused(true)
   }
 
   const handleInputBlur = () => {
     setIsFocused(false)
-    clearBlurTimeout()
-    blurTimeoutRef.current = setTimeout(() => {
-      setShowHistory(false)
-      setShowSuggestions(false)
-      blurTimeoutRef.current = null
-    }, 100)
   }
 
   const handleRemoveChip = (suggestionToRemove: SearchSuggestionType) => {
-    clearBlurTimeout()
     setSelectedSuggestions((prevSuggestions) =>
       prevSuggestions.filter(
         (suggestion) =>
@@ -114,7 +110,6 @@ export const SearchInput = ({
       return
     }
 
-    clearBlurTimeout()
     setSelectedSuggestions((prevSuggestions) =>
       prevSuggestions.filter(
         (suggestion) =>
@@ -148,7 +143,9 @@ export const SearchInput = ({
     return `${suggestion.mode === 'exclude' ? '排除 ' : ''}${name}`
   }
 
-  const handleExecuteSearch = () => {
+  const handleExecuteSearch = (
+    mode: SearchSuggestionType['mode'] = 'include'
+  ) => {
     if (!query.trim()) {
       return
     }
@@ -164,7 +161,7 @@ export const SearchInput = ({
     const suggestions: SearchSuggestionType[] = queryArraySplitByBlank.map(
       (q) => ({
         type: 'keyword',
-        mode: 'include',
+        mode,
         name: q
       })
     )
@@ -181,9 +178,33 @@ export const SearchInput = ({
   }
 
   const [canDeleteTag, setCanDeleteTag] = useState(false)
-  const handleKeyUp = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (selectedSuggestions.length || !query.length) {
-      setCanDeleteTag(false)
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing) {
+      return
+    }
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      if (suggestionNavRef.current) {
+        event.preventDefault()
+        suggestionNavRef.current.move(event.key === 'ArrowDown' ? 1 : -1)
+      }
+      return
+    }
+
+    if (event.key === 'Escape') {
+      setShowSuggestions(false)
+      setShowHistory(false)
+      return
+    }
+
+    if (event.key === 'Enter') {
+      const mode = event.shiftKey ? 'exclude' : 'include'
+      if (suggestionNavRef.current?.activate(mode)) {
+        event.preventDefault()
+        return
+      }
+      handleExecuteSearch(mode)
+      return
     }
 
     if (
@@ -191,14 +212,19 @@ export const SearchInput = ({
       selectedSuggestions.length &&
       !query.trim()
     ) {
+      if (event.repeat) {
+        return
+      }
       if (canDeleteTag) {
         setSelectedSuggestions((prev) => prev.slice(0, -1))
+        setCanDeleteTag(false)
       } else {
         setCanDeleteTag(true)
       }
-    } else if (event.key === 'Enter') {
-      handleExecuteSearch()
+      return
     }
+
+    setCanDeleteTag(false)
   }
 
   const isShowClearButton = !!(query.length || selectedSuggestions.length)
@@ -208,7 +234,6 @@ export const SearchInput = ({
       : '输入内容, 点击按钮或回车创建关键词'
 
   const handleClearInput = () => {
-    clearBlurTimeout()
     setQuery('')
     setSelectedSuggestions([])
     setIsFocused(true)
@@ -233,11 +258,11 @@ export const SearchInput = ({
             color={
               suggestion.mode === 'exclude'
                 ? 'danger'
-                : suggestion.type === 'keyword'
-                  ? 'primary'
-                  : suggestion.type === 'company'
-                    ? 'warning'
-                    : 'secondary'
+                : suggestion.type === 'company'
+                  ? 'warning'
+                  : suggestion.type === 'tag'
+                    ? 'secondary'
+                    : 'default'
             }
             classNames={
               suggestion.type === 'keyword'
@@ -264,12 +289,23 @@ export const SearchInput = ({
 
         <input
           ref={inputRef}
+          role="combobox"
+          aria-expanded={showSuggestions}
+          aria-controls={
+            showSuggestions ? SEARCH_SUGGESTION_LISTBOX_ID : undefined
+          }
+          aria-activedescendant={activeDescendantId}
+          aria-autocomplete="list"
+          aria-describedby={
+            showSuggestions ? SEARCH_SUGGESTION_HINT_ID : undefined
+          }
+          aria-label="搜索 Galgame"
           className="placeholder-default-500 text-default-700 min-w-[120px] flex-grow bg-transparent outline-none"
           value={query}
           onChange={handleInputChange}
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
-          onKeyUp={(e) => handleKeyUp(e)}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
         />
 
@@ -286,7 +322,7 @@ export const SearchInput = ({
           </Tooltip>
         )}
 
-        <Button color="primary" onPress={handleExecuteSearch}>
+        <Button color="primary" onPress={() => handleExecuteSearch()}>
           搜索
         </Button>
       </div>

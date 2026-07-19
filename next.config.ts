@@ -49,7 +49,7 @@ const nextConfig: NextConfig = {
   },
 
   output: 'standalone',
-  serverExternalPackages: ['oidc-provider'],
+  serverExternalPackages: ['oidc-provider', 'capjs-core'],
   experimental: {
     optimizePackageImports: ['@heroui/react', 'framer-motion']
     // turbotrace: {

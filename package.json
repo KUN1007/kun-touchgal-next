@@ -74,6 +74,8 @@
     "@types/nodemailer-smtp-transport": "^2.7.8",
     "axios": "^1.16.1",
     "canvas-confetti": "^1.9.3",
+    "cap-widget": "0.1.56",
+    "capjs-core": "^0.1.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "diff": "^8.0.4",

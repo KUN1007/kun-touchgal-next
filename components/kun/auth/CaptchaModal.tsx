@@ -1,21 +1,9 @@
 'use client'
 
 import toast from 'react-hot-toast'
-import { useEffect, useState } from 'react'
-import {
-  Button,
-  Link,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader
-} from '@heroui/react'
-import { kunFetchGet, kunFetchPost } from '~/utils/kunFetch'
-import { KunCaptchaCanvas } from './CaptchaCanvas'
-import { KunLoading } from '../Loading'
-import { kunCaptchaErrorMessageMap } from '~/constants/captcha'
-import type { KunCaptchaImage } from './captcha'
+import { useEffect, useRef } from 'react'
+import { Modal, ModalBody, ModalContent } from '@heroui/react'
+import type { CapSolveEvent, CapWidget } from 'cap-widget'
 
 interface CaptchaModalProps {
   isOpen: boolean
@@ -28,95 +16,60 @@ export const KunCaptchaModal = ({
   onClose,
   onSuccess
 }: CaptchaModalProps) => {
-  const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set())
-  const [images, setImages] = useState<KunCaptchaImage[]>([])
-  const [sessionId, setSessionId] = useState<string>('')
-  const [loading, setLoading] = useState(true)
-  const [errorCount, setErrorCount] = useState(0)
+  const widgetRef = useRef<CapWidget | null>(null)
 
   useEffect(() => {
-    if (isOpen) {
-      loadCaptcha()
+    // 与 cap-widget 0.1.56 期望的 @cap.js/wasm@0.0.7 对应, 升级 widget 时
+    // 需同步更新 public/cap/cap_wasm_bg.wasm (加载失败会自动降级 JS 解题器)
+    window.CAP_CUSTOM_WASM_URL = '/cap/cap_wasm_bg.wasm'
+    // 注入 CSRF 头以通过 middleware 校验 (与 utils/kunFetch.ts 一致)
+    window.CAP_CUSTOM_FETCH = (input, init) => {
+      const headers = new Headers(init?.headers)
+      headers.set('X-Requested-With', 'kun-fetch')
+      return fetch(input, { ...init, headers, credentials: 'include' })
     }
-  }, [isOpen])
+    // 自定义元素注册依赖浏览器 API, 只能在客户端动态导入
+    import('cap-widget')
+  }, [])
 
-  const loadCaptcha = async () => {
-    if (errorCount < 6) {
-      setErrorCount((prev) => prev + 1)
+  useEffect(() => {
+    const widget = widgetRef.current
+    if (!widget || !isOpen) {
+      return
     }
 
-    setLoading(true)
-    const { images, sessionId } = await kunFetchGet<{
-      images: KunCaptchaImage[]
-      sessionId: string
-    }>('/auth/captcha')
-
-    setImages(images)
-    setSessionId(sessionId)
-    setSelectedImages(new Set())
-
-    setLoading(false)
-  }
-
-  const toggleImageSelection = (id: string) => {
-    const newSelection = new Set(selectedImages)
-    if (newSelection.has(id)) {
-      newSelection.delete(id)
-    } else {
-      newSelection.add(id)
+    const handleSolve = (event: CapSolveEvent) => {
+      onSuccess(event.detail.token)
     }
-    setSelectedImages(newSelection)
-  }
-
-  const handleVerify = async () => {
-    const response = await kunFetchPost<KunResponse<{ code: string }>>(
-      '/auth/captcha',
-      { sessionId, selectedIds: Array.from(selectedImages) }
-    )
-    if (typeof response === 'string') {
-      toast.error(kunCaptchaErrorMessageMap[errorCount])
-      loadCaptcha()
-    } else {
-      onSuccess(response.code)
+    const handleError = () => {
+      toast.error('人机验证出错, 请重试')
     }
-  }
+
+    widget.addEventListener('solve', handleSolve)
+    widget.addEventListener('error', handleError)
+    return () => {
+      widget.removeEventListener('solve', handleSolve)
+      widget.removeEventListener('error', handleError)
+    }
+  }, [isOpen, onSuccess])
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
-      <ModalContent>
-        <ModalHeader className="flex-col">
-          <h3 className="text-lg">人机验证</h3>
-          <p className="font-medium">请选择下面所有的 白毛 女孩子</p>
-        </ModalHeader>
-        <ModalBody>
-          {loading ? (
-            <KunLoading hint="正在加载验证..." />
-          ) : (
-            <div className="grid grid-cols-2 gap-4">
-              {images.map((image) => (
-                <div key={image.id} className="aspect-square">
-                  <KunCaptchaCanvas
-                    image={image}
-                    isSelected={selectedImages.has(image.id)}
-                    onSelect={() => toggleImageSelection(image.id)}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
+      <ModalContent aria-label="人机验证" className="w-fit">
+        <ModalBody className="p-6">
+          <cap-widget
+            ref={widgetRef}
+            data-cap-api-endpoint="/api/auth/captcha/"
+            data-cap-i18n-initial-state="我是真人"
+            data-cap-i18n-verifying-label="正在验证..."
+            data-cap-i18n-solved-label="验证通过"
+            data-cap-i18n-error-label="验证出错, 请点击重试"
+            data-cap-i18n-verify-aria-label="点击进行人机验证"
+            data-cap-i18n-verifying-aria-label="正在验证, 请稍候"
+            data-cap-i18n-verified-aria-label="验证通过, 您可以继续操作"
+            data-cap-i18n-error-aria-label="验证出错, 请重试"
+          />
         </ModalBody>
-        <ModalFooter>
-          <Button color="danger" variant="light" onPress={onClose}>
-            取消
-          </Button>
-          <Button
-            color="primary"
-            onPress={handleVerify}
-            isDisabled={selectedImages.size === 0}
-          >
-            确定
-          </Button>
-        </ModalFooter>
       </ModalContent>
     </Modal>
   )

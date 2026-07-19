@@ -64,14 +64,6 @@ export const disableEmailNoticeSchema = z.object({
   validateEmailCode: z.string().uuid({ message: '非法的邮箱验证码格式' })
 })
 
-export const captchaSchema = z.object({
-  sessionId: z.string().trim().uuid({ message: '非法的 sessionId 格式' }),
-  selectedIds: z
-    .array(z.string().trim().uuid({ message: '非法的验证图片 ID' }))
-    .min(1, { message: '验证图片中最少有一只白毛小只可爱软萌妹子' })
-    .max(3, { message: '验证图片中最多有三只白毛小只可爱软萌妹子' })
-})
-
 export const verifyLogin2FASchema = z.object({
   token: z.string().regex(/^\d{6}$/, { message: '2FA 验证码必须为 6 位数字' }),
   isBackupCode: z.boolean().optional().default(false)

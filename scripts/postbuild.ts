@@ -53,7 +53,6 @@ const copyFiles = async () => {
     await waitForAllCopies([
       copyDirectory('public', '.next/standalone/public'),
       copyDirectory('.next/static', '.next/standalone/.next/static'),
-      copyDirectory('server/image', '.next/standalone/server/image'),
       copyDirectory('posts', '.next/standalone/posts'),
       copyRuntimeFile(
         'config/redirect.json',
@@ -63,7 +62,7 @@ const copyFiles = async () => {
 
     await assertExists('.next/standalone/public/favicon.webp')
     await assertExists('.next/standalone/public/sooner/こじかひわ.webp')
-    await assertExists('.next/standalone/server/image/auth/white')
+    await assertExists('.next/standalone/public/cap/cap_wasm_bg.wasm')
     await assertExists('.next/standalone/posts')
     await assertExists('.next/standalone/config/redirect.json')
 

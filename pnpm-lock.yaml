@@ -32,6 +32,9 @@ overrides:
   '@typescript-eslint/typescript-estree>minimatch': 9.0.9
   minimatch>brace-expansion: 1.1.14
 
+patchedDependencies:
+  cap-widget@0.1.56: 7d7c6558a0ec4e8eb0ec769d65918580f8e272a2555ed8c4b5690a0f912cd1d2
+
 importers:
 
   .:
@@ -128,7 +131,7 @@ importers:
         version: 1.9.3
       cap-widget:
         specifier: 0.1.56
-        version: 0.1.56
+        version: 0.1.56(patch_hash=7d7c6558a0ec4e8eb0ec769d65918580f8e272a2555ed8c4b5690a0f912cd1d2)
       capjs-core:
         specifier: ^0.1.1
         version: 0.1.1
@@ -13543,7 +13546,7 @@ snapshots:
 
   canvas-confetti@1.9.3: {}
 
-  cap-widget@0.1.56: {}
+  cap-widget@0.1.56(patch_hash=7d7c6558a0ec4e8eb0ec769d65918580f8e272a2555ed8c4b5690a0f912cd1d2): {}
 
   capjs-core@0.1.1:
     dependencies:

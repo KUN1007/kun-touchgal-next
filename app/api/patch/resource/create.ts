@@ -54,7 +54,10 @@ export const createPatchResource = async (
   const moderation =
     needApproval || !`${input.name}${input.note}`.trim()
       ? MODERATION_SKIP
-      : await preScreenText(`标题: ${input.name}\n介绍: ${input.note}`)
+      : await preScreenText(
+          `标题: ${input.name}\n介绍: ${input.note}`,
+          userRole
+        )
 
   const preparedLinks: Array<{
     storage: string

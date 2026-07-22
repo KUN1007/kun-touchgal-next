@@ -20,9 +20,16 @@ export const MODERATION_SKIP: ModerationPreScreen = {
   dryRun: false
 }
 
+// 仅超级管理员 (role>=4) 豁免送审, 与审核后台的权限门槛一致;
+// 豁免集中在此处并靠必传的 userRole 参数强制携带角色,
+// 防止新增调用点漏加检查 (资源 create 路径曾因此漏过豁免)
 export const preScreenText = async (
-  text: string
+  text: string,
+  userRole: number
 ): Promise<ModerationPreScreen> => {
+  if (userRole >= 4) {
+    return MODERATION_SKIP
+  }
   const config = await getModerationConfig()
   if (!config.enabled) {
     return MODERATION_SKIP
@@ -33,7 +40,12 @@ export const preScreenText = async (
   return { queue: true, intercept: !config.dryRun, dryRun: config.dryRun }
 }
 
-export const preScreenMedia = async (): Promise<ModerationPreScreen> => {
+export const preScreenMedia = async (
+  userRole: number
+): Promise<ModerationPreScreen> => {
+  if (userRole >= 4) {
+    return MODERATION_SKIP
+  }
   const config = await getModerationConfig()
   if (!config.enabled) {
     return MODERATION_SKIP

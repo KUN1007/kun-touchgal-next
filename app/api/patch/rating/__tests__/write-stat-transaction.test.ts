@@ -124,7 +124,7 @@ describe('public patch rating write transactions', () => {
   it('recomputes rating stats before the create transaction commits', async () => {
     findUniqueMock.mockResolvedValueOnce(null)
 
-    await createPatchRating(createInput, 7)
+    await createPatchRating(createInput, 7, 2)
 
     expect(recomputeOneMock).toHaveBeenCalledWith(10, transactionClient)
     expect(events).toEqual([
@@ -164,9 +164,17 @@ describe('public patch rating write transactions', () => {
     findUniqueMock.mockResolvedValueOnce(null)
     recomputeOneMock.mockRejectedValueOnce(new Error('rating stat failed'))
 
-    await expect(createPatchRating(createInput, 7)).rejects.toThrow(
+    await expect(createPatchRating(createInput, 7, 2)).rejects.toThrow(
       'rating stat failed'
     )
     expect(events).toEqual(['transaction-start', 'transaction-rollback'])
+  })
+
+  it('创建评价时把调用者角色透传给审核预筛', async () => {
+    findUniqueMock.mockResolvedValueOnce(null)
+
+    await createPatchRating(createInput, 7, 3)
+
+    expect(preScreenTextMock).toHaveBeenCalledWith('summary', 3)
   })
 })

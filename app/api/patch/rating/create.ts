@@ -8,7 +8,8 @@ import type { KunPatchRating } from '~/types/api/galgame'
 
 export const createPatchRating = async (
   input: z.infer<typeof patchRatingCreateSchema>,
-  uid: number
+  uid: number,
+  userRole: number
 ) => {
   const {
     patchId,
@@ -28,7 +29,7 @@ export const createPatchRating = async (
     return '您已经评价过该游戏'
   }
 
-  const moderation = await preScreenText(shortSummary)
+  const moderation = await preScreenText(shortSummary, userRole)
 
   const data = await prisma.$transaction(async (tx) => {
     const created = await tx.patch_rating.create({

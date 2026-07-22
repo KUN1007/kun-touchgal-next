@@ -188,10 +188,10 @@ describe('资源审核预筛选: 标题与介绍均为空时直接放行', () =>
     expect(createModerationTaskMock).not.toHaveBeenCalled()
   })
 
-  it('创建含标题的资源仍正常送审', async () => {
+  it('创建含标题的资源仍正常送审、角色透传给预筛', async () => {
     await createPatchResource({ ...resourceInput, name: 'Patch v1' }, 7, 2)
 
-    expect(preScreenTextMock).toHaveBeenCalledWith('标题: Patch v1\n介绍: ')
+    expect(preScreenTextMock).toHaveBeenCalledWith('标题: Patch v1\n介绍: ', 2)
     expect(createModerationTaskMock).toHaveBeenCalled()
     expect(transactionResourceCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -221,7 +221,7 @@ describe('资源审核预筛选: 标题与介绍均为空时直接放行', () =>
       2
     )
 
-    expect(preScreenTextMock).toHaveBeenCalledWith('标题: Patch v2\n介绍: ')
+    expect(preScreenTextMock).toHaveBeenCalledWith('标题: Patch v2\n介绍: ', 2)
     expect(createModerationTaskMock).toHaveBeenCalled()
     expect(transactionResourceUpdateMock.mock.calls[0][0].data.status).toBe(3)
   })

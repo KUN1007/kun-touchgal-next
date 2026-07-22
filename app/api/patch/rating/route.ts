@@ -47,7 +47,7 @@ export const POST = async (req: NextRequest) => {
     return NextResponse.json('用户未登录')
   }
 
-  const response = await createPatchRating(input, payload.uid)
+  const response = await createPatchRating(input, payload.uid, payload.role)
   return NextResponse.json(response)
 }
 

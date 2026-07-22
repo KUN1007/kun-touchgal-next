@@ -24,7 +24,7 @@ export const POST = async (req: NextRequest) => {
     return NextResponse.json('您提交的签名正在审核中, 暂时无法修改')
   }
 
-  const moderation = await preScreenText(input.bio)
+  const moderation = await preScreenText(input.bio, payload.role)
 
   if (moderation.intercept) {
     // 新签名暂存于任务 payload, 通过审核后由 apply.ts 写入 user 表

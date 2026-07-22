@@ -15,7 +15,8 @@ import type { PatchComment } from '~/types/api/patch'
 
 export const createPatchComment = async (
   input: z.infer<typeof patchCommentCreateSchema>,
-  uid: number
+  uid: number,
+  userRole: number
 ) => {
   let parentComment: {
     user_id: number
@@ -50,7 +51,7 @@ export const createPatchComment = async (
         return { html: '', version: 0 }
       }
     })(),
-    preScreenText(input.content)
+    preScreenText(input.content, userRole)
   ])
   const { html: contentHtml, version: contentHtmlVersion } = contentResult
 

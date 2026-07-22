@@ -161,17 +161,18 @@ export const updatePatchResource = async (
   }
 
   // 编辑标题/介绍后必须重新送审; 待人工审批 (status=2) 的资源不送 AI;
-  // role>=3 管理员内联编辑他人内容与后台一致不送审, 避免审核任务误挂到原作者;
   // 标题与介绍均为空的资源无文本可审, 直接放行
   const textChanged =
     resource.name !== input.name || resource.note !== input.note
   const moderation =
-    userRole >= 3 ||
     resource.status === 2 ||
     !textChanged ||
     !`${input.name}${input.note}`.trim()
       ? MODERATION_SKIP
-      : await preScreenText(`标题: ${input.name}\n介绍: ${input.note}`)
+      : await preScreenText(
+          `标题: ${input.name}\n介绍: ${input.note}`,
+          userRole
+        )
 
   const updatedResource = await prisma.$transaction(async (prisma) => {
     const newResource = await prisma.patch_resource.update({

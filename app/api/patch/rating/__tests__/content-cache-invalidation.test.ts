@@ -93,7 +93,8 @@ describe('createPatchRating 缓存失效 (M-05)', () => {
         shortSummary: 's',
         spoilerLevel: 'none'
       },
-      7
+      7,
+      2
     )
 
     expect(recomputeMock).toHaveBeenCalledWith(10, tx)

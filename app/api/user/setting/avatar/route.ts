@@ -38,7 +38,11 @@ const purgeCache = async (uid: number) => {
   return purgeCloudflareCache([avatarUrl, avatarMiniUrl])
 }
 
-const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
+const updateUserAvatar = async (
+  uid: number,
+  avatar: ArrayBuffer,
+  userRole: number
+) => {
   const user = await prisma.user.findUnique({
     where: { id: uid }
   })
@@ -49,7 +53,7 @@ const updateUserAvatar = async (uid: number, avatar: ArrayBuffer) => {
     return '您提交的头像正在审核中, 暂时无法更换'
   }
 
-  const moderation = await preScreenMedia()
+  const moderation = await preScreenMedia(userRole)
 
   // 审核拦截时用每次上传唯一的暂存 key, 使送审读取与 apply 复制绑定同一不可变对象,
   // 并发双上传各写各的 key, 无从互相覆盖; 留档 key 复用同一 nonce, 便于按对象追溯
@@ -173,6 +177,6 @@ export const POST = async (req: NextRequest) => {
 
   const avatar = await new Response(input.avatar)?.arrayBuffer()
 
-  const res = await updateUserAvatar(payload.uid, avatar)
+  const res = await updateUserAvatar(payload.uid, avatar, payload.role)
   return NextResponse.json(res)
 }

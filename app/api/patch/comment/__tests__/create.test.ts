@@ -105,9 +105,9 @@ describe('createPatchComment', () => {
         })
     )
 
-    const creation = createPatchComment(input, 7)
+    const creation = createPatchComment(input, 7, 2)
 
-    expect(preScreenTextMock).toHaveBeenCalledWith('comment')
+    expect(preScreenTextMock).toHaveBeenCalledWith('comment', 2)
     expect(transactionMock).not.toHaveBeenCalled()
 
     resolveRender?.('<p>comment</p>')
@@ -132,7 +132,7 @@ describe('createPatchComment', () => {
       .mockRejectedValueOnce(new Error('render failed'))
       .mockResolvedValueOnce('<p>retry</p>')
 
-    const result = await createPatchComment(input, 7)
+    const result = await createPatchComment(input, 7, 2)
 
     expect(createCommentMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -149,8 +149,14 @@ describe('createPatchComment', () => {
   })
 
   it('评论创建后按 unique_id 失效补丁详情缓存 (M-05)', async () => {
-    await createPatchComment(input, 7)
+    await createPatchComment(input, 7, 2)
 
     expect(invalidateContentMock).toHaveBeenCalledWith('patch-10')
+  })
+
+  it('创建评论时把调用者角色透传给审核预筛', async () => {
+    await createPatchComment(input, 7, 3)
+
+    expect(preScreenTextMock).toHaveBeenCalledWith('comment', 3)
   })
 })

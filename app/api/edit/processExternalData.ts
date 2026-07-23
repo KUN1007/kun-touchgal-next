@@ -87,7 +87,7 @@ const ensureTagsWithSources = async (
   return tagsToCreate.length > 0 || newTagIds.length > 0
 }
 
-const ensureCompanies = async (
+export const ensureCompanies = async (
   patchId: number,
   names: string[],
   uid: number,

@@ -16,9 +16,12 @@ interface Props {
   patchId: number
   initialCompanies: Company[]
   vndbId: string | null
+  bangumiId?: number | null
+  steamId?: number | null
+  dlsiteCode?: string | null
 }
 
-interface FetchVNDBCompanyResponse {
+interface FetchCompanyResponse {
   message: string
   companies: Company[]
 }
@@ -26,7 +29,10 @@ interface FetchVNDBCompanyResponse {
 export const PatchCompany: FC<Props> = ({
   patchId,
   initialCompanies,
-  vndbId
+  vndbId,
+  bangumiId,
+  steamId,
+  dlsiteCode
 }) => {
   const [selectedCompanies, setSelectedCompanies] = useState<Company[]>(
     initialCompanies ?? []
@@ -34,10 +40,10 @@ export const PatchCompany: FC<Props> = ({
   const user = useUserStore((state) => state.user)
   const [isFetching, startTransition] = useTransition()
 
-  const handleFetchFromVNDB = () => {
+  const handleFetchCompanies = () => {
     startTransition(async () => {
-      const response = await kunFetchPost<FetchVNDBCompanyResponse | string>(
-        '/patch/introduction/company/vndb',
+      const response = await kunFetchPost<FetchCompanyResponse | string>(
+        '/patch/introduction/company/fetch',
         { patchId }
       )
 
@@ -51,8 +57,11 @@ export const PatchCompany: FC<Props> = ({
     })
   }
 
+  const hasExternalSource = Boolean(
+    vndbId || bangumiId || steamId || dlsiteCode
+  )
   const showFetchButton =
-    user.role > 2 && selectedCompanies.length === 0 && vndbId
+    user.role > 2 && selectedCompanies.length === 0 && hasExternalSource
 
   return (
     <div className="mt-4 space-y-4">
@@ -60,13 +69,13 @@ export const PatchCompany: FC<Props> = ({
         <h2 className="text-2xl font-medium">所属会社</h2>
 
         {showFetchButton && (
-          <Tooltip content="从 VNDB 获取并关联会社信息">
+          <Tooltip content="从 VNDB / Bangumi / Steam / DLsite 获取并关联会社信息">
             <Button
               size="sm"
               color="secondary"
               variant="flat"
               isLoading={isFetching}
-              onPress={handleFetchFromVNDB}
+              onPress={handleFetchCompanies}
               startContent={!isFetching && <Download size={16} />}
             >
               获取关联会社

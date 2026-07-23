@@ -3,7 +3,9 @@ import { z } from 'zod'
 import { kunParsePostBody } from '~/app/api/utils/parseQuery'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { prisma } from '~/prisma/index'
-import { ensurePatchCompaniesFromVNDB } from '~/app/api/edit/fetchCompanies'
+import { gatherAndEnsurePatchCompanies } from '../_gatherCompanies'
+import { invalidateCompanyListCache } from '~/app/api/company/cache'
+import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { queueSearchSync } from '~/server/search/sync'
 
 const fetchCompanySchema = z.object({
@@ -26,31 +28,53 @@ export const POST = async (req: NextRequest) => {
 
   const patch = await prisma.patch.findUnique({
     where: { id: input.patchId },
-    select: { vndb_id: true }
+    select: {
+      unique_id: true,
+      vndb_id: true,
+      bangumi_id: true,
+      steam_id: true,
+      dlsite_code: true
+    }
   })
 
   if (!patch) {
     return NextResponse.json('未找到对应的游戏')
   }
 
-  if (!patch.vndb_id) {
-    return NextResponse.json('该游戏没有关联 VNDB ID')
+  if (
+    !patch.vndb_id &&
+    !patch.bangumi_id &&
+    !patch.steam_id &&
+    !patch.dlsite_code
+  ) {
+    return NextResponse.json('该游戏没有关联任何外部来源')
   }
 
-  const result = await ensurePatchCompaniesFromVNDB(
+  const result = await gatherAndEnsurePatchCompanies(
     input.patchId,
-    patch.vndb_id,
+    {
+      vndbId: patch.vndb_id,
+      bangumiId: patch.bangumi_id,
+      steamId: patch.steam_id,
+      dlsiteCode: patch.dlsite_code
+    },
     payload.uid
   )
 
-  if (result.related === 0) {
-    return NextResponse.json('未能从 VNDB 获取到会社信息')
+  if (result.fetched === 0) {
+    return NextResponse.json('未能从外部来源获取到会社信息')
   }
 
-  // C-lite 入队（非事务性）：ensurePatchCompaniesFromVNDB 的写入为尽力而为的多步
-  // 提交，事务化会改变其容错语义（全或无）；vndb 会社同步为管理员低频操作，崩溃窗口
-  // 由每日对账兜底，故此处保留事务后入队而不做事务性入队。
-  queueSearchSync(input.patchId)
+  // 非事务多步写入为尽力而为语义（与旧 vndb 路径一致），崩溃窗口由每日对账兜底
+  if (result.changed) {
+    await invalidateCompanyListCache()
+    queueSearchSync(input.patchId)
+    try {
+      await invalidatePatchContentCache(patch.unique_id)
+    } catch {
+      // 缓存失效失败不影响会社关联结果
+    }
+  }
 
   const companies = await prisma.patch_company.findMany({
     where: {
@@ -66,7 +90,7 @@ export const POST = async (req: NextRequest) => {
   })
 
   return NextResponse.json({
-    message: `成功关联 ${result.related} 个会社`,
+    message: `成功关联 ${companies.length} 个会社`,
     companies
   })
 }

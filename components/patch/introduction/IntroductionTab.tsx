@@ -258,6 +258,9 @@ export const IntroductionTab = ({ intro, patchId, uid }: Props) => {
           patchId={patchId}
           initialCompanies={intro.company}
           vndbId={intro.vndbId}
+          bangumiId={intro.bangumiId}
+          steamId={intro.steamId}
+          dlsiteCode={intro.dlsiteCode}
         />
 
         <Info intro={intro} />

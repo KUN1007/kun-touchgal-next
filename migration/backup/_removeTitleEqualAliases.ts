@@ -1,7 +1,7 @@
 // 一次性脚本：删除与游戏标题完全相同的别名
 // 规则：遍历所有游戏条目，将标题与该条目全部别名逐一对比（两侧 trim 后完全匹配），
 //   命中的别名直接删除（事务内同步写 search_outbox，提交后失效详情缓存）
-// 用法：pnpm esno scripts/removeTitleEqualAliases.ts [--dry-run]
+// 用法：pnpm esno migration/backup/_removeTitleEqualAliases.ts [--dry-run]
 //   --dry-run 只扫描与输出清单，不写库
 import { prisma } from '~/prisma/index'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'

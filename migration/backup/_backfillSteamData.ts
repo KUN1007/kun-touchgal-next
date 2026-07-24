@@ -6,7 +6,7 @@
 //   （复用提交端 processSubmittedExternalData，事务内同步写 search_outbox，
 //   提交后失效详情缓存）
 // 「仅填写了 Steam ID」= vndb_id / vndb_relation_id / bangumi_id / dlsite_code 均为空
-// 用法：pnpm esno scripts/backfillSteamData.ts [--dry-run] [--limit N]
+// 用法：pnpm esno migration/backup/_backfillSteamData.ts [--dry-run] [--limit N]
 //   --dry-run 只请求 Steam 并打印将写入的数据，不写库
 //   --limit N 最多处理 N 条命中条目（生产先小批试跑用）
 import { prisma } from '~/prisma/index'

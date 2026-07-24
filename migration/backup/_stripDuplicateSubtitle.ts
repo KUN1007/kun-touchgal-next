@@ -1,8 +1,8 @@
 // 一次性脚本：清理「标题1 - 标题2」格式的游戏标题
 // 规则：以 " - " 为分隔符拆出标题2，与该条目的所有别名做完全匹配（两侧 trim）——
 //   1. 命中别名 → 标题改为仅保留标题1（事务内同步写 search_outbox，提交后失效详情缓存）
-//   2. 未命中 → 不改动，记录到 scripts/stripDuplicateSubtitle.unmatched.json 供人工复核
-// 用法：pnpm esno scripts/stripDuplicateSubtitle.ts [--dry-run]
+//   2. 未命中 → 不改动，记录到 migration/backup/_stripDuplicateSubtitle.unmatched.json 供人工复核
+// 用法：pnpm esno migration/backup/_stripDuplicateSubtitle.ts [--dry-run]
 //   --dry-run 只扫描与输出清单，不写库
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -14,7 +14,7 @@ const SEPARATOR = ' - '
 const BATCH_SIZE = 500
 const OUTPUT_FILE = path.resolve(
   process.cwd(),
-  'scripts/stripDuplicateSubtitle.unmatched.json'
+  'migration/backup/_stripDuplicateSubtitle.unmatched.json'
 )
 const isDryRun = process.argv.includes('--dry-run')
 

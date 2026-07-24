@@ -16,9 +16,9 @@
 // 跳过并记录：无法提取 code（如 ci-en）、单条介绍多个不同 code、code 已被其他条目占用
 // DLsite 获取失败（作品可能已下架）仍写入 dlsite_code，失败列表打印供人工到 rewrite 页补齐
 // 运行结束将「code 冲突」与「仅填 code」两类需人工处理的条目写入同目录
-// backfillDlsiteFromIntro.report.md（注意：报告只反映当次运行——仅填 code 的条目
+// _backfillDlsiteFromIntro.report.md（注意：报告只反映当次运行——仅填 code 的条目
 // 因 dlsite_code 已写库，重跑不再命中，勿用重跑产物覆盖旧报告后丢失该清单）
-// 用法：pnpm esno scripts/backfillDlsiteFromIntro.ts [--dry-run] [--limit N]
+// 用法：pnpm esno migration/backup/_backfillDlsiteFromIntro.ts [--dry-run] [--limit N]
 //   --dry-run 只提取并请求 DLsite、打印将写入的数据，不写库（报告仍会写出，标注 dry-run）
 //   --limit N 最多处理 N 条提取到 code 的条目（生产先小批试跑用）
 import { writeFileSync } from 'node:fs'
@@ -394,12 +394,12 @@ const run = async () => {
   const mdCell = (value: string) =>
     value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
   const reportPath = fileURLToPath(
-    new URL('./backfillDlsiteFromIntro.report.md', import.meta.url)
+    new URL('./_backfillDlsiteFromIntro.report.md', import.meta.url)
   )
   const report = [
     '# DLsite 回填人工处理清单',
     '',
-    `> 由 \`scripts/backfillDlsiteFromIntro.ts\` 于 ${new Date().toISOString()} 生成` +
+    `> 由 \`migration/backup/_backfillDlsiteFromIntro.ts\` 于 ${new Date().toISOString()} 生成` +
       `${isDryRun ? '（dry-run，未写库）' : ''}，条目详情页路由为 \`/{条目 ID}\``,
     '',
     `## code 已被其他条目占用：${conflicts.length} 条`,

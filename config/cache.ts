@@ -11,6 +11,8 @@ export const COMPANY_LIST_CACHE_DURATION = 300
 // 关键词搜索的精确 totalHits：与页码无关，翻页/热词重复查询共享，短 TTL 兜住索引更新
 export const SEARCH_TOTAL_HITS_CACHE_DURATION = 60
 export const COMMENT_CACHE_DURATION = 60
+// 下载计数去重窗口: 同一 (用户或 IP, 链接) 在此时间内只计一次, 防脚本刷量与缓存抖动
+export const DOWNLOAD_DEDUP_CACHE_DURATION = 60 * 60
 export const MARKDOWN_HTML_CACHE_DURATION = 5 * 60
 export const MARKDOWN_HTML_CACHE_MAX_MARKDOWN_BYTES = 128 * 1024
 export const MARKDOWN_HTML_CACHE_MAX_HTML_BYTES = 256 * 1024

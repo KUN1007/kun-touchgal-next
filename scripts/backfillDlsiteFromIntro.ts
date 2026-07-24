@@ -11,6 +11,8 @@
 //   故此处先读现有标签合并，避免 handleBatchPatchTags 的全量同步语义删除现有标签；
 //   circle 建会社（带官网链接）并关联
 //   （复用提交端 processSubmittedExternalData，事务内同步写 search_outbox，提交后失效详情缓存）
+// 链接清理：提取出 code 的 dlsite 链接同时去掉末尾 query 参数（….html/?locale=zh_CN → ….html）；
+//   code 冲突条目不写 code 但链接同样清理
 // 跳过并记录：无法提取 code（如 ci-en）、单条介绍多个不同 code、code 已被其他条目占用
 // DLsite 获取失败（作品可能已下架）仍写入 dlsite_code，失败列表打印供人工到 rewrite 页补齐
 // 运行结束将「code 冲突」与「仅填 code」两类需人工处理的条目写入同目录
@@ -64,7 +66,38 @@ const extractDlsiteCode = (introduction: string): ExtractResult => {
   return { kind: 'ok', code: [...codes][0] }
 }
 
+// 去掉链接末尾的 query 参数及其紧邻的悬空斜杠：….html/?locale=zh_CN → ….html
+const stripHrefQuery = (href: string) => href.replace(/\/?\?.*$/, '')
+
+// 只清理提取出 code 的那类链接（dlsite.com 且含 product_id 的 kun-link href），
+// ci-en 等其他链接不动
+const cleanDlsiteLinkQuery = (introduction: string) =>
+  introduction.replace(KUN_LINK_HREF_RE, (full, href: string) => {
+    if (!/dlsite\.com/i.test(href) || !PRODUCT_ID_RE.test(href)) return full
+    const stripped = stripHrefQuery(href)
+    if (stripped === href) return full
+    return full.replace(`href="${href}"`, `href="${stripped}"`)
+  })
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// code 冲突分支的写入：仅清理介绍链接，不动 code
+const persistIntroCleanup = async (
+  patchId: number,
+  uniqueId: string,
+  cleanedIntroduction: string
+) => {
+  await prisma.$transaction(async (tx) => {
+    await tx.patch.update({
+      where: { id: patchId },
+      data: { introduction: cleanedIntroduction }
+    })
+    await enqueueSearchOutbox(tx, patchId)
+  })
+  await invalidatePatchContentCache(uniqueId).catch((error: unknown) => {
+    console.error(`[缓存失效失败] ${uniqueId}:`, error)
+  })
+}
 
 const run = async () => {
   if (Number.isNaN(limit) || limit <= 0) {
@@ -76,6 +109,7 @@ const run = async () => {
   let updated = 0
   let updatedReleased = 0
   let codeOnly = 0
+  let cleanedLink = 0
   let skippedNoCode = 0
   let cursorId = 0
   const ambiguous: { uniqueId: string; codes: string[] }[] = []
@@ -134,6 +168,8 @@ const run = async () => {
         continue
       }
       const code = extracted.code
+      const cleanedIntroduction = cleanDlsiteLinkQuery(patch.introduction)
+      const introChanged = cleanedIntroduction !== patch.introduction
 
       if (matched >= limit) {
         console.log(`已达 --limit ${limit}，停止处理`)
@@ -154,8 +190,26 @@ const run = async () => {
           takenBy: taken.unique_id
         })
         console.log(
-          `[跳过·code 冲突] ${patch.unique_id} 的 ${code} 已被 ${taken.unique_id} 占用`
+          `[跳过·code 冲突] ${patch.unique_id} 的 ${code} 已被 ${taken.unique_id} 占用` +
+            `${introChanged ? '（链接 query 仍清理）' : ''}`
         )
+        if (introChanged) {
+          if (isDryRun) {
+            cleanedLink++
+          } else {
+            try {
+              await persistIntroCleanup(
+                patch.id,
+                patch.unique_id,
+                cleanedIntroduction
+              )
+              cleanedLink++
+            } catch (error) {
+              failedWrite.push({ uniqueId: patch.unique_id, code })
+              console.error(`[写入失败] ${patch.unique_id} (${code}):`, error)
+            }
+          }
+        }
         continue
       }
 
@@ -174,7 +228,8 @@ const run = async () => {
         failedFetch.push({ uniqueId: patch.unique_id, name: patch.name, code })
         console.log(
           `${isDryRun ? '[dry-run 仅填 code]' : '[仅填 code]'} ${patch.unique_id} ` +
-            `${JSON.stringify(patch.name)}: ${code}（DLsite 获取失败）`
+            `${JSON.stringify(patch.name)}: ${code}（DLsite 获取失败）` +
+            `${introChanged ? '，清理链接参数' : ''}`
         )
         if (isDryRun) {
           continue
@@ -183,7 +238,7 @@ const run = async () => {
           await prisma.$transaction(async (tx) => {
             await tx.patch.update({
               where: { id: patch.id },
-              data: { dlsite_code: code }
+              data: { dlsite_code: code, introduction: cleanedIntroduction }
             })
             await enqueueSearchOutbox(tx, patch.id)
           })
@@ -217,7 +272,8 @@ const run = async () => {
           `released=${released}` +
           `${released !== patch.released ? `（覆盖原值 ${patch.released}）` : ''}, ` +
           `别名 ${extraAliases.length} 个, 标签 ${parsedTags.length} 个, ` +
-          `社团 ${JSON.stringify(circleName)}`
+          `社团 ${JSON.stringify(circleName)}` +
+          `${introChanged ? '，清理链接参数' : ''}`
       )
       if (isDryRun) {
         continue
@@ -227,7 +283,11 @@ const run = async () => {
         await prisma.$transaction(async (tx) => {
           await tx.patch.update({
             where: { id: patch.id },
-            data: { dlsite_code: code, released }
+            data: {
+              dlsite_code: code,
+              released,
+              introduction: cleanedIntroduction
+            }
           })
           await enqueueSearchOutbox(tx, patch.id)
         })
@@ -281,7 +341,7 @@ const run = async () => {
     console.log(`已扫描 ${scanned} 条...`)
   }
 
-  if (!isDryRun && (updated > 0 || codeOnly > 0)) {
+  if (!isDryRun && (updated > 0 || codeOnly > 0 || cleanedLink > 0)) {
     // 写出箱单轮最多消费 200 行，循环 drain 至清空；未配 Meili 或不再减少时退出，
     // 剩余行由应用的定时任务兜底
     let prev = Infinity
@@ -327,6 +387,7 @@ const run = async () => {
       `无法提取 ${skippedNoCode} 条（含 ci-en 等无 RJ/VJ 号链接），` +
       `歧义 ${ambiguous.length} 条，code 冲突 ${conflicts.length} 条，` +
       `${isDryRun ? '' : `完整回填 ${updated} 条（其中覆盖 released ${updatedReleased} 条），仅填 code ${codeOnly} 条，`}` +
+      `冲突条目仅清理链接 ${cleanedLink} 条，` +
       `DLsite 获取失败 ${failedFetch.length} 条，写入失败 ${failedWrite.length} 条`
   )
 

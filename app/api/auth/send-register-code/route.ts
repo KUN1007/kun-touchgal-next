@@ -4,22 +4,21 @@ import { kunParsePostBody } from '~/app/api/utils/parseQuery'
 import { sendVerificationCodeEmail } from '~/app/api/utils/sendVerificationCodeEmail'
 import { sendRegisterEmailVerificationCodeSchema } from '~/validations/auth'
 import { checkKunCaptchaExist } from '~/app/api/utils/verifyKunCaptcha'
+import { checkDisableRegister } from '~/app/api/utils/checkDisableRegister'
 import { prisma } from '~/prisma/index'
-import { getKv } from '~/lib/redis'
-import { KUN_PATCH_DISABLE_REGISTER_KEY } from '~/config/redis'
 
 const sendRegisterCode = async (
   input: z.infer<typeof sendRegisterEmailVerificationCodeSchema>,
   headers: Headers
 ) => {
+  const disableRegisterMessage = await checkDisableRegister()
+  if (disableRegisterMessage) {
+    return disableRegisterMessage
+  }
+
   const res = await checkKunCaptchaExist(input.captcha)
   if (!res) {
     return '人机验证无效, 请完成人机验证'
-  }
-
-  const isDisableRegister = await getKv(KUN_PATCH_DISABLE_REGISTER_KEY)
-  if (isDisableRegister) {
-    return '由于网站近日遭受大量攻击，当前时间段暂时不可注册，请明天下午再来，一定要来哦'
   }
 
   const normalizedName = input.name.toLowerCase()

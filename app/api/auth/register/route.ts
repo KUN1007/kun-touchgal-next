@@ -8,7 +8,10 @@ import { getRemoteIp } from '~/app/api/utils/getRemoteIp'
 import { generateKunToken } from '~/app/api/utils/jwt'
 import { kunCookieOptions } from '~/app/api/utils/cookieOptions'
 import { registerSchema } from '~/validations/auth'
+import { checkDisableRegister } from '~/app/api/utils/checkDisableRegister'
+import { delKv } from '~/lib/redis'
 import { prisma } from '~/prisma/index'
+import { Prisma } from '~/prisma/generated/prisma/client'
 import { getRedirectConfig } from '~/app/api/admin/setting/redirect/getRedirectConfig'
 import type { UserState } from '~/store/userStore'
 
@@ -18,6 +21,11 @@ const register = async (
   userAgent: string
 ) => {
   const { name, email, code, password } = input
+
+  const disableRegisterMessage = await checkDisableRegister()
+  if (disableRegisterMessage) {
+    return disableRegisterMessage
+  }
 
   const isCodeValid = await verifyVerificationCode(email, code)
   if (!isCodeValid) {
@@ -42,15 +50,32 @@ const register = async (
 
   const hashedPassword = await hashPassword(password)
 
-  const user = await prisma.user.create({
-    data: {
-      name,
-      email,
-      password: hashedPassword,
-      ip,
-      last_login_time: Date.now().toString()
+  // name / email 唯一索引兜底并发注册: 上面两条查重与 create 之间有窗口, 同名或同邮箱
+  // 的并发请求会双双通过预检. 索引挡住了重复建号, 这里把 P2002 翻回字符串, 否则用户
+  // 拿到 500 而非本仓「业务错误即字符串」的响应约定. name 索引是大小写敏感的 btree,
+  // 只兜底完全同名, 与 user/setting/username 同一处未闭合的大小写变体窗口
+  let user
+  try {
+    user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        ip,
+        last_login_time: Date.now().toString()
+      }
+    })
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      return '您的用户名或邮箱已经有人注册了, 请修改'
     }
-  })
+    throw error
+  }
+
+  await delKv(email).catch(() => {})
 
   const token = await generateKunToken(user.id, name, user.role, '30d', {
     ip,

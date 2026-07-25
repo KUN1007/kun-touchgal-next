@@ -38,6 +38,7 @@ overrides:
   eslint-plugin-react>minimatch: 3.1.5
   '@typescript-eslint/typescript-estree>minimatch': 9.0.9
   minimatch>brace-expansion: 1.1.16
+  find-my-way: '>=9.7.0'
 
 patchedDependencies:
   cap-widget@0.1.56: 7d7c6558a0ec4e8eb0ec769d65918580f8e272a2555ed8c4b5690a0f912cd1d2
@@ -5346,8 +5347,8 @@ packages:
     resolution: {integrity: sha512-YsGpe3WHLK8ZYi4tWDg2Jy3ebRz2rXowDxnld4bkQB00cc/1Zw9AWnC0i9ztDJitivtQvaI9KaLyKrc+hBW0yg==}
     engines: {node: '>=8'}
 
-  find-my-way@9.6.0:
-    resolution: {integrity: sha512-Zf4Xve4RymLl7NgaavNebZ01joJ8MfVerOG43wy7SHLO+r+K0C6d/SE0BiR7AV5V1VOCFlOP7ecdo+I4qmiHrQ==}
+  find-my-way@9.7.0:
+    resolution: {integrity: sha512-f2JHn75x2JlwUwLenZypgczR7YWMb/uO9BvUXtus+JMgkbIkLADd38cI4EiV+OQqrGo1Zlq6V8wnqMJ8e62wUQ==}
     engines: {node: '>=20'}
 
   find-up@4.1.0:
@@ -11227,7 +11228,7 @@ snapshots:
       '@prisma/get-platform': 7.2.0
       '@prisma/query-plan-executor': 7.2.0
       '@prisma/streams-local': 0.1.11
-      find-my-way: 9.6.0
+      find-my-way: 9.7.0
       foreground-child: 3.3.1
       get-port-please: 3.2.0
       pathe: 2.0.3
@@ -14841,7 +14842,7 @@ snapshots:
     dependencies:
       to-regex-range: 5.0.1
 
-  find-my-way@9.6.0:
+  find-my-way@9.7.0:
     dependencies:
       fast-deep-equal: 3.1.3
       fast-querystring: 1.1.2

@@ -17,6 +17,7 @@ interface BangumiTag {
 interface BangumiSubject {
   name?: string
   name_cn?: string
+  date?: string
   tags?: BangumiTag[]
   infobox?: BangumiInfoboxItem[]
 }
@@ -49,6 +50,7 @@ export const POST = async (req: NextRequest) => {
     return NextResponse.json({
       name: data.name ?? '',
       nameCn: data.name_cn ?? '',
+      released: data.date ?? '',
       tags,
       developers
     })

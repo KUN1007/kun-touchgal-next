@@ -11,6 +11,7 @@ import type { PatchFormDataShape } from '~/components/edit/types'
 interface BangumiPreview {
   name: string
   nameCn: string
+  released: string
   tags: string[]
   developers: string[]
 }
@@ -94,6 +95,7 @@ export const BangumiInput = <T extends PatchFormDataShape>({
       setData({
         ...data,
         alias,
+        released: result.released || data.released,
         bangumiTags: result.tags,
         bangumiDevelopers: result.developers
       })
@@ -141,6 +143,7 @@ export const BangumiInput = <T extends PatchFormDataShape>({
           fields={[
             { label: '名称', value: preview.name },
             { label: '中文名', value: preview.nameCn },
+            { label: '发售日期', value: preview.released },
             { label: '标签', value: preview.tags },
             { label: '开发商', value: preview.developers }
           ]}

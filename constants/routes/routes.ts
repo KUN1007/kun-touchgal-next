@@ -1,5 +1,6 @@
 import {
   isPatchPath,
+  isPatchResourcePath,
   isTagPath,
   isUserPath,
   isDocPath,
@@ -32,6 +33,12 @@ export const getBreadcrumbTitleKey = (
   if (isPatchPath(pathname)) {
     const id = getParamValue(params, 'id')
     return id ? `/${id}` : pathname
+  }
+
+  if (isPatchResourcePath(pathname)) {
+    const id = getParamValue(params, 'id')
+    const resourceId = getParamValue(params, 'resourceId')
+    return id && resourceId ? `/${id}/resource/${resourceId}` : pathname
   }
 
   if (isTagPath(pathname)) {
@@ -155,10 +162,45 @@ export const getKunPathLabel = (pathname: string): string => {
 export const createBreadcrumbItem = (
   pathname: string,
   params: NextParams,
-  pageTitle?: string
+  pageTitle?: string,
+  // 资源详情页专用: 所属游戏名 (来自 breadcrumb store 的 `/${id}` 键)
+  patchTitle?: string
 ): KunBreadcrumbItem[] => {
   if (pathname === '/') {
     return []
+  }
+
+  // 资源详情页: 主页 > Galgame > 游戏名 > 资源名
+  // (pathname 不在 keyLabelMap 中, 须在 label 兜底判空之前处理)
+  if (isPatchResourcePath(pathname)) {
+    const allGalgameRoute: KunBreadcrumbItem = {
+      key: 'galgame',
+      label: 'Galgame',
+      href: '/galgame'
+    }
+    // NSFW 屏蔽等空标题场景: 与游戏页分支一致, 塌缩到 Galgame 一级
+    const normalizedResourceTitle = normalizeBreadcrumbTitle(pageTitle)
+    if (!normalizedResourceTitle) {
+      return [allGalgameRoute]
+    }
+
+    const id = getParamValue(params, 'id') ?? pathname.split('/')[1]
+    return [
+      allGalgameRoute,
+      {
+        key: `/${id}`,
+        label: getTitleOrDefault(
+          normalizeBreadcrumbTitle(patchTitle),
+          '游戏详情'
+        ),
+        href: `/${id}`
+      },
+      {
+        key: pathname,
+        label: normalizedResourceTitle,
+        href: pathname
+      }
+    ]
   }
 
   const label = getKunPathLabel(pathname)

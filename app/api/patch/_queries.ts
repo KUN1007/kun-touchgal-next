@@ -13,7 +13,8 @@ const patchAliasSelect = {
 const patchCountSelect = {
   favorite_folder: true,
   resource: { where: { status: 0 } },
-  comment: { where: { status: 0 } }
+  // 资源评论 (resource_id 非空) 属资源详情页评论区, 不计入补丁评论数
+  comment: { where: { status: 0, resource_id: null } }
 } as const
 
 const patchTagNameSelect = {

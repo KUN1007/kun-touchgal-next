@@ -4,6 +4,7 @@ import { kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { createDedupMessage } from '~/app/api/utils/message'
+import { buildCommentLink } from '~/utils/patch/buildCommentLink'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
 
 const commentIdSchema = z.object({
@@ -52,7 +53,11 @@ const toggleCommentLike = async (
     content: `赞了您的评论：${comment.content.slice(0, 107)}`,
     sender_id: uid,
     recipient_id: comment.user_id,
-    link: `/${comment.patch.unique_id}?tab=comments&commentId=${comment.id}`
+    link: buildCommentLink(
+      comment.patch.unique_id,
+      comment.id,
+      comment.resource_id
+    )
   }
   const legacyMessageLink = `/${comment.patch.unique_id}`
 

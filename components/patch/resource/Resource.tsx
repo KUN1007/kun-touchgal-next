@@ -13,6 +13,7 @@ import {
 } from '@heroui/react'
 import { Plus } from 'lucide-react'
 import { kunFetchDelete, kunFetchGet } from '~/utils/kunFetch'
+import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import { PublishResource } from './publish/PublishResource'
 import { EditResourceDialog } from './edit/EditResourceDialog'
 import { ResourceTabs } from './Tabs'
@@ -33,11 +34,12 @@ export const Resources = ({ id, vndbId }: Props) => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
-      const res = await kunFetchGet<PatchResource[]>('/patch/resource', {
-        patchId: Number(id)
-      })
+      const res = await kunFetchGet<KunResponse<PatchResource[]>>(
+        '/patch/resource',
+        { patchId: Number(id) }
+      )
       setLoading(false)
-      setResources(res)
+      kunErrorHandler(res, setResources)
     }
     fetchData()
   }, [])

@@ -4,6 +4,8 @@ import { acquireKvLock, delKv, getKv, releaseKvLock } from '~/lib/redis'
 import { prisma } from '~/prisma/index'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 import { enqueueS3Deletion } from '~/server/storage/s3Outbox'
+import { deletePendingModerationTasks } from '~/server/moderation/submit'
+import { deletePendingAppeals } from '~/server/moderation/appeal'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
 import {
@@ -135,6 +137,36 @@ export const resolveS3Key = (
 // 把一批资源链接的 S3 key 解析后入删除写出箱。client 传业务删除所在事务的 tx，使
 // 删除意图与行删除原子提交——取代原「提交后 Promise.all 删 S3、崩溃即丢失」的不可
 // 恢复路径；实际删除交由单一消费者 drainS3DeletionOutbox 幂等重试。
+// 删除资源前调用 (评论行尚存时): FK 级联只会删掉该资源评论的 patch_comment 行,
+// 评论区站内信 (评论/点赞/提及, link 均为资源页 ?commentId= 前缀)、
+// 待裁决审核任务与申诉不会随级联清理, 须在此显式删除
+export const cleanupResourceCommentDerivatives = async (
+  tx: Prisma.TransactionClient,
+  resourceId: number
+) => {
+  const resource = await tx.patch_resource.findUnique({
+    where: { id: resourceId },
+    select: {
+      patch: { select: { unique_id: true } },
+      comment: { select: { id: true } }
+    }
+  })
+  if (!resource || resource.comment.length === 0) {
+    return
+  }
+
+  const commentIds = resource.comment.map((comment) => comment.id)
+  await tx.user_message.deleteMany({
+    where: {
+      link: {
+        startsWith: `/${resource.patch.unique_id}/resource/${resourceId}?commentId=`
+      }
+    }
+  })
+  await deletePendingModerationTasks('comment', commentIds, tx)
+  await deletePendingAppeals('comment', commentIds, tx)
+}
+
 export const enqueueResourceLinkDeletions = async (
   client: Prisma.TransactionClient,
   links: {

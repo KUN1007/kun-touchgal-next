@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
-import { enqueueResourceLinkDeletions, recalcPatchType } from './_helper'
+import {
+  cleanupResourceCommentDerivatives,
+  enqueueResourceLinkDeletions,
+  recalcPatchType
+} from './_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
@@ -50,6 +54,7 @@ export const deleteResource = async (
       data: { moemoepoint: { increment: -3 } }
     })
 
+    await cleanupResourceCommentDerivatives(prisma, input.resourceId)
     await prisma.patch_resource.delete({
       where: { id: input.resourceId }
     })

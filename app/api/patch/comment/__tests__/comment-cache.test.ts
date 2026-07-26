@@ -171,6 +171,38 @@ describe('getPatchComment 缓存', () => {
     expect(result.comments[0].id).toBe(100)
   })
 
+  it('资源评论区与游戏评论区分页缓存互不串键', async () => {
+    await getPatchComment(input, viewer)
+    rootFindManyMock.mockClear()
+
+    // 同 patch 的资源评论区首次访问: 不命中游戏评论区的缓存, 且按资源维度过滤
+    await getPatchComment({ ...input, resourceId: 5 }, viewer)
+    expect(rootFindManyMock).toHaveBeenCalledTimes(1)
+    expect(rootFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ resource_id: 5 })
+      })
+    )
+
+    // 两侧各自命中缓存
+    rootFindManyMock.mockClear()
+    await getPatchComment(input, viewer)
+    await getPatchComment({ ...input, resourceId: 5 }, viewer)
+    expect(rootFindManyMock).not.toHaveBeenCalled()
+  })
+
+  it('版本失效同时覆盖游戏评论区与资源评论区', async () => {
+    await getPatchComment(input, viewer)
+    await getPatchComment({ ...input, resourceId: 5 }, viewer)
+    rootFindManyMock.mockClear()
+
+    await invalidatePatchCommentCache(10)
+
+    await getPatchComment(input, viewer)
+    await getPatchComment({ ...input, resourceId: 5 }, viewer)
+    expect(rootFindManyMock).toHaveBeenCalledTimes(2)
+  })
+
   it('版本过期的历史评论回落渲染并写回自愈', async () => {
     rootFindManyMock.mockResolvedValueOnce([
       { ...rootComment, content_html: '<p>old</p>', content_html_version: 0 }

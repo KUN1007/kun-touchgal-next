@@ -2,6 +2,10 @@ export const isPatchPath = (pathname: string): boolean => {
   return /^\/[A-Za-z0-9]{8}$/.test(pathname)
 }
 
+export const isPatchResourcePath = (pathname: string): boolean => {
+  return /^\/[A-Za-z0-9]{8}\/resource\/\d+$/.test(pathname)
+}
+
 export const isTagPath = (pathname: string): boolean => {
   return /^\/tag\/\d+/.test(pathname)
 }

@@ -2,13 +2,18 @@ import { z } from 'zod'
 import { convert } from 'html-to-text'
 import { prisma } from '~/prisma/index'
 import { patchCommentCreateSchema } from '~/validations/patch'
-import { createDedupMessage } from '~/app/api/utils/message'
+import {
+  createDedupMessage,
+  createLinkDedupMessage
+} from '~/app/api/utils/message'
 import { createMentionMessage } from '~/app/api/utils/createMentionMessage'
 import {
   COMMENT_HTML_VERSION,
   markdownToHtmlComment
 } from '~/app/api/utils/render/markdownToHtmlComment'
 import { createModerationTask, preScreenText } from '~/server/moderation/submit'
+import { getResourceVisibilityWhere } from '~/app/api/utils/contentVisibility'
+import { buildCommentLink } from '~/utils/patch/buildCommentLink'
 import { invalidatePatchCommentCache } from './cache'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import type { PatchComment } from '~/types/api/patch'
@@ -22,11 +27,13 @@ export const createPatchComment = async (
     user_id: number
     content: string
     status: number
+    resource_id: number | null
   } | null = null
   if (input.parentId) {
-    parentComment = await prisma.patch_comment.findUnique({
-      where: { id: input.parentId },
-      select: { user_id: true, content: true, status: true }
+    // patch_id 同查: 防跨补丁回复造出 patch_id 与 resource_id 互相矛盾的评论
+    parentComment = await prisma.patch_comment.findFirst({
+      where: { id: input.parentId, patch_id: input.patchId },
+      select: { user_id: true, content: true, status: true, resource_id: true }
     })
     if (!parentComment) {
       return '未找到该评论'
@@ -38,6 +45,27 @@ export const createPatchComment = async (
     if (parentComment.status !== 0) {
       return '未找到该评论'
     }
+  }
+
+  // 回复以父评论的 resource_id 为准, 忽略 body (防伪造把回复搬进/搬出资源评论区)
+  const resourceId = input.parentId
+    ? (parentComment?.resource_id ?? null)
+    : (input.resourceId ?? null)
+  // 顶层与回复都校验资源属于该 patch 且对评论者可见 (资源被隐藏后评论区随之关闭)
+  let resourceUploaderUid: number | null = null
+  if (resourceId) {
+    const resource = await prisma.patch_resource.findFirst({
+      where: {
+        id: resourceId,
+        patch_id: input.patchId,
+        ...getResourceVisibilityWhere({ uid, role: userRole })
+      },
+      select: { user_id: true }
+    })
+    if (!resource) {
+      return '未找到该资源'
+    }
+    resourceUploaderUid = resource.user_id
   }
 
   const [contentResult, moderation] = await Promise.all([
@@ -65,7 +93,8 @@ export const createPatchComment = async (
         status: moderation.intercept ? 1 : 0,
         user_id: uid,
         patch_id: input.patchId,
-        parent_id: input.parentId
+        parent_id: input.parentId,
+        resource_id: resourceId
       },
       include: {
         patch: {
@@ -98,7 +127,7 @@ export const createPatchComment = async (
     return created
   })
 
-  // 拦截时回复与提及通知由 apply.ts 在审核通过后补发
+  // 拦截时通知由 apply.ts 在审核通过后补发 (文案须与该处逐字一致以保去重命中)
   if (!moderation.intercept) {
     if (parentComment && parentComment.user_id !== uid) {
       await createDedupMessage({
@@ -106,7 +135,24 @@ export const createPatchComment = async (
         content: `回复了您的评论：${parentComment.content.slice(0, 107)}`,
         sender_id: uid,
         recipient_id: parentComment.user_id,
-        link: `/${data.patch.unique_id}?tab=comments&commentId=${data.id}`
+        link: buildCommentLink(data.patch.unique_id, data.id, resourceId)
+      })
+    }
+
+    // 资源的一级评论通知资源上传者 (自评自己上传的资源不通知);
+    // link 维度去重: 评论编辑重审通过后 content 会变, 不能进去重键
+    if (
+      !input.parentId &&
+      resourceId &&
+      resourceUploaderUid !== null &&
+      resourceUploaderUid !== uid
+    ) {
+      await createLinkDedupMessage({
+        type: 'comment',
+        content: `评论了您发布的资源：${input.content.slice(0, 107)}`,
+        sender_id: uid,
+        recipient_id: resourceUploaderUid,
+        link: buildCommentLink(data.patch.unique_id, data.id, resourceId)
       })
     }
 
@@ -116,7 +162,8 @@ export const createPatchComment = async (
       data.id,
       uid,
       data.user.name,
-      input.content
+      input.content,
+      resourceId
     )
   }
 
@@ -143,8 +190,13 @@ export const createPatchComment = async (
   }
 
   await invalidatePatchCommentCache(input.patchId)
-  // 新增评论改变 _count.comment, 失效补丁详情缓存 (M-05)
-  await invalidatePatchContentCache(data.patch.unique_id).catch(() => undefined)
+  // 新增评论改变 _count.comment, 失效补丁详情缓存 (M-05);
+  // 资源评论不计入 _count.comment, 无需失效
+  if (!resourceId) {
+    await invalidatePatchContentCache(data.patch.unique_id).catch(
+      () => undefined
+    )
+  }
 
   return newComment
 }

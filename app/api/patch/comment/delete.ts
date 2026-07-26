@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
+import { buildCommentLink } from '~/utils/patch/buildCommentLink'
 import { invalidatePatchCommentCache } from './cache'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import type { Prisma } from '~/prisma/generated/prisma/client'
@@ -19,18 +20,22 @@ interface CommentForDelete {
   id: number
   user_id: number
   parent_id: number | null
+  resource_id: number | null
   patch: { unique_id: string }
   parent: { user_id: number } | null
+  resource: { user_id: number } | null
 }
 
 const commentForDeleteSelect = {
   id: true,
   user_id: true,
   parent_id: true,
+  resource_id: true,
   patch_id: true,
   status: true,
   patch: { select: { unique_id: true } },
-  parent: { select: { user_id: true } }
+  parent: { select: { user_id: true } },
+  resource: { select: { user_id: true } }
 } as const
 
 const deleteCommentWithReplies = async (
@@ -52,7 +57,27 @@ const deleteCommentWithReplies = async (
         type: 'comment',
         sender_id: comment.user_id,
         recipient_id: comment.parent.user_id,
-        link: `/${comment.patch.unique_id}?tab=comments&commentId=${comment.id}`
+        link: buildCommentLink(
+          comment.patch.unique_id,
+          comment.id,
+          comment.resource_id
+        )
+      }
+    })
+  }
+
+  // 资源一级评论: 清理发给资源上传者的通知
+  if (!comment.parent_id && comment.resource_id && comment.resource) {
+    await db.user_message.deleteMany({
+      where: {
+        type: 'comment',
+        sender_id: comment.user_id,
+        recipient_id: comment.resource.user_id,
+        link: buildCommentLink(
+          comment.patch.unique_id,
+          comment.id,
+          comment.resource_id
+        )
       }
     })
   }
@@ -114,9 +139,12 @@ export const deleteComment = async (
   })
 
   await invalidatePatchCommentCache(comment.patch_id)
-  // 删除评论改变 _count.comment, 失效补丁详情缓存 (M-05)
-  await invalidatePatchContentCache(comment.patch.unique_id).catch(
-    () => undefined
-  )
+  // 删除评论改变 _count.comment, 失效补丁详情缓存 (M-05);
+  // 资源评论不计入 _count.comment, 无需失效
+  if (!comment.resource_id) {
+    await invalidatePatchContentCache(comment.patch.unique_id).catch(
+      () => undefined
+    )
+  }
   return {}
 }

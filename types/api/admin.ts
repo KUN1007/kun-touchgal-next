@@ -160,6 +160,8 @@ export interface AdminModerationTask {
   retry: number
   dryRun: boolean
   user: KunUser
+  // 资源评论任务的资源 id (深链到资源详情页); 其余任务为 null
+  commentResourceId?: number | null
   // 评论 / 评价 / 资源所属的游戏; 头像 / 签名任务或内容已删除时为 null
   patch: {
     uniqueId: string

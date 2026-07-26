@@ -1,5 +1,6 @@
 import { prisma } from '~/prisma/index'
 import { markdownToText } from '~/utils/markdownToText'
+import { buildCommentLink } from '~/utils/patch/buildCommentLink'
 import type { CreateMessageType } from '~/types/api/message'
 
 export const extractMentionUserIds = (text: string) => {
@@ -14,7 +15,8 @@ export const createMentionMessage = async (
   commentId: number,
   senderUid: number,
   senderUsername: string,
-  text: string
+  text: string,
+  resourceId: number | null = null
 ) => {
   const mentionedUserIds = extractMentionUserIds(text)
   if (mentionedUserIds.length) {
@@ -25,7 +27,7 @@ export const createMentionMessage = async (
           content: `${senderUsername} 在「${patchName}」的评论区提到了您\n${markdownToText(text).slice(0, 50)}`,
           sender_id: senderUid,
           recipient_id: mentionUid,
-          link: `/${uniqueId}?tab=comments&commentId=${commentId}`
+          link: buildCommentLink(uniqueId, commentId, resourceId)
         }
       }
     )

@@ -26,6 +26,7 @@ export const getUserComment = async (
         content: true,
         user_id: true,
         patch_id: true,
+        resource_id: true,
         created: true,
         patch: { select: PatchRefSelectField },
         parent: {
@@ -61,6 +62,7 @@ export const getUserComment = async (
       like: comment._count.like_by,
       userId: comment.user_id,
       patchId: comment.patch_id,
+      resourceId: comment.resource_id,
       patchName: comment.patch.name,
       created: String(comment.created),
       quotedUserUid: parentVisible ? comment.parent?.user_id : undefined,

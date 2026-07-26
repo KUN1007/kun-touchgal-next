@@ -6,6 +6,7 @@ import { createMessage } from '~/app/api/utils/message'
 import { kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { declinePatchResourceSchema } from '~/validations/admin'
 import {
+  cleanupResourceCommentDerivatives,
   enqueueResourceLinkDeletions,
   recalcPatchType
 } from '~/app/api/patch/resource/_helper'
@@ -42,6 +43,7 @@ const declinePatchResource = async (
   const s3Links = resource.links.filter((link) => link.storage === 's3')
 
   const response = await prisma.$transaction(async (prisma) => {
+    await cleanupResourceCommentDerivatives(prisma, resourceId)
     await prisma.patch_resource.delete({
       where: { id: resourceId }
     })

@@ -40,6 +40,7 @@ export const patchCompanyChangeSchema = z.object({
 export const patchCommentCreateSchema = z.object({
   patchId: z.coerce.number().min(1).max(9999999),
   parentId: z.coerce.number().min(1).max(9999999).nullable(),
+  resourceId: z.coerce.number().min(1).max(9999999).optional(),
   content: z
     .string()
     .trim()
@@ -60,6 +61,7 @@ export const patchCommentUpdateSchema = z.object({
 
 export const getPatchCommentSchema = z.object({
   patchId: z.coerce.number().min(1).max(9999999),
+  resourceId: z.coerce.number().min(1).max(9999999).optional(),
   page: z.coerce.number().min(1).max(9999999),
   limit: z.coerce.number().min(1).max(50),
   commentId: z.coerce.number().min(1).max(9999999).optional()

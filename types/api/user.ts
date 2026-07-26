@@ -59,6 +59,7 @@ export interface UserComment {
   like: number
   userId: number
   patchId: number
+  resourceId?: number | null
   patchName: string
   created: string
   quotedUserUid?: number | null

@@ -34,6 +34,7 @@ vi.mock('~/prisma/index', () => ({
 
 vi.mock('~/app/api/utils/message', () => ({
   createDedupMessage: vi.fn(),
+  createLinkDedupMessage: vi.fn(),
   createMessage: vi.fn()
 }))
 

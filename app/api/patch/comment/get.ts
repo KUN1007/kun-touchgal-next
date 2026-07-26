@@ -22,6 +22,7 @@ type CommentLocator = {
   id: number
   patch_id: number
   parent_id: number | null
+  resource_id: number | null
   created: Date
 }
 
@@ -47,6 +48,7 @@ const resolveCurrentPage = async (
   viewer: KunViewer
 ) => {
   const { patchId, page, limit, commentId } = input
+  const resourceId = input.resourceId ?? null
   if (!commentId) {
     return page
   }
@@ -54,17 +56,17 @@ const resolveCurrentPage = async (
   const visibilitySql = getCommentVisibilitySql(viewer)
   const rows = await prisma.$queryRaw<CommentLocator[]>`
     WITH RECURSIVE ancestors AS (
-      SELECT id, patch_id, parent_id, created
+      SELECT id, patch_id, parent_id, resource_id, created
       FROM patch_comment
       WHERE id = ${commentId} AND patch_id = ${patchId}
         AND ${visibilitySql}
       UNION ALL
-      SELECT pc.id, pc.patch_id, pc.parent_id, pc.created
+      SELECT pc.id, pc.patch_id, pc.parent_id, pc.resource_id, pc.created
       FROM patch_comment pc
       INNER JOIN ancestors a ON pc.id = a.parent_id
       WHERE pc.patch_id = ${patchId} AND ${visibilitySql}
     )
-    SELECT id, patch_id, parent_id, created
+    SELECT id, patch_id, parent_id, resource_id, created
     FROM ancestors
     WHERE parent_id IS NULL
     LIMIT 1
@@ -73,11 +75,17 @@ const resolveCurrentPage = async (
   if (!rootComment) {
     return page
   }
+  // 目标评论不属于请求的评论区 (patch 评论区 vs 某资源评论区):
+  // 直接返回请求页, 避免把跨上下文页码写入共享分页缓存
+  if ((rootComment.resource_id ?? null) !== resourceId) {
+    return page
+  }
 
   const commentsBeforeTargetRoot = await prisma.patch_comment.count({
     where: {
       patch_id: patchId,
       parent_id: null,
+      resource_id: resourceId,
       AND: [
         getCommentRatingVisibilityWhere(viewer),
         {
@@ -133,6 +141,7 @@ const persistStaleCommentHtml = async (
 // 构建某一页的评论树与总数 (isLike 一律 false, 由调用方按 uid 叠加)
 const buildCommentPage = async (
   patchId: number,
+  resourceId: number | null,
   limit: number,
   currentPage: number,
   viewer: KunViewer
@@ -169,7 +178,12 @@ const buildCommentPage = async (
     }
   } satisfies Prisma.patch_commentSelect
 
-  const rootWhere = { patch_id: patchId, parent_id: null, ...visibilityWhere }
+  const rootWhere = {
+    patch_id: patchId,
+    parent_id: null,
+    resource_id: resourceId,
+    ...visibilityWhere
+  }
 
   const [total, rootComments] = await Promise.all([
     prisma.patch_comment.count({ where: rootWhere }),
@@ -366,6 +380,7 @@ export const getPatchComment = async (
   viewer: KunViewer
 ) => {
   const { patchId, limit } = input
+  const resourceId = input.resourceId ?? null
 
   const bypass = await shouldBypassCommentCache(patchId, viewer)
   const effectiveViewer = bypass ? viewer : PUBLIC_VIEWER
@@ -373,11 +388,17 @@ export const getPatchComment = async (
   const currentPage = await resolveCurrentPage(input, effectiveViewer)
 
   const buildPage = () =>
-    buildCommentPage(patchId, limit, currentPage, effectiveViewer)
+    buildCommentPage(patchId, resourceId, limit, currentPage, effectiveViewer)
 
   const { comments, total } = bypass
     ? await buildPage()
-    : await withPatchCommentPageCache(patchId, currentPage, limit, buildPage)
+    : await withPatchCommentPageCache(
+        patchId,
+        resourceId,
+        currentPage,
+        limit,
+        buildPage
+      )
 
   await applyCommentLikes(comments, viewer.uid)
 

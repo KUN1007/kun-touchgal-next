@@ -6,6 +6,7 @@ import { Link } from '@heroui/link'
 import { Tooltip } from '@heroui/tooltip'
 import { Heart } from 'lucide-react'
 import { KunTimeAgo } from '~/components/kun/TimeAgo'
+import { buildCommentLink } from '~/utils/patch/buildCommentLink'
 import type { UserComment } from '~/types/api/user'
 
 interface Props {
@@ -49,7 +50,11 @@ export const UserCommentCard = ({ comment }: Props) => {
           <Link
             size="sm"
             underline="always"
-            href={`/${comment.patchUniqueId}?tab=comments&commentId=${comment.id}`}
+            href={buildCommentLink(
+              comment.patchUniqueId,
+              comment.id,
+              comment.resourceId ?? null
+            )}
           >
             {comment.patchName}
           </Link>

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import {
+  cleanupResourceCommentDerivatives,
   enqueueResourceLinkDeletions,
   recalcPatchType,
   sanitizeResourceLinksForAuditLog
@@ -47,6 +48,7 @@ export const deleteResource = async (
 
   let affectedUniqueId = ''
   const response = await prisma.$transaction(async (prisma) => {
+    await cleanupResourceCommentDerivatives(prisma, input.resourceId)
     await prisma.patch_resource.delete({
       where: { id: input.resourceId }
     })

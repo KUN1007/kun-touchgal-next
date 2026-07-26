@@ -15,6 +15,7 @@ import type { PatchComment } from '~/types/api/patch'
 
 interface CreateCommentProps {
   patchId: number
+  resourceId?: number
   receiverUsername: string | null | undefined
   parentId?: number | null
   setNewComment: (newComment: PatchComment) => void
@@ -24,6 +25,7 @@ interface CreateCommentProps {
 
 export const PublishComment = ({
   patchId,
+  resourceId,
   parentId = null,
   receiverUsername = null,
   setNewComment,
@@ -42,6 +44,7 @@ export const PublishComment = ({
       {
         patchId,
         parentId,
+        ...(resourceId ? { resourceId } : {}),
         content: content.trim(),
         isSpoiler
       }

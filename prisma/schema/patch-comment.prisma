@@ -19,6 +19,9 @@ model patch_comment {
   user      user            @relation("user_patch_comment", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   patch_id  Int
   patch     patch           @relation("patch_comment", fields: [patch_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  // 资源级评论: 非空时该评论属于资源详情页评论区, 不计入 patch.comment_count
+  resource_id Int?
+  resource    patch_resource? @relation("patch_resource_comment", fields: [resource_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   created DateTime @default(now())
   updated DateTime @updatedAt
@@ -26,6 +29,7 @@ model patch_comment {
   @@index([patch_id, parent_id, created(sort: Desc), id(sort: Desc)])
   @@index([parent_id])
   @@index([user_id, created(sort: Desc)])
+  @@index([resource_id])
 }
 
 model user_patch_comment_like_relation {

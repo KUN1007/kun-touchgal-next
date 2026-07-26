@@ -18,12 +18,16 @@ export interface PatchCommentPage {
 const getCommentCacheVersionKey = (patchId: number) =>
   `${COMMENT_CACHE_VERSION_KEY}:${patchId}`
 
+// r0 为 patch 评论区, rN 为资源详情页评论区; 版本键仍按 patchId 分片,
+// 任一侧写入触发的版本跳变会同时失效两侧分页键
 const getCommentCacheKey = (
   patchId: number,
+  resourceId: number | null,
   version: string,
   page: number,
   limit: number
-) => `${COMMENT_CACHE_KEY}:${patchId}:v${version}:p${page}:l${limit}`
+) =>
+  `${COMMENT_CACHE_KEY}:${patchId}:r${resourceId ?? 0}:v${version}:p${page}:l${limit}`
 
 const logCommentCacheError = (message: string, error: unknown) => {
   // eslint-disable-next-line no-console
@@ -95,6 +99,7 @@ const setCommentPageCacheIfAbsent = async (
 
 export const withPatchCommentPageCache = async (
   patchId: number,
+  resourceId: number | null,
   page: number,
   limit: number,
   query: () => Promise<PatchCommentPage>
@@ -110,7 +115,7 @@ export const withPatchCommentPageCache = async (
     return query()
   }
 
-  const cacheKey = getCommentCacheKey(patchId, version, page, limit)
+  const cacheKey = getCommentCacheKey(patchId, resourceId, version, page, limit)
 
   const cached = await readCommentPageCache(cacheKey)
   if (cached.response) {

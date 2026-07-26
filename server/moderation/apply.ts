@@ -1,8 +1,13 @@
 import { prisma } from '~/prisma/index'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 import type { moderation_taskModel } from '~/prisma/generated/prisma/models'
-import { createDedupMessage, createMessage } from '~/app/api/utils/message'
+import {
+  createDedupMessage,
+  createLinkDedupMessage,
+  createMessage
+} from '~/app/api/utils/message'
 import { createMentionMessage } from '~/app/api/utils/createMentionMessage'
+import { buildCommentLink } from '~/utils/patch/buildCommentLink'
 import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
@@ -47,14 +52,16 @@ export const markTaskManual = async (taskId: number, reason: string) =>
     data: { status: 'manual', reject_reason: reason.slice(0, 500) }
   })
 
-// 创建时被拦截而未发送的回复与提及通知, 在评论对他人可见后补发
+// 创建时被拦截而未发送的通知, 在评论对他人可见后补发
+// (文案须与 comment/create.ts 逐字一致以保 createDedupMessage 去重命中)
 export const sendDeferredCommentNotifications = async (commentId: number) => {
   const comment = await prisma.patch_comment.findUnique({
     where: { id: commentId },
     include: {
       patch: { select: { name: true, unique_id: true } },
       user: { select: { name: true } },
-      parent: { select: { user_id: true, content: true } }
+      parent: { select: { user_id: true, content: true } },
+      resource: { select: { user_id: true } }
     }
   })
   if (!comment) {
@@ -66,7 +73,31 @@ export const sendDeferredCommentNotifications = async (commentId: number) => {
       content: `回复了您的评论：${comment.parent.content.slice(0, 107)}`,
       sender_id: comment.user_id,
       recipient_id: comment.parent.user_id,
-      link: `/${comment.patch.unique_id}?tab=comments&commentId=${comment.id}`
+      link: buildCommentLink(
+        comment.patch.unique_id,
+        comment.id,
+        comment.resource_id
+      )
+    })
+  }
+  // 资源的一级评论通知资源上传者 (自评自己上传的资源不通知);
+  // link 维度去重: 评论编辑重审通过后 content 会变, 不能进去重键
+  if (
+    !comment.parent_id &&
+    comment.resource_id &&
+    comment.resource &&
+    comment.resource.user_id !== comment.user_id
+  ) {
+    await createLinkDedupMessage({
+      type: 'comment',
+      content: `评论了您发布的资源：${comment.content.slice(0, 107)}`,
+      sender_id: comment.user_id,
+      recipient_id: comment.resource.user_id,
+      link: buildCommentLink(
+        comment.patch.unique_id,
+        comment.id,
+        comment.resource_id
+      )
     })
   }
   await createMentionMessage(
@@ -75,7 +106,8 @@ export const sendDeferredCommentNotifications = async (commentId: number) => {
     comment.id,
     comment.user_id,
     comment.user.name,
-    comment.content
+    comment.content,
+    comment.resource_id
   )
 }
 
@@ -127,6 +159,7 @@ export const applyModerationVerdict = async (
   let resourceUniqueId: string | null = null
   let commentApproved = false
   let commentPatchId: number | null = null
+  let commentResourceId: number | null = null
   let ratingPatchId: number | null = null
 
   await prisma.$transaction(async (tx) => {
@@ -197,9 +230,10 @@ export const applyModerationVerdict = async (
         if (commentApproved) {
           const approvedComment = await tx.patch_comment.findUnique({
             where: { id: task.content_id ?? 0 },
-            select: { patch_id: true }
+            select: { patch_id: true, resource_id: true }
           })
           commentPatchId = approvedComment?.patch_id ?? null
+          commentResourceId = approvedComment?.resource_id ?? null
         }
         break
       }
@@ -315,10 +349,13 @@ export const applyModerationVerdict = async (
     await sendDeferredCommentNotifications(task.content_id ?? 0)
     if (commentPatchId !== null) {
       await invalidatePatchCommentCache(commentPatchId)
-      // 评论通过 (1→0) 进入公开基线改 _count.comment, 失效补丁详情缓存 (M-05)
-      await invalidatePatchContentCacheByPatchId(commentPatchId).catch(
-        () => undefined
-      )
+      // 评论通过 (1→0) 进入公开基线改 _count.comment, 失效补丁详情缓存 (M-05);
+      // 资源评论不计入 _count.comment, 无需失效
+      if (commentResourceId === null) {
+        await invalidatePatchContentCacheByPatchId(commentPatchId).catch(
+          () => undefined
+        )
+      }
     }
   }
   // 评价审核落定 (1→0/2) 改 ratingSummary, 失效补丁详情缓存 (M-05)

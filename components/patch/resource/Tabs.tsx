@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import type { MouseEvent } from 'react'
 import {
   Button,
   Card,
@@ -37,6 +38,7 @@ import type {
 } from '~/types/api/kun/moyu-moe'
 import Link from 'next/link'
 import { kunMoyuMoe } from '~/config/moyu-moe'
+import { cn } from '~/utils/cn'
 
 type ResourceSection = (typeof SUPPORTED_RESOURCE_SECTION)[number]
 
@@ -57,6 +59,7 @@ export const ResourceTabs = ({
   onOpenDelete,
   setDeleteResourceId
 }: Props) => {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const user = useUserStore((state) => state.user)
   const [selectedSection, setSelectedSection] =
@@ -169,15 +172,37 @@ export const ResourceTabs = ({
     {} as Record<ResourceSection, PatchResource[]>
   )
 
+  // 整卡可点击进入资源详情页; 链接/按钮/展开的下载区 (data-kun-no-nav)
+  // 等交互元素的点击不触发导航
+  const handleResourceCardClick = (
+    event: MouseEvent<HTMLDivElement>,
+    resource: PatchResource
+  ) => {
+    // 修饰键点击交给卡内资源名链接的原生语义 (新标签页等), 不劫持当前页
+    if (event.metaKey || event.ctrlKey || event.shiftKey) {
+      return
+    }
+    // 框选文字松手时 click 会派发到共同祖先 (本卡片), 不应触发导航
+    if (window.getSelection()?.toString()) {
+      return
+    }
+    const target = event.target as HTMLElement
+    if (target.closest('a, button, [role="button"], [data-kun-no-nav]')) {
+      return
+    }
+    router.push(`/${resource.uniqueId}/resource/${resource.id}`)
+  }
+
   const renderResourceCard = (resource: PatchResource) => (
     <div
       key={resource.id}
       id={`resource-${resource.id}`}
-      className={
-        highlightedResourceId === resource.id
-          ? 'border p-3 rounded-2xl border-default-200 ring-2 ring-primary ring-offset-2 ring-offset-background'
-          : 'border p-3 rounded-2xl border-default-200'
-      }
+      className={cn(
+        'cursor-pointer border p-3 rounded-2xl border-default-200 transition-colors hover:border-primary-400',
+        highlightedResourceId === resource.id &&
+          'ring-2 ring-primary ring-offset-2 ring-offset-background'
+      )}
+      onClick={(event) => handleResourceCardClick(event, resource)}
     >
       <div className="space-y-2">
         <div className="flex items-start justify-between">

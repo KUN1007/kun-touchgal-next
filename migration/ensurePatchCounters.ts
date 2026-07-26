@@ -24,7 +24,7 @@ LEFT JOIN (
 LEFT JOIN (
   SELECT patch_id, COUNT(*)::int AS c
   FROM "patch_comment"
-  WHERE status = 0
+  WHERE status = 0 AND resource_id IS NULL
   GROUP BY patch_id
 ) c ON c.patch_id = base.id
 WHERE p.id = base.id;
@@ -64,37 +64,44 @@ FOR EACH ROW EXECUTE FUNCTION ${name}()
 ]
 
 // 带 status 的内容表 (resource/comment): 仅 status=0 计入;
-// status 在 0 与非 0 之间迁移 (待审核↔正常, 正常↔隐藏) 时同步增减计数
+// status 在 0 与非 0 之间迁移 (待审核↔正常, 正常↔隐藏) 时同步增减计数。
+// rowFilter 追加行级过滤 (如 comment 排除资源评论); 过滤列必须不可变——
+// 触发器只监听 patch_id/status 变更, 过滤列被 UPDATE 时不会重新计数
 const buildStatusCounterTrigger = (
   name: string,
   column: string,
-  table: string
-): string[] => [
-  `
+  table: string,
+  rowFilter?: (alias: 'NEW' | 'OLD') => string
+): string[] => {
+  const counted = (alias: 'NEW' | 'OLD', statusExpr: string) =>
+    rowFilter ? `${statusExpr} AND ${rowFilter(alias)}` : statusExpr
+
+  return [
+    `
 CREATE OR REPLACE FUNCTION ${name}() RETURNS trigger AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
-    IF NEW.status = 0 THEN
+    IF ${counted('NEW', 'NEW.status = 0')} THEN
       UPDATE "patch" SET ${column} = ${column} + 1 WHERE id = NEW.patch_id;
     END IF;
     RETURN NEW;
   ELSIF TG_OP = 'DELETE' THEN
-    IF OLD.status = 0 THEN
+    IF ${counted('OLD', 'OLD.status = 0')} THEN
       UPDATE "patch" SET ${column} = GREATEST(${column} - 1, 0) WHERE id = OLD.patch_id;
     END IF;
     RETURN OLD;
   ELSIF TG_OP = 'UPDATE' THEN
     IF NEW.patch_id IS DISTINCT FROM OLD.patch_id THEN
-      IF OLD.status = 0 THEN
+      IF ${counted('OLD', 'OLD.status = 0')} THEN
         UPDATE "patch" SET ${column} = GREATEST(${column} - 1, 0) WHERE id = OLD.patch_id;
       END IF;
-      IF NEW.status = 0 THEN
+      IF ${counted('NEW', 'NEW.status = 0')} THEN
         UPDATE "patch" SET ${column} = ${column} + 1 WHERE id = NEW.patch_id;
       END IF;
     ELSIF NEW.status IS DISTINCT FROM OLD.status THEN
-      IF OLD.status = 0 AND NEW.status <> 0 THEN
+      IF ${counted('NEW', 'OLD.status = 0 AND NEW.status <> 0')} THEN
         UPDATE "patch" SET ${column} = GREATEST(${column} - 1, 0) WHERE id = NEW.patch_id;
-      ELSIF OLD.status <> 0 AND NEW.status = 0 THEN
+      ELSIF ${counted('NEW', 'OLD.status <> 0 AND NEW.status = 0')} THEN
         UPDATE "patch" SET ${column} = ${column} + 1 WHERE id = NEW.patch_id;
       END IF;
     END IF;
@@ -104,14 +111,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql
 `,
-  `DROP TRIGGER IF EXISTS ${name} ON "${table}"`,
-  `
+    `DROP TRIGGER IF EXISTS ${name} ON "${table}"`,
+    `
 CREATE TRIGGER ${name}
 AFTER INSERT OR DELETE OR UPDATE OF patch_id, status
 ON "${table}"
 FOR EACH ROW EXECUTE FUNCTION ${name}()
 `
-]
+  ]
+}
 
 const TRIGGER_STATEMENTS: string[] = [
   ...buildRelationCounterTrigger(
@@ -127,7 +135,9 @@ const TRIGGER_STATEMENTS: string[] = [
   ...buildStatusCounterTrigger(
     'patch_comment_count_trg',
     'comment_count',
-    'patch_comment'
+    'patch_comment',
+    // 资源评论 (resource_id 非空) 不计入 patch.comment_count
+    (alias) => `${alias}.resource_id IS NULL`
   )
 ]
 

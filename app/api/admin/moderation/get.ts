@@ -50,6 +50,7 @@ export const getModerationTasks = async (
           where: { id: { in: commentIds } },
           select: {
             id: true,
+            resource_id: true,
             patch: { select: { name: true, unique_id: true } }
           }
         })
@@ -64,6 +65,7 @@ export const getModerationTasks = async (
       { uniqueId: c.patch.unique_id, name: c.patch.name }
     ])
   )
+  const commentResourceMap = new Map(comments.map((c) => [c.id, c.resource_id]))
 
   const resolvePatch = (task: (typeof data)[number]) => {
     if (task.patch_id !== null) {
@@ -90,6 +92,10 @@ export const getModerationTasks = async (
     retry: task.retry,
     dryRun: task.dry_run,
     user: task.user,
+    commentResourceId:
+      task.content_type === 'comment' && task.content_id !== null
+        ? (commentResourceMap.get(task.content_id) ?? null)
+        : null,
     patch: resolvePatch(task),
     created: task.created,
     reviewed: task.reviewed

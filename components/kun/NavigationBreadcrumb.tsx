@@ -7,6 +7,7 @@ import {
   createBreadcrumbItem,
   getBreadcrumbTitleKey
 } from '~/constants/routes/routes'
+import { isPatchResourcePath } from '~/constants/routes/matcher'
 import { initialBreadcrumbItems, useBreadcrumbStore } from '~/store/breadcrumb'
 
 export const KunNavigationBreadcrumb = () => {
@@ -14,9 +15,13 @@ export const KunNavigationBreadcrumb = () => {
   const params = useParams()
   const titleKey = getBreadcrumbTitleKey(pathname, params)
   const pageTitle = useBreadcrumbStore((state) => state.titles[titleKey])
+  // 资源详情页的中间层级 (游戏名) 由页面以 `/${id}` 为键单独注册
+  const patchTitle = useBreadcrumbStore((state) =>
+    isPatchResourcePath(pathname) ? state.titles[`/${params.id}`] : undefined
+  )
   const items = [
     ...initialBreadcrumbItems,
-    ...createBreadcrumbItem(pathname, params, pageTitle)
+    ...createBreadcrumbItem(pathname, params, pageTitle, patchTitle)
   ]
 
   const hideBreadcrumbRoutes = [

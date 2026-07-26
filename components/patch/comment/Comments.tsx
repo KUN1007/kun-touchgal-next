@@ -22,11 +22,12 @@ import type { PatchComment, PatchCommentResponse } from '~/types/api/patch'
 
 interface Props {
   id: number
+  resourceId?: number
 }
 
 const COMMENTS_PER_PAGE = 30
 
-export const Comments = ({ id }: Props) => {
+export const Comments = ({ id, resourceId }: Props) => {
   const searchParams = useSearchParams()
   const [comments, setComments] = useState<PatchComment[]>([])
   const [total, setTotal] = useState(0)
@@ -61,6 +62,7 @@ export const Comments = ({ id }: Props) => {
     setLoading(true)
     const res = await kunFetchGet<PatchCommentResponse>('/patch/comment', {
       patchId: Number(id),
+      ...(resourceId ? { resourceId } : {}),
       page: pageNum,
       limit: COMMENTS_PER_PAGE,
       ...(locateCommentId ? { commentId: locateCommentId } : {})
@@ -151,6 +153,7 @@ export const Comments = ({ id }: Props) => {
       {showEditor ? (
         <PublishComment
           patchId={id}
+          resourceId={resourceId}
           receiverUsername={null}
           setNewComment={(newComment) => {
             handleNewComment(newComment)
@@ -325,6 +328,7 @@ export const Comments = ({ id }: Props) => {
                           <div className="mt-2">
                             <PublishComment
                               patchId={id}
+                              resourceId={resourceId}
                               parentId={reply.id}
                               receiverUsername={replyTo.username}
                               onSuccess={() => setReplyTo(null)}
@@ -348,6 +352,7 @@ export const Comments = ({ id }: Props) => {
                 <div className="mt-2 pl-4">
                   <PublishComment
                     patchId={id}
+                    resourceId={resourceId}
                     parentId={comment.id}
                     receiverUsername={replyTo.username}
                     onSuccess={() => setReplyTo(null)}

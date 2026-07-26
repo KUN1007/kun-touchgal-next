@@ -18,6 +18,7 @@ import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { kunFetchPut } from '~/utils/kunFetch'
+import { buildCommentLink } from '~/utils/patch/buildCommentLink'
 import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import {
   MODERATION_CONTENT_TYPE_MAP,
@@ -117,7 +118,14 @@ export const ModerationTaskCard = ({
   const buildContentLink = contentLinkMap[task.contentType]
   const contentLink =
     buildContentLink && task.contentId !== null && task.patch
-      ? buildContentLink(task.patch.uniqueId, task.contentId)
+      ? // 评论深链与站内信同源 (资源评论指向资源详情页)
+        task.contentType === 'comment'
+        ? buildCommentLink(
+            task.patch.uniqueId,
+            task.contentId,
+            task.commentResourceId ?? null
+          )
+        : buildContentLink(task.patch.uniqueId, task.contentId)
       : null
 
   return (

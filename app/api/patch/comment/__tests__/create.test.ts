@@ -7,8 +7,11 @@ const {
   preScreenTextMock,
   createModerationTaskMock,
   createDedupMessageMock,
+  createLinkDedupMessageMock,
   createMentionMessageMock,
-  invalidateContentMock
+  invalidateContentMock,
+  parentFindFirstMock,
+  resourceFindFirstMock
 } = vi.hoisted(() => ({
   createCommentMock: vi.fn(),
   transactionMock: vi.fn(),
@@ -16,8 +19,11 @@ const {
   preScreenTextMock: vi.fn(),
   createModerationTaskMock: vi.fn(),
   createDedupMessageMock: vi.fn(),
+  createLinkDedupMessageMock: vi.fn(),
   createMentionMessageMock: vi.fn(),
-  invalidateContentMock: vi.fn(async () => undefined)
+  invalidateContentMock: vi.fn(async () => undefined),
+  parentFindFirstMock: vi.fn(),
+  resourceFindFirstMock: vi.fn()
 }))
 
 const transactionClient = {
@@ -28,13 +34,15 @@ const transactionClient = {
 
 vi.mock('~/prisma/index', () => ({
   prisma: {
-    patch_comment: { findUnique: vi.fn() },
+    patch_comment: { findFirst: parentFindFirstMock },
+    patch_resource: { findFirst: resourceFindFirstMock },
     $transaction: transactionMock
   }
 }))
 
 vi.mock('~/app/api/utils/message', () => ({
-  createDedupMessage: createDedupMessageMock
+  createDedupMessage: createDedupMessageMock,
+  createLinkDedupMessage: createLinkDedupMessageMock
 }))
 
 vi.mock('~/app/api/utils/createMentionMessage', () => ({
@@ -158,5 +166,145 @@ describe('createPatchComment', () => {
     await createPatchComment(input, 7, 3)
 
     expect(preScreenTextMock).toHaveBeenCalledWith('comment', 3)
+  })
+})
+
+describe('createPatchComment 资源评论', () => {
+  const resourceInput = { ...input, resourceId: 5 }
+
+  beforeEach(() => {
+    resourceFindFirstMock.mockResolvedValue({ user_id: 3 })
+    createCommentMock.mockResolvedValue({ ...comment, resource_id: 5 })
+  })
+
+  it('顶层资源评论落库 resource_id 并通知资源上传者', async () => {
+    await createPatchComment(resourceInput, 7, 2)
+
+    expect(resourceFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 5, patch_id: 10 })
+      })
+    )
+    expect(createCommentMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ resource_id: 5 })
+      })
+    )
+    // 上传者通知走 link 维度去重 (评论编辑重审通过后 content 会变)
+    expect(createLinkDedupMessageMock).toHaveBeenCalledWith({
+      type: 'comment',
+      content: '评论了您发布的资源：comment',
+      sender_id: 7,
+      recipient_id: 3,
+      link: '/patch-10/resource/5?commentId=11'
+    })
+    // mention 深链同样指向资源页
+    expect(createMentionMessageMock).toHaveBeenCalledWith(
+      'patch-10',
+      'Patch',
+      11,
+      7,
+      'user',
+      'comment',
+      5
+    )
+  })
+
+  it('评论者是上传者本人时不发通知', async () => {
+    resourceFindFirstMock.mockResolvedValue({ user_id: 7 })
+
+    await createPatchComment(resourceInput, 7, 2)
+
+    expect(createLinkDedupMessageMock).not.toHaveBeenCalled()
+    expect(createDedupMessageMock).not.toHaveBeenCalled()
+  })
+
+  it('资源不可见或不属于该 patch 时返回错误字符串', async () => {
+    resourceFindFirstMock.mockResolvedValue(null)
+
+    const result = await createPatchComment(resourceInput, 7, 2)
+
+    expect(result).toBe('未找到该资源')
+    expect(transactionMock).not.toHaveBeenCalled()
+  })
+
+  it('资源评论不失效补丁详情缓存 (资源评论不计入 _count.comment)', async () => {
+    await createPatchComment(resourceInput, 7, 2)
+
+    expect(invalidateContentMock).not.toHaveBeenCalled()
+  })
+
+  it('回复继承父评论的 resource_id 并校验可见性, 忽略 body 传入值', async () => {
+    parentFindFirstMock.mockResolvedValue({
+      user_id: 9,
+      content: 'parent',
+      status: 0,
+      resource_id: 42
+    })
+    createCommentMock.mockResolvedValue({
+      ...comment,
+      parent_id: 6,
+      resource_id: 42
+    })
+
+    await createPatchComment({ ...input, parentId: 6, resourceId: 5 }, 7, 2)
+
+    // 父查询带 patch_id, 防跨补丁回复
+    expect(parentFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 6, patch_id: 10 }
+      })
+    )
+    // 可见性按父评论继承的 resource_id (42) 校验, 而非 body 的 5
+    expect(resourceFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: 42, patch_id: 10 })
+      })
+    )
+    expect(createCommentMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ resource_id: 42, parent_id: 6 })
+      })
+    )
+    // 回复通知父评论作者, 深链到资源页
+    expect(createDedupMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipient_id: 9,
+        link: '/patch-10/resource/42?commentId=11'
+      })
+    )
+  })
+
+  it('资源被隐藏后其评论不可回复', async () => {
+    parentFindFirstMock.mockResolvedValue({
+      user_id: 9,
+      content: 'parent',
+      status: 0,
+      resource_id: 42
+    })
+    resourceFindFirstMock.mockResolvedValue(null)
+
+    const result = await createPatchComment({ ...input, parentId: 6 }, 7, 2)
+
+    expect(result).toBe('未找到该资源')
+    expect(transactionMock).not.toHaveBeenCalled()
+  })
+
+  it('普通评论 (无 resourceId) 不查资源、通知深链保持游戏页格式', async () => {
+    parentFindFirstMock.mockResolvedValue({
+      user_id: 9,
+      content: 'parent',
+      status: 0,
+      resource_id: null
+    })
+
+    await createPatchComment({ ...input, parentId: 6 }, 7, 2)
+
+    expect(resourceFindFirstMock).not.toHaveBeenCalled()
+    expect(createDedupMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        link: '/patch-10?tab=comments&commentId=11'
+      })
+    )
   })
 })

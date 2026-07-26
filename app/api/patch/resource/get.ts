@@ -20,7 +20,7 @@ const patchIdSchema = z.object({
   patchId: z.coerce.number().min(1).max(9999999)
 })
 
-const resourceInclude = {
+export const resourceInclude = {
   patch: { select: { unique_id: true } },
   user: {
     select: {
@@ -45,7 +45,7 @@ type PatchResourcePayload = Prisma.patch_resourceGetPayload<{
   include: typeof resourceInclude
 }>
 
-const mapResource = async (
+export const mapResource = async (
   resource: PatchResourcePayload,
   isLike: boolean
 ): Promise<PatchResource> => ({

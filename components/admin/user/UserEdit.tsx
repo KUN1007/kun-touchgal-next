@@ -74,6 +74,7 @@ export const UserEdit = ({ initialUser }: Props) => {
       role: formUser.role,
       status: formUser.status,
       dailyImageCount: formUser.dailyImageCount,
+      moemoepoint: formUser.moemoepoint,
       bio: formUser.bio,
       ...(password ? { password } : {})
     }
@@ -172,6 +173,14 @@ export const UserEdit = ({ initialUser }: Props) => {
                 value={String(formUser.dailyImageCount)}
                 onChange={(e) =>
                   handleChange('dailyImageCount', Number(e.target.value))
+                }
+              />
+              <Input
+                label="萌萌点"
+                type="number"
+                value={String(formUser.moemoepoint)}
+                onChange={(e) =>
+                  handleChange('moemoepoint', Number(e.target.value))
                 }
               />
               <div className="col-span-2">

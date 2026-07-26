@@ -15,6 +15,7 @@ export const updateUser = async (
     select: {
       id: true,
       daily_image_count: true,
+      moemoepoint: true,
       name: true,
       email: true,
       bio: true,

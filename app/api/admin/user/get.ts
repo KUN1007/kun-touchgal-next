@@ -71,6 +71,7 @@ export const getUserInfo = async (
     created: user.created,
     status: user.status,
     dailyImageCount: user.daily_image_count,
+    moemoepoint: user.moemoepoint,
     _count: user._count
   }))
 

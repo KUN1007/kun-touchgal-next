@@ -35,6 +35,7 @@ export interface AdminUser {
   role: number
   status: number
   dailyImageCount: number
+  moemoepoint: number
   created: Date | string
   _count: {
     patch: number

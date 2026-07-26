@@ -152,6 +152,11 @@ export const adminUpdateUserSchema = z.object({
   role: z.coerce.number().min(1).max(3),
   status: z.coerce.number().min(0).max(2),
   dailyImageCount: z.coerce.number().min(0).max(50),
+  moemoepoint: z.coerce
+    .number()
+    .int({ message: '萌萌点必须为整数' })
+    .min(0)
+    .max(9999999),
   password: z.preprocess(
     (value) => {
       if (typeof value !== 'string') {

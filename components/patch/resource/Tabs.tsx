@@ -67,6 +67,9 @@ export const ResourceTabs = ({
   const [highlightedResourceId, setHighlightedResourceId] = useState<
     number | null
   >(null)
+  const [pressedResourceId, setPressedResourceId] = useState<number | null>(
+    null
+  )
 
   const [kunResources, setKunResources] = useState<KunPatchResourceResponse[]>(
     []
@@ -174,35 +177,50 @@ export const ResourceTabs = ({
 
   // 整卡可点击进入资源详情页; 链接/按钮/展开的下载区 (data-kun-no-nav)
   // 等交互元素的点击不触发导航
+  // 修饰键点击交给卡内资源名链接的原生语义 (新标签页等), 不劫持当前页
+  const isNavigationBlocked = (event: MouseEvent<HTMLDivElement>) =>
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    !!(event.target as HTMLElement).closest(
+      'a, button, [role="button"], [data-kun-no-nav]'
+    )
+
   const handleResourceCardClick = (
     event: MouseEvent<HTMLDivElement>,
     resource: PatchResource
   ) => {
-    // 修饰键点击交给卡内资源名链接的原生语义 (新标签页等), 不劫持当前页
-    if (event.metaKey || event.ctrlKey || event.shiftKey) {
+    if (isNavigationBlocked(event)) {
       return
     }
     // 框选文字松手时 click 会派发到共同祖先 (本卡片), 不应触发导航
     if (window.getSelection()?.toString()) {
       return
     }
-    const target = event.target as HTMLElement
-    if (target.closest('a, button, [role="button"], [data-kun-no-nav]')) {
-      return
-    }
     router.push(`/${resource.uniqueId}/resource/${resource.id}`)
   }
 
+  // 按压缩放动画参考首页 PatchCard (isPressable), 缩放幅度更轻 (0.99);
+  // 只在会触发整卡导航的按压上出现, 点卡内交互元素不缩放
   const renderResourceCard = (resource: PatchResource) => (
     <div
       key={resource.id}
       id={`resource-${resource.id}`}
       className={cn(
-        'cursor-pointer border p-3 rounded-2xl border-default-200 transition-colors hover:border-primary-400',
+        'group/resource-card cursor-pointer border p-3 rounded-2xl border-default-200 transition tap-highlight-transparent hover:border-primary-400',
+        pressedResourceId === resource.id && 'scale-[0.99]',
         highlightedResourceId === resource.id &&
           'ring-2 ring-primary ring-offset-2 ring-offset-background'
       )}
       onClick={(event) => handleResourceCardClick(event, resource)}
+      onPointerDown={(event) => {
+        if (!isNavigationBlocked(event)) {
+          setPressedResourceId(resource.id)
+        }
+      }}
+      onPointerUp={() => setPressedResourceId(null)}
+      onPointerLeave={() => setPressedResourceId(null)}
+      onPointerCancel={() => setPressedResourceId(null)}
     >
       <div className="space-y-2">
         <div className="flex items-start justify-between">

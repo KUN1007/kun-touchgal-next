@@ -33,7 +33,7 @@ export const ResourceDownload = ({ resource }: Props) => {
         <h3 className="font-medium">
           <Link
             href={`/${resource.uniqueId}/resource/${resource.id}`}
-            className="transition-colors hover:text-primary"
+            className="transition-colors group-hover/resource-card:text-primary"
           >
             {getResourcePageTitle(resource)}
           </Link>

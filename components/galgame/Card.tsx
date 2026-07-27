@@ -23,18 +23,22 @@ const IMAGE_LOADED_CLASS_NAME =
 const IMAGE_LOADING_CLASS_NAME =
   'size-full object-cover duration-500 opacity-0 transition-opacity'
 
+const PC_PLATFORMS = ['windows', 'macos', 'linux']
+const PE_PLATFORMS = ['apk', 'ipa']
+const CHINESE_LANGUAGES = ['zh-Hans', 'zh-Hant']
+
 const getCardAttributeLabels = (patch: GalgameCard) => {
   const labels: string[] = []
 
-  if (patch.type.includes('pc')) {
+  if (patch.platform.some((p) => PC_PLATFORMS.includes(p))) {
     labels.push('PC')
   }
 
-  if (patch.type.includes('mobile')) {
+  if (patch.platform.some((p) => PE_PLATFORMS.includes(p))) {
     labels.push('PE')
   }
 
-  if (patch.type.includes('chinese')) {
+  if (patch.language.some((l) => CHINESE_LANGUAGES.includes(l))) {
     labels.push('中文')
   }
 

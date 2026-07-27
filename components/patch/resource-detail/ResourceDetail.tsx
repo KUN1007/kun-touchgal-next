@@ -22,7 +22,7 @@ export const ResourceDetail = ({ detail }: Props) => {
   const isPending = resource.status === 2 || resource.status === 3
 
   return (
-    <div className="w-full mx-auto max-w-5xl space-y-6">
+    <div className="w-full mx-auto max-w-7xl space-y-6">
       <Card>
         <CardHeader className="flex-col items-start gap-2">
           <div className="flex flex-wrap items-center gap-2">

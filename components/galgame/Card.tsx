@@ -99,7 +99,7 @@ export const GalgameCard = memo(function GalgameCard({
       </div>
 
       <CardBody className="flex flex-1 flex-col gap-2 p-3 sm:gap-3 sm:p-4">
-        <h2 className="text-base font-extrabold leading-tight tracking-wide text-foreground transition-colors line-clamp-2 sm:text-lg group-hover:text-primary-500">
+        <h2 className="text-base font-bold leading-tight tracking-wide text-foreground transition-colors line-clamp-2 sm:text-lg group-hover:text-primary-500">
           {patch.name}
         </h2>
 

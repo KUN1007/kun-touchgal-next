@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const loadAuth = createAuthLoader(req)
   const auth = await loadAuth()
   if (!auth) {
-    return NextResponse.json('用户登陆失效')
+    return NextResponse.json('用户登录失效')
   }
   const visibilityWhere = await getPatchVisibilityWhere(req, loadAuth)
 

@@ -102,7 +102,7 @@ export const getUserStatus = async (uid: number) => {
     return '用户未找到'
   }
   if (user.status === 2) {
-    return '用户登陆失效'
+    return '用户登录失效'
   }
   const responseData: UserState = {
     uid: user.id,

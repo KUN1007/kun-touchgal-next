@@ -229,7 +229,7 @@ export const Ratings = ({ id }: Props) => {
   }, [])
 
   if (!user.uid) {
-    return <KunNull message="请登陆后查看游戏评价" />
+    return <KunNull message="请登录后查看游戏评价" />
   }
 
   return (

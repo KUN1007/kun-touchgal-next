@@ -8,7 +8,7 @@ import { verifyHeaderCookie } from '~/utils/actions/verifyHeaderCookie'
 export const kunGetRedirectConfigActions = async () => {
   const payload = await verifyHeaderCookie()
   if (!payload) {
-    return '用户登陆失效'
+    return '用户登录失效'
   }
   if (payload.role < 4) {
     return '本页面仅超级管理员可访问'
@@ -21,7 +21,7 @@ export const kunGetRedirectConfigActions = async () => {
 export const kunGetDisableRegisterStatusActions = async () => {
   const payload = await verifyHeaderCookie()
   if (!payload) {
-    return '用户登陆失效'
+    return '用户登录失效'
   }
   if (payload.role < 4) {
     return '本页面仅超级管理员可访问'
@@ -34,7 +34,7 @@ export const kunGetDisableRegisterStatusActions = async () => {
 export const kunGetModerationSettingActions = async () => {
   const payload = await verifyHeaderCookie()
   if (!payload) {
-    return '用户登陆失效'
+    return '用户登录失效'
   }
   if (payload.role < 4) {
     return '本页面仅超级管理员可访问'

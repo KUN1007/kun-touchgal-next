@@ -114,7 +114,7 @@ export const Container = ({ initialTags, initialTotal, uid }: Props) => {
         </>
       ) : (
         <>
-          <KunNull message="请登陆后查看游戏标签" />
+          <KunNull message="请登录后查看游戏标签" />
         </>
       )}
     </div>

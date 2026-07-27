@@ -143,7 +143,7 @@ export const Comments = ({ id, resourceId }: Props) => {
   }
 
   if (!user.uid) {
-    return <KunNull message="请登陆后查看评论" />
+    return <KunNull message="请登录后查看评论" />
   }
 
   const totalPages = Math.ceil(total / COMMENTS_PER_PAGE)

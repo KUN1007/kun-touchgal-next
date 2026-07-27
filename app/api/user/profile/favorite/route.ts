@@ -47,7 +47,7 @@ export const GET = async (req: NextRequest) => {
   }
   const payload = await verifyHeaderCookie(req)
   if (!payload) {
-    return NextResponse.json('用户登陆失效')
+    return NextResponse.json('用户登录失效')
   }
   const nsfwEnable = await getNSFWHeader(req, payload)
 

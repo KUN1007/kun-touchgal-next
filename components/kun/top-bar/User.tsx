@@ -156,7 +156,7 @@ export const KunTopBarUser = ({ initialSession, isSessionPending }: Props) => {
           return
         }
 
-        toast.error('用户登陆失效')
+        toast.error('用户登录失效')
         logout()
         resetUnreadMessageStatus()
         resetSettings()

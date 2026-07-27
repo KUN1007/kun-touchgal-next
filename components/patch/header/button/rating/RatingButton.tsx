@@ -27,7 +27,7 @@ export const RatingButton = ({ patchId }: Props) => {
 
   const onPress = () => {
     if (!user.uid) {
-      toast.error('请登陆后再评分')
+      toast.error('请登录后再评分')
       return
     }
     setIsOpen(true)

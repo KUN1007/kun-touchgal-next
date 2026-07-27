@@ -41,7 +41,7 @@ export const KunEmailNoticeCard = () => {
       <CardBody className="gap-4">
         <Alert
           title="提示"
-          description="您可以在收到邮件的七天内取消邮件订阅, 如果取消失败, 请您登陆后在用户设置页面取消邮件订阅"
+          description="您可以在收到邮件的七天内取消邮件订阅, 如果取消失败, 请您登录后在用户设置页面取消邮件订阅"
           color="secondary"
           variant="faded"
         />

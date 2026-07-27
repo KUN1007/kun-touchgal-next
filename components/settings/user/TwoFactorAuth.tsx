@@ -87,7 +87,7 @@ export const TwoFactorAuth = () => {
 
   const generateSecret = async () => {
     if (!user.uid) {
-      toast.error('请登陆后再启用 2FA')
+      toast.error('请登录后再启用 2FA')
       return
     }
 

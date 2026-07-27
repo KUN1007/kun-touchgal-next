@@ -13,7 +13,7 @@ const disableEmailNotice = async (
 ) => {
   const cacheEmailUUID = await getKv(`${CACHE_KEY}:${input.email}`)
   if (cacheEmailUUID !== input.validateEmailCode) {
-    return '非法的邮箱验证码, 请您登陆后在用户设置页面取消邮件订阅'
+    return '非法的邮箱验证码, 请您登录后在用户设置页面取消邮件订阅'
   }
   await delKv(`${CACHE_KEY}:${input.email}`)
 

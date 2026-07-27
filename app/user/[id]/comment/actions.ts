@@ -15,7 +15,7 @@ export const kunGetActions = async (
   }
   const payload = await verifyHeaderCookie()
   if (!payload) {
-    return '用户登陆失效'
+    return '用户登录失效'
   }
 
   const response = await getUserComment(input, payload)

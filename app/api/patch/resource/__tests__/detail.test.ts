@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { findFirstMock } = vi.hoisted(() => ({
-  findFirstMock: vi.fn()
-}))
+const { findFirstMock, findManyMock, followFindUniqueMock } = vi.hoisted(
+  () => ({
+    findFirstMock: vi.fn(),
+    findManyMock: vi.fn(),
+    followFindUniqueMock: vi.fn()
+  })
+)
 
 vi.mock('~/prisma/index', () => ({
   prisma: {
-    patch_resource: { findFirst: findFirstMock }
+    patch_resource: { findFirst: findFirstMock, findMany: findManyMock },
+    user_follow_relation: { findUnique: followFindUniqueMock }
   }
 }))
 
@@ -22,6 +27,7 @@ const resourceRow = {
   name: 'res',
   section: 'galgame',
   note: 'note',
+  download: 30,
   type: ['game'],
   language: ['zh-Hans'],
   platform: ['windows'],
@@ -63,6 +69,8 @@ const resourceRow = {
 beforeEach(() => {
   vi.clearAllMocks()
   findFirstMock.mockResolvedValue(resourceRow)
+  findManyMock.mockResolvedValue([])
+  followFindUniqueMock.mockResolvedValue(null)
 })
 
 describe('getPatchResourceDetail', () => {
@@ -100,6 +108,7 @@ describe('getPatchResourceDetail', () => {
           id: 5,
           uniqueId: 'patch-10',
           noteHtml: '<p>note</p>',
+          download: 30,
           likeCount: 1,
           isLike: false
         }),
@@ -126,6 +135,80 @@ describe('getPatchResourceDetail', () => {
     expect(typeof result).not.toBe('string')
     if (typeof result !== 'string') {
       expect(result.resource.isLike).toBe(true)
+    }
+  })
+
+  it('其他资源按同 patch 同 section 过滤且排除自身, 可见性口径与本资源一致', async () => {
+    await getPatchResourceDetail(5, null)
+
+    expect(findManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          patch_id: 10,
+          section: 'galgame',
+          id: { not: 5 },
+          status: 0
+        },
+        orderBy: { created: 'desc' },
+        take: 12
+      })
+    )
+  })
+
+  it('返回映射后的其他资源列表', async () => {
+    findManyMock.mockResolvedValue([
+      {
+        id: 6,
+        name: 'other',
+        section: 'galgame',
+        created,
+        user: { name: 'uploader', avatar: '' }
+      }
+    ])
+
+    const result = await getPatchResourceDetail(5, null)
+
+    expect(typeof result).not.toBe('string')
+    if (typeof result !== 'string') {
+      expect(result.otherResources).toEqual([
+        {
+          id: 6,
+          name: 'other',
+          section: 'galgame',
+          created: String(created),
+          user: { name: 'uploader', avatar: '' }
+        }
+      ])
+    }
+  })
+
+  it('viewer 已关注上传者时 isFollowingUploader 为 true, 仅对非本人查询关注关系', async () => {
+    followFindUniqueMock.mockResolvedValue({ id: 99 })
+
+    const result = await getPatchResourceDetail(5, { uid: 7, role: 1 })
+
+    expect(followFindUniqueMock).toHaveBeenCalledWith({
+      where: {
+        follower_id_following_id: { follower_id: 7, following_id: 3 }
+      },
+      select: { id: true }
+    })
+    expect(typeof result).not.toBe('string')
+    if (typeof result !== 'string') {
+      expect(result.isFollowingUploader).toBe(true)
+    }
+  })
+
+  it('游客与上传者本人不查询关注关系', async () => {
+    const guest = await getPatchResourceDetail(5, null)
+    const self = await getPatchResourceDetail(5, { uid: 3, role: 1 })
+
+    expect(followFindUniqueMock).not.toHaveBeenCalled()
+    for (const result of [guest, self]) {
+      expect(typeof result).not.toBe('string')
+      if (typeof result !== 'string') {
+        expect(result.isFollowingUploader).toBe(false)
+      }
     }
   })
 

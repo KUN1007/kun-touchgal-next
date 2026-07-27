@@ -13,10 +13,10 @@ import type { JSX } from 'react'
 import type { PatchResource, PatchResourceLink } from '~/types/api/patch'
 
 const storageIcons: { [key: string]: JSX.Element } = {
-  touchgal: <Database className="size-4" />,
-  s3: <Cloud className="size-4" />,
-  onedrive: <Microsoft className="size-4" />,
-  user: <LinkIcon className="size-4" />
+  touchgal: <Database className="size-3" />,
+  s3: <Cloud className="size-3" />,
+  onedrive: <Microsoft className="size-3" />,
+  user: <LinkIcon className="size-3" />
 }
 
 interface Props {
@@ -47,7 +47,7 @@ export const ResourceDownloadCard = ({ resource, link }: Props) => {
         <Chip
           variant="flat"
           size="sm"
-          startContent={<Database className="w-4 h-4" />}
+          startContent={<Database className="size-3" />}
         >
           {link.size}
         </Chip>

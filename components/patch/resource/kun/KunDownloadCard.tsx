@@ -8,8 +8,8 @@ import type { JSX } from 'react'
 import type { KunPatchResourceResponse } from '~/types/api/kun/moyu-moe'
 
 const storageIcons: { [key: string]: JSX.Element } = {
-  s3: <Cloud className="size-4" />,
-  user: <LinkIcon className="size-4" />
+  s3: <Cloud className="size-3" />,
+  user: <LinkIcon className="size-3" />
 }
 
 interface Props {
@@ -33,7 +33,7 @@ export const KunResourceDownloadCard = ({ resource }: Props) => {
         <Chip
           variant="flat"
           size="sm"
-          startContent={<Database className="w-4 h-4" />}
+          startContent={<Database className="size-3" />}
         >
           {resource.size}
         </Chip>

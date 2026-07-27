@@ -1,0 +1,114 @@
+'use client'
+
+import { useLayoutEffect, useRef, useState } from 'react'
+import Link from 'next/link'
+import { Card, CardBody } from '@heroui/card'
+import { Chip } from '@heroui/chip'
+import { Image } from '@heroui/image'
+import { SUPPORTED_TYPE_MAP } from '~/constants/resource'
+
+// 分类 chip 最多两行, 溢出时去掉第二行末位 chip 腾位, 以省略号 chip 收尾;
+// 隐藏测量层渲染全部 chip, 显示层按测量结果截断, 宽度变化时经 ResizeObserver 重算
+const TypeChips = ({ types }: { types: string[] }) => {
+  const measureRef = useRef<HTMLDivElement>(null)
+  const [visibleCount, setVisibleCount] = useState(types.length)
+
+  useLayoutEffect(() => {
+    const measure = measureRef.current
+    if (!measure) {
+      return
+    }
+
+    const compute = () => {
+      const chips = Array.from(measure.children) as HTMLElement[]
+      if (!chips.length) {
+        return
+      }
+      const rowTops: number[] = []
+      for (const chip of chips) {
+        if (!rowTops.includes(chip.offsetTop)) {
+          rowTops.push(chip.offsetTop)
+        }
+      }
+      if (rowTops.length <= 2) {
+        setVisibleCount(chips.length)
+        return
+      }
+      const firstTwoRowCount = chips.filter(
+        (chip) => chip.offsetTop <= rowTops[1]
+      ).length
+      setVisibleCount(Math.max(1, firstTwoRowCount - 1))
+    }
+
+    compute()
+    const observer = new ResizeObserver(compute)
+    observer.observe(measure)
+    return () => observer.disconnect()
+  }, [types])
+
+  const renderChip = (type: string) => (
+    <Chip key={type} variant="flat" color="primary" size="sm">
+      {SUPPORTED_TYPE_MAP[type] ?? type}
+    </Chip>
+  )
+
+  return (
+    <div className="relative">
+      <div
+        ref={measureRef}
+        aria-hidden
+        className="pointer-events-none invisible absolute inset-x-0 top-0 flex flex-wrap gap-2"
+      >
+        {types.map(renderChip)}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {types.slice(0, visibleCount).map(renderChip)}
+        {visibleCount < types.length && (
+          <Chip variant="flat" color="primary" size="sm">
+            …
+          </Chip>
+        )}
+      </div>
+    </div>
+  )
+}
+
+interface Props {
+  galgame: GalgameCard
+}
+
+// 资源页顶部的所属游戏简版卡片: 仅封面 / 游戏名 / 分类, 点击返回游戏详情页;
+// 封面贴卡片上左下边缘 (右侧无圆角), hover 蓝边与游戏页资源卡一致
+export const GalgameSummaryCard = ({ galgame }: Props) => {
+  return (
+    <Card
+      isPressable
+      as={Link}
+      href={`/${galgame.uniqueId}`}
+      className="group w-full border border-transparent transition hover:border-primary-400"
+    >
+      <CardBody className="flex flex-row items-stretch gap-4 p-0 sm:gap-6">
+        <div className="relative aspect-video w-32 shrink-0 bg-default-100 sm:w-48">
+          <Image
+            radius="none"
+            removeWrapper
+            alt={galgame.name}
+            className="absolute inset-0 size-full object-cover"
+            src={
+              galgame.banner
+                ? galgame.banner.replace(/\.avif$/, '-mini.avif')
+                : '/touchgal.avif'
+            }
+          />
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 py-3 pr-3 text-left sm:py-4 sm:pr-4">
+          <h2 className="line-clamp-2 break-all text-lg font-bold leading-snug transition-colors group-hover:text-primary-500 sm:text-xl">
+            {galgame.name}
+          </h2>
+          <TypeChips types={galgame.type} />
+        </div>
+      </CardBody>
+    </Card>
+  )
+}

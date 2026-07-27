@@ -243,6 +243,7 @@ export const updatePatchResource = async (
       note: newResource.note,
       noteHtml: newResource.note ? await markdownToHtml(newResource.note) : '',
       platform: newResource.platform,
+      download: newResource.download,
       links: newResource.links.map((link) => ({
         id: link.id,
         storage: link.storage,

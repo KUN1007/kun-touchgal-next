@@ -21,9 +21,16 @@ interface Props {
   name: string
   follow: boolean
   fullWidth?: boolean
+  size?: 'sm' | 'md' | 'lg'
 }
 
-export const UserFollow = ({ uid, name, follow, fullWidth = true }: Props) => {
+export const UserFollow = ({
+  uid,
+  name,
+  follow,
+  fullWidth = true,
+  size
+}: Props) => {
   const router = useRouter()
   const user = useUserStore((state) => state.user)
   const { isOpen, onOpen, onClose } = useDisclosure()
@@ -68,6 +75,7 @@ export const UserFollow = ({ uid, name, follow, fullWidth = true }: Props) => {
         color={isFollow ? 'success' : 'primary'}
         variant="flat"
         fullWidth={fullWidth}
+        size={size}
         onPress={handleFollow}
         isDisabled={following || user.uid === uid || !user.uid}
         isLoading={following}

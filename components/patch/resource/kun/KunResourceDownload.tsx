@@ -59,14 +59,14 @@ export const KunResourceDownload = ({ resource }: Props) => {
   }, [note])
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {resource.name && !resource.note && (
         <p className="mt-2 whitespace-pre-wrap">{resource.name}</p>
       )}
 
       {resource.note ? (
         <div className="w-full">
-          <div className="flex flex-col">
+          <div className="flex flex-col gap-1">
             <h3 className="font-medium">
               {resource.name ? resource.name : '资源备注'}
             </h3>

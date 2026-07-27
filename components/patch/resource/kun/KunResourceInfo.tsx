@@ -1,4 +1,9 @@
-import { Snippet } from '@heroui/snippet'
+'use client'
+
+import { Chip } from '@heroui/chip'
+import { Tooltip } from '@heroui/tooltip'
+import { Copy } from 'lucide-react'
+import { kunCopy } from '~/utils/kunCopy'
 import { KunPatchAttribute } from './KunPatchAttribute'
 import type { KunPatchResourceResponse } from '~/types/api/kun/moyu-moe'
 
@@ -14,35 +19,40 @@ export const KunResourceInfo = ({ resource }: Props) => {
         languages={resource.language}
         platforms={resource.platform}
         modelName={resource.model_name}
+        size="sm"
       />
 
       <div className="flex flex-wrap gap-2">
         {resource.code && (
-          <Snippet
-            tooltipProps={{
-              content: '点击复制提取码'
-            }}
-            size="sm"
-            symbol="提取码"
-            color="primary"
-            className="py-0"
-          >
-            {resource.code}
-          </Snippet>
+          <Tooltip content="点击复制提取码">
+            <Chip
+              as="button"
+              size="sm"
+              color="primary"
+              variant="flat"
+              className="cursor-pointer"
+              startContent={<Copy className="size-3" />}
+              onClick={() => kunCopy(resource.code)}
+            >
+              提取码 <span className="font-mono">{resource.code}</span>
+            </Chip>
+          </Tooltip>
         )}
 
         {resource.password && (
-          <Snippet
-            tooltipProps={{
-              content: '点击复制解压码'
-            }}
-            size="sm"
-            symbol="解压码"
-            color="primary"
-            className="py-0"
-          >
-            {resource.password}
-          </Snippet>
+          <Tooltip content="点击复制解压码">
+            <Chip
+              as="button"
+              size="sm"
+              color="primary"
+              variant="flat"
+              className="cursor-pointer"
+              startContent={<Copy className="size-3" />}
+              onClick={() => kunCopy(resource.password)}
+            >
+              解压码 <span className="font-mono">{resource.password}</span>
+            </Chip>
+          </Tooltip>
         )}
       </div>
     </div>

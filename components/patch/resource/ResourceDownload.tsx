@@ -1,14 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { Button } from '@heroui/react'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
 import { Download } from 'lucide-react'
 import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { ResourceLikeButton } from './ResourceLike'
 import { ResourceDownloadCard } from './DownloadCard'
-import { getResourcePageTitle } from '~/utils/patch/getResourcePageTitle'
 import type { PatchResource } from '~/types/api/patch'
 
 interface Props {
@@ -28,21 +26,7 @@ export const ResourceDownload = ({ resource }: Props) => {
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-col">
-        <h3 className="font-medium">
-          <Link
-            href={`/${resource.uniqueId}/resource/${resource.id}`}
-            className="transition-colors group-hover/resource-card:text-primary"
-          >
-            {getResourcePageTitle(resource)}
-          </Link>
-        </h3>
-        <p className="text-sm text-default-500">
-          该资源创建于 <KunTimeAgo date={resource.created} />
-        </p>
-      </div>
-
+    <div className="space-y-3">
       <div className="flex justify-between">
         <KunUser
           user={resource.user}
@@ -50,8 +34,8 @@ export const ResourceDownload = ({ resource }: Props) => {
             name: resource.user.name,
             description: (
               <>
-                <KunTimeAgo date={resource.created} /> • 已发布资源{' '}
-                {resource.user.patchCount} 个
+                发布于{' '}
+                <KunTimeAgo date={resource.created} maxRelativeDays={7} />
               </>
             ),
             avatarProps: {
@@ -77,8 +61,7 @@ export const ResourceDownload = ({ resource }: Props) => {
       </div>
 
       {showLinks[resource.id] && (
-        // data-kun-no-nav: 展开的下载区内点击 (含空白与文案) 不触发整卡导航
-        <div className="space-y-3" data-kun-no-nav>
+        <div className="space-y-3">
           {resource.links.map((link) => (
             <ResourceDownloadCard
               key={link.id}

@@ -2,9 +2,11 @@
 
 import { Snippet } from '@heroui/snippet'
 import { Chip } from '@heroui/chip'
-import { Cloud, Database, Link as LinkIcon } from 'lucide-react'
+import { Tooltip } from '@heroui/tooltip'
+import { Cloud, Copy, Database, Link as LinkIcon } from 'lucide-react'
 import { Microsoft } from '~/components/kun/icons/Microsoft'
 import { SUPPORTED_RESOURCE_LINK_MAP } from '~/constants/resource'
+import { kunCopy } from '~/utils/kunCopy'
 import { kunFetchPut } from '~/utils/kunFetch'
 import { KunExternalLink } from '~/components/kun/external-link/ExternalLink'
 import type { JSX } from 'react'
@@ -33,20 +35,53 @@ export const ResourceDownloadCard = ({ resource, link }: Props) => {
 
   return (
     <div className="flex flex-col space-y-2">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Chip
           color="secondary"
           variant="flat"
+          size="sm"
           startContent={storageIcons[link.storage]}
         >
           {SUPPORTED_RESOURCE_LINK_MAP[link.storage] ?? link.storage}
         </Chip>
-        <Chip variant="flat" startContent={<Database className="w-4 h-4" />}>
+        <Chip
+          variant="flat"
+          size="sm"
+          startContent={<Database className="w-4 h-4" />}
+        >
           {link.size}
         </Chip>
+        {link.code && (
+          <Tooltip content="点击复制提取码">
+            <Chip
+              as="button"
+              size="sm"
+              color="primary"
+              variant="flat"
+              className="cursor-pointer"
+              startContent={<Copy className="size-3" />}
+              onClick={() => kunCopy(link.code)}
+            >
+              提取码 <span className="font-mono">{link.code}</span>
+            </Chip>
+          </Tooltip>
+        )}
+        {link.password && (
+          <Tooltip content="点击复制解压码">
+            <Chip
+              as="button"
+              size="sm"
+              color="primary"
+              variant="flat"
+              className="cursor-pointer"
+              startContent={<Copy className="size-3" />}
+              onClick={() => kunCopy(link.password)}
+            >
+              解压码 <span className="font-mono">{link.password}</span>
+            </Chip>
+          </Tooltip>
+        )}
       </div>
-
-      <p className="text-sm text-default-500">点击下面的链接以下载</p>
 
       <div className="space-y-2">
         <KunExternalLink
@@ -57,36 +92,6 @@ export const ResourceDownloadCard = ({ resource, link }: Props) => {
         >
           {link.content}
         </KunExternalLink>
-
-        <div className="flex flex-wrap gap-2">
-          {link.code && (
-            <Snippet
-              tooltipProps={{
-                content: '点击复制提取码'
-              }}
-              size="sm"
-              symbol="提取码"
-              color="primary"
-              className="py-0"
-            >
-              {link.code}
-            </Snippet>
-          )}
-
-          {link.password && (
-            <Snippet
-              tooltipProps={{
-                content: '点击复制解压码'
-              }}
-              size="sm"
-              symbol="解压码"
-              color="primary"
-              className="py-0"
-            >
-              {link.password}
-            </Snippet>
-          )}
-        </div>
 
         {link.storage === 's3' && link.hash && (
           <>

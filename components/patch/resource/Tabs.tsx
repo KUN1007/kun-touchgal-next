@@ -175,16 +175,13 @@ export const ResourceTabs = ({
     {} as Record<ResourceSection, PatchResource[]>
   )
 
-  // 整卡可点击进入资源详情页; 链接/按钮/展开的下载区 (data-kun-no-nav)
-  // 等交互元素的点击不触发导航
+  // 整卡可点击进入资源详情页; 链接/按钮等交互元素的点击不触发导航
   // 修饰键点击交给卡内资源名链接的原生语义 (新标签页等), 不劫持当前页
   const isNavigationBlocked = (event: MouseEvent<HTMLDivElement>) =>
     event.metaKey ||
     event.ctrlKey ||
     event.shiftKey ||
-    !!(event.target as HTMLElement).closest(
-      'a, button, [role="button"], [data-kun-no-nav]'
-    )
+    !!(event.target as HTMLElement).closest('a, button, [role="button"]')
 
   const handleResourceCardClick = (
     event: MouseEvent<HTMLDivElement>,
@@ -222,9 +219,19 @@ export const ResourceTabs = ({
       onPointerLeave={() => setPressedResourceId(null)}
       onPointerCancel={() => setPressedResourceId(null)}
     >
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div className="flex items-start justify-between">
           <div className="space-y-2">
+            {resource.name && (
+              <h3 className="font-medium">
+                <Link
+                  href={`/${resource.uniqueId}/resource/${resource.id}`}
+                  className="transition-colors group-hover/resource-card:text-primary"
+                >
+                  {resource.name}
+                </Link>
+              </h3>
+            )}
             <ResourceInfo resource={resource} />
             {(resource.status === 2 || resource.status === 3) && (
               <Tooltip content="审核中，仅你和管理员可见">
@@ -236,7 +243,7 @@ export const ResourceTabs = ({
           </div>
           <Dropdown>
             <DropdownTrigger>
-              <Button variant="light" isIconOnly>
+              <Button variant="light" isIconOnly size="sm">
                 <MoreHorizontal aria-label="资源操作" className="size-4" />
               </Button>
             </DropdownTrigger>

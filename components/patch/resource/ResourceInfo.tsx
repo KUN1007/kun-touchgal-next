@@ -14,6 +14,7 @@ export const ResourceInfo = ({ resource }: Props) => {
         types={resource.type}
         languages={resource.language}
         platforms={resource.platform}
+        size="sm"
       />
     </div>
   )

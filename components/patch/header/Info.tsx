@@ -3,6 +3,8 @@ import type { ReactNode } from 'react'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
 import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { formatNumber } from '~/utils/formatNumber'
+import { cn } from '~/utils/cn'
+import { kunCjkIndentClass } from '~/utils/kunCjkIndent'
 import {
   GALGAME_AGE_LIMIT_DETAIL,
   GALGAME_AGE_LIMIT_MAP
@@ -66,7 +68,12 @@ export const PatchHeaderInfo = ({ patch }: PatchHeaderInfoProps) => {
 
           <div className="flex flex-col gap-4 p-6 md:col-span-2">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold leading-tight sm:text-3xl">
+              <h1
+                className={cn(
+                  'text-2xl font-bold leading-tight sm:text-3xl',
+                  kunCjkIndentClass(patch.name)
+                )}
+              >
                 {patch.name}
               </h1>
               <span

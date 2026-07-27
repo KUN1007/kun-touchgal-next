@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { Card, CardBody, CardHeader } from '@heroui/card'
 import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { getResourcePageTitle } from '~/utils/patch/getResourcePageTitle'
+import { cn } from '~/utils/cn'
+import { kunCjkIndentClass } from '~/utils/kunCjkIndent'
 import type { RefObject } from 'react'
 import type { ResourceDetailOther } from '~/app/api/patch/resource/detail'
 
@@ -71,22 +73,30 @@ export const OtherResources = ({
       </CardHeader>
       <CardBody className="pt-0">
         <ul ref={listRef} className="flex flex-col gap-2">
-          {resources.slice(0, visibleCount).map((item) => (
-            <li key={item.id}>
-              <Link
-                href={`/${patchUniqueId}/resource/${item.id}`}
-                className="block rounded-large border border-default-200 p-3 transition-colors hover:border-primary-300 hover:bg-default-100"
-              >
-                <p className="line-clamp-1 break-all text-sm font-medium">
-                  {getResourcePageTitle(item)}
-                </p>
-                <p className="mt-1 line-clamp-1 text-xs text-default-500">
-                  {item.user.name} ·{' '}
-                  <KunTimeAgo date={item.created} maxRelativeDays={7} />
-                </p>
-              </Link>
-            </li>
-          ))}
+          {resources.slice(0, visibleCount).map((item) => {
+            const title = getResourcePageTitle(item)
+            return (
+              <li key={item.id}>
+                <Link
+                  href={`/${patchUniqueId}/resource/${item.id}`}
+                  className="block rounded-large border border-default-200 p-3 transition-colors hover:border-primary-300 hover:bg-default-100"
+                >
+                  <p
+                    className={cn(
+                      'line-clamp-1 break-all text-sm font-medium',
+                      kunCjkIndentClass(title)
+                    )}
+                  >
+                    {title}
+                  </p>
+                  <p className="mt-1 line-clamp-1 text-xs text-default-500">
+                    {item.user.name} ·{' '}
+                    <KunTimeAgo date={item.created} maxRelativeDays={7} />
+                  </p>
+                </Link>
+              </li>
+            )
+          })}
         </ul>
       </CardBody>
     </Card>

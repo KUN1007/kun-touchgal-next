@@ -6,6 +6,8 @@ import { Card, CardBody } from '@heroui/card'
 import { Chip } from '@heroui/chip'
 import { Image } from '@heroui/image'
 import { SUPPORTED_TYPE_MAP } from '~/constants/resource'
+import { cn } from '~/utils/cn'
+import { kunCjkIndentClass } from '~/utils/kunCjkIndent'
 
 // 分类 chip 最多两行, 溢出时去掉第二行末位 chip 腾位, 以省略号 chip 收尾;
 // 隐藏测量层渲染全部 chip, 显示层按测量结果截断, 宽度变化时经 ResizeObserver 重算
@@ -103,7 +105,12 @@ export const GalgameSummaryCard = ({ galgame }: Props) => {
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 py-3 pr-3 text-left sm:py-4 sm:pr-4">
-          <h2 className="line-clamp-2 break-all text-lg font-bold leading-snug transition-colors group-hover:text-primary-500 sm:text-xl">
+          <h2
+            className={cn(
+              'line-clamp-2 break-all text-lg font-bold leading-snug transition-colors group-hover:text-primary-500 sm:text-xl',
+              kunCjkIndentClass(galgame.name)
+            )}
+          >
             {galgame.name}
           </h2>
           <TypeChips types={galgame.type} />

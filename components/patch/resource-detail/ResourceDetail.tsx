@@ -16,6 +16,8 @@ import { GalgameSummaryCard } from './GalgameSummaryCard'
 import { OtherResources } from './OtherResources'
 import { getResourcePageTitle } from '~/utils/patch/getResourcePageTitle'
 import { formatNumber } from '~/utils/formatNumber'
+import { cn } from '~/utils/cn'
+import { kunCjkIndentClass } from '~/utils/kunCjkIndent'
 import type { PatchResourceDetail } from '~/app/api/patch/resource/detail'
 
 interface Props {
@@ -25,6 +27,7 @@ interface Props {
 export const ResourceDetail = ({ detail }: Props) => {
   const { resource, galgame, otherResources } = detail
   const isPending = resource.status === 2 || resource.status === 3
+  const pageTitle = getResourcePageTitle(resource)
   const mainColumnRef = useRef<HTMLDivElement>(null)
 
   return (
@@ -38,8 +41,13 @@ export const ResourceDetail = ({ detail }: Props) => {
               <div className="space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                    <h1 className="text-2xl font-bold">
-                      {getResourcePageTitle(resource)}
+                    <h1
+                      className={cn(
+                        'text-2xl font-bold',
+                        kunCjkIndentClass(pageTitle)
+                      )}
+                    >
+                      {pageTitle}
                     </h1>
                     {isPending && (
                       <Tooltip content="审核中，仅你和管理员可见">

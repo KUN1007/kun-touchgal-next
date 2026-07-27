@@ -4,6 +4,8 @@ import { Chip } from '@heroui/chip'
 import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { KunPatchAttribute } from '~/components/kun/PatchAttribute'
 import { KunUser } from '../kun/floating-card/KunUser'
+import { cn } from '~/utils/cn'
+import { kunCjkIndentClass } from '~/utils/kunCjkIndent'
 import type { PatchResource } from '~/types/api/resource'
 
 const CARD_CLASS_NAME =
@@ -15,6 +17,7 @@ interface Props {
 
 export const ResourceCard = ({ resource }: Props) => {
   const primaryLink = resource.primaryLink
+  const title = resource.name || resource.patchName
 
   return (
     <Card
@@ -25,12 +28,22 @@ export const ResourceCard = ({ resource }: Props) => {
     >
       <CardBody className="flex h-full flex-col gap-3 p-4 sm:p-5">
         <div className="space-y-1.5">
-          <h2 className="line-clamp-2 break-all text-base font-semibold leading-snug transition-colors group-hover:text-primary-500 sm:text-lg">
-            {resource.name || resource.patchName}
+          <h2
+            className={cn(
+              'line-clamp-2 break-all text-base font-semibold leading-snug transition-colors group-hover:text-primary-500 sm:text-lg',
+              kunCjkIndentClass(title)
+            )}
+          >
+            {title}
           </h2>
 
           {resource.name && (
-            <p className="line-clamp-2 text-small leading-5 text-default-500">
+            <p
+              className={cn(
+                'line-clamp-2 text-small leading-5 text-default-500',
+                kunCjkIndentClass(resource.patchName)
+              )}
+            >
               {resource.patchName}
             </p>
           )}

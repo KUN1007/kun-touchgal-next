@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Eye, Star, StarOff } from 'lucide-react'
 import { formatNumber } from '~/utils/formatNumber'
 import { cn } from '~/utils/cn'
+import { kunCjkIndentClass } from '~/utils/kunCjkIndent'
 
 const CARD_ATTRIBUTE_STYLE_MAP: Record<string, string> = {
   PC: 'bg-sky-100 text-sky-700 dark:bg-sky-400/15 dark:text-sky-200',
@@ -99,7 +100,12 @@ export const GalgameCard = memo(function GalgameCard({
       </div>
 
       <CardBody className="flex flex-1 flex-col gap-2 p-3 sm:gap-3 sm:p-4">
-        <h2 className="text-base font-bold leading-tight tracking-wide text-foreground transition-colors line-clamp-2 sm:text-lg group-hover:text-primary-500">
+        <h2
+          className={cn(
+            'text-base font-bold leading-tight tracking-wide text-foreground transition-colors line-clamp-2 sm:text-lg group-hover:text-primary-500',
+            kunCjkIndentClass(patch.name)
+          )}
+        >
           {patch.name}
         </h2>
 

@@ -3,6 +3,8 @@ import { Card, CardBody } from '@heroui/card'
 import { Image } from '@heroui/image'
 import { KunCardStats } from '~/components/kun/CardStats'
 import { KunPatchAttribute } from '~/components/kun/PatchAttribute'
+import { cn } from '~/utils/cn'
+import { kunCjkIndentClass } from '~/utils/kunCjkIndent'
 
 interface Props {
   patch: GalgameCard
@@ -32,7 +34,12 @@ export const SearchCard = ({ patch }: Props) => {
             />
           </div>
           <div className="flex-1 space-y-3">
-            <h2 className="text-lg font-semibold transition-colors line-clamp-2 hover:text-primary-500">
+            <h2
+              className={cn(
+                'text-lg font-semibold transition-colors line-clamp-2 hover:text-primary-500',
+                kunCjkIndentClass(patch.name)
+              )}
+            >
               {patch.name}
             </h2>
 

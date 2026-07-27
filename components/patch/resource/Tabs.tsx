@@ -39,6 +39,7 @@ import type {
 import Link from 'next/link'
 import { kunMoyuMoe } from '~/config/moyu-moe'
 import { cn } from '~/utils/cn'
+import { kunCjkIndentClass } from '~/utils/kunCjkIndent'
 
 type ResourceSection = (typeof SUPPORTED_RESOURCE_SECTION)[number]
 
@@ -223,7 +224,9 @@ export const ResourceTabs = ({
         <div className="flex items-start justify-between">
           <div className="space-y-2">
             {resource.name && (
-              <h3 className="font-medium">
+              <h3
+                className={cn('font-medium', kunCjkIndentClass(resource.name))}
+              >
                 <Link
                   href={`/${resource.uniqueId}/resource/${resource.id}`}
                   className="transition-colors group-hover/resource-card:text-primary"

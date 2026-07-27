@@ -81,6 +81,8 @@ export const getPatchResourceApply = async (
       note: resource.note,
       noteHtml: resource.note ? await markdownToHtml(resource.note) : '',
       platform: resource.platform,
+      emulatorType: resource.emulator_type,
+      modelName: resource.model_name,
       download: resource.download,
       links: resource.links.map((link) => ({
         id: link.id,

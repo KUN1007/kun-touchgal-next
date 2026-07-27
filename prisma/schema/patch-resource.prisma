@@ -6,6 +6,10 @@ model patch_resource {
   type     String[]
   language String[]
   platform String[]
+  // platform 含 emulator 时必填的模拟器类型 (winlator/joiplay/...), 其余为空
+  emulator_type String @default("") @db.VarChar(107)
+  // type 含 ai 时必填的 AI 翻译模型型号, 其余为空
+  model_name String @default("") @db.VarChar(107)
   download Int      @default(0)
   // 0 - 正常, 1 - 隐藏 (前台对所有人不可见, 仅 /admin), 2 - 待初次审核 (初次发布人工审核),
   // 3 - 待审核 (AI/人工审核中, 仅作者与 role >= 3 可见)

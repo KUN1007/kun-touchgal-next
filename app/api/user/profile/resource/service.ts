@@ -26,6 +26,8 @@ export const getUserPatchResource = async (
         type: true,
         language: true,
         platform: true,
+        emulator_type: true,
+        model_name: true,
         created: true,
         patch: {
           select: { id: true, unique_id: true, name: true, banner: true }
@@ -50,6 +52,8 @@ export const getUserPatchResource = async (
     type: res.type,
     language: res.language,
     platform: res.platform,
+    emulatorType: res.emulator_type,
+    modelName: res.model_name,
     created: String(res.created)
   }))
 

@@ -14,6 +14,8 @@ export const ResourceInfo = ({ resource }: Props) => {
         types={resource.type}
         languages={resource.language}
         platforms={resource.platform}
+        emulatorType={resource.emulatorType}
+        modelName={resource.modelName}
         size="sm"
       />
     </div>

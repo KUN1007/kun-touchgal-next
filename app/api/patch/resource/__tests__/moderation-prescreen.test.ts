@@ -105,6 +105,8 @@ const resourceInput = {
   type: ['patch'],
   language: ['zh-cn'],
   platform: ['windows'],
+  emulatorType: '',
+  modelName: '',
   links: [
     {
       storage: 'mega',
@@ -125,6 +127,8 @@ const storedResource = {
   language: resourceInput.language,
   note: 'Note',
   platform: resourceInput.platform,
+  emulator_type: '',
+  model_name: '',
   links: [],
   status: 0,
   user_id: 7,

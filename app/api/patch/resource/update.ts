@@ -25,7 +25,17 @@ export const updatePatchResource = async (
   uid: number,
   userRole: number
 ) => {
-  const { resourceId, patchId: inputPatchId, links, ...resourceData } = input
+  const {
+    resourceId,
+    patchId: inputPatchId,
+    links,
+    emulatorType,
+    modelName,
+    ...resourceData
+  } = input
+  // 联动字段随所选平台/类型归一: 未含对应平台/类型时不落库残值
+  const emulator_type = input.platform.includes('emulator') ? emulatorType : ''
+  const model_name = input.type.includes('ai') ? modelName : ''
   const resource = await prisma.patch_resource.findUnique({
     where: { id: resourceId },
     include: {
@@ -160,25 +170,27 @@ export const updatePatchResource = async (
     })
   }
 
-  // 编辑标题/介绍后必须重新送审; 待人工审批 (status=2) 的资源不送 AI;
+  // 编辑标题/介绍/模型型号后必须重新送审; 待人工审批 (status=2) 的资源不送 AI;
   // 标题与介绍均为空的资源无文本可审, 直接放行
   const textChanged =
-    resource.name !== input.name || resource.note !== input.note
+    resource.name !== input.name ||
+    resource.note !== input.note ||
+    resource.model_name !== model_name
+  const moderationText = `标题: ${input.name}\n介绍: ${input.note}${model_name ? `\n模型型号: ${model_name}` : ''}`
   const moderation =
     resource.status === 2 ||
     !textChanged ||
-    !`${input.name}${input.note}`.trim()
+    !`${input.name}${input.note}${model_name}`.trim()
       ? MODERATION_SKIP
-      : await preScreenText(
-          `标题: ${input.name}\n介绍: ${input.note}`,
-          userRole
-        )
+      : await preScreenText(moderationText, userRole)
 
   const updatedResource = await prisma.$transaction(async (prisma) => {
     const newResource = await prisma.patch_resource.update({
       where: { id: resourceId },
       data: {
         ...resourceData,
+        emulator_type,
+        model_name,
         ...(moderation.intercept ? { status: 3 } : {}),
         links: {
           deleteMany: {},
@@ -224,7 +236,7 @@ export const updatePatchResource = async (
           patchId: resource.patch_id,
           userId: resource.user_id,
           payload: {
-            text: `标题: ${newResource.name}\n介绍: ${newResource.note}`,
+            text: moderationText,
             name: newResource.name
           },
           dryRun: moderation.dryRun
@@ -243,6 +255,8 @@ export const updatePatchResource = async (
       note: newResource.note,
       noteHtml: newResource.note ? await markdownToHtml(newResource.note) : '',
       platform: newResource.platform,
+      emulatorType: newResource.emulator_type,
+      modelName: newResource.model_name,
       download: newResource.download,
       links: newResource.links.map((link) => ({
         id: link.id,

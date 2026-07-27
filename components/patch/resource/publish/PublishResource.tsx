@@ -87,6 +87,8 @@ export const PublishResource = ({
       type: [],
       language: [],
       platform: [],
+      emulatorType: '',
+      modelName: '',
       note: '',
       links: [createDefaultLink(user.role > 2 ? 'galgame' : 'patch')]
     }

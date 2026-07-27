@@ -1,9 +1,11 @@
-import { Controller } from 'react-hook-form'
+import { Controller, useWatch } from 'react-hook-form'
 import { Input, Textarea } from '@heroui/input'
 import { Select, SelectItem } from '@heroui/select'
 import {
   resourceTypes,
   RESOURCE_SECTION_TYPE_MAP,
+  SUPPORTED_EMULATOR_TYPE,
+  SUPPORTED_EMULATOR_TYPE_MAP,
   SUPPORTED_LANGUAGE,
   SUPPORTED_LANGUAGE_MAP,
   SUPPORTED_PLATFORM,
@@ -26,6 +28,11 @@ export const ResourceDetailsForm = ({
   const availableTypes = sectionTypes
     ? resourceTypes.filter((type) => sectionTypes.includes(type.value))
     : resourceTypes
+
+  const selectedTypes = useWatch({ control, name: 'type' })
+  const selectedPlatforms = useWatch({ control, name: 'platform' })
+  const showEmulatorType = selectedPlatforms?.includes('emulator')
+  const showModelName = selectedTypes?.includes('ai')
 
   return (
     <div className="space-y-2">
@@ -110,6 +117,49 @@ export const ResourceDetailsForm = ({
             </Select>
           )}
         />
+
+        {showEmulatorType && (
+          <Controller
+            name="emulatorType"
+            control={control}
+            render={({ field }) => (
+              <Select
+                isRequired
+                label="模拟器类型"
+                placeholder="请选择模拟器类型"
+                selectedKeys={field.value ? [field.value] : []}
+                onSelectionChange={(key) => {
+                  field.onChange(([...key][0] as string) ?? '')
+                }}
+                isInvalid={!!errors.emulatorType}
+                errorMessage={errors.emulatorType?.message}
+              >
+                {SUPPORTED_EMULATOR_TYPE.map((type) => (
+                  <SelectItem key={type}>
+                    {SUPPORTED_EMULATOR_TYPE_MAP[type]}
+                  </SelectItem>
+                ))}
+              </Select>
+            )}
+          />
+        )}
+
+        {showModelName && (
+          <Controller
+            name="modelName"
+            control={control}
+            render={({ field }) => (
+              <Input
+                {...field}
+                isRequired
+                label="模型型号"
+                placeholder="请填写 AI 翻译使用的模型型号, 例如 DeepSeek-V3"
+                isInvalid={!!errors.modelName}
+                errorMessage={errors.modelName?.message}
+              />
+            )}
+          />
+        )}
       </div>
 
       <Controller

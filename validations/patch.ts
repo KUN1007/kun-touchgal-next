@@ -6,6 +6,7 @@ import {
   SUPPORTED_TYPE,
   SUPPORTED_LANGUAGE,
   SUPPORTED_PLATFORM,
+  SUPPORTED_EMULATOR_TYPE,
   SUPPORTED_RESOURCE_LINK,
   SUPPORTED_RESOURCE_SECTION
 } from '~/constants/resource'
@@ -68,9 +69,16 @@ export const getPatchCommentSchema = z.object({
   commentId: z.coerce.number().min(1).max(9999999).optional()
 })
 
-// section 与 type 的联动约束: 所选类型必须属于对应资源类别下允许的类型
+// section 与 type 的联动约束: 所选类型必须属于对应资源类别下允许的类型;
+// 另有 platform/type 触发的条件必填: 模拟器平台须选模拟器类型, AI 补丁须填模型型号
 const refineResourceSectionType = (
-  data: { section: string; type: string[] },
+  data: {
+    section: string
+    type: string[]
+    platform: string[]
+    emulatorType: string
+    modelName: string
+  },
   ctx: z.RefinementCtx
 ) => {
   const allowedTypes = RESOURCE_SECTION_TYPE_MAP[data.section]
@@ -79,6 +87,20 @@ const refineResourceSectionType = (
       code: z.ZodIssueCode.custom,
       message: '所选资源类型不属于当前资源类别',
       path: ['type']
+    })
+  }
+  if (data.platform.includes('emulator') && !data.emulatorType) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: '选择模拟器平台时请选择模拟器类型',
+      path: ['emulatorType']
+    })
+  }
+  if (data.type.includes('ai') && !data.modelName) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: '发布 AI 翻译补丁时请填写模型型号',
+      path: ['modelName']
     })
   }
 }
@@ -164,7 +186,16 @@ const patchResourceBaseSchema = z.object({
     .refine(
       (types) => types.every((type) => SUPPORTED_PLATFORM.includes(type)),
       { message: '非法的平台' }
-    )
+    ),
+  emulatorType: z
+    .string({ message: '模拟器类型格式不正确' })
+    .refine((type) => !type || SUPPORTED_EMULATOR_TYPE.includes(type), {
+      message: '非法的模拟器类型'
+    }),
+  modelName: z
+    .string({ message: '模型型号格式不正确' })
+    .trim()
+    .max(107, { message: '模型型号最多 107 个字符' })
 })
 
 export const patchResourceCreateSchema = patchResourceBaseSchema.superRefine(

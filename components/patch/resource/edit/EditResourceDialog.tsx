@@ -47,7 +47,12 @@ export const EditResourceDialog = ({
     formState: { errors }
   } = useForm<EditResourceFormData>({
     resolver: zodResolver(patchResourceCreateSchema),
-    defaultValues: resource
+    defaultValues: {
+      ...resource,
+      // 兼容旧缓存数据缺字段: 保持受控输入
+      emulatorType: resource.emulatorType ?? '',
+      modelName: resource.modelName ?? ''
+    }
   })
 
   const handleUpdateResource = async () => {

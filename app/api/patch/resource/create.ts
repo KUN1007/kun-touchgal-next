@@ -26,9 +26,14 @@ export const createPatchResource = async (
     type,
     language,
     platform,
+    emulatorType,
+    modelName,
     links,
     ...resourceData
   } = input
+  // 联动字段随所选平台/类型归一: 未含对应平台/类型时不落库残值
+  const emulator_type = platform.includes('emulator') ? emulatorType : ''
+  const model_name = type.includes('ai') ? modelName : ''
 
   const [currentPatch, resourceCount] = await Promise.all([
     prisma.patch.findUnique({
@@ -50,14 +55,12 @@ export const createPatchResource = async (
   const needApproval = resourceCount === 0 && userRole < 3
 
   // 首个资源走既有人工审批流 (status=2), 不重复送 AI 审核;
-  // 标题与介绍均为空的资源无文本可审, 直接放行
+  // 标题与介绍均为空的资源无文本可审, 直接放行 (模型型号同为公开展示的自由文本, 一并送审)
+  const moderationText = `标题: ${input.name}\n介绍: ${input.note}${model_name ? `\n模型型号: ${model_name}` : ''}`
   const moderation =
-    needApproval || !`${input.name}${input.note}`.trim()
+    needApproval || !`${input.name}${input.note}${model_name}`.trim()
       ? MODERATION_SKIP
-      : await preScreenText(
-          `标题: ${input.name}\n介绍: ${input.note}`,
-          userRole
-        )
+      : await preScreenText(moderationText, userRole)
 
   const preparedLinks: Array<{
     storage: string
@@ -106,6 +109,8 @@ export const createPatchResource = async (
         type,
         language,
         platform,
+        emulator_type,
+        model_name,
         status: needApproval ? 2 : moderation.intercept ? 3 : 0,
         ...resourceData,
         links: {
@@ -139,7 +144,7 @@ export const createPatchResource = async (
           patchId,
           userId: uid,
           payload: {
-            text: `标题: ${newResource.name}\n介绍: ${newResource.note}`,
+            text: moderationText,
             name: newResource.name
           },
           dryRun: moderation.dryRun
@@ -166,6 +171,8 @@ export const createPatchResource = async (
       note: newResource.note,
       noteHtml: newResource.note ? await markdownToHtml(newResource.note) : '',
       platform: newResource.platform,
+      emulatorType: newResource.emulator_type,
+      modelName: newResource.model_name,
       download: newResource.download,
       links: newResource.links.map((link) => ({
         id: link.id,

@@ -61,6 +61,8 @@ export const AdminResourceApplyCard = ({ resource, actions }: Props) => {
             types={resource.type}
             languages={resource.language}
             platforms={resource.platform}
+            emulatorType={resource.emulatorType}
+            modelName={resource.modelName}
             size="sm"
           />
           <Chip size="sm" color="primary" variant="flat">

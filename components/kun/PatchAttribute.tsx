@@ -2,6 +2,7 @@
 
 import { Chip } from '@heroui/chip'
 import {
+  SUPPORTED_EMULATOR_TYPE_MAP,
   SUPPORTED_LANGUAGE_MAP,
   SUPPORTED_PLATFORM_MAP,
   SUPPORTED_TYPE_MAP
@@ -11,6 +12,8 @@ interface Props {
   types: string[]
   languages?: string[]
   platforms?: string[]
+  emulatorType?: string
+  modelName?: string
   size?: 'lg' | 'md' | 'sm'
   hidePatchType?: boolean
 }
@@ -19,6 +22,8 @@ export const KunPatchAttribute = ({
   types,
   languages = [],
   platforms = [],
+  emulatorType = '',
+  modelName = '',
   size = 'md',
   hidePatchType = false
 }: Props) => {
@@ -41,6 +46,16 @@ export const KunPatchAttribute = ({
           {SUPPORTED_PLATFORM_MAP[platform]}
         </Chip>
       ))}
+      {emulatorType && (
+        <Chip variant="flat" color="warning" size={size}>
+          {SUPPORTED_EMULATOR_TYPE_MAP[emulatorType] ?? emulatorType}
+        </Chip>
+      )}
+      {modelName && (
+        <Chip variant="flat" color="danger" size={size}>
+          {modelName}
+        </Chip>
+      )}
     </div>
   )
 }

@@ -18,6 +18,7 @@ import { ResourceLinksInput } from '../publish/ResourceLinksInput'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import { ResourceDetailsForm } from '../publish/ResourceDetailsForm'
 import { ResourceSectionSelect } from '../publish/ResourceSectionSelect'
+import { RESOURCE_SECTION_TYPE_MAP } from '~/constants/resource'
 import type { PatchResource } from '~/types/api/patch'
 
 type EditResourceFormData = z.infer<typeof patchResourceCreateSchema>
@@ -78,7 +79,15 @@ export const EditResourceDialog = ({
           <ResourceSectionSelect
             errors={errors}
             section={watch().section}
-            setSection={(content) => setValue('section', content)}
+            setSection={(content) => {
+              setValue('section', content)
+              setValue(
+                'type',
+                watch().type.filter((t) =>
+                  RESOURCE_SECTION_TYPE_MAP[content]?.includes(t)
+                )
+              )
+            }}
           />
 
           <ResourceLinksInput
@@ -89,7 +98,11 @@ export const EditResourceDialog = ({
             section={watch().section}
             setUploadingResource={setUploadingResource}
           />
-          <ResourceDetailsForm control={control} errors={errors} />
+          <ResourceDetailsForm
+            control={control}
+            errors={errors}
+            section={watch().section}
+          />
         </form>
       </ModalBody>
 

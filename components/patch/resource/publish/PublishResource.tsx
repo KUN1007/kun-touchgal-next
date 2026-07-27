@@ -22,6 +22,7 @@ import { ResourceSectionSelect } from './ResourceSectionSelect'
 import { Upload, Gamepad2, Puzzle } from 'lucide-react'
 import {
   RESOURCE_SECTION_MAP,
+  RESOURCE_SECTION_TYPE_MAP,
   SUPPORTED_RESOURCE_SECTION
 } from '~/constants/resource'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
@@ -167,6 +168,12 @@ export const PublishResource = ({
                   onPress={() => {
                     setValue('section', s)
                     setValue('links', [createDefaultLink(s)])
+                    setValue(
+                      'type',
+                      watch().type.filter((t) =>
+                        RESOURCE_SECTION_TYPE_MAP[s]?.includes(t)
+                      )
+                    )
                     setSectionConfirmed(true)
                   }}
                 >
@@ -185,6 +192,12 @@ export const PublishResource = ({
                 setSection={(content) => {
                   setValue('section', content)
                   setValue('links', [createDefaultLink(content)])
+                  setValue(
+                    'type',
+                    watch().type.filter((t) =>
+                      RESOURCE_SECTION_TYPE_MAP[content]?.includes(t)
+                    )
+                  )
                 }}
               />
             )}
@@ -198,7 +211,11 @@ export const PublishResource = ({
               setUploadingResource={setUploadingResource}
             />
 
-            <ResourceDetailsForm control={control} errors={errors} />
+            <ResourceDetailsForm
+              control={control}
+              errors={errors}
+              section={watch().section}
+            />
           </form>
         )}
       </ModalBody>

@@ -2,7 +2,7 @@ import type { Patch } from '~/types/api/patch'
 
 const getPlatformDescription = (platform: string[]) => {
   const hasWindows = platform.includes('windows')
-  const hasAndroid = platform.includes('android')
+  const hasAndroid = platform.includes('apk')
 
   if (hasWindows && hasAndroid) {
     return 'PC + 安卓'

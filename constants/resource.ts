@@ -1,49 +1,73 @@
 export const resourceTypes = [
   {
-    value: 'pc',
-    label: 'PC游戏',
-    description: '在 Windows, macOS 等电脑设备上运行的游戏'
+    value: 'game',
+    label: '游戏本体',
+    description: 'Galgame 游戏本体下载资源'
   },
   {
-    value: 'row',
-    label: '生肉资源',
-    description: '没有中文翻译, 仅有日语或其它语言的 Galgame'
+    value: 'audio',
+    label: '音声',
+    description: '音声作品, 或游戏相关的音频资源'
   },
   {
-    value: 'chinese',
-    label: '汉化资源',
-    description: '汉化 Galgame 下载资源, 有简体中文或繁体中文支持'
+    value: 'image',
+    label: '图片CG',
+    description: '游戏 CG, 原画, 壁纸等图片资源'
   },
   {
-    value: 'patch',
-    label: '补丁资源',
-    description: '与这个 Galgame 相关的补丁资源'
+    value: 'video',
+    label: '视频',
+    description: '游戏相关的视频资源, 例如 OP, ED, PV 等'
   },
   {
-    value: 'mobile',
-    label: '手机游戏',
-    description: '可以在手机上运行的 Galgame 游戏'
+    value: 'manual',
+    label: '人工翻译补丁',
+    description: '由人工翻译制作的补丁'
   },
   {
-    value: 'emulator',
-    label: '模拟器资源',
-    description:
-      '可以在手机模拟器, 例如 KiriKiri, ONS, Tyranor 等模拟器中运行的 Galgame 游戏'
+    value: 'ai',
+    label: 'AI翻译补丁',
+    description: '由 AI 翻译制作的补丁'
   },
   {
-    value: 'app',
-    label: '直装资源',
-    description: '可以直接在手机安装并游玩的 Galgame'
+    value: 'machine',
+    label: '传统机翻补丁',
+    description: '由传统机翻软件直接翻译的补丁'
   },
   {
-    value: 'tool',
-    label: '游戏工具',
-    description: '辅助游玩 Galgame 的工具, 例如 KRKR 模拟器, Magpie 等'
+    value: 'machine_polishing',
+    label: '传统机翻润色补丁',
+    description: '在传统机翻基础上经过人工润色的补丁'
   },
   {
-    value: 'notice',
-    label: '官方通知',
-    description: '由官方发布的站点通知'
+    value: 'save',
+    label: '存档',
+    description: '游戏存档, 例如全 CG 存档'
+  },
+  {
+    value: 'crack',
+    label: '破解补丁',
+    description: '用于破解游戏的补丁'
+  },
+  {
+    value: 'fix',
+    label: '修正补丁',
+    description: '用于修正游戏问题的补丁'
+  },
+  {
+    value: 'mod',
+    label: '魔改补丁',
+    description: '对游戏进行魔改的补丁'
+  },
+  {
+    value: 'adult',
+    label: '成人内容补丁',
+    description: '为游戏恢复或添加成人内容的补丁'
+  },
+  {
+    value: 'uncensored',
+    label: '去码补丁',
+    description: '去除游戏内马赛克的补丁'
   },
   {
     value: 'other',
@@ -52,34 +76,69 @@ export const resourceTypes = [
   }
 ]
 
+// 各资源类别 (section) 下允许选择的资源类型
+export const RESOURCE_SECTION_TYPE_MAP: Record<string, string[]> = {
+  galgame: ['game', 'audio', 'image', 'video', 'other'],
+  patch: [
+    'manual',
+    'ai',
+    'machine',
+    'machine_polishing',
+    'save',
+    'crack',
+    'fix',
+    'mod',
+    'adult',
+    'uncensored',
+    'other'
+  ]
+}
+
 export const SUPPORTED_TYPE = [
-  'pc',
-  'chinese',
-  'mobile',
-  'emulator',
-  'row',
-  'app',
-  'patch',
-  'tool',
-  'notice',
+  'game',
+  'audio',
+  'image',
+  'video',
+  'manual',
+  'ai',
+  'machine',
+  'machine_polishing',
+  'save',
+  'crack',
+  'fix',
+  'mod',
+  'adult',
+  'uncensored',
   'other'
 ]
 export const SUPPORTED_TYPE_MAP: Record<string, string> = {
   all: '全部类型',
-  pc: 'PC游戏',
-  chinese: '汉化资源',
-  mobile: '手机游戏',
-  emulator: '模拟器资源',
-  row: '生肉资源',
-  app: '直装资源',
-  patch: '补丁资源',
-  tool: '游戏工具',
-  notice: '官方通知',
+  game: '游戏本体',
+  audio: '音声',
+  image: '图片CG',
+  video: '视频',
+  manual: '人工翻译补丁',
+  ai: 'AI翻译补丁',
+  machine: '传统机翻补丁',
+  machine_polishing: '传统机翻润色补丁',
+  save: '存档',
+  crack: '破解补丁',
+  fix: '修正补丁',
+  mod: '魔改补丁',
+  adult: '成人内容补丁',
+  uncensored: '去码补丁',
   other: '其它'
 }
 export const ALL_SUPPORTED_TYPE = ['all', ...SUPPORTED_TYPE]
 
-export const SUPPORTED_LANGUAGE = ['zh-Hans', 'zh-Hant', 'ja', 'en', 'other']
+export const SUPPORTED_LANGUAGE = [
+  'zh-Hans',
+  'zh-Hant',
+  'ja',
+  'en',
+  'none',
+  'other'
+]
 export const ALL_SUPPORTED_LANGUAGE = ['all', ...SUPPORTED_LANGUAGE]
 export const SUPPORTED_LANGUAGE_MAP: Record<string, string> = {
   all: '全部语言',
@@ -87,25 +146,28 @@ export const SUPPORTED_LANGUAGE_MAP: Record<string, string> = {
   'zh-Hant': '繁體中文',
   ja: '日本語',
   en: 'English',
+  none: '无语言',
   other: '其它'
 }
 
 export const SUPPORTED_PLATFORM = [
   'windows',
-  'android',
   'macos',
-  'ios',
   'linux',
+  'emulator',
+  'apk',
+  'ipa',
   'other'
 ]
 export const ALL_SUPPORTED_PLATFORM = ['all', ...SUPPORTED_PLATFORM]
 export const SUPPORTED_PLATFORM_MAP: Record<string, string> = {
   all: '全部平台',
   windows: 'Windows',
-  android: 'Android',
   macos: 'MacOS',
-  ios: 'iOS',
   linux: 'Linux',
+  emulator: '模拟器',
+  apk: 'Android APK',
+  ipa: 'iOS IPA',
   other: '其它'
 }
 

@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { ResourceSizeRegex } from '~/utils/validate'
 import { nonEmptyFileSchema } from './file'
 import {
+  RESOURCE_SECTION_TYPE_MAP,
   SUPPORTED_TYPE,
   SUPPORTED_LANGUAGE,
   SUPPORTED_PLATFORM,
@@ -67,7 +68,22 @@ export const getPatchCommentSchema = z.object({
   commentId: z.coerce.number().min(1).max(9999999).optional()
 })
 
-export const patchResourceCreateSchema = z.object({
+// section 与 type 的联动约束: 所选类型必须属于对应资源类别下允许的类型
+const refineResourceSectionType = (
+  data: { section: string; type: string[] },
+  ctx: z.RefinementCtx
+) => {
+  const allowedTypes = RESOURCE_SECTION_TYPE_MAP[data.section]
+  if (allowedTypes && !data.type.every((t) => allowedTypes.includes(t))) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: '所选资源类型不属于当前资源类别',
+      path: ['type']
+    })
+  }
+}
+
+const patchResourceBaseSchema = z.object({
   patchId: z.coerce.number().min(1).max(9999999),
   section: z
     .string()
@@ -151,11 +167,17 @@ export const patchResourceCreateSchema = z.object({
     )
 })
 
-export const patchResourceUpdateSchema = patchResourceCreateSchema.merge(
-  z.object({
-    resourceId: z.coerce.number().min(1).max(9999999)
-  })
+export const patchResourceCreateSchema = patchResourceBaseSchema.superRefine(
+  refineResourceSectionType
 )
+
+export const patchResourceUpdateSchema = patchResourceBaseSchema
+  .merge(
+    z.object({
+      resourceId: z.coerce.number().min(1).max(9999999)
+    })
+  )
+  .superRefine(refineResourceSectionType)
 
 export const declinePullRequestSchema = z.object({
   prId: z.coerce.number({ message: 'ID 必须为数字' }).min(1).max(9999999),

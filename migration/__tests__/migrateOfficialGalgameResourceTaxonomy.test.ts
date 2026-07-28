@@ -91,13 +91,30 @@ describe('decideResource', () => {
     expect(
       decideResource(['chinese', 'emulator', 'mobile'], ['android'], {
         k: 'emulator',
-        t: 'krkr'
+        t: ['krkr']
       })
     ).toEqual({
       action: 'migrate',
       rule: 'R4',
       update: { type: ['game'], platform: ['emulator'], emulator_type: ['krkr'] },
       report: undefined
+    })
+  })
+
+  it('AI 判出多个型号时全部填入 emulator_type', () => {
+    expect(
+      decideResource(['chinese', 'mobile'], ['android'], {
+        k: 'emulator',
+        t: ['krkr', 'joiplay']
+      })
+    ).toMatchObject({
+      action: 'migrate',
+      rule: 'R5',
+      update: {
+        type: ['game'],
+        platform: ['emulator'],
+        emulator_type: ['krkr', 'joiplay']
+      }
     })
   })
 
@@ -126,7 +143,7 @@ describe('decideResource', () => {
     expect(
       decideResource(['chinese', 'mobile'], ['android'], {
         k: 'emulator',
-        t: 'joiplay'
+        t: ['joiplay']
       })
     ).toMatchObject({
       action: 'migrate',
@@ -181,26 +198,41 @@ describe('decideResource', () => {
 
 describe('parseAiVerdict', () => {
   it('解析裸 JSON 与 markdown 围栏', () => {
-    expect(parseAiVerdict('{"k":"emulator","t":"ons"}')).toEqual({
+    expect(parseAiVerdict('{"k":"emulator","t":["ons"]}')).toEqual({
       k: 'emulator',
-      t: 'ons'
+      t: ['ons']
     })
+    expect(
+      parseAiVerdict('{"k":"emulator","t":["krkr","joiplay"]}')
+    ).toEqual({ k: 'emulator', t: ['krkr', 'joiplay'] })
     expect(parseAiVerdict('```json\n{"k":"apk"}\n```')).toEqual({ k: 'apk' })
     expect(parseAiVerdict('```\n{"k":"uncertain"}\n```')).toEqual({
       k: 'uncertain'
     })
   })
 
-  it('剥离多余字段', () => {
+  it('剥离多余字段并对型号去重', () => {
     expect(
-      parseAiVerdict('{"k":"emulator","t":"gaishi","reason":"文件名含盖世"}')
-    ).toEqual({ k: 'emulator', t: 'gaishi' })
+      parseAiVerdict(
+        '{"k":"emulator","t":["gaishi","gaishi"],"reason":"文件名含盖世"}'
+      )
+    ).toEqual({ k: 'emulator', t: ['gaishi'] })
+  })
+
+  it('兼容旧版单型号输出', () => {
+    expect(parseAiVerdict('{"k":"emulator","t":"krkr"}')).toEqual({
+      k: 'emulator',
+      t: ['krkr']
+    })
   })
 
   it('非法输出一律降级为 uncertain', () => {
     expect(parseAiVerdict('这是一个模拟器资源')).toEqual({ k: 'uncertain' })
     expect(parseAiVerdict('')).toEqual({ k: 'uncertain' })
-    expect(parseAiVerdict('{"k":"emulator","t":"renpy"}')).toEqual({
+    expect(parseAiVerdict('{"k":"emulator","t":["renpy"]}')).toEqual({
+      k: 'uncertain'
+    })
+    expect(parseAiVerdict('{"k":"emulator","t":[]}')).toEqual({
       k: 'uncertain'
     })
     expect(parseAiVerdict('{"k":"emulator"}')).toEqual({ k: 'uncertain' })

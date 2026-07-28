@@ -60,11 +60,12 @@ const AI_SYSTEM_PROMPT = `你是 Galgame 资源分类助手。根据资源的标
 判断规则：
 1. 仅当标题/备注/文件名中明确出现模拟器字样、型号或型号简写时，才判定为模拟器。
 2. 文件名以 .xp3 结尾同样算明确证据，直接判定为 krkr（.xp3 是 KiriKiri 的封包格式）。
-3. 仅当明确出现「直装」字样，或文件名以 .apk 结尾时，才判定为直装。
-4. 除第 2 条外，没有明确证据时一律输出 uncertain，禁止根据游戏名称或引擎知识猜测。
+3. 一个资源可能同时适配多个模拟器：对每个型号分别判断，把有明确证据的型号代号全部放进 t 数组（按表中顺序），禁止输出没有证据的型号。
+4. 仅当明确出现「直装」字样，或文件名以 .apk 结尾时，才判定为直装。
+5. 除第 2 条外，没有明确证据时一律输出 uncertain，禁止根据游戏名称或引擎知识猜测。
 
 只输出 JSON，禁止输出任何其他文本：
-{"k":"emulator","t":"<型号代号>"} 或 {"k":"apk"} 或 {"k":"uncertain"}`
+{"k":"emulator","t":["<型号代号>",...]} 或 {"k":"apk"} 或 {"k":"uncertain"}`
 
 // ---------------------------------------------------------------------------
 // 决策纯函数 (可单测, 不碰网络与数据库)
@@ -94,14 +95,20 @@ export const ruleNeedsAi = (rule: RuleId | null) =>
   rule === 'R4' || rule === 'R5'
 
 export type AiVerdict =
-  | { k: 'emulator'; t: string }
+  | { k: 'emulator'; t: string[] }
   | { k: 'apk' }
   | { k: 'uncertain' }
 
 const aiVerdictSchema = z.union([
   z.object({
     k: z.literal('emulator'),
-    t: z.string().refine((type) => SUPPORTED_EMULATOR_TYPE.includes(type))
+    t: z
+      .array(z.string())
+      .nonempty()
+      .refine((types) =>
+        types.every((type) => SUPPORTED_EMULATOR_TYPE.includes(type))
+      )
+      .transform((types) => [...new Set(types)])
   }),
   z.object({ k: z.literal('apk') }),
   z.object({ k: z.literal('uncertain') })
@@ -121,6 +128,19 @@ export const parseAiVerdict = (raw: string): AiVerdict => {
     parsed = JSON.parse(cleaned)
   } catch {
     return { k: 'uncertain' }
+  }
+
+  // 兼容缓存里的旧版单型号输出 {"t":"krkr"}, 避免重跑时全部降级为 uncertain
+  if (
+    parsed !== null &&
+    typeof parsed === 'object' &&
+    (parsed as Record<string, unknown>).k === 'emulator' &&
+    typeof (parsed as Record<string, unknown>).t === 'string'
+  ) {
+    parsed = {
+      ...(parsed as Record<string, unknown>),
+      t: [(parsed as Record<string, unknown>).t]
+    }
   }
 
   const verdict = aiVerdictSchema.safeParse(parsed)
@@ -175,7 +195,7 @@ const toApk = (rule: RuleId, platform: string[]): Decision =>
 
 const toEmulator = (
   rule: RuleId,
-  emulatorType: string,
+  emulatorTypes: string[],
   report?: ReportEntry
 ): Decision => ({
   action: 'migrate',
@@ -183,7 +203,7 @@ const toEmulator = (
   update: {
     type: ['game'],
     platform: ['emulator'],
-    emulator_type: [emulatorType]
+    emulator_type: emulatorTypes
   },
   report
 })
@@ -232,7 +252,7 @@ export const decideResource = (
     if (verdict.k === 'emulator') {
       return toEmulator(rule, verdict.t)
     }
-    return toEmulator(rule, 'other', {
+    return toEmulator(rule, ['other'], {
       bucket: 'r4-unknown-emulator',
       reason:
         verdict.k === 'apk'

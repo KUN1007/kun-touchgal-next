@@ -10,7 +10,7 @@ export interface PatchResource {
   type: string[]
   language: string[]
   platform: string[]
-  emulatorType: string
+  emulatorType: string[]
   modelName: string
   primaryLink: PatchResourceLinkSummary | null
   linkCount: number

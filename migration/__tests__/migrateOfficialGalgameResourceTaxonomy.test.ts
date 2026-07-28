@@ -96,7 +96,7 @@ describe('decideResource', () => {
     ).toEqual({
       action: 'migrate',
       rule: 'R4',
-      update: { type: ['game'], platform: ['emulator'], emulator_type: 'krkr' },
+      update: { type: ['game'], platform: ['emulator'], emulator_type: ['krkr'] },
       report: undefined
     })
   })
@@ -115,7 +115,7 @@ describe('decideResource', () => {
         update: {
           type: ['game'],
           platform: ['emulator'],
-          emulator_type: 'other'
+          emulator_type: ['other']
         },
         report: { bucket: 'r4-unknown-emulator' }
       })
@@ -134,7 +134,7 @@ describe('decideResource', () => {
       update: {
         type: ['game'],
         platform: ['emulator'],
-        emulator_type: 'joiplay'
+        emulator_type: ['joiplay']
       }
     })
     expect(

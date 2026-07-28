@@ -144,7 +144,7 @@ export interface ReportEntry {
 export interface ResourceUpdate {
   type: string[]
   platform?: string[]
-  emulator_type?: string
+  emulator_type?: string[]
 }
 
 export type Decision =
@@ -183,7 +183,7 @@ const toEmulator = (
   update: {
     type: ['game'],
     platform: ['emulator'],
-    emulator_type: emulatorType
+    emulator_type: [emulatorType]
   },
   report
 })

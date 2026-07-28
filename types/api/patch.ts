@@ -94,7 +94,7 @@ export interface PatchResource {
   note: string
   noteHtml: string
   platform: string[]
-  emulatorType: string
+  emulatorType: string[]
   modelName: string
   download: number
   links: PatchResourceLink[]

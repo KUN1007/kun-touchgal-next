@@ -125,11 +125,12 @@ export const ResourceDetailsForm = ({
             render={({ field }) => (
               <Select
                 isRequired
+                selectionMode="multiple"
                 label="模拟器类型"
                 placeholder="请选择模拟器类型"
-                selectedKeys={field.value ? [field.value] : []}
-                onSelectionChange={(key) => {
-                  field.onChange(([...key][0] as string) ?? '')
+                selectedKeys={field.value}
+                onSelectionChange={(keys) => {
+                  field.onChange([...keys] as string[])
                 }}
                 isInvalid={!!errors.emulatorType}
                 errorMessage={errors.emulatorType?.message}

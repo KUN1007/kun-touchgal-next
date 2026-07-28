@@ -14,7 +14,7 @@ interface Fields {
   note: string
   language: string[]
   platform: string[]
-  emulatorType: string
+  emulatorType: string[]
   modelName: string
   links: Array<{
     id?: number

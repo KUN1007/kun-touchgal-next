@@ -22,7 +22,7 @@ const baseInput = {
   type: ['manual'],
   language: ['zh-Hans'],
   platform: ['windows'],
-  emulatorType: '',
+  emulatorType: [] as string[],
   modelName: ''
 }
 
@@ -32,11 +32,11 @@ const issuePaths = (
   result.success ? [] : result.error.issues.map((issue) => issue.path.join('.'))
 
 describe('patchResourceCreateSchema 模拟器类型 / 模型型号联动', () => {
-  it('未选模拟器平台 / AI 补丁时允许两字段为空串', () => {
+  it('未选模拟器平台 / AI 补丁时允许两字段为空', () => {
     const result = patchResourceCreateSchema.safeParse(baseInput)
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.emulatorType).toBe('')
+      expect(result.data.emulatorType).toEqual([])
       expect(result.data.modelName).toBe('')
     }
   })
@@ -54,7 +54,16 @@ describe('patchResourceCreateSchema 模拟器类型 / 模型型号联动', () =>
     const result = patchResourceCreateSchema.safeParse({
       ...baseInput,
       platform: ['emulator'],
-      emulatorType: 'winlator'
+      emulatorType: ['winlator']
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('平台含模拟器且同时选多个合法模拟器类型时通过', () => {
+    const result = patchResourceCreateSchema.safeParse({
+      ...baseInput,
+      platform: ['emulator'],
+      emulatorType: ['winlator', 'joiplay']
     })
     expect(result.success).toBe(true)
   })
@@ -63,7 +72,7 @@ describe('patchResourceCreateSchema 模拟器类型 / 模型型号联动', () =>
     const result = patchResourceCreateSchema.safeParse({
       ...baseInput,
       platform: ['emulator'],
-      emulatorType: 'not-an-emulator'
+      emulatorType: ['not-an-emulator']
     })
     expect(result.success).toBe(false)
     expect(issuePaths(result)).toContain('emulatorType')

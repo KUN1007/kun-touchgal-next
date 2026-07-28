@@ -76,7 +76,7 @@ const refineResourceSectionType = (
     section: string
     type: string[]
     platform: string[]
-    emulatorType: string
+    emulatorType: string[]
     modelName: string
   },
   ctx: z.RefinementCtx
@@ -89,7 +89,7 @@ const refineResourceSectionType = (
       path: ['type']
     })
   }
-  if (data.platform.includes('emulator') && !data.emulatorType) {
+  if (data.platform.includes('emulator') && data.emulatorType.length === 0) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: '选择模拟器平台时请选择模拟器类型',
@@ -188,10 +188,12 @@ const patchResourceBaseSchema = z.object({
       { message: '非法的平台' }
     ),
   emulatorType: z
-    .string({ message: '模拟器类型格式不正确' })
-    .refine((type) => !type || SUPPORTED_EMULATOR_TYPE.includes(type), {
-      message: '非法的模拟器类型'
-    }),
+    .array(z.string())
+    .max(10, { message: '您的单个资源最多有 10 个模拟器类型' })
+    .refine(
+      (types) => types.every((type) => SUPPORTED_EMULATOR_TYPE.includes(type)),
+      { message: '非法的模拟器类型' }
+    ),
   modelName: z
     .string({ message: '模型型号格式不正确' })
     .trim()

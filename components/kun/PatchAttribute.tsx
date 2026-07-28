@@ -12,7 +12,7 @@ interface Props {
   types: string[]
   languages?: string[]
   platforms?: string[]
-  emulatorType?: string
+  emulatorType?: string[]
   modelName?: string
   size?: 'lg' | 'md' | 'sm'
   hidePatchType?: boolean
@@ -22,7 +22,7 @@ export const KunPatchAttribute = ({
   types,
   languages = [],
   platforms = [],
-  emulatorType = '',
+  emulatorType = [],
   modelName = '',
   size = 'md',
   hidePatchType = false
@@ -46,11 +46,11 @@ export const KunPatchAttribute = ({
           {SUPPORTED_PLATFORM_MAP[platform]}
         </Chip>
       ))}
-      {emulatorType && (
-        <Chip variant="flat" color="warning" size={size}>
-          {SUPPORTED_EMULATOR_TYPE_MAP[emulatorType] ?? emulatorType}
+      {emulatorType.map((type) => (
+        <Chip key={type} variant="flat" color="warning" size={size}>
+          {SUPPORTED_EMULATOR_TYPE_MAP[type] ?? type}
         </Chip>
-      )}
+      ))}
       {modelName && (
         <Chip variant="flat" color="danger" size={size}>
           {modelName}

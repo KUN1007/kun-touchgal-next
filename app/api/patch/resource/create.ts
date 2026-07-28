@@ -32,7 +32,7 @@ export const createPatchResource = async (
     ...resourceData
   } = input
   // 联动字段随所选平台/类型归一: 未含对应平台/类型时不落库残值
-  const emulator_type = platform.includes('emulator') ? emulatorType : ''
+  const emulator_type = platform.includes('emulator') ? emulatorType : []
   const model_name = type.includes('ai') ? modelName : ''
 
   const [currentPatch, resourceCount] = await Promise.all([

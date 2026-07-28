@@ -41,7 +41,7 @@ export interface UserResource {
   type: string[]
   language: string[]
   platform: string[]
-  emulatorType: string
+  emulatorType: string[]
   modelName: string
   created: string
 }

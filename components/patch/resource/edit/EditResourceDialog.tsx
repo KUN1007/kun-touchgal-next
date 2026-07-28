@@ -50,7 +50,7 @@ export const EditResourceDialog = ({
     defaultValues: {
       ...resource,
       // 兼容旧缓存数据缺字段: 保持受控输入
-      emulatorType: resource.emulatorType ?? '',
+      emulatorType: resource.emulatorType ?? [],
       modelName: resource.modelName ?? ''
     }
   })

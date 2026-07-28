@@ -6,8 +6,8 @@ model patch_resource {
   type     String[]
   language String[]
   platform String[]
-  // platform 含 emulator 时必填的模拟器类型 (winlator/joiplay/...), 其余为空
-  emulator_type String @default("") @db.VarChar(107)
+  // platform 含 emulator 时必填的模拟器类型 (winlator/joiplay/...), 其余为空数组
+  emulator_type String[]
   // type 含 ai 时必填的 AI 翻译模型型号, 其余为空
   model_name String @default("") @db.VarChar(107)
   download Int      @default(0)

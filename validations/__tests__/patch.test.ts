@@ -26,7 +26,9 @@ const baseInput = {
   modelName: ''
 }
 
-const issuePaths = (result: ReturnType<typeof patchResourceCreateSchema.safeParse>) =>
+const issuePaths = (
+  result: ReturnType<typeof patchResourceCreateSchema.safeParse>
+) =>
   result.success ? [] : result.error.issues.map((issue) => issue.path.join('.'))
 
 describe('patchResourceCreateSchema 模拟器类型 / 模型型号联动', () => {

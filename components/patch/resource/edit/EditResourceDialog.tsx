@@ -18,7 +18,11 @@ import { ResourceLinksInput } from '../publish/ResourceLinksInput'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import { ResourceDetailsForm } from '../publish/ResourceDetailsForm'
 import { ResourceSectionSelect } from '../publish/ResourceSectionSelect'
-import { RESOURCE_SECTION_TYPE_MAP } from '~/constants/resource'
+import {
+  RESOURCE_SECTION_TYPE_MAP,
+  SUPPORTED_PLATFORM,
+  SUPPORTED_TYPE
+} from '~/constants/resource'
 import type { PatchResource } from '~/types/api/patch'
 
 type EditResourceFormData = z.infer<typeof patchResourceCreateSchema>
@@ -39,6 +43,12 @@ export const EditResourceDialog = ({
   const [editing, setEditing] = useState(false)
   const [uploadingResource, setUploadingResource] = useState(false)
 
+  // 未迁移的历史资源可能残留旧词表值 (type 的 pc/chinese, platform 的 android 等),
+  // 这些值不在 Select 选项内, 用户无法在 UI 里取消, 却会随提交触发校验失败.
+  // 分类迁移全部落库后, 下方 type/platform 两处 filter 即恒等, 可一并删除
+  const allowedTypes =
+    RESOURCE_SECTION_TYPE_MAP[resource.section] ?? SUPPORTED_TYPE
+
   const {
     control,
     reset,
@@ -49,6 +59,8 @@ export const EditResourceDialog = ({
     resolver: zodResolver(patchResourceCreateSchema),
     defaultValues: {
       ...resource,
+      type: resource.type.filter((t) => allowedTypes.includes(t)),
+      platform: resource.platform.filter((p) => SUPPORTED_PLATFORM.includes(p)),
       // 兼容旧缓存数据缺字段: 保持受控输入
       emulatorType: resource.emulatorType ?? [],
       modelName: resource.modelName ?? ''

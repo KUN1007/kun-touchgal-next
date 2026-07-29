@@ -113,3 +113,29 @@ describe('patchResourceCreateSchema 模拟器类型 / 模型型号联动', () =>
     expect(paths).toContain('modelName')
   })
 })
+
+describe('patchResourceCreateSchema 资源类别 / 类型联动', () => {
+  it('Galgame 资源类别下选择补丁类型时校验失败', () => {
+    const result = patchResourceCreateSchema.safeParse({
+      ...baseInput,
+      section: 'galgame',
+      type: ['manual']
+    })
+    expect(result.success).toBe(false)
+    expect(issuePaths(result)).toContain('type')
+  })
+
+  it('残留的旧词表类型同时触发词表与类别两条校验', () => {
+    const result = patchResourceCreateSchema.safeParse({
+      ...baseInput,
+      section: 'galgame',
+      type: ['pc', 'chinese', 'game']
+    })
+    expect(result.success).toBe(false)
+    const messages = result.success
+      ? []
+      : result.error.issues.map((issue) => issue.message)
+    expect(messages).toContain('非法的类型')
+    expect(messages).toContain('所选资源类型不属于当前资源类别')
+  })
+})

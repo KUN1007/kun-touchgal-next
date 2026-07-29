@@ -21,9 +21,12 @@ interface Props {
   initialResource: AdminResource
 }
 
-// TODO: Reactivity
+// TODO: Reactivity (列表卡片仍不随保存更新)
 export const ResourceEdit = ({ initialResource }: Props) => {
   const currentUser = useUserStore((state) => state.user)
+  // 保存后回写: 列表的 initialResource 是服务端快照且不刷新, 若继续用它做
+  // 表单初值, 再次编辑同一条会把上次的改动整体回退
+  const [resource, setResource] = useState(initialResource)
 
   const {
     isOpen: isOpenEdit,
@@ -89,8 +92,11 @@ export const ResourceEdit = ({ initialResource }: Props) => {
       >
         <EditResourceDialog
           onClose={onCloseEdit}
-          resource={initialResource}
-          onSuccess={onCloseEdit}
+          resource={resource}
+          onSuccess={(updated) => {
+            setResource({ ...resource, ...updated })
+            onCloseEdit()
+          }}
           type="admin"
         />
       </Modal>

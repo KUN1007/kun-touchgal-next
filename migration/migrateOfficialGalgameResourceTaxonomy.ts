@@ -416,7 +416,7 @@ const requestAiRaw = async (userContent: string): Promise<string> => {
       ],
       temperature: 0,
       // 与 moderation 取齐: 推理模型的思考也计入输出 token, 上限过小会让正文为空
-      max_tokens: 2048
+      max_tokens: 10000
     })
   })
   if (!response.ok) {

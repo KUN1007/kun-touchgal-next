@@ -62,7 +62,7 @@ const BACKUP_FILE = path.resolve(
   'migration/backup/migrateCommunityGalgameResourceTaxonomy.backup.json'
 )
 
-// P1: 与官方脚本逐字一致的模拟器判定 prompt (emu-type 与 apk-or-emu 规则共用)
+// P1: 模拟器判定 prompt (emu-type 与 apk-or-emu 规则共用), 源自官方脚本版本并增加证据权重规则
 const AI_EMU_PROMPT = `你是 Galgame 资源分类助手。根据资源的标题、备注与网盘文件名，判断该安卓资源是「模拟器资源」「直装 APK」还是无法确定。
 
 模拟器型号代号映射（输出必须使用左侧代号）：
@@ -70,9 +70,11 @@ const AI_EMU_PROMPT = `你是 Galgame 资源分类助手。根据资源的标题
 - ons: ONS、ONScripter
 - winlator: Winlator
 - joiplay: Joi、JoiPlay
-- tyranor_artemis: TR、Tyranor、AR、Artemis
+- tyranor_artemis: TY、Ty、Tyranor、AR、Ar、Artemis
 - gaishi: 盖世、盖世模拟器
 - other: 明确出现「模拟器」字样但型号不在上表中
+
+证据权重：标题 > 网盘文件名 > 备注。用户常在备注中复制粘贴与资源本身无关的介绍文案，备注里提到的模拟器信息可能并不反映实际资源。判断必须以标题为主要依据，备注仅作辅助；仅出现在备注中、标题与文件名均无佐证的型号不得判定。
 
 判断规则：
 1. 仅当标题/备注/文件名中明确出现模拟器字样、型号或型号简写时，才判定为模拟器。
@@ -92,9 +94,11 @@ const AI_PLATFORM_PROMPT = `你是 Galgame 资源分类助手。根据资源的�
 - ons: ONS、ONScripter
 - winlator: Winlator
 - joiplay: Joi、JoiPlay
-- tyranor_artemis: TR、Tyranor、AR、Artemis
+- tyranor_artemis: TY、Ty、Tyranor、AR、Ar、Artemis
 - gaishi: 盖世、盖世模拟器
 - other: 明确出现「模拟器」字样但型号不在上表中
+
+证据权重：标题 > 网盘文件名 > 备注。用户常在备注中复制粘贴与资源本身无关的介绍文案，备注中的平台/模拟器信息可能并不反映实际资源。判断必须以标题为主要依据，备注仅作辅助；仅出现在备注中的证据不足以单独判定平台或型号。
 
 判断规则：
 1. 仅当出现明确证据时才下判断：PC、电脑、Windows 或文件名以 .exe 结尾指向 windows；「直装」字样或文件名以 .apk 结尾指向 apk；模拟器字样、型号或型号简写指向 emulator。
@@ -108,6 +112,8 @@ const AI_PLATFORM_PROMPT = `你是 Galgame 资源分类助手。根据资源的�
 
 // P-content: 纯 {other} 资源分流为 音声/图片CG/视频, 判不出兜底 other (无 uncertain)
 const AI_CONTENT_PROMPT = `你是 Galgame 资源分类助手。根据资源的标题、备注与网盘文件名，判断该资源属于「音声」「图片CG」「视频」中的哪一类。
+
+证据权重：标题 > 网盘文件名 > 备注。用户常在备注中复制粘贴与资源本身无关的介绍文案，备注中的内容字样可能并不反映实际资源。判断必须以标题为主要依据，备注仅作辅助。
 
 判断规则：
 1. audio (音声): 出现 音声、ASMR、ボイス、DLsite、RJ号（如 RJ123456）、Drama CD、广播剧 等字样，或文件名以 .mp3/.wav/.flac/.m4a/.ogg 结尾。

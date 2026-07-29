@@ -53,7 +53,7 @@ const AI_SYSTEM_PROMPT = `你是 Galgame 资源分类助手。根据资源的标
 - ons: ONS、ONScripter
 - winlator: Winlator
 - joiplay: Joi、JoiPlay
-- tyranor_artemis: TR、Tyranor、AR、Artemis
+- tyranor_artemis: TY、Ty、Tyranor、AR、Ar、Artemis
 - gaishi: 盖世、盖世模拟器
 - other: 明确出现「模拟器」字样但型号不在上表中
 

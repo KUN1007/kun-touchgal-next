@@ -42,8 +42,11 @@ const FETCH_CONCURRENCY = 16
 const REQUEST_INTERVAL_MS = 120
 
 const AI_MODEL = 'deepseek-v4-flash'
-// 端点排队时单次调用可达 100s+, 超时放宽避免成批假失败
-const AI_TIMEOUT_MS = 240 * 1000
+// 端点排队时单次调用可达 100s+, 超时放宽避免成批假失败。
+// 使用 stream: true 规避 Cloudflare 免费版 ~100s 首字节超时 (504):
+// 推理模型的 reasoning delta 通常秒级开始输出, 首字节一到 CF 便不再掐流;
+// 超时语义随之从「整次调用」改为「相邻 chunk 最大间隔」, 长思考任务不再被误杀
+const AI_CHUNK_IDLE_TIMEOUT_MS = 240 * 1000
 const AI_ATTEMPTS = 3
 const AI_NOTE_MAX_LENGTH = 500
 
@@ -608,42 +611,79 @@ const runPool = async <T>(
   )
 }
 
-// 端点形态仿 server/moderation/ai.ts, 但不复用该模块 (它耦合审核语义与模型 env)
+// 端点形态仿 server/moderation/ai.ts, 但不复用该模块 (它耦合审核语义与模型 env)。
+// 流式读取: 拼接 choices[0].delta.content; 推理模型的 reasoning_content 丢弃。
+// 流中途断开/解析失败一律 throw 走重试, 不保留半截结果 (更不会进缓存)
 const requestAiRaw = async (
   kind: AiKind,
   userContent: string
 ): Promise<string> => {
   const baseUrl = process.env.MODERATION_AI_BASE_URL!.replace(/\/+$/, '')
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    signal: AbortSignal.timeout(AI_TIMEOUT_MS),
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.MODERATION_AI_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: AI_MODEL,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT_BY_KIND[kind] },
-        { role: 'user', content: userContent }
-      ],
-      temperature: 0,
-      // 与 moderation 取齐: 推理模型的思考也计入输出 token, 上限过小会让正文为空
-      max_tokens: 10000
-    })
-  })
-  if (!response.ok) {
-    throw new Error(`AI 请求返回 ${response.status}`)
+  const controller = new AbortController()
+  // 相邻 chunk 空闲超时: 每次收到数据就续期, 端点长时间无输出才 abort
+  let idleTimer = setTimeout(() => controller.abort(), AI_CHUNK_IDLE_TIMEOUT_MS)
+  const renewIdleTimer = () => {
+    clearTimeout(idleTimer)
+    idleTimer = setTimeout(() => controller.abort(), AI_CHUNK_IDLE_TIMEOUT_MS)
   }
 
-  const data = await response.json()
-  const content = data?.choices?.[0]?.message?.content
-  if (typeof content !== 'string' || !content.trim()) {
-    throw new Error(
-      `AI 返回正文为空 (finish_reason: ${data?.choices?.[0]?.finish_reason ?? 'unknown'})`
-    )
+  try {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.MODERATION_AI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT_BY_KIND[kind] },
+          { role: 'user', content: userContent }
+        ],
+        temperature: 0,
+        // 与 moderation 取齐: 推理模型的思考也计入输出 token, 上限过小会让正文为空
+        max_tokens: 10000,
+        stream: true
+      })
+    })
+    if (!response.ok) {
+      throw new Error(`AI 请求返回 ${response.status}`)
+    }
+    if (!response.body) {
+      throw new Error('AI 流式响应无 body')
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let content = ''
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      renewIdleTimer()
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+      for (const line of lines) {
+        // 跳过心跳注释/空行; data: [DONE] 直接忽略, 以流结束为准
+        if (!line.startsWith('data:')) continue
+        const data = line.slice(5).trim()
+        if (!data || data === '[DONE]') continue
+        const chunk = JSON.parse(data)
+        const delta = chunk.choices?.[0]?.delta
+        if (typeof delta?.content === 'string') {
+          content += delta.content
+        }
+      }
+    }
+    if (!content.trim()) {
+      throw new Error('AI 流式返回正文为空')
+    }
+    return content
+  } finally {
+    clearTimeout(idleTimer)
   }
-  return content
 }
 
 const requestAiWithRetry = async (

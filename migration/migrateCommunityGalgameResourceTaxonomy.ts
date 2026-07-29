@@ -37,9 +37,10 @@ const OFFICIAL_USER_ID = 1
 const SECTION = 'galgame'
 const NEW_GALGAME_TYPES = RESOURCE_SECTION_TYPE_MAP.galgame
 
-// 社区端点单次调用延迟高 (推理模型 ~15s), 并发放宽到 16 才能在可接受时间内跑完
-const FETCH_CONCURRENCY = 16
-const REQUEST_INTERVAL_MS = 120
+// 社区端点单次调用延迟高 (推理模型 ~15s), 需要更高并发才能在可接受时间内跑完;
+// 并发上调后请求间隔相应收紧
+const FETCH_CONCURRENCY = 32
+const REQUEST_INTERVAL_MS = 60
 
 const AI_MODEL = 'deepseek-v4-flash'
 // 端点排队时单次调用可达 100s+, 超时放宽避免成批假失败。
@@ -84,10 +85,11 @@ const AI_EMU_PROMPT = `你是 Galgame 资源分类助手。根据资源的标题
 2. 文件名以 .xp3 结尾同样算明确证据，直接判定为 krkr（.xp3 是 KiriKiri 的封包格式）。
 3. 一个资源可能同时适配多个模拟器：对每个型号分别判断，把有明确证据的型号代号全部放进 t 数组（按表中顺序），禁止输出没有证据的型号。
 4. 仅当明确出现「直装」字样，或文件名以 .apk 结尾时，才判定为直装。
-5. 除第 2 条外，没有明确证据时一律输出 uncertain，禁止根据游戏名称或引擎知识猜测。
+5. 一个资源可能同时包含模拟器资源与直装 APK（例如网盘里既有 .xp3 又有 .apk，或标题同时写了「直装」与型号字样）：模拟器证据与直装证据同时存在时输出 both，并在 t 中给出有证据的型号。
+6. 除第 2 条外，没有明确证据时一律输出 uncertain，禁止根据游戏名称或引擎知识猜测。
 
 只输出 JSON，禁止输出任何其他文本：
-{"k":"emulator","t":["<型号代号>",...]} 或 {"k":"apk"} 或 {"k":"uncertain"}`
+{"k":"emulator","t":["<型号代号>",...]} 或 {"k":"apk"} 或 {"k":"both","t":["<型号代号>",...]} 或 {"k":"uncertain"}`
 
 // P-platform: 旧组合只有语言/手机标记 (R13/G-lang), 平台三选一由 AI 分流
 const AI_PLATFORM_PROMPT = `你是 Galgame 资源分类助手。根据资源的标题、备注、网盘文件名与上传者当年选择的原分类/原平台，判断该资源的目标平台是「Windows」「Android 直装 APK」「Android 模拟器」还是无法确定。
@@ -291,6 +293,7 @@ export const aiKindForPlan = (plan: Plan): AiKind | null => {
 export type AiVerdict =
   | { k: 'emulator'; t: string[] }
   | { k: 'apk' }
+  | { k: 'both'; t: string[] }
   | { k: 'windows' }
   | { k: 'uncertain' }
   | { k: 'audio' }
@@ -310,6 +313,7 @@ const verdictSchemaByKind: Record<AiKind, z.ZodType<AiVerdict>> = {
   p1: z.union([
     z.object({ k: z.literal('emulator'), t: emulatorTypesSchema }),
     z.object({ k: z.literal('apk') }),
+    z.object({ k: z.literal('both'), t: emulatorTypesSchema }),
     z.object({ k: z.literal('uncertain') })
   ]),
   platform: z.union([
@@ -459,7 +463,7 @@ export const decideResource = (
       report: {
         bucket: 'emu-unknown',
         reason:
-          verdict.k === 'apk'
+          verdict.k === 'apk' || verdict.k === 'both'
             ? 'AI 判为直装, 与原模拟器分类矛盾, 型号未知'
             : 'AI 无法确定模拟器型号'
       }
@@ -467,15 +471,19 @@ export const decideResource = (
   }
 
   if (spec.ai === 'apk-or-emu') {
-    // 旧组合只说明是手机资源, 模拟器与直装二选一由 AI 分流, 判不出则整行不迁移
+    // 旧组合只说明是手机资源, 模拟器/直装/两者兼有由 AI 分流, 判不出则整行不迁移
     const base = spec.platform as string[]
-    if (verdict.k === 'emulator') {
+    if (verdict.k === 'emulator' || verdict.k === 'both') {
+      const platform =
+        verdict.k === 'both'
+          ? [...base, 'apk', 'emulator']
+          : [...base, 'emulator']
       return {
         action: 'migrate',
         rule: spec.rule,
         update: {
           type: ['game'],
-          platform: [...base, 'emulator'],
+          platform,
           emulator_type: verdict.t
         }
       }

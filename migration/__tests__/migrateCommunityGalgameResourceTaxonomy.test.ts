@@ -256,6 +256,17 @@ describe('decideResource', () => {
       update: { platform: ['emulator'], emulator_type: ['ons'] }
     })
     expect(
+      decideResource(['chinese', 'mobile'], { k: 'both', t: ['krkr'] })
+    ).toEqual({
+      action: 'migrate',
+      rule: 'R5',
+      update: {
+        type: ['game'],
+        platform: ['apk', 'emulator'],
+        emulator_type: ['krkr']
+      }
+    })
+    expect(
       decideResource(['chinese', 'mobile'], { k: 'uncertain' })
     ).toMatchObject({
       action: 'skip',
@@ -281,6 +292,17 @@ describe('decideResource', () => {
       update: {
         platform: ['windows', 'emulator'],
         emulator_type: ['gaishi']
+      }
+    })
+    expect(
+      decideResource(['chinese', 'mobile', 'pc'], { k: 'both', t: ['ons'] })
+    ).toEqual({
+      action: 'migrate',
+      rule: 'G-mobile',
+      update: {
+        type: ['game'],
+        platform: ['windows', 'apk', 'emulator'],
+        emulator_type: ['ons']
       }
     })
   })
@@ -361,6 +383,10 @@ describe('parseAiVerdict', () => {
     expect(
       parseAiVerdict('p1', '{"k":"emulator","t":["gaishi","gaishi"]}')
     ).toEqual({ k: 'emulator', t: ['gaishi'] })
+    expect(parseAiVerdict('p1', '{"k":"both","t":["krkr","ons"]}')).toEqual({
+      k: 'both',
+      t: ['krkr', 'ons']
+    })
   })
 
   it('p1: 非法输出一律降级为 uncertain', () => {
@@ -374,6 +400,12 @@ describe('parseAiVerdict', () => {
       k: 'uncertain'
     })
     expect(parseAiVerdict('p1', '{"k":"windows"}')).toEqual({
+      k: 'uncertain'
+    })
+    expect(parseAiVerdict('p1', '{"k":"both"}')).toEqual({
+      k: 'uncertain'
+    })
+    expect(parseAiVerdict('p1', '{"k":"both","t":["renpy"]}')).toEqual({
       k: 'uncertain'
     })
   })

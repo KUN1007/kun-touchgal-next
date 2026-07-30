@@ -14,6 +14,7 @@ const skipDeployBuildChecks =
   process.env.KUN_DEPLOY_BUILD_SKIP_CHECKS === 'true'
 
 const nextConfig: NextConfig = {
+  distDir: process.env.KUN_NEXT_DIST_DIR ?? '.next',
   devIndicators: false,
   pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'md', 'mdx'],
   transpilePackages: ['next-mdx-remote'],

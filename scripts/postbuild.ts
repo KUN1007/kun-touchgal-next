@@ -2,6 +2,9 @@ import { execSync } from 'child_process'
 import { mkdir, readdir, copyFile, stat } from 'fs/promises'
 import path from 'path'
 
+const distDir = process.env.KUN_NEXT_DIST_DIR ?? '.next'
+const standaloneDir = path.join(distDir, 'standalone')
+
 const copyDirectory = async (src: string, dest: string): Promise<void> => {
   try {
     await mkdir(dest, { recursive: true })
@@ -51,20 +54,27 @@ const copyFiles = async () => {
     execSync('pnpm build:sitemap', { stdio: 'inherit' })
 
     await waitForAllCopies([
-      copyDirectory('public', '.next/standalone/public'),
-      copyDirectory('.next/static', '.next/standalone/.next/static'),
-      copyDirectory('posts', '.next/standalone/posts'),
+      copyDirectory('public', path.join(standaloneDir, 'public')),
+      copyDirectory(
+        path.join(distDir, 'static'),
+        path.join(standaloneDir, distDir, 'static')
+      ),
+      copyDirectory('posts', path.join(standaloneDir, 'posts')),
       copyRuntimeFile(
         'config/redirect.json',
-        '.next/standalone/config/redirect.json'
+        path.join(standaloneDir, 'config/redirect.json')
       )
     ])
 
-    await assertExists('.next/standalone/public/logo.webp')
-    await assertExists('.next/standalone/public/sooner/こじかひわ.webp')
-    await assertExists('.next/standalone/public/cap/cap_wasm_bg.wasm')
-    await assertExists('.next/standalone/posts')
-    await assertExists('.next/standalone/config/redirect.json')
+    await assertExists(path.join(standaloneDir, 'public/logo.webp'))
+    await assertExists(
+      path.join(standaloneDir, 'public/sooner/こじかひわ.webp')
+    )
+    await assertExists(
+      path.join(standaloneDir, 'public/cap/cap_wasm_bg.wasm')
+    )
+    await assertExists(path.join(standaloneDir, 'posts'))
+    await assertExists(path.join(standaloneDir, 'config/redirect.json'))
 
     console.log('Files copied successfully.')
   } catch (error) {

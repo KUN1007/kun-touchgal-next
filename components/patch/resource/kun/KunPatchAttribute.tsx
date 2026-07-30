@@ -15,6 +15,8 @@ const SUPPORTED_TYPE_MAP: Record<string, string> = {
   crack: '破解补丁',
   fix: '修正补丁',
   mod: '魔改补丁',
+  r18: 'R18 成人内容补丁',
+  decensor: '去马赛克补丁',
   other: '其它'
 }
 

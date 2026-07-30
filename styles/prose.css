@@ -1,10 +1,12 @@
 .kun-prose {
-  @apply text-default-800 leading-8;
+  @apply text-default-800;
+  /* DESIGN.md: 正文行高 1.75 (leading-8 在 Tailwind v4 是 2rem, 非 1.75) */
+  line-height: 1.75;
 }
 
 /* Paragraphs */
 .kun-prose p {
-  @apply my-4 leading-relaxed;
+  @apply my-4;
 }
 
 .kun-prose p:has(> img) {
@@ -19,6 +21,14 @@
 
 .kun-prose .anchor {
   @apply text-default-800 no-underline hover:text-primary-500;
+}
+
+/* Heading permalinks: hover/focus 时露出 # , 桌面 docs 惯例 */
+.kun-anchor {
+  @apply absolute -left-5 top-1/2 -translate-y-1/2 select-none text-default-300
+         opacity-0 transition-opacity duration-200 no-underline
+         hover:text-primary-500 focus-visible:text-primary-500 focus-visible:opacity-100
+         group-hover/heading:opacity-100 motion-reduce:transition-none;
 }
 
 /* Headings with improved spacing and refined typography */

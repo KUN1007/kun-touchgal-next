@@ -41,16 +41,18 @@ export const createKunHeading = (level: number) => {
 
     return createElement(
       `h${level}`,
-      { id: slug },
-      [
-        createElement('a', {
+      { id: slug, className: 'group/heading relative' },
+      children,
+      createElement(
+        'a',
+        {
           href: `#${slug}`,
           key: `kun-link-${slug}`,
           className: 'kun-anchor',
-          'aria-label': slug
-        })
-      ],
-      children
+          'aria-label': `链接到本节: ${text}`
+        },
+        '#'
+      )
     )
   }
 

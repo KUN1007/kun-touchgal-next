@@ -5,10 +5,35 @@ import { ListTree } from 'lucide-react'
 import { cn } from '~/utils/cn'
 import { usePrioritizedWheelScroll } from './usePrioritizedWheelScroll'
 
-interface TOCItem {
+export interface TOCItem {
   id: string
   text: string
   level: number
+}
+
+export const useArticleHeadings = () => {
+  const [headings, setHeadings] = useState<TOCItem[]>([])
+
+  useEffect(() => {
+    const elements = Array.from(
+      document.querySelectorAll('article h1, article h2, article h3')
+    )
+      .map((element) => ({
+        id: element.id,
+        text: Array.from(element.childNodes)
+          .filter(
+            (node) => !(node as HTMLElement).classList?.contains?.('kun-anchor')
+          )
+          .map((node) => node.textContent || '')
+          .join(''),
+        level: Number(element.tagName.charAt(1))
+      }))
+      .filter((heading) => heading.id && heading.text)
+
+    setHeadings(elements)
+  }, [])
+
+  return headings
 }
 
 const scrollToHeading = (id: string) => {
@@ -29,36 +54,51 @@ const scrollToHeading = (id: string) => {
 }
 
 export const TableOfContents = () => {
-  const [headings, setHeadings] = useState<TOCItem[]>([])
+  const headings = useArticleHeadings()
   const [activeId, setActiveId] = useState('')
   const { containerRef: tableOfContentsRef, scrollContainerRef } =
     usePrioritizedWheelScroll<HTMLElement, HTMLUListElement>()
 
   useEffect(() => {
-    const elements = Array.from(
-      document.querySelectorAll('article h1, article h2, article h3')
-    )
-      .map((element) => ({
-        id: element.id,
-        text: element.textContent || '',
-        level: Number(element.tagName.charAt(1))
-      }))
-      .filter((heading) => heading.id && heading.text)
+    if (headings.length === 0) {
+      return
+    }
 
-    setHeadings(elements)
-
+    // 激活规则: 视口顶部 20% 激活带内最后一个标题; 两标题同屏/上滚时
+    // IntersectionObserver 可能无命中, 此时回退为「当前滚动位置之前的最后一个标题」
+    const visibleIds = new Set<string>()
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            setActiveId(entry.target.id)
+            visibleIds.add(entry.target.id)
+          } else {
+            visibleIds.delete(entry.target.id)
           }
         })
+
+        if (visibleIds.size > 0) {
+          const lastVisible = headings
+            .filter((heading) => visibleIds.has(heading.id))
+            .at(-1)
+          if (lastVisible) {
+            setActiveId(lastVisible.id)
+            return
+          }
+        }
+
+        const fallback = headings
+          .filter((heading) => {
+            const element = document.getElementById(heading.id)
+            return element && element.getBoundingClientRect().top <= 96
+          })
+          .at(-1)
+        setActiveId((fallback ?? headings[0]).id)
       },
       { rootMargin: '0px 0px -80% 0px' }
     )
 
-    elements.forEach((heading) => {
+    headings.forEach((heading) => {
       const element = document.getElementById(heading.id)
 
       if (element) {
@@ -67,7 +107,7 @@ export const TableOfContents = () => {
     })
 
     return () => observer.disconnect()
-  }, [])
+  }, [headings])
 
   const minHeadingLevel = headings.reduce(
     (min, heading) => Math.min(min, heading.level),
@@ -112,19 +152,19 @@ export const TableOfContents = () => {
                     }}
                     aria-current={isActive ? 'location' : undefined}
                     className={cn(
-                      'group relative flex min-h-8 items-start gap-2 rounded-xl border-l-2 py-1.5 pl-3 pr-2 transition-colors duration-200 hover:border-primary-300 hover:bg-primary-500/5 hover:text-primary-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 motion-reduce:transition-none',
+                      'group relative flex min-h-8 items-start gap-2 rounded-xl py-1.5 pl-3 pr-2 transition-colors duration-200 hover:bg-primary-500/5 hover:text-primary-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 motion-reduce:transition-none',
                       isTopLevel
                         ? 'text-sm font-semibold'
                         : isSecondLevel
                           ? 'text-sm font-medium'
                           : 'text-xs font-normal',
                       isActive
-                        ? 'border-primary-500 bg-primary-500/10 text-primary-500'
+                        ? 'bg-primary-500/10 text-primary-500'
                         : isTopLevel
-                          ? 'border-transparent text-default-700'
+                          ? 'text-default-700'
                           : isSecondLevel
-                            ? 'border-transparent text-default-500'
-                            : 'border-transparent text-default-400'
+                            ? 'text-default-500'
+                            : 'text-default-400'
                     )}
                   >
                     <span

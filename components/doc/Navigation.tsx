@@ -19,7 +19,6 @@ export const KunBottomNavigation = ({ prev, next }: NavigationProps) => {
       {prev ? (
         <Button
           variant="flat"
-          color="primary"
           as={Link}
           href={`/doc/${prev.slug}`}
           startContent={<ChevronLeft className="size-4 shrink-0" />}
@@ -41,7 +40,7 @@ export const KunBottomNavigation = ({ prev, next }: NavigationProps) => {
           as={Link}
           href={`/doc/${next.slug}`}
           variant="flat"
-          color="secondary"
+          color="primary"
           endContent={<ChevronRight className="size-4 shrink-0" />}
           className="h-auto min-h-16 justify-end rounded-2xl px-4 py-3"
         >

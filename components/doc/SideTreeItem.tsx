@@ -39,7 +39,7 @@ export const TreeItem = ({ node, level }: TreeItemProps) => {
     'flex min-h-10 w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 motion-reduce:transition-none',
     level === 0 ? 'mt-0' : 'mt-1',
     isActive
-      ? 'bg-primary-500/10 font-medium text-primary-600 ring-1 ring-primary-500/20 dark:text-primary-400'
+      ? 'bg-primary-500/10 font-medium text-primary-600 ring-1 ring-inset ring-primary-500/20 dark:text-primary-400'
       : isInActiveTree
         ? 'bg-default-100/70 font-medium text-foreground'
         : 'text-default-600 hover:bg-default-100 hover:text-foreground'

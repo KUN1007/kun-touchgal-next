@@ -10,10 +10,11 @@ import {
   useDisclosure
 } from '@heroui/react'
 import { KunTreeNode } from '~/lib/mdx/types'
-import { BookOpen, ChevronRight, X } from 'lucide-react'
+import { BookOpen, X } from 'lucide-react'
 import { SidebarContent } from './SidebarContent'
 import { usePathname } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { cn } from '~/utils/cn'
 import { usePrioritizedWheelScroll } from './usePrioritizedWheelScroll'
 
 interface Props {
@@ -25,8 +26,15 @@ export const KunSidebar = ({ tree }: Props) => {
   const pathname = usePathname()
   const { containerRef: sidebarRef, scrollContainerRef } =
     usePrioritizedWheelScroll<HTMLElement, HTMLDivElement>()
+  const [showBackToTop, setShowBackToTop] = useState(false)
 
   useEffect(() => onClose(), [onClose, pathname])
+
+  useEffect(() => {
+    const handleScroll = () => setShowBackToTop(window.scrollY > 400)
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   return (
     <>
@@ -38,7 +46,7 @@ export const KunSidebar = ({ tree }: Props) => {
           <Link
             color="foreground"
             href="/doc"
-            className="mx-3 mt-3 flex min-h-12 items-center gap-2 rounded-2xl bg-gradient-to-r from-primary-500/10 to-secondary-500/10 px-3 text-lg font-semibold"
+            className="mx-3 mt-3 flex min-h-12 items-center gap-2 rounded-2xl bg-primary-500/10 px-3 text-lg font-semibold"
           >
             <BookOpen className="size-5 text-primary-500" />
             <span>帮助文档</span>
@@ -54,14 +62,17 @@ export const KunSidebar = ({ tree }: Props) => {
 
       <div className="contents md:hidden">
         <Button
-          isIconOnly
           aria-label="打开文档目录"
-          className="fixed left-3 top-2/3 z-20 -translate-y-1/2 shadow-lg md:hidden"
+          className={cn(
+            'fixed bottom-12 right-6 z-20 h-11 gap-1.5 rounded-full px-4 shadow-lg transition-[bottom] duration-300 motion-reduce:transition-none md:hidden',
+            showBackToTop && 'bottom-28'
+          )}
           color="primary"
           variant="flat"
+          startContent={<BookOpen className="size-4" />}
           onPress={onOpen}
         >
-          <ChevronRight className="size-5" />
+          目录
         </Button>
 
         <Drawer
@@ -73,7 +84,7 @@ export const KunSidebar = ({ tree }: Props) => {
         >
           <DrawerContent className="m-3 h-[calc(100dvh-1.5rem)] overflow-hidden rounded-[22px] border border-default-200/60 bg-background shadow-[0_12px_32px_rgba(15,23,42,0.05)] dark:bg-content1 dark:shadow-[0_12px_32px_rgba(0,0,0,0.15)]">
             <DrawerHeader className="p-0">
-              <div className="mx-3 mt-3 flex min-h-12 flex-1 items-center gap-2 rounded-2xl bg-gradient-to-r from-primary-500/10 to-secondary-500/10 px-3">
+              <div className="mx-3 mt-3 flex min-h-12 flex-1 items-center gap-2 rounded-2xl bg-primary-500/10 px-3">
                 <Link
                   color="foreground"
                   href="/doc"

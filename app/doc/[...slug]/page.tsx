@@ -5,6 +5,7 @@ import {
 } from '~/lib/mdx/getPosts'
 import { CustomMDX } from '~/lib/mdx/CustomMDX'
 import { TableOfContents } from '~/components/doc/TableOfContents'
+import { KunMobileTOC } from '~/components/doc/MobileTOC'
 import { KunBottomNavigation } from '~/components/doc/Navigation'
 import { generateKunMetadataTemplate } from './metadata'
 import { BlogHeader } from '~/components/doc/BlogHeader'
@@ -48,6 +49,7 @@ export default async function Kun({ params }: Props) {
       <div className="min-w-0 flex-1">
         <div className="space-y-6">
           <BlogHeader frontmatter={frontmatter} />
+          <KunMobileTOC />
           <article className="kun-prose rounded-[22px] border border-default-200/60 bg-background p-5 shadow-[0_12px_32px_rgba(15,23,42,0.05)] dark:bg-content1 dark:shadow-[0_12px_32px_rgba(0,0,0,0.15)] sm:p-8">
             <CustomMDX source={content} />
           </article>

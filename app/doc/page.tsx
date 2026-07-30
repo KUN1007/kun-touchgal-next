@@ -12,7 +12,7 @@ export default function Kun() {
   const posts = getAllPosts()
 
   return (
-    <div className="w-full px-3 sm:px-6">
+    <div className="w-full px-3 sm:px-0">
       <section id="doc-list" className="space-y-5 scroll-m-24">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-1">

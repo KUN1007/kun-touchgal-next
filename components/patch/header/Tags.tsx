@@ -39,6 +39,12 @@ const resolveDisplayPlatforms = (platforms: string[]) => [
   ...new Set(platforms.flatMap((p) => DISPLAY_PLATFORM_MAP[p] ?? []))
 ]
 
+// 顶部卡片类型 chip 的显示文案覆盖
+const DISPLAY_TYPE_LABEL: Record<string, string> = {
+  uncensored: '〇〇补丁',
+  adult: '〇〇内容补丁'
+}
+
 export const Tags = ({ patch }: PatchHeaderProps) => {
   const displayPlatforms = resolveDisplayPlatforms(patch.platform)
   const sortedLanguages = [...patch.language].sort(
@@ -61,7 +67,7 @@ export const Tags = ({ patch }: PatchHeaderProps) => {
 
       {patch.type.map((type) => (
         <span key={type} className={`${tagClass} ${tagColors.solidPrimary}`}>
-          {SUPPORTED_TYPE_MAP[type]}
+          {DISPLAY_TYPE_LABEL[type] ?? SUPPORTED_TYPE_MAP[type]}
         </span>
       ))}
     </>

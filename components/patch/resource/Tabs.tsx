@@ -331,6 +331,28 @@ export const ResourceTabs = ({
                 </Card>
               )}
 
+              {community.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <Link target="_blank" href={kunMoyuMoe.domain.forum}>
+                      <User
+                        avatarProps={{
+                          src: '/sooner/琥珀.webp',
+                          classNames: {
+                            base: 'bg-transparent'
+                          }
+                        }}
+                        description={`来自 ${kunMoyuMoe.titleShort} 用户自行发布的下载资源`}
+                        name={`${kunMoyuMoe.titleShort} 社区下载资源`}
+                      />
+                    </Link>
+                  </CardHeader>
+                  <CardBody className="space-y-3">
+                    {community.map((res) => renderResourceCard(res))}
+                  </CardBody>
+                </Card>
+              )}
+
               {section === 'patch' && (
                 <Card>
                   <CardHeader>
@@ -369,28 +391,6 @@ export const ResourceTabs = ({
                         <KunNull message="本游戏在鲲 Galgame 补丁暂无对应补丁" />
                       )
                     )}
-                  </CardBody>
-                </Card>
-              )}
-
-              {community.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <Link target="_blank" href={kunMoyuMoe.domain.forum}>
-                      <User
-                        avatarProps={{
-                          src: '/sooner/琥珀.webp',
-                          classNames: {
-                            base: 'bg-transparent'
-                          }
-                        }}
-                        description={`来自 ${kunMoyuMoe.titleShort} 用户自行发布的下载资源`}
-                        name={`${kunMoyuMoe.titleShort} 社区下载资源`}
-                      />
-                    </Link>
-                  </CardHeader>
-                  <CardBody className="space-y-3">
-                    {community.map((res) => renderResourceCard(res))}
                   </CardBody>
                 </Card>
               )}

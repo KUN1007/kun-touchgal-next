@@ -1,3 +1,4 @@
+import { fixupConfigRules } from '@eslint/compat'
 import js from '@eslint/js'
 import { defineConfig, globalIgnores } from 'eslint/config'
 import nextCoreWebVitals from 'eslint-config-next/core-web-vitals'
@@ -7,10 +8,11 @@ import react from 'eslint-plugin-react'
 
 export default defineConfig([
   globalIgnores(['.next/', 'node_modules/', 'prisma/generated/']),
-  ...nextCoreWebVitals,
+  // eslint-plugin-react / import / jsx-a11y 仍用 ESLint 10 已移除的旧 context API, 须经 fixup 桥接
+  ...fixupConfigRules(nextCoreWebVitals),
   js.configs.recommended,
-  react.configs.flat.recommended,
-  ...nextTypescript,
+  ...fixupConfigRules([react.configs.flat.recommended]),
+  ...fixupConfigRules(nextTypescript),
   prettierRecommended,
   {
     settings: {
@@ -26,6 +28,8 @@ export default defineConfig([
       'no-debugger': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       'no-console': 'warn',
+      // ESLint 10 recommended 新增; 存量代码为「let 初始值 + 分支覆盖」风格, 维持升级前基线
+      'no-useless-assignment': 'off',
       'sort-imports': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/no-empty-object-type': 'off',

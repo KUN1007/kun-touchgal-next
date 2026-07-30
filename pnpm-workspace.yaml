@@ -36,7 +36,7 @@ overrides:
   'eslint-plugin-jsx-a11y>minimatch': '3.1.5'
   'eslint-plugin-react>minimatch': '3.1.5'
   '@typescript-eslint/typescript-estree>minimatch': '9.0.9'
-  'minimatch>brace-expansion': '1.1.16'
+  'minimatch@3>brace-expansion': '1.1.16'
   find-my-way: '>=9.7.0'
 
 allowBuilds:

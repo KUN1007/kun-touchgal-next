@@ -1,4 +1,4 @@
-import { argon2idAsync, type ArgonOpts } from '@noble/hashes/argon2'
+import { argon2idAsync, type ArgonOpts } from '@noble/hashes/argon2.js'
 import crypto from 'crypto'
 
 type PasswordHashOptions = Pick<

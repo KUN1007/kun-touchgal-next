@@ -29,7 +29,7 @@ const legacyWrapImage: Plugin<[], Node> = () => {
       const siblings = parent.children
       const collected: any[] = []
 
-      for (let j = index + 1; j < siblings.length; ) {
+      for (let j = index + 1; j < siblings.length;) {
         const sib = siblings[j]
 
         if (sib?.type === 'element' && /^h[1-6]$/.test(sib.tagName)) {

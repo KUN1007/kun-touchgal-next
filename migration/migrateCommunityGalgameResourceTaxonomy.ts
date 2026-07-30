@@ -253,7 +253,10 @@ export const planResource = (type: string[]): Plan => {
   // 仅是语言标记直接去除; mobile 无 app/emulator 佐证时安卓形态未知, 交给 AI
   const flags = PLATFORM_FLAGS.filter((flag) => set.has(flag))
   if (flags.length === 0) {
-    return { kind: 'spec', spec: { rule: 'G-lang', platform: [], ai: 'platform' } }
+    return {
+      kind: 'spec',
+      spec: { rule: 'G-lang', platform: [], ai: 'platform' }
+    }
   }
   if (flags.length === 1 && flags[0] === 'pc') {
     return { kind: 'spec', spec: { rule: 'G-pc', platform: 'keep', ai: null } }

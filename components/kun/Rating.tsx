@@ -5,12 +5,7 @@ import clsx from 'clsx'
 import { Star } from 'lucide-react'
 
 export type RatingColor =
-  | 'default'
-  | 'primary'
-  | 'secondary'
-  | 'success'
-  | 'warning'
-  | 'danger'
+  'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'danger'
 
 export interface RatingProps {
   value?: number

@@ -87,9 +87,9 @@ const getSelectedTab = (searchParams: SearchParamsLike): PatchTabKey => {
 const hasTabDeepLink = (searchParams: SearchParamsLike) => {
   return Boolean(
     searchParams.get('tab') ||
-      searchParams.get('commentId') ||
-      searchParams.get('ratingId') ||
-      searchParams.get('resourceId')
+    searchParams.get('commentId') ||
+    searchParams.get('ratingId') ||
+    searchParams.get('resourceId')
   )
 }
 

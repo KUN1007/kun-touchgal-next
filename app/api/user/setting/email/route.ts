@@ -31,8 +31,7 @@ type EmailChangeUser = {
 }
 
 type PreviousEmailNoticeResult =
-  | { error: string; revertKey?: never }
-  | { error?: never; revertKey: string }
+  { error: string; revertKey?: never } | { error?: never; revertKey: string }
 
 const getEmailChangeUser = async (uid: number) => {
   return prisma.user.findUnique({

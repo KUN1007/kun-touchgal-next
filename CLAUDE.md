@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目
 
-TouchGal（`kun-touchgal-next`）：Next.js 15 App Router 的 Galgame 文化社区站点。技术栈为 React 19、TypeScript strict、HeroUI + Tailwind v4、Prisma 7 + PostgreSQL、Redis、S3；Meilisearch 为可选搜索后端，未启用或异常时回退 Prisma。包管理器是 **pnpm**；项目为 ESM（`"type": "module"`），TS 脚本通过 `esno` 执行。
+TouchGal（`kun-touchgal-next`）：Next.js 16 App Router 的 Galgame 文化社区站点。技术栈为 React 19、TypeScript strict、HeroUI + Tailwind v4、Prisma 7 + PostgreSQL、Redis、S3；Meilisearch 为可选搜索后端，未启用或异常时回退 Prisma。包管理器是 **pnpm**；项目为 ESM（`"type": "module"`），TS 脚本通过 `esno` 执行。
 
 ## 常用命令
 
@@ -17,7 +17,7 @@ pnpm build            # 生产构建 (Next standalone)
 pnpm test             # Vitest 全量 (vitest run)
 pnpm test -- app/api/user/follow/__tests__/route.test.ts   # 运行单个测试文件
 pnpm typecheck        # tsc --noEmit
-pnpm lint             # next lint  (lint:fix 可自动修复)
+pnpm lint             # eslint app components lib  (lint:fix 可自动修复)
 pnpm format           # prettier --write
 pnpm prisma:push      # prisma db push + generate (改了 schema 后)
 pnpm prisma:generate  # 仅重新生成 client
@@ -31,8 +31,8 @@ pnpm start / pnpm stop  # PM2 (ecosystem.config.cjs)
 
 - Server Component（`app/**/page.tsx`）→ `app/**/actions.ts` → service → `prisma` / `redis`。
 - Client Component → `utils/kunFetch.ts` → `app/api/**/route.ts` → `parseQuery` + Zod 校验 → 鉴权 → service/cache → Prisma。
-- `middleware.ts`：对 `/api/*`（排除 `/api/upload/*`，其在 handler 内自行校验）做 CSRF；对 `/admin`、`/user`、`/comment`、`/edit` 做登录保护。
-- 认证：JWT cookie 名 `kun-galgame-patch-moe-token`；Edge middleware 用 `app/api/utils/jwtEdge.ts`，服务端用 `jwt.ts` / `verifyHeaderCookie`。
+- `proxy.ts`（Next 16 前身为 `middleware.ts`）：对 `/api/*`（排除 `/api/upload/*`，其在 handler 内自行校验）做 CSRF；对 `/admin`、`/user`、`/comment`、`/edit` 做登录保护。
+- 认证：JWT cookie 名 `kun-galgame-patch-moe-token`；proxy 用 `app/api/utils/jwtEdge.ts`，服务端用 `jwt.ts` / `verifyHeaderCookie`。
 - 数据层入口：`prisma/index.ts`（Prisma 7 + pg pool）、`lib/redis.ts`、`lib/s3.ts`。Prisma model 拆分在 `prisma/schema/*.prisma`，生成到 `prisma/generated/prisma`。
 
 ## 必须遵守的约定

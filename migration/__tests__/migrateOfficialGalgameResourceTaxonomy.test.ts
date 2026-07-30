@@ -96,7 +96,11 @@ describe('decideResource', () => {
     ).toEqual({
       action: 'migrate',
       rule: 'R4',
-      update: { type: ['game'], platform: ['emulator'], emulator_type: ['krkr'] },
+      update: {
+        type: ['game'],
+        platform: ['emulator'],
+        emulator_type: ['krkr']
+      },
       report: undefined
     })
   })
@@ -202,9 +206,10 @@ describe('parseAiVerdict', () => {
       k: 'emulator',
       t: ['ons']
     })
-    expect(
-      parseAiVerdict('{"k":"emulator","t":["krkr","joiplay"]}')
-    ).toEqual({ k: 'emulator', t: ['krkr', 'joiplay'] })
+    expect(parseAiVerdict('{"k":"emulator","t":["krkr","joiplay"]}')).toEqual({
+      k: 'emulator',
+      t: ['krkr', 'joiplay']
+    })
     expect(parseAiVerdict('```json\n{"k":"apk"}\n```')).toEqual({ k: 'apk' })
     expect(parseAiVerdict('```\n{"k":"uncertain"}\n```')).toEqual({
       k: 'uncertain'

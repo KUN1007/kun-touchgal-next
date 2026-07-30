@@ -14,10 +14,7 @@ const extractBlockedTagIds = (
   visibilityWhere: Prisma.patchWhereInput
 ): number[] => {
   const not = visibilityWhere.NOT as
-    | BlockedTagNotShape
-    | BlockedTagNotShape[]
-    | null
-    | undefined
+    BlockedTagNotShape | BlockedTagNotShape[] | null | undefined
   if (!not || Array.isArray(not)) {
     return []
   }

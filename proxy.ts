@@ -15,7 +15,7 @@ export const config = {
   ]
 }
 
-export const middleware = async (request: NextRequest) => {
+export const proxy = async (request: NextRequest) => {
   if (request.nextUrl.pathname.startsWith('/api')) {
     const csrfError = verifyKunCsrf(request)
     if (csrfError) {

@@ -17,12 +17,6 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'md', 'mdx'],
   transpilePackages: ['next-mdx-remote'],
-  publicRuntimeConfig: {
-    NODE_ENV: env.data!.NODE_ENV
-  },
-  eslint: {
-    ignoreDuringBuilds: skipDeployBuildChecks
-  },
   typescript: {
     ignoreBuildErrors: skipDeployBuildChecks
   },
@@ -49,6 +43,15 @@ const nextConfig: NextConfig = {
   },
 
   output: 'standalone',
+  // Turbopack 的文件追踪看不见 sharp .node 二进制 dlopen 的 libvips 动态库, 须显式包含;
+  // 同时它会把整个项目目录复制进 standalone (runtimePaths 动态 fs 探测所致), 排除私有内容。
+  // .env 不在排除之列: 那是 Next writeStandaloneDirectory 的刻意复制, 与追踪无关且 webpack 时代已如此
+  outputFileTracingIncludes: {
+    '*': ['node_modules/.pnpm/@img+sharp-libvips-*/**']
+  },
+  outputFileTracingExcludes: {
+    '*': ['docs/**', 'migration/backup/**', '.playwright-mcp/**']
+  },
   serverExternalPackages: ['oidc-provider', 'capjs-core'],
   experimental: {
     optimizePackageImports: ['@heroui/react', 'framer-motion']

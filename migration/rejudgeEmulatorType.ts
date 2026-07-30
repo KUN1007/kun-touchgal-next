@@ -449,7 +449,9 @@ const run = async () => {
     )
   }
 
-  console.log(`\n完成: 回填 ${updates.length} 条, 保持 other ${keptRows.length} 条`)
+  console.log(
+    `\n完成: 回填 ${updates.length} 条, 保持 other ${keptRows.length} 条`
+  )
 }
 
 const isDirectRun =

@@ -88,8 +88,7 @@ export const setKey = (values: string[]) =>
   [...new Set(values)].sort().join(',')
 
 export type AiVerdict =
-  | { k: 'classified'; t: string[]; m?: string }
-  | { k: 'uncertain' }
+  { k: 'classified'; t: string[]; m?: string } | { k: 'uncertain' }
 
 const classifiedShape = z
   .object({
@@ -598,7 +597,12 @@ const run = async () => {
       }
 
       const raw = await requestAiWithRetry(
-        buildAiUserContent(resource.name, resource.note, resource.type, fileNames)
+        buildAiUserContent(
+          resource.name,
+          resource.note,
+          resource.type,
+          fileNames
+        )
       )
       if (raw === null) {
         verdicts.set(resource.id, null)
@@ -682,10 +686,7 @@ const run = async () => {
     ),
     ['多类型样本 (已迁移, 需复核)', reportRows['second-type'].length],
     ['判定与原组合方向相反 (已迁移, 需复核)', reportRows['cross-over'].length],
-    [
-      'language 可疑 (已迁移, 需复核)',
-      reportRows['language-mismatch'].length
-    ],
+    ['language 可疑 (已迁移, 需复核)', reportRows['language-mismatch'].length],
     ['AI 无法确定 (未迁移)', reportRows.uncertain.length],
     ['AI 调用失败 (未迁移)', reportRows['ai-failed'].length],
     ['网盘文件名抓取失败', reportRows['fetch-failed'].length],
@@ -705,11 +706,7 @@ const run = async () => {
     '|---|---|',
     ...overview.map(([label, value]) => `| ${label} | ${value} |`),
     '',
-    renderReportSection(
-      'AI 无法确定 (未迁移)',
-      reportRows.uncertain,
-      siteUrl
-    ),
+    renderReportSection('AI 无法确定 (未迁移)', reportRows.uncertain, siteUrl),
     renderReportSection(
       'AI 调用失败 (未迁移)',
       reportRows['ai-failed'],

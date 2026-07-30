@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-TouchGal (`kun-touchgal-next`) 是一个基于 Next.js 15 App Router 的 Galgame 文化社区站点，提供作品/补丁资料、资源下载、评分评论、用户主页、私信、后台管理、OIDC 和 MDX 内容页。
+TouchGal (`kun-touchgal-next`) 是一个基于 Next.js 16 App Router 的 Galgame 文化社区站点，提供作品/补丁资料、资源下载、评分评论、用户主页、私信、后台管理、OIDC 和 MDX 内容页。
 
 主栈为 React 19、TypeScript strict、HeroUI、Tailwind CSS v4、PostgreSQL + Prisma 7、Redis 和 S3 兼容对象存储；Meilisearch 为可选搜索后端，未启用或异常时回退到 Prisma。
 
@@ -14,7 +14,7 @@ TouchGal (`kun-touchgal-next`) 是一个基于 Next.js 15 App Router 的 Galgame
 - PostgreSQL 统一通过 `prisma/index.ts` 的单例访问。多表变更与审计日志使用 `prisma.$transaction`；可复用 helper 接收 transaction client。提交后再失效 Redis、刷新用户会话或排队同步搜索。
 - Redis key 经 `lib/redis.ts` 统一加 `kun:touchgal` 前缀。共享内容缓存必须包含可见性条件；管理员、作者或待审核内容需要按现有逻辑绕过共享缓存。
 - S3 上传先进入临时 key，校验对象后复制到最终位置。数据库事务提交后再执行对象复制/删除等外部副作用，参考 `app/api/patch/resource/_helper.ts`。
-- `middleware.ts` 为写 API 执行 CSRF 检查并保护 `/admin`、`/user`、`/edit` 等页面；上传 API 因请求体限制在 handler 内自行校验。认证 cookie 为 `kun-galgame-patch-moe-token`。
+- `proxy.ts`（Next 16 前身为 `middleware.ts`）为写 API 执行 CSRF 检查并保护 `/admin`、`/user`、`/edit` 等页面；上传 API 因请求体限制在 handler 内自行校验。认证 cookie 为 `kun-galgame-patch-moe-token`。
 - `instrumentation.ts` 仅在 Node runtime 且 `KUN_ENABLE_CRON=true` 时加载 `server/cron.ts`。生产由 PM2 分离普通 Web worker 与单个 cron worker；任务使用 Redis 锁避免重复执行。
 
 ## Key Directories
@@ -46,7 +46,7 @@ pnpm dev:webpack             # Webpack 开发服务器
 pnpm test                    # 全量 Vitest
 pnpm test -- path/to/foo.test.ts
 pnpm typecheck               # tsc --noEmit
-pnpm lint                    # next lint
+pnpm lint                    # eslint app components lib
 pnpm lint:fix
 pnpm format                  # Prettier 写入全仓库，仅在明确需要时运行
 pnpm build                   # Next standalone；随后自动执行 postbuild
@@ -77,7 +77,7 @@ pnpm prisma:generate
 - `utils/kunFetch.ts`、`utils/kunErrorHandler.ts`：客户端 API 与错误约定。
 - `app/api/utils/parseQuery.ts`：Zod 请求解析入口。
 - `app/api/utils/jwt.ts`、`middleware/_verifyHeaderCookie.ts`：Node/Edge 认证路径。
-- `middleware.ts`、`middleware/_csrf.ts`：路由保护与 CSRF 策略。
+- `proxy.ts`、`middleware/_csrf.ts`：路由保护与 CSRF 策略。
 - `prisma/index.ts`、`prisma.config.ts`、`prisma/schema/schema.prisma`：数据库 client、schema 路径和生成配置。
 - `lib/redis.ts`、`lib/s3.ts`、`lib/meilisearch.ts`：基础设施适配器。
 - `server/moderation/apply.ts`、`server/search/sync.ts`：审核事务和提交后搜索同步的代表实现。

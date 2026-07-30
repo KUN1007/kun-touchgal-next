@@ -6,11 +6,7 @@ export interface AppealPayload {
 
 // appealable - 可申诉; unavailable - 内容已删除 / 状态已变更 / 被更新的拒绝记录取代
 export type UserAppealState =
-  | 'appealable'
-  | 'unavailable'
-  | 'pending'
-  | 'approved'
-  | 'rejected'
+  'appealable' | 'unavailable' | 'pending' | 'approved' | 'rejected'
 
 export interface UserAppealItem {
   taskId: number

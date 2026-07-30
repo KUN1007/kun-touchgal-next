@@ -87,8 +87,7 @@ const patchParams = {
 describe('kunGetCompanyByIdActions', () => {
   it('deduplicates in-flight company lookups with the page data action', async () => {
     let resolveCompany:
-      | ((value: { id: number; name: string }) => void)
-      | undefined
+      ((value: { id: number; name: string }) => void) | undefined
     const pendingCompany = new Promise<{ id: number; name: string }>(
       (resolve) => {
         resolveCompany = resolve
@@ -122,8 +121,7 @@ describe('kunGetCompanyByIdActions', () => {
 describe('kunGetCompanyPageDataActions', () => {
   it('starts the patch query before the company query settles', async () => {
     let resolveCompany:
-      | ((value: { id: number; name: string }) => void)
-      | undefined
+      ((value: { id: number; name: string }) => void) | undefined
     const pendingCompany = new Promise<{ id: number; name: string }>(
       (resolve) => {
         resolveCompany = resolve

@@ -3,11 +3,7 @@ import type { PatchComment } from '~/types/api/comment'
 import type { Message } from '~/types/api/message'
 
 export type AdminStatsName =
-  | 'user'
-  | 'active'
-  | 'patch'
-  | 'patch_resource'
-  | 'patch_comment'
+  'user' | 'active' | 'patch' | 'patch_resource' | 'patch_comment'
 
 export interface SumData {
   userCount: number

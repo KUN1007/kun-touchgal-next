@@ -6,11 +6,7 @@ import {
 } from '~/config/cache'
 
 type MarkdownHtmlCacheVariant =
-  | 'standard'
-  | 'extend'
-  | 'comment'
-  | `comment-v${number}`
-  | `extend-v${number}`
+  'standard' | 'extend' | 'comment' | `comment-v${number}` | `extend-v${number}`
 type MarkdownHtmlRenderer = () => Promise<string>
 type MarkdownHtmlCacheOptions = {
   enabled?: boolean

@@ -5,10 +5,12 @@ import { dirname } from 'path'
 import * as fs from 'fs'
 import * as path from 'path'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
+// 不要命名为 __filename / __dirname: next.config.ts 的加载器会把本文件 SWC 转译为 CJS,
+// 与 module wrapper 的同名参数冲突 (SyntaxError, 且会被 Node 的模块探测掩盖成
+// "exports is not defined in ES module scope")
+const selfDirname = dirname(fileURLToPath(import.meta.url))
 
-const envPath = path.resolve(__dirname, '..', '.env')
+const envPath = path.resolve(selfDirname, '..', '.env')
 if (!fs.existsSync(envPath)) {
   console.error('.env file not found in the project root.')
   process.exit(1)

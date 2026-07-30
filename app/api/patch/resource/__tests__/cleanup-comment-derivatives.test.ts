@@ -67,7 +67,6 @@ describe('cleanupResourceCommentDerivatives', () => {
       comment: [{ id: 11 }, { id: 12 }]
     })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await cleanupResourceCommentDerivatives(tx as any, 5)
 
     expect(tx.user_message.deleteMany).toHaveBeenCalledWith({
@@ -90,7 +89,6 @@ describe('cleanupResourceCommentDerivatives', () => {
   it('资源无评论时不做任何清理', async () => {
     const tx = makeTx({ patch: { unique_id: 'patch-10' }, comment: [] })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await cleanupResourceCommentDerivatives(tx as any, 5)
 
     expect(tx.user_message.deleteMany).not.toHaveBeenCalled()
@@ -101,7 +99,6 @@ describe('cleanupResourceCommentDerivatives', () => {
   it('资源不存在时静默返回', async () => {
     const tx = makeTx(null)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await cleanupResourceCommentDerivatives(tx as any, 5)
 
     expect(tx.user_message.deleteMany).not.toHaveBeenCalled()

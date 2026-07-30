@@ -95,9 +95,7 @@ export const ruleNeedsAi = (rule: RuleId | null) =>
   rule === 'R4' || rule === 'R5'
 
 export type AiVerdict =
-  | { k: 'emulator'; t: string[] }
-  | { k: 'apk' }
-  | { k: 'uncertain' }
+  { k: 'emulator'; t: string[] } | { k: 'apk' } | { k: 'uncertain' }
 
 const aiVerdictSchema = z.union([
   z.object({

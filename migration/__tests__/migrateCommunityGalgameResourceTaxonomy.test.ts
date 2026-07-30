@@ -46,11 +46,11 @@ describe('planResource', () => {
     expect(planResource(['chinese', 'mobile'])).toMatchObject({
       spec: { rule: 'R5', platform: [], ai: 'apk-or-emu' }
     })
-    expect(
-      planResource(['chinese', 'emulator', 'mobile', 'pc'])
-    ).toMatchObject({
-      spec: { rule: 'R6', platform: ['windows', 'emulator'], ai: 'emu-type' }
-    })
+    expect(planResource(['chinese', 'emulator', 'mobile', 'pc'])).toMatchObject(
+      {
+        spec: { rule: 'R6', platform: ['windows', 'emulator'], ai: 'emu-type' }
+      }
+    )
     expect(planResource(['pc'])).toMatchObject({
       spec: { rule: 'R8', platform: 'keep', ai: null }
     })
@@ -87,9 +87,7 @@ describe('planResource', () => {
   })
 
   it('other 与游戏标记混杂进边角报告', () => {
-    expect(
-      planResource(['app', 'chinese', 'mobile', 'other'])
-    ).toMatchObject({
+    expect(planResource(['app', 'chinese', 'mobile', 'other'])).toMatchObject({
       kind: 'edge',
       reason: '含 other 的混合组合 {app,chinese,mobile,other}'
     })
@@ -121,9 +119,7 @@ describe('planResource', () => {
   })
 
   it('泛化拆解: 标记并集映射到平台', () => {
-    expect(
-      planResource(['app', 'chinese', 'emulator', 'pc'])
-    ).toMatchObject({
+    expect(planResource(['app', 'chinese', 'emulator', 'pc'])).toMatchObject({
       spec: {
         rule: 'G-emu',
         platform: ['windows', 'apk', 'emulator'],
@@ -227,9 +223,7 @@ describe('decideResource', () => {
 
   it('emu-type 规则判不出型号仍迁移, 填 other 并记报告', () => {
     for (const verdict of [{ k: 'uncertain' }, { k: 'apk' }] as const) {
-      expect(
-        decideResource(['chinese', 'emulator'], verdict)
-      ).toMatchObject({
+      expect(decideResource(['chinese', 'emulator'], verdict)).toMatchObject({
         action: 'migrate',
         rule: 'R11',
         update: {
@@ -243,9 +237,7 @@ describe('decideResource', () => {
   })
 
   it('R5 由 AI 在直装与模拟器间分流, 判不出则不迁移', () => {
-    expect(
-      decideResource(['chinese', 'mobile'], { k: 'apk' })
-    ).toEqual({
+    expect(decideResource(['chinese', 'mobile'], { k: 'apk' })).toEqual({
       action: 'migrate',
       rule: 'R5',
       update: { type: ['game'], platform: ['apk'] }
@@ -276,9 +268,7 @@ describe('decideResource', () => {
   })
 
   it('G-mobile 的 AI 结果并入基础平台集', () => {
-    expect(
-      decideResource(['chinese', 'mobile', 'pc'], { k: 'apk' })
-    ).toEqual({
+    expect(decideResource(['chinese', 'mobile', 'pc'], { k: 'apk' })).toEqual({
       action: 'migrate',
       rule: 'G-mobile',
       update: { type: ['game'], platform: ['windows', 'apk'] }
@@ -415,9 +405,9 @@ describe('parseAiVerdict', () => {
       k: 'windows'
     })
     expect(parseAiVerdict('platform', '{"k":"apk"}')).toEqual({ k: 'apk' })
-    expect(
-      parseAiVerdict('platform', '{"k":"emulator","t":["krkr"]}')
-    ).toEqual({ k: 'emulator', t: ['krkr'] })
+    expect(parseAiVerdict('platform', '{"k":"emulator","t":["krkr"]}')).toEqual(
+      { k: 'emulator', t: ['krkr'] }
+    )
     expect(parseAiVerdict('platform', '{"k":"emulator"}')).toEqual({
       k: 'uncertain'
     })

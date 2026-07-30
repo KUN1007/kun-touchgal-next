@@ -29,8 +29,7 @@ const attachCapture = (req: IncomingMessage): NodeBridge => {
   }
   const runCallback = (args: unknown[]) => {
     const cb = args.find((arg) => typeof arg === 'function') as
-      | (() => void)
-      | undefined
+      (() => void) | undefined
     cb?.()
   }
 

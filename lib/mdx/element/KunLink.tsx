@@ -1,8 +1,7 @@
 import Link from 'next/link'
 import React, { FC } from 'react'
 
-interface CustomLinkProps
-  extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
+interface CustomLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   href: string
 }
 

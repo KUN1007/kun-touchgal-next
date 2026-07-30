@@ -112,8 +112,10 @@ export const UserFavorite = ({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold">收藏夹</h2>
+      <div className="flex min-h-10 items-center justify-between mb-6">
+        <span className="text-small text-default-500">
+          共 {folders.length} 个收藏夹
+        </span>
         {currentUserUid === pageUid && (
           <EditFolderModal
             action="create"
@@ -154,6 +156,16 @@ export const UserFavorite = ({
           </Card>
         ))}
       </div>
+
+      {!folders.length && (
+        <KunNull
+          message={
+            currentUserUid === pageUid
+              ? '您还没有收藏夹, 点击右上角按钮创建一个吧'
+              : '这个孩子还没有公开的收藏夹哦'
+          }
+        />
+      )}
 
       <Modal
         size="5xl"

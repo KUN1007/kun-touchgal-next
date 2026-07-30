@@ -24,7 +24,7 @@ export const Bio = () => {
   const handleSave = async () => {
     const result = bioSchema.safeParse({ bio })
     if (!result.success) {
-      setError(result.error.errors[0].message)
+      setError(result.error.issues[0].message)
     } else {
       setError('')
       setUser({ ...user, bio })

@@ -106,7 +106,8 @@ const refineResourceSectionType = (
 }
 
 const patchResourceBaseSchema = z.object({
-  patchId: z.coerce.number().min(1).max(9999999),
+  // <number> 仅标注 input 类型, 使表单 (zodResolver) 与 API 复用同一 schema 时类型对齐
+  patchId: z.coerce.number<number>().min(1).max(9999999),
   section: z
     .string()
     .refine((type) => SUPPORTED_RESOURCE_SECTION.includes(type), {
@@ -118,7 +119,7 @@ const patchResourceBaseSchema = z.object({
     .array(
       z
         .object({
-          id: z.coerce.number().min(1).max(9999999).optional(),
+          id: z.coerce.number<number>().min(1).max(9999999).optional(),
           storage: z
             .string()
             .refine((type) => SUPPORTED_RESOURCE_LINK.includes(type), {

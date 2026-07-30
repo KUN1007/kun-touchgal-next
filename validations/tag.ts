@@ -24,7 +24,8 @@ export const createTagSchema = z.object({
 
 export const updateTagSchema = createTagSchema.merge(
   z.object({
-    tagId: z.coerce.number().min(1).max(9999999)
+    // <number> 仅标注 input 类型, 使表单 (zodResolver) 与 API 复用同一 schema 时类型对齐
+    tagId: z.coerce.number<number>().min(1).max(9999999)
   })
 )
 

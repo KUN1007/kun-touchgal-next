@@ -59,7 +59,7 @@ export const PublishButton = ({ setErrors, className }: Props) => {
     if (!result.success) {
       const newErrors: Partial<Record<keyof CreatePatchRequestData, string>> =
         {}
-      result.error.errors.forEach((err) => {
+      result.error.issues.forEach((err) => {
         if (err.path.length) {
           newErrors[err.path[0] as keyof CreatePatchRequestData] = err.message
           toast.error(err.message)

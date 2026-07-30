@@ -46,7 +46,7 @@ export const RewritePatch = () => {
     const result = patchUpdateSchema.safeParse(data)
     if (!result.success) {
       const newErrors: Partial<Record<keyof RewritePatchData, string>> = {}
-      result.error.errors.forEach((err) => {
+      result.error.issues.forEach((err) => {
         if (err.path.length) {
           newErrors[err.path[0] as keyof RewritePatchData] = err.message
           toast.error(err.message)

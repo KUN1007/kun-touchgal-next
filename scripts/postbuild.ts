@@ -60,7 +60,7 @@ const copyFiles = async () => {
       )
     ])
 
-    await assertExists('.next/standalone/public/favicon.webp')
+    await assertExists('.next/standalone/public/logo.webp')
     await assertExists('.next/standalone/public/sooner/こじかひわ.webp')
     await assertExists('.next/standalone/public/cap/cap_wasm_bg.wasm')
     await assertExists('.next/standalone/posts')

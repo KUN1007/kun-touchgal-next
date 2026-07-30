@@ -42,7 +42,7 @@ const createEmailChangeNotificationTemplate = (
   const safeOldEmail = escapeHtml(oldEmail)
   const safeNewEmail = escapeHtml(newEmail)
   const safeRevertLink = escapeHtml(revertLink)
-  const iconImage = `${getSiteAddress()}/favicon.webp`
+  const iconImage = `${getSiteAddress()}/logo.webp`
 
   return `
 <!doctype html>

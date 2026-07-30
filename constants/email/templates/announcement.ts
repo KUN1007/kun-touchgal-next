@@ -1,6 +1,6 @@
 import { kunMoyuMoe } from '~/config/moyu-moe'
 
-const iconImage = `${process.env.NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV}/favicon.webp`
+const iconImage = `${process.env.NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV}/logo.webp`
 
 const domain =
   process.env.NODE_ENV === 'development'

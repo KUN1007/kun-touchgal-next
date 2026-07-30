@@ -12,7 +12,7 @@ export const KunFooter = () => {
             className="flex items-center space-x-2 md:justify-self-start"
           >
             <Image
-              src="/favicon.webp"
+              src="/logo.webp"
               alt={kunMoyuMoe.titleShort}
               width={30}
               height={30}

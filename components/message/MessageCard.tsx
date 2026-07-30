@@ -76,7 +76,7 @@ export const MessageCard = ({ msg }: Props) => {
             }}
           />
         ) : (
-          <Avatar src="/favicon.webp" name="系统消息" />
+          <Avatar src="/logo.webp" name="系统消息" />
         )}
 
         <div className="flex-1 space-y-2">

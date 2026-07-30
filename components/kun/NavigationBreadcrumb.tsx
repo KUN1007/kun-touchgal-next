@@ -9,6 +9,7 @@ import {
 } from '~/constants/routes/routes'
 import { isPatchResourcePath } from '~/constants/routes/matcher'
 import { initialBreadcrumbItems, useBreadcrumbStore } from '~/store/breadcrumb'
+import { cn } from '~/utils/cn'
 
 export const KunNavigationBreadcrumb = () => {
   const pathname = usePathname()
@@ -43,12 +44,19 @@ export const KunNavigationBreadcrumb = () => {
   return (
     <div className="w-full my-4 bg-background/60 backdrop-blur-lg">
       <nav aria-label="Breadcrumb" className="px-3 mx-auto sm:px-6 max-w-7xl">
-        <ol className="flex flex-wrap items-center gap-1 text-sm text-foreground/60">
+        <ol className="flex flex-nowrap items-center gap-1 overflow-hidden text-sm text-foreground/60">
           {items.map((item, index) => {
             const isCurrent = index === items.length - 1
 
             return (
-              <li key={item.key} className="flex min-w-0 items-center gap-1">
+              <li
+                key={item.key}
+                // 当前项弹性收缩吃剩余宽度; 其余项定宽不收缩, 保证只截断一处
+                className={cn(
+                  'flex items-center gap-1',
+                  isCurrent ? 'min-w-0' : 'shrink-0'
+                )}
+              >
                 {index > 0 && (
                   <ChevronRight
                     aria-hidden="true"
@@ -59,13 +67,15 @@ export const KunNavigationBreadcrumb = () => {
                 {isCurrent ? (
                   <span
                     aria-current="page"
-                    className="min-w-0 break-all text-foreground"
+                    title={item.label}
+                    className="min-w-0 truncate text-foreground"
                   >
                     {item.label}
                   </span>
                 ) : (
                   <Link
-                    className="min-w-0 break-all transition-colors hover:text-foreground"
+                    title={item.label}
+                    className="max-w-32 truncate transition-colors hover:text-foreground sm:max-w-96"
                     href={item.href}
                   >
                     {item.label}

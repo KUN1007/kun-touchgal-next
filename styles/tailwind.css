@@ -6,6 +6,12 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
+  /* tailwind 4.3.x 回归: heroui 插件 (JS compat 层) 会吞掉默认主题里
+     --default-transition-duration 的输出, 致 transition-colors 等未显式
+     写 duration-* 的过渡全部降为 0s; 显式声明恢复 4.1.x 的实际取值,
+     上游修复后此行也只是等值冗余, 勿因"与默认重复"删除 */
+  --default-transition-duration: 150ms;
+
   --animate-bell-shake: bell-shake 2.5s ease-in-out infinite;
   --animate-dot-in: dot-in 0.2s ease-out;
 

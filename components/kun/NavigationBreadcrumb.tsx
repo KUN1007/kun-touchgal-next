@@ -42,7 +42,8 @@ export const KunNavigationBreadcrumb = () => {
   }
 
   return (
-    <div className="w-full my-4 bg-background/60 backdrop-blur-lg">
+    // mb-2 与内容容器自身的 mt-4 叠加为 24px, 与卡片间距 (space-y-6) 一致
+    <div className="w-full mt-4 mb-2 bg-background/60 backdrop-blur-lg">
       <nav aria-label="Breadcrumb" className="px-3 mx-auto sm:px-6 max-w-7xl">
         <ol className="flex flex-nowrap items-center gap-1 overflow-hidden text-sm text-foreground/60">
           {items.map((item, index) => {

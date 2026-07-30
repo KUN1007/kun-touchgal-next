@@ -39,7 +39,7 @@ export default async function Kun({ params, children }: Props) {
   const payload = await verifyHeaderCookie()
 
   return (
-    <div className="w-full py-8 mx-auto">
+    <div className="w-full pt-4 pb-8 mx-auto">
       <KunBreadcrumbTitle
         routeKey={`/user/${user.id}`}
         title={`${user.name} 的主页`}

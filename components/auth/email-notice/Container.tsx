@@ -6,7 +6,7 @@ import { KunEmailNoticeCard } from './KunEmailNoticeCard'
 
 export const KunContainer = () => {
   return (
-    <div className="container mx-auto my-8">
+    <div className="container mx-auto mt-4 mb-8">
       <div className="flex flex-col items-center justify-center gap-8">
         <div className="text-center">
           <h1 className="mb-2 text-3xl font-medium">邮件通知退订</h1>

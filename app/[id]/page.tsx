@@ -66,7 +66,7 @@ export default async function Kun({ params }: Props) {
   const isNsfwBlocked = pageData.patch.contentLimit === 'nsfw' && !nsfwAllowed
 
   return (
-    <div className="container py-6 mx-auto space-y-6">
+    <div className="container pt-4 pb-6 mx-auto space-y-6">
       <KunBreadcrumbTitle
         routeKey={`/${pageData.patch.uniqueId}`}
         title={isNsfwBlocked ? '' : getPatchPageTitle(pageData.patch)}

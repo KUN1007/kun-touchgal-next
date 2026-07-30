@@ -9,7 +9,7 @@ interface Props {
 
 export const LoginContainer = ({ title, children }: Props) => {
   return (
-    <div className="flex items-center justify-center mx-auto">
+    <div className="flex items-center justify-center mx-auto my-4">
       <Card className="w-full max-w-md">
         <CardHeader className="flex flex-col items-center pt-8 space-y-6">
           <div className="flex items-center space-x-2 font-medium cursor-default text-medium text-default-500">

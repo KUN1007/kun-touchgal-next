@@ -387,7 +387,7 @@ export const ResourceTabs = ({
                         ))}
                       </>
                     ) : (
-                      kunLoaded && (
+                      (!vndbId || kunLoaded) && (
                         <KunNull message="本游戏在鲲 Galgame 补丁暂无对应补丁" />
                       )
                     )}

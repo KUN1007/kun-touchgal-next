@@ -26,6 +26,7 @@ export const ResourceCard = ({ resource }: Props) => {
       isPressable
       as={Link}
       href={`/${resource.uniqueId}`}
+      prefetch={false}
       className={CARD_CLASS_NAME}
     >
       <CardBody className="flex h-full flex-col gap-3 p-4 sm:p-5">

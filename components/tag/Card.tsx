@@ -15,6 +15,7 @@ export const TagCard = ({ tag }: Props) => {
       isPressable
       as={Link}
       href={`/tag/${tag.id}`}
+      prefetch={false}
       className="w-full border border-default-100 dark:border-default-200"
     >
       <CardBody className="gap-2">

@@ -13,6 +13,7 @@ export const CompanyCard = ({ company }: Props) => {
       isPressable
       as={Link}
       href={`/company/${company.id}`}
+      prefetch={false}
       className="w-full"
     >
       <CardBody className="gap-2">

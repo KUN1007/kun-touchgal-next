@@ -21,6 +21,7 @@ export const UserResourceCard = ({ resource }: Props) => {
       isPressable
       as={Link}
       href={`/${resource.patchUniqueId}?tab=resources&resourceSection=${resource.section}&resourceId=${resource.id}`}
+      prefetch={false}
       className="w-full"
     >
       <CardBody className="p-4">

@@ -80,6 +80,7 @@ export const UserGalgameCard = ({
       <Link
         target="_blank"
         href={`/${galgame.uniqueId}`}
+        prefetch={false}
         className="group block w-full outline-none"
       >
         <CardHeader className="p-0">

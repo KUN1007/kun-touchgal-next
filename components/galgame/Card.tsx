@@ -73,6 +73,7 @@ export const GalgameCard = memo(function GalgameCard({
       isPressable
       as={Link}
       href={`/${patch.uniqueId}`}
+      prefetch={false}
       target={openOnNewTab ? '_blank' : '_self'}
       rel={openOnNewTab ? 'noopener noreferrer' : undefined}
       className={CARD_CLASS_NAME}

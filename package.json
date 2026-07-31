@@ -44,8 +44,8 @@
     "not op_mini all"
   ],
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1097.0",
-    "@aws-sdk/s3-request-presigner": "^3.1097.0",
+    "@aws-sdk/client-s3": "^3.1098.0",
+    "@aws-sdk/s3-request-presigner": "^3.1098.0",
     "@bprogress/next": "^3.2.12",
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.10.4",
@@ -70,7 +70,7 @@
     "@tailwindcss/postcss": "^4.3.3",
     "@types/mdx": "^2.0.14",
     "@types/node-cron": "^3.0.11",
-    "axios": "^1.18.1",
+    "axios": "^1.19.0",
     "canvas-confetti": "^1.9.4",
     "cap-widget": "0.1.56",
     "capjs-core": "^0.1.1",
@@ -83,7 +83,7 @@
     "html-to-text": "^10.0.0",
     "ioredis": "^5.11.1",
     "isomorphic-dompurify": "^3.20.0",
-    "jose": "^6.2.4",
+    "jose": "^6.2.5",
     "js-cookie": "^3.0.8",
     "jsonwebtoken": "^9.0.3",
     "localforage": "^1.10.0",

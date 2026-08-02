@@ -2,7 +2,7 @@ import { prisma } from '~/prisma/index'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 import type { ModerationContentType } from '~/constants/moderation'
 import { getModerationConfig } from './config'
-import { isWhitelistedText, prepareModerationText } from './prefilter'
+import { prepareModerationText } from './prefilter'
 
 type ModerationClient = Prisma.TransactionClient | typeof prisma
 
@@ -34,7 +34,7 @@ export const preScreenText = async (
   if (!config.enabled) {
     return MODERATION_SKIP
   }
-  if (!text.trim() || isWhitelistedText(text)) {
+  if (!text.trim()) {
     return MODERATION_SKIP
   }
   return { queue: true, intercept: !config.dryRun, dryRun: config.dryRun }

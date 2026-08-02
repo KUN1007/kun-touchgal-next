@@ -84,7 +84,7 @@ const queryHomeData = async (
       orderBy: { created: 'desc' },
       where: visibilityWhere,
       select: GalgameCardSelectField,
-      take: 20
+      take: 24
     }),
     prisma.patch_resource.findMany({
       orderBy: { created: 'desc' },

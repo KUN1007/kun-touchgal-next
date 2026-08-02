@@ -312,10 +312,10 @@ export const applyModerationVerdict = async (
       const payload = task.payload as unknown as ModerationTextPayload
       const notice =
         task.content_type === 'resource'
-          ? MODERATION_REJECT_NOTICE.resource(payload.name ?? '', reason)
+          ? MODERATION_REJECT_NOTICE.resource(payload.name ?? '')
           : MODERATION_REJECT_NOTICE[
               task.content_type as 'comment' | 'rating' | 'avatar' | 'bio'
-            ](reason)
+            ]()
       await createMessage(
         {
           type: 'system',

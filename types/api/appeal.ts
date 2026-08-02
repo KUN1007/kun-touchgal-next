@@ -12,7 +12,6 @@ export interface UserAppealItem {
   taskId: number
   contentType: string
   contentId: number
-  rejectReason: string
   rejectedAt: Date | string | null
   patchName: string | null
   original: AppealPayload | null

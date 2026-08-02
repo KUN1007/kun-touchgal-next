@@ -81,10 +81,6 @@ export const AppealCard = ({ item, onRefresh }: Props) => {
         )}
       </div>
 
-      <p className="text-sm text-danger-500">
-        未通过原因：{item.rejectReason || '包含违规内容'}
-      </p>
-
       {item.original ? (
         <div className="space-y-1 text-sm">
           <p className="text-default-500">原内容：</p>

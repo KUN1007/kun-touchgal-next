@@ -13,6 +13,7 @@ import {
   MODERATION_LEASE_SECONDS,
   MODERATION_LOCK_TTL_SECONDS,
   MODERATION_MAX_RETRY,
+  MODERATION_PROMPT_VERSION,
   MODERATION_S3_TIMEOUT_MS,
   MODERATION_VERDICT_CACHE_DURATION
 } from '~/constants/moderation'
@@ -47,9 +48,10 @@ import { withTaskLock } from './withTaskLock'
 const MODERATION_LOCK_KEY = 'moderation:worker:lock'
 
 // verdicts are cached per content_type: each type has a distinct system prompt,
-// so a verdict from one type must never be replayed onto another
+// so a verdict from one type must never be replayed onto another. prompt 版本同样
+// 入 key: 审核规则改动后旧裁决即失效, 不会被相同文本命中 (见 MODERATION_PROMPT_VERSION)
 const verdictCacheKey = (contentType: ModerationTextType, hash: string) =>
-  `${KUN_MODERATION_VERDICT_CACHE_KEY}:${contentType}:${hash}`
+  `${KUN_MODERATION_VERDICT_CACHE_KEY}:v${MODERATION_PROMPT_VERSION}:${contentType}:${hash}`
 
 const getCachedVerdict = async (
   contentType: ModerationTextType,
@@ -88,10 +90,10 @@ const applyAiResult = async (
   const { verdict } = result
   await applyModerationVerdict({
     task,
-    approved: verdict.p === 1,
-    manual: verdict.m === 1,
-    rejectCode: verdict.c,
-    rejectReason: verdict.r,
+    approved: verdict.pass,
+    manual: verdict.manual === true,
+    rejectCode: verdict.code,
+    rejectReason: verdict.reason,
     verdict: verdict as Prisma.InputJsonValue,
     model: result.model,
     tokensIn: result.tokensIn,

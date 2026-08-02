@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import {
+  MODERATION_AI_MAX_TOKENS,
   MODERATION_AI_TIMEOUT_MS,
   MODERATION_AVATAR_SYSTEM_PROMPT,
   MODERATION_TEXT_SYSTEM_PROMPT
@@ -10,11 +11,17 @@ import type { ModerationContentType } from '~/constants/moderation'
 // review instead of burning retries
 export class ModerationConfigError extends Error {}
 
+// prompt 要求输出 boolean, 但同时容忍 0/1: 模型偶尔的形态波动不该让整条内容
+// 走完三次重试再转人工
+const verdictFlag = z
+  .union([z.boolean(), z.literal(0), z.literal(1)])
+  .transform((value) => value === true || value === 1)
+
 export const moderationVerdictSchema = z.object({
-  p: z.union([z.literal(0), z.literal(1)]),
-  c: z.string().max(10).optional(),
-  r: z.string().max(100).optional(),
-  m: z.union([z.literal(0), z.literal(1)]).optional()
+  pass: verdictFlag,
+  code: z.string().max(10).optional(),
+  reason: z.string().max(100).optional(),
+  manual: verdictFlag.optional()
 })
 
 export type ModerationVerdict = z.infer<typeof moderationVerdictSchema>
@@ -84,10 +91,8 @@ const requestChatCompletion = async (
       // 走 SSE 流式: Cloudflare 免费版 ~100s 无数据即 504, 非流式下慢推理模型必超;
       // 流式响应持续推 delta (网关注入的心跳同理), 只要流不断就不会触发该超时
       stream: true,
-      // 推理模型的思考 (reasoning_content) 同样计入输出 token,
-      // 上限太小会导致思考阶段耗尽 token, 正文 content 为空;
-      // 这是上限而非实际消耗, 非推理模型仍只输出几个 token
-      max_tokens: 2048
+      // 见 MODERATION_AI_MAX_TOKENS: 这是上限而非实际消耗, 非推理模型仍只输出几个 token
+      max_tokens: MODERATION_AI_MAX_TOKENS
     })
   })
   if (!res.ok) {
@@ -177,7 +182,7 @@ const requestChatCompletion = async (
   if (!content.trim()) {
     throw new Error(
       `AI 返回正文为空 (finish_reason: ${finishReason ?? 'unknown'}), ` +
-        '若为 length 通常是推理模型的思考耗尽了 max_tokens'
+        `若为 length 通常是推理模型的思考耗尽了 max_tokens (${MODERATION_AI_MAX_TOKENS})`
     )
   }
 

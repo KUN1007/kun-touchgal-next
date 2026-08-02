@@ -37,13 +37,18 @@ beforeAll(async () => {
         ': ping\n\n' +
         dl({
           choices: [
-            { delta: { content: '{"p":1,"c":"SEX",' }, finish_reason: null }
+            {
+              delta: { content: '{"pass":true,"code":"SEX",' },
+              finish_reason: null
+            }
           ]
         }) +
         ': ping\n\n' +
         'event: keepalive\n\n' +
         dl({
-          choices: [{ delta: { content: '"r":"露点"}' }, finish_reason: null }]
+          choices: [
+            { delta: { content: '"reason":"露点"}' }, finish_reason: null }
+          ]
         }) +
         dl({
           choices: [{ delta: {}, finish_reason: 'stop' }],
@@ -74,7 +79,7 @@ afterAll(async () => {
 describe('AI 审核流式请求 (stream:true 对抗 Cloudflare 超时)', () => {
   it('reasoning_content 忽略 / 心跳与 event 行跳过 / 中文 verdict 与 usage 正确累积', async () => {
     const result = await moderateText('comment', '测试内容')
-    expect(result.verdict).toEqual({ p: 1, c: 'SEX', r: '露点' })
+    expect(result.verdict).toEqual({ pass: true, code: 'SEX', reason: '露点' })
     expect(result.tokensIn).toBe(320)
     expect(result.tokensOut).toBe(640)
     expect(result.model).toBe('test-r1')

@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import { MODERATION_TEXT_CONTENT_TYPE } from '~/constants/moderation'
 import { kunPasswordRegex } from '~/utils/validate'
+import {
+  isReservedUsername,
+  reservedUsernameMessage
+} from '~/constants/reserved-usernames'
 
 export const adminReportTargetTypeSchema = z.enum(['comment', 'rating'])
 
@@ -176,6 +180,10 @@ export const adminUpdateUserSchema = z.object({
   ),
   bio: z.string().trim().max(107, { message: '个人简介不能超过 107 个字符' })
 })
+  .refine((data) => !isReservedUsername(data.name), {
+    path: ['name'],
+    message: reservedUsernameMessage
+  })
 
 export const adminDisableUser2FASchema = z.object({
   uid: z.coerce.number({ message: '用户 ID 必须为数字' }).min(1).max(9999999)

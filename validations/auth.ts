@@ -5,11 +5,14 @@ import {
   kunValidMailConfirmCodeRegex
 } from '~/utils/validate'
 import { isKunWhitelistedEmailDomain } from '~/constants/email/whitelist'
+import {
+  isReservedUsername,
+  reservedUsernameMessage
+} from '~/constants/reserved-usernames'
 import { captchaVerifyTokenSchema } from './captcha'
 
 const kunWhitelistedEmailDomainMessage =
   '暂不支持该邮箱服务商，请使用列表中的常见邮箱注册'
-
 export const loginSchema = z.object({
   name: z
     .string()
@@ -45,6 +48,10 @@ export const registerSchema = z
     path: ['email'],
     message: kunWhitelistedEmailDomainMessage
   })
+  .refine((data) => !isReservedUsername(data.name), {
+    path: ['name'],
+    message: reservedUsernameMessage
+  })
 
 export const sendRegisterEmailVerificationCodeSchema = z
   .object({
@@ -57,6 +64,10 @@ export const sendRegisterEmailVerificationCodeSchema = z
   .refine((data) => isKunWhitelistedEmailDomain(data.email), {
     path: ['email'],
     message: kunWhitelistedEmailDomainMessage
+  })
+  .refine((data) => !isReservedUsername(data.name), {
+    path: ['name'],
+    message: reservedUsernameMessage
   })
 
 export const disableEmailNoticeSchema = z.object({

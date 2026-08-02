@@ -5,6 +5,7 @@ import {
 } from '~/utils/validate'
 import { nonEmptyFileSchema } from './file'
 import { captchaVerifyTokenSchema } from './captcha'
+import { isReservedUsername, reservedUsernameMessage } from '~/constants/reserved-usernames'
 
 export const avatarSchema = z.object({
   avatar: nonEmptyFileSchema
@@ -18,13 +19,18 @@ export const bioSchema = z.object({
     .max(107, { message: '签名不能超过 107 个字符' })
 })
 
-export const usernameSchema = z.object({
-  username: z
-    .string()
-    .trim()
-    .min(1, { message: '您的用户名最少需要 1 个字符' })
-    .max(17, { message: '用户名长度不能超过 17 个字符' })
-})
+export const usernameSchema = z
+  .object({
+    username: z
+      .string()
+      .trim()
+      .min(1, { message: '您的用户名最少需要 1 个字符' })
+      .max(17, { message: '用户名长度不能超过 17 个字符' })
+  })
+  .refine((data) => !isReservedUsername(data.username), {
+    path: ['username'],
+    message: reservedUsernameMessage
+  })
 
 export const resetEmailSchema = z.object({
   email: z.string().email({ message: '请输入合法的邮箱格式' }),

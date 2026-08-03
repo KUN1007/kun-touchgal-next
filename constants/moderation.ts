@@ -73,6 +73,17 @@ const MODERATION_VERDICT_FORMAT = `只输出JSON，禁止输出其他任何内�
 违规 → {"pass":false,"code":"类别码","reason":"说明具体违规点，不超过40字"}
 无法确定 → {"pass":true,"manual":true}`
 
+// 上面 prompt 里的"不超过40字"与下面两个上限是同一契约的两端: prompt 给模型目标,
+// 这两个数只做落库兜底. 模型写长不该让一条正确的裁决作废 (截断/丢弃策略见
+// server/moderation/ai.ts), 故留足余量. 单位是码点而非 UTF-16 单元, 故最坏 (全 emoji)
+// 占 400 个单元, 仍远小于 reject_reason 列宽 VarChar(1007)
+export const MODERATION_REASON_MAX_LENGTH = 200
+
+// 类别码形态阈值: 上面 MODERATION_REJECT_CODE_MAP 的码是 2-3 字符, 16 容得下模型偶尔
+// 输出的多重违规 (逗号连接四个三字母码 15 字符, 带空格分隔的三码 13 字符) —— 管理端
+// 对表外的码回落原串展示, 保住多重码比丢弃更有信息量; 超此长度则是说明句而非类别码
+export const MODERATION_CODE_MAX_LENGTH = 16
+
 // 群组引流对评论/评价从严: 群号/群链接本身即引流载体, 不再要求额外的交易意图
 const GROUP_INVITE_RULE = `出现QQ群/微信群/TG群/Discord等群组的群号、群链接、邀请码或加群二维码时一律判AD，无论是否带交易或引流意图。`
 

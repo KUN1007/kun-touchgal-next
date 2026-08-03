@@ -3,6 +3,8 @@ import {
   MODERATION_AI_MAX_TOKENS,
   MODERATION_AI_TIMEOUT_MS,
   MODERATION_AVATAR_SYSTEM_PROMPT,
+  MODERATION_CODE_MAX_LENGTH,
+  MODERATION_REASON_MAX_LENGTH,
   MODERATION_TEXT_SYSTEM_PROMPT
 } from '~/constants/moderation'
 import type { ModerationContentType } from '~/constants/moderation'
@@ -17,10 +19,29 @@ const verdictFlag = z
   .union([z.boolean(), z.literal(0), z.literal(1)])
   .transform((value) => value === true || value === 1)
 
+// code/reason 只是落库供管理端排查的附注 (不进用户可见文案, 见 MODERATION_REJECT_NOTICE),
+// 裁决依据是 pass. 因这两个字段的长度报错的代价完全不对称: temperature=0 下重投产出几乎
+// 相同, 三次重试注定同样失败, 只是白烧 token (avatar 还叠三次 S3 取图与 JPEG 编码), 最后
+// 把一条 pass 判定正确的裁决打成转人工、内容持续隐藏. 故 reason 截断保留信息, code 超限
+// 则丢弃 —— 那说明模型没按类别码输出, 该字段不可信, 由 resolveRejectReason 回落兜底
 export const moderationVerdictSchema = z.object({
   pass: verdictFlag,
-  code: z.string().max(10).optional(),
-  reason: z.string().max(100).optional(),
+  code: z
+    .string()
+    .transform((value) =>
+      value.length > MODERATION_CODE_MAX_LENGTH ? undefined : value
+    )
+    .optional(),
+  // 按码点切而非 String.slice: 后者按 UTF-16 单元切, 边界落在代理对中间会留下孤立
+  // 代理, 而 verdict 整体要写进 jsonb 列, JSON.stringify 会把它输出成字面 "\ud83d",
+  // Postgres 拒收 (Unicode low surrogate must follow a high surrogate) —— 事务失败后
+  // 同样是三次重试转人工, 恰好绕回这段代码要消除的结果
+  reason: z
+    .string()
+    .transform((value) =>
+      [...value].slice(0, MODERATION_REASON_MAX_LENGTH).join('')
+    )
+    .optional(),
   manual: verdictFlag.optional()
 })
 

@@ -8,7 +8,10 @@ import toast from 'react-hot-toast'
 import { kunFetchPost } from '~/utils/kunFetch'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import { KunTimeAgo } from '~/components/kun/TimeAgo'
-import { MODERATION_CONTENT_TYPE_MAP } from '~/constants/moderation'
+import {
+  MODERATION_CONTENT_TYPE_MAP,
+  MODERATION_REJECT_CODE_MAP
+} from '~/constants/moderation'
 import type { UserAppealItem, UserAppealState } from '~/types/api/appeal'
 
 interface Props {
@@ -80,6 +83,16 @@ export const AppealCard = ({ item, onRefresh }: Props) => {
           </span>
         )}
       </div>
+
+      {/* 申诉通过 (approveAppeal 不改写 task.status, 条目仍留在列表里) 与已失效的内容
+          都已恢复展示或不复存在, 再挂一条红色拒绝原因与状态 chip 自相矛盾. 只展示表内
+          码的类别名: 表外码 (多重违规码, 或管理员改判时留空) 对用户没有指向性 */}
+      {item.state !== 'approved' && item.state !== 'unavailable' && (
+        <p className="text-sm text-danger-500">
+          未通过原因：
+          {MODERATION_REJECT_CODE_MAP[item.rejectCode] ?? '包含违规内容'}
+        </p>
+      )}
 
       {item.original ? (
         <div className="space-y-1 text-sm">

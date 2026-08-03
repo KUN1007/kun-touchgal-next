@@ -12,6 +12,9 @@ export interface UserAppealItem {
   taskId: number
   contentType: string
   contentId: number
+  // 类别码原文, 由前端经 MODERATION_REJECT_CODE_MAP 映射为类别名展示;
+  // 具体命中点 (reject_reason) 不下发给用户
+  rejectCode: string
   rejectedAt: Date | string | null
   patchName: string | null
   original: AppealPayload | null

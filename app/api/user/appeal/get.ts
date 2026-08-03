@@ -131,6 +131,7 @@ export const getUserAppeals = async (
       taskId: task.id,
       contentType: task.content_type,
       contentId: task.content_id ?? 0,
+      rejectCode: task.reject_code,
       rejectedAt: task.reviewed,
       patchName: content?.patchName ?? null,
       original: content?.original ?? null,

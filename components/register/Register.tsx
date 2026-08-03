@@ -3,8 +3,7 @@
 import { kunMoyuMoe } from '~/config/moyu-moe'
 import { useMemo, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import type { z } from 'zod'
 import { Button, Checkbox, Input, Link } from '@heroui/react'
 import {
   Dropdown,
@@ -14,7 +13,7 @@ import {
 } from '@heroui/dropdown'
 import { ChevronDown } from 'lucide-react'
 import { kunFetchPost } from '~/utils/kunFetch'
-import { registerSchema } from '~/validations/auth'
+import type { registerSchema } from '~/validations/auth'
 import { useUserStore } from '~/store/userStore'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import toast from 'react-hot-toast'
@@ -36,7 +35,6 @@ export const RegisterForm = () => {
   const [emailDomain, setEmailDomain] = useState(KUN_EMAIL_DOMAIN_WHITELIST[0])
 
   const { control, watch, reset } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
     defaultValues: {
       name: '',
       code: '',
@@ -81,7 +79,7 @@ export const RegisterForm = () => {
       <Controller
         name="name"
         control={control}
-        render={({ field, formState: { errors } }) => (
+        render={({ field }) => (
           <Input
             {...field}
             isRequired
@@ -89,8 +87,6 @@ export const RegisterForm = () => {
             type="name"
             variant="bordered"
             autoComplete="username"
-            isInvalid={!!errors.name}
-            errorMessage={errors.name?.message}
           />
         )}
       />
@@ -137,15 +133,13 @@ export const RegisterForm = () => {
       <Controller
         name="code"
         control={control}
-        render={({ field, formState: { errors } }) => (
+        render={({ field }) => (
           <Input
             {...field}
             isRequired
             label="验证码"
             type="text"
             variant="bordered"
-            isInvalid={!!errors.code}
-            errorMessage={errors.code?.message}
             autoComplete="one-time-code"
             endContent={
               <EmailVerification
@@ -160,7 +154,7 @@ export const RegisterForm = () => {
       <Controller
         name="password"
         control={control}
-        render={({ field, formState: { errors } }) => (
+        render={({ field }) => (
           <Input
             {...field}
             isRequired
@@ -168,8 +162,6 @@ export const RegisterForm = () => {
             type="password"
             variant="bordered"
             autoComplete="current-password"
-            isInvalid={!!errors.password}
-            errorMessage={errors.password?.message}
           />
         )}
       />

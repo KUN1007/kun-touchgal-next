@@ -1,15 +1,53 @@
 import { createHash } from 'node:crypto'
-import {
-  isReservedUsername,
-  normalizeReservedUsername
-} from '~/constants/reserved-usernames'
 
-// 保留用户名表（敏感部分）：仓库与浏览器 bundle 都是公开可读的，明文清单本身
-// 比它拦截的用户名更值得防，故只存 SHA-256 摘要。依赖 node:crypto 也顺带保证
-// 本文件无法被打进客户端 chunk。
-// 摘要对象为 normalizeReservedUsername(词) 的 UTF-8 字节，新增条目用：
+// 保留用户名表：禁止用户将用户名设置为表中的词。仓库是公开的, 敏感条目只存
+// SHA-256 摘要, 系统词与项目词无保密价值故保留明文以便维护和 review。
+// 本文件依赖 node:crypto, 客户端打不进来; 校验只在服务端做, 客户端 schema
+// (validations/{auth,user,admin}.ts) 一律不引用本文件, 否则整份表会随 chunk 下发。
+// 明文条目必须为小写, 摘要对象为 normalizeReservedUsername(词) 的 UTF-8 字节。
+// 与数据库用户名查重（mode: 'insensitive'）一样只折叠 ASCII 大小写；
+// 全角/同形异义/繁简变体（ａｄｍｉｎ、аdmin、天安門）两边一致地放过，
+// 属既有用户名体系限制，不做 NFKC 归一化以免与 DB 查重语义分叉。
+export const RESERVED_USERNAMES: readonly string[] = [
+  // 常见系统词
+  'admin',
+  'administrator',
+  'root',
+  'system',
+  'sys',
+  'superuser',
+  'operator',
+  'manager',
+  'guest',
+  'anonymous',
+  'anon',
+  'test',
+  'testing',
+  'null',
+  'undefined',
+  'none',
+  'api',
+  'server',
+  'service',
+  'support',
+  'official',
+  'mod',
+  '官方',
+  '管理员',
+  '系统',
+  '客服',
+  '测试',
+  '游客',
+  '匿名',
+  '站长',
+  // 项目词
+  'touchgal',
+  'palentum'
+]
+
+// 敏感条目, 新增用：
 //   node -e "console.log(require('crypto').createHash('sha256').update(process.argv[1].trim().toLowerCase()).digest('hex'))" '词'
-const SENSITIVE_RESERVED_USERNAME_HASHES: ReadonlySet<string> = new Set([
+const RESERVED_USERNAME_HASHES: ReadonlySet<string> = new Set([
   '00c3d1fb3a3e7978bec331648b5b2ce9c4b28e2dda0b2568a38bb2238dc57bfd',
   '02802cbb452da592f2d1b4960dcb2904a3976535a1eaccded4904dd973fea702',
   '0786a2211d406e399326a3cd8bb17bb433554854969f2dc1895edd62a4480978',
@@ -41,17 +79,21 @@ const SENSITIVE_RESERVED_USERNAME_HASHES: ReadonlySet<string> = new Set([
   'f57195c736be9ec3128886752edb423a4f57cb5572ecf66de49e90000afcb0d1'
 ])
 
-export const RESERVED_USERNAME_HASH_COUNT =
-  SENSITIVE_RESERVED_USERNAME_HASHES.size
+export const RESERVED_USERNAME_COUNT =
+  RESERVED_USERNAMES.length + RESERVED_USERNAME_HASHES.size
+
+export const reservedUsernameMessage = '该用户名已被系统保留，请更换'
+
+export const normalizeReservedUsername = (name: string) =>
+  name.trim().toLowerCase()
 
 export const hashReservedUsername = (name: string) =>
   createHash('sha256').update(normalizeReservedUsername(name)).digest('hex')
 
-// hashes 参数只为让测试能在不写明文词的前提下覆盖摘要匹配分支
-export const isSensitiveReservedUsername = (
+// hashes 参数只为让测试能在不写明文敏感词的前提下覆盖摘要匹配分支
+export const isReservedUsername = (
   name: string,
-  hashes: ReadonlySet<string> = SENSITIVE_RESERVED_USERNAME_HASHES
-) => hashes.has(hashReservedUsername(name))
-
-export const isReservedUsernameStrict = (name: string) =>
-  isReservedUsername(name) || isSensitiveReservedUsername(name)
+  hashes: ReadonlySet<string> = RESERVED_USERNAME_HASHES
+) =>
+  RESERVED_USERNAMES.includes(normalizeReservedUsername(name)) ||
+  hashes.has(hashReservedUsername(name))

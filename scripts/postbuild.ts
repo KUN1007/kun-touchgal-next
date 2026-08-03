@@ -70,9 +70,7 @@ const copyFiles = async () => {
     await assertExists(
       path.join(standaloneDir, 'public/sooner/こじかひわ.webp')
     )
-    await assertExists(
-      path.join(standaloneDir, 'public/cap/cap_wasm_bg.wasm')
-    )
+    await assertExists(path.join(standaloneDir, 'public/cap/cap_wasm_bg.wasm'))
     await assertExists(path.join(standaloneDir, 'posts'))
     await assertExists(path.join(standaloneDir, 'config/redirect.json'))
 

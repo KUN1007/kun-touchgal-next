@@ -9,6 +9,7 @@ import { captchaVerifyTokenSchema } from './captcha'
 
 const kunWhitelistedEmailDomainMessage =
   '暂不支持该邮箱服务商，请使用列表中的常见邮箱注册'
+
 export const loginSchema = z.object({
   name: z
     .string()

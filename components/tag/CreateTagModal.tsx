@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import type { z } from 'zod'
 import {
   Modal,
   ModalBody,
@@ -15,7 +14,7 @@ import { Button } from '@heroui/button'
 import { Input, Textarea } from '@heroui/input'
 import { Chip } from '@heroui/chip'
 import { Plus } from 'lucide-react'
-import { createTagSchema } from '~/validations/tag'
+import type { createTagSchema } from '~/validations/tag'
 import { kunFetchPost } from '~/utils/kunFetch'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import toast from 'react-hot-toast'
@@ -33,15 +32,7 @@ export const CreateTagModal = ({ isOpen, onClose, onSuccess }: Props) => {
   const [input, setInput] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const {
-    register,
-    formState: { errors },
-    getValues,
-    watch,
-    setValue,
-    reset
-  } = useForm<FormData>({
-    resolver: zodResolver(createTagSchema),
+  const { register, getValues, watch, setValue, reset } = useForm<FormData>({
     defaultValues: {
       name: '',
       introduction: '',
@@ -99,16 +90,12 @@ export const CreateTagModal = ({ isOpen, onClose, onSuccess }: Props) => {
                 {...register('name')}
                 label="标签名称"
                 placeholder="输入标签名称"
-                isInvalid={!!errors.name}
-                errorMessage={errors.name?.message}
               />
 
               <Textarea
                 {...register('introduction')}
                 label="标签简介"
                 placeholder="输入标签简介"
-                isInvalid={!!errors.introduction}
-                errorMessage={errors.introduction?.message}
               />
 
               <div className="space-y-2">

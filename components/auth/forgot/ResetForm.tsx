@@ -1,14 +1,13 @@
 'use client'
 
-import { z } from 'zod'
+import type { z } from 'zod'
 import { useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { Button, Input } from '@heroui/react'
 import { Card, CardBody, CardHeader } from '@heroui/card'
 import { Divider } from '@heroui/react'
 import { LockKeyhole } from 'lucide-react'
-import { forgotPasswordResetSchema } from '~/validations/forgot'
+import type { forgotPasswordResetSchema } from '~/validations/forgot'
 import { kunFetchPost } from '~/utils/kunFetch'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import toast from 'react-hot-toast'
@@ -24,13 +23,7 @@ export const ResetForm = ({ token }: Props) => {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
-  const {
-    control,
-    watch,
-    reset,
-    formState: { errors }
-  } = useForm<ResetFormData>({
-    resolver: zodResolver(forgotPasswordResetSchema),
+  const { control, watch, reset } = useForm<ResetFormData>({
     defaultValues: {
       token,
       newPassword: '',
@@ -81,8 +74,6 @@ export const ResetForm = ({ token }: Props) => {
                 type="password"
                 placeholder="请输入新密码"
                 autoComplete="new-password"
-                isInvalid={!!errors.newPassword}
-                errorMessage={errors.newPassword?.message}
                 startContent={
                   <LockKeyhole className="size-4 text-default-400" />
                 }
@@ -99,8 +90,6 @@ export const ResetForm = ({ token }: Props) => {
                 type="password"
                 placeholder="请再次输入新密码"
                 autoComplete="new-password"
-                isInvalid={!!errors.confirmPassword}
-                errorMessage={errors.confirmPassword?.message}
                 startContent={
                   <LockKeyhole className="size-4 text-default-400" />
                 }

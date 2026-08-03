@@ -8,6 +8,9 @@ import { createHash } from 'node:crypto'
 // 与数据库用户名查重（mode: 'insensitive'）一样只折叠 ASCII 大小写；
 // 全角/同形异义/繁简变体（ａｄｍｉｎ、аdmin、天安門）两边一致地放过，
 // 属既有用户名体系限制，不做 NFKC 归一化以免与 DB 查重语义分叉。
+// 例外是不可见格式字符（\p{Cf}：零宽空格/ZWNJ/ZWJ/BOM/双向覆写）：它们不改变
+// 用户名的视觉呈现, 留着就等于 'admin​' 可冒名而肉眼无从分辨。剥掉它们
+// 只让保留词判定比 DB 查重更严（多拒不误放），与上面担心的分叉方向相反。
 export const RESERVED_USERNAMES: readonly string[] = [
   // 常见系统词
   'admin',
@@ -84,8 +87,13 @@ export const RESERVED_USERNAME_COUNT =
 
 export const reservedUsernameMessage = '该用户名已被系统保留，请更换'
 
+// 剥离必须在 trim 之前: '​ admin' 先 trim 不动 (零宽不是空白字符), 剥完
+// 会剩下前导空格而漏判
 export const normalizeReservedUsername = (name: string) =>
-  name.trim().toLowerCase()
+  name
+    .replace(/\p{Cf}/gu, '')
+    .trim()
+    .toLowerCase()
 
 export const hashReservedUsername = (name: string) =>
   createHash('sha256').update(normalizeReservedUsername(name)).digest('hex')

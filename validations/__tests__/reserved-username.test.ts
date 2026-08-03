@@ -12,9 +12,7 @@ import {
   loginSchema
 } from '~/validations/auth'
 import { usernameSchema } from '~/validations/user'
-import { adminUpdateUserSchema } from '~/validations/admin'
 import {
-  adminUpdateUserServerSchema,
   registerServerSchema,
   sendRegisterEmailVerificationCodeServerSchema,
   usernameServerSchema
@@ -54,6 +52,34 @@ describe('isReservedUsername 精确匹配', () => {
   it('摘要匹配与明文表一样折叠首尾空白和大小写', () => {
     const hashes = new Set([hashReservedUsername('kun-probe-word')])
     expect(isReservedUsername('  KUN-Probe-Word  ', hashes)).toBe(true)
+  })
+
+  // 零宽字符不改变用户名的视觉呈现, 留着就等于保留词可被逐字冒名
+  it('剥离不可见格式字符后仍判定为保留词', () => {
+    expect(isReservedUsername('admin​')).toBe(true) // ZWSP
+    expect(isReservedUsername('admin‌')).toBe(true) // ZWNJ
+    expect(isReservedUsername('ad‍min')).toBe(true) // ZWJ
+    expect(isReservedUsername('admin﻿')).toBe(true) // BOM
+    expect(isReservedUsername('‮admin')).toBe(true) // RLO 双向覆写
+    expect(isReservedUsername('管​理​员')).toBe(true)
+  })
+
+  // '​ admin': 零宽不是空白字符, 先 trim 不动, 剥完会剩前导空格
+  it('先剥离后 trim, 顺序颠倒会漏判', () => {
+    expect(isReservedUsername('​ admin')).toBe(true)
+    expect('​ admin'.trim().replace(/\p{Cf}/gu, '')).toBe(' admin')
+  })
+
+  it('摘要分支同样剥离不可见字符', () => {
+    const hashes = new Set([hashReservedUsername('kun-probe-word')])
+    expect(isReservedUsername('kun-probe​-word', hashes)).toBe(true)
+  })
+
+  it('剥离不把普通用户名误判为保留词', () => {
+    // 库中存量的 emoji 组合名: 剥掉 ZWJ 后依然不是保留词
+    expect(isReservedUsername('\u{1f468}‍\u{1f469}‍\u{1f466}')).toBe(false)
+    expect(isReservedUsername('kun​')).toBe(false)
+    expect(isReservedUsername('​')).toBe(false)
   })
 
   it('条目总数固定, 防止误删词条', () => {
@@ -154,16 +180,8 @@ describe('服务端 schema 拦截保留词', () => {
     code: 'Abc1234',
     password: 'pass1234'
   }
-  const adminInput = {
-    uid: 1,
-    name: 'kun',
-    email: 'kun@qq.com',
-    role: 1,
-    status: 0,
-    dailyImageCount: 0,
-    moemoepoint: 0,
-    bio: ''
-  }
+  // 管理端改用户信息的保留词校验不在 schema 层 (整表单提交会锁死存量保留名
+  // 用户), 落在 app/api/admin/user/update.ts 的改名分支, 由 update.test.ts 覆盖
 
   it('registerServerSchema 拒绝保留词, 错误定位在 name', () => {
     const result = registerServerSchema.safeParse({
@@ -209,16 +227,5 @@ describe('服务端 schema 拦截保留词', () => {
     expect(usernameServerSchema.safeParse({ username: 'Kun' }).success).toBe(
       true
     )
-  })
-
-  it('adminUpdateUserServerSchema 拒绝把用户改名为保留词', () => {
-    expect(
-      adminUpdateUserServerSchema.safeParse({ ...adminInput, name: 'admin' })
-        .success
-    ).toBe(false)
-    expect(adminUpdateUserServerSchema.safeParse(adminInput).success).toBe(true)
-    expect(
-      adminUpdateUserSchema.safeParse({ ...adminInput, name: 'admin' }).success
-    ).toBe(true)
   })
 })

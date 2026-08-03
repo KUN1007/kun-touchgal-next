@@ -6,8 +6,10 @@ import {
   kunParsePutBody
 } from '~/app/api/utils/parseQuery'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
-import { adminUserPaginationSchema } from '~/validations/admin'
-import { adminUpdateUserServerSchema } from '~/validations/reserved-username.server'
+import {
+  adminUpdateUserSchema,
+  adminUserPaginationSchema
+} from '~/validations/admin'
 import { getUserInfo } from './get'
 import { updateUser } from './update'
 import { deleteUser } from './delete'
@@ -34,7 +36,7 @@ export const GET = async (req: NextRequest) => {
 }
 
 export const PUT = async (req: NextRequest) => {
-  const input = await kunParsePutBody(req, adminUpdateUserServerSchema)
+  const input = await kunParsePutBody(req, adminUpdateUserSchema)
   if (typeof input === 'string') {
     return NextResponse.json(input)
   }

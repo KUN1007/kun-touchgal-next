@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { adminUpdateUserSchema } from '~/validations/admin'
+import {
+  isReservedUsername,
+  reservedUsernameMessage
+} from '~/constants/reserved-usernames.server'
 import { deleteKunToken } from '~/app/api/utils/jwt'
 import { hashPassword } from '~/app/api/utils/algorithm'
 
@@ -37,7 +41,12 @@ export const updateUser = async (
   if (rest.role >= 3 && admin.role < 4) {
     return '设置用户为管理员仅限超级管理员可用'
   }
+  // 保留词只拦「改名」这一步: 表单整体提交, name 恒定携带, 若在 schema 层判
+  // 会把库里存量的保留名用户 (含 uid 1 与冒名的 admin) 锁死, 连封禁都做不了
   if (rest.name !== user.name) {
+    if (isReservedUsername(rest.name)) {
+      return reservedUsernameMessage
+    }
     const existingUserByName = await prisma.user.findUnique({
       where: { name: rest.name },
       select: { id: true }

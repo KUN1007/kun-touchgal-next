@@ -3,7 +3,6 @@ import {
   sendRegisterEmailVerificationCodeSchema
 } from '~/validations/auth'
 import { usernameSchema } from '~/validations/user'
-import { adminUpdateUserSchema } from '~/validations/admin'
 import {
   isReservedUsername,
   reservedUsernameMessage
@@ -27,7 +26,5 @@ export const usernameServerSchema = usernameSchema.refine(
   { path: ['username'], message: reservedUsernameMessage }
 )
 
-export const adminUpdateUserServerSchema = adminUpdateUserSchema.refine(
-  (data) => !isReservedUsername(data.name),
-  { path: ['name'], message: reservedUsernameMessage }
-)
+// 管理端改用户信息不在这里加 refine: 那是整表单提交, name 恒定携带, schema 层
+// 判词会锁死库里存量的保留名用户。校验落在 app/api/admin/user/update.ts 的改名分支

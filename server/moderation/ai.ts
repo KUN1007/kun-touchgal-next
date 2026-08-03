@@ -2,12 +2,14 @@ import { z } from 'zod'
 import {
   MODERATION_AI_MAX_TOKENS,
   MODERATION_AI_TIMEOUT_MS,
-  MODERATION_AVATAR_SYSTEM_PROMPT,
   MODERATION_CODE_MAX_LENGTH,
-  MODERATION_REASON_MAX_LENGTH,
-  MODERATION_TEXT_SYSTEM_PROMPT
+  MODERATION_REASON_MAX_LENGTH
 } from '~/constants/moderation'
 import type { ModerationContentType } from '~/constants/moderation'
+import {
+  MODERATION_AVATAR_SYSTEM_PROMPT,
+  MODERATION_TEXT_SYSTEM_PROMPT
+} from './prompt'
 
 // configuration problems (missing env) should send the task to manual
 // review instead of burning retries

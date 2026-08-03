@@ -13,11 +13,11 @@ import {
   MODERATION_LEASE_SECONDS,
   MODERATION_LOCK_TTL_SECONDS,
   MODERATION_MAX_RETRY,
-  MODERATION_PROMPT_VERSION,
   MODERATION_S3_TIMEOUT_MS,
   MODERATION_VERDICT_CACHE_DURATION
 } from '~/constants/moderation'
 import type { ModerationTextType } from '~/constants/moderation'
+import { MODERATION_PROMPT_VERSION } from '~/server/moderation/prompt'
 import {
   ModerationConfigError,
   moderateImage,

@@ -91,10 +91,14 @@ describe('isReservedUsername 精确匹配', () => {
 // 实测让一个 'use client' 组件 import ~/validations/reserved-username.server 后
 // `next build` 照常成功, Turbopack 给 node:crypto 上了 polyfill, 32 条明文 + 29 条
 // 摘要连同错误消息一起进了客户端 chunk。所以这里扫两层——客户端组件本身, 以及被
-// 它们复用的 validations 模块——任何一层引用 *.server 都会红。
+// 它们复用的 validations 模块——任何一层引用服务端模块都会红。
 describe('客户端可达模块不得引用服务端模块', () => {
   const repoRoot = new URL('../../', import.meta.url)
   const serverImportPattern = /from\s+['"][^'"]*\.server['"]/
+  // server/ 整个目录都是服务端代码 (prisma、S3、审核 prompt 原文), 但目录名不带
+  // .server 后缀, 上面那条正则扫不到。审核 prompt 就栽在这个缺口上: 规则原文与
+  // 客户端要用的 label 表同在 constants/moderation.ts, 被打进了 client chunk
+  const serverDirImportPattern = /from\s+['"](?:~\/|(?:\.\.\/)+)server\//
 
   const listSourceFiles = (dir: string) =>
     readdirSync(new URL(dir, repoRoot), {
@@ -123,9 +127,11 @@ describe('客户端可达模块不得引用服务端模块', () => {
   })
 
   it.each([...clientComponents, ...sharedValidations])(
-    '%s 不引用 *.server 模块',
+    '%s 不引用服务端模块',
     (file) => {
-      expect(readSource(file)).not.toMatch(serverImportPattern)
+      const source = readSource(file)
+      expect(source).not.toMatch(serverImportPattern)
+      expect(source).not.toMatch(serverDirImportPattern)
     }
   )
 })

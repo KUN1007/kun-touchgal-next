@@ -1,4 +1,6 @@
-// 保留用户名表：禁止用户将用户名设置为表中的词。
+// 保留用户名表（公开部分）：系统词与项目词，禁止用户将用户名设置为表中的词。
+// 本文件被客户端表单校验复用，会进入浏览器 bundle，只允许放公开无害的词；
+// 敏感词部分见 constants/reserved-usernames.server.ts（摘要存储，仅服务端）。
 // 所有条目必须为小写，比较时对输入做 trim + toLowerCase 后精确匹配。
 // 与数据库用户名查重（mode: 'insensitive'）一样只折叠 ASCII 大小写；
 // 全角/同形异义/繁简变体（ａｄｍｉｎ、аdmin、天安門）两边一致地放过，
@@ -37,42 +39,13 @@ export const RESERVED_USERNAMES: readonly string[] = [
   '站长',
   // 项目词
   'touchgal',
-  'palentum',
-  // 常见政治敏感词：领导人姓名
-  '***',
-  '***',
-  '***',
-  '***',
-  '***',
-  '***',
-  '***',
-  '***',
-  '***',
-  '***',
-  '***',
-  '***',
-  '***',
-  '***',
-  '***',
-  '***',
-  '***',
-  // 常见政治敏感词：事件与组织
-  '***',
-  '***',
-  '***',
-  '***',
-  '***',
-  '***',
-  '***',
-  '***',
-  // 常见政治敏感词：分裂主张
-  '***',
-  '***',
-  '***',
-  '***'
+  'palentum'
 ]
 export const reservedUsernameMessage = '该用户名已被系统保留，请更换'
 
+export const normalizeReservedUsername = (name: string) =>
+  name.trim().toLowerCase()
+
 export const isReservedUsername = (name: string) => {
-  return RESERVED_USERNAMES.includes(name.trim().toLowerCase())
+  return RESERVED_USERNAMES.includes(normalizeReservedUsername(name))
 }

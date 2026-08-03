@@ -3,7 +3,7 @@ import { kunParsePostBody } from '~/app/api/utils/parseQuery'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { prisma } from '~/prisma/index'
 import { Prisma } from '~/prisma/generated/prisma/client'
-import { usernameSchema } from '~/validations/user'
+import { usernameServerSchema } from '~/validations/reserved-username.server'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
 
 // verifyHeaderCookie 已在 verifyAndLoadUser 里拦掉不存在/封禁的用户, 故此处不再
@@ -48,7 +48,7 @@ const updateUsername = async (username: string, uid: number) => {
 }
 
 export const POST = async (req: NextRequest) => {
-  const input = await kunParsePostBody(req, usernameSchema)
+  const input = await kunParsePostBody(req, usernameServerSchema)
   if (typeof input === 'string') {
     return NextResponse.json(input)
   }

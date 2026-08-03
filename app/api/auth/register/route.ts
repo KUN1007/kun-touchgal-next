@@ -7,7 +7,7 @@ import { verifyVerificationCode } from '~/app/api/utils/verifyVerificationCode'
 import { getRemoteIp } from '~/app/api/utils/getRemoteIp'
 import { generateKunToken } from '~/app/api/utils/jwt'
 import { kunCookieOptions } from '~/app/api/utils/cookieOptions'
-import { registerSchema } from '~/validations/auth'
+import { registerServerSchema } from '~/validations/reserved-username.server'
 import { checkDisableRegister } from '~/app/api/utils/checkDisableRegister'
 import { delKv } from '~/lib/redis'
 import { prisma } from '~/prisma/index'
@@ -16,7 +16,7 @@ import { getRedirectConfig } from '~/app/api/admin/setting/redirect/getRedirectC
 import type { UserState } from '~/store/userStore'
 
 const register = async (
-  input: z.infer<typeof registerSchema>,
+  input: z.infer<typeof registerServerSchema>,
   ip: string,
   userAgent: string
 ) => {
@@ -108,7 +108,7 @@ const register = async (
 }
 
 export const POST = async (req: NextRequest) => {
-  const input = await kunParsePostBody(req, registerSchema)
+  const input = await kunParsePostBody(req, registerServerSchema)
   if (typeof input === 'string') {
     return NextResponse.json(input)
   }

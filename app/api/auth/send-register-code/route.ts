@@ -2,13 +2,13 @@ import { z } from 'zod'
 import { NextRequest, NextResponse } from 'next/server'
 import { kunParsePostBody } from '~/app/api/utils/parseQuery'
 import { sendVerificationCodeEmail } from '~/app/api/utils/sendVerificationCodeEmail'
-import { sendRegisterEmailVerificationCodeSchema } from '~/validations/auth'
+import { sendRegisterEmailVerificationCodeServerSchema } from '~/validations/reserved-username.server'
 import { checkKunCaptchaExist } from '~/app/api/utils/verifyKunCaptcha'
 import { checkDisableRegister } from '~/app/api/utils/checkDisableRegister'
 import { prisma } from '~/prisma/index'
 
 const sendRegisterCode = async (
-  input: z.infer<typeof sendRegisterEmailVerificationCodeSchema>,
+  input: z.infer<typeof sendRegisterEmailVerificationCodeServerSchema>,
   headers: Headers
 ) => {
   const disableRegisterMessage = await checkDisableRegister()
@@ -50,7 +50,7 @@ const sendRegisterCode = async (
 export const POST = async (req: NextRequest) => {
   const input = await kunParsePostBody(
     req,
-    sendRegisterEmailVerificationCodeSchema
+    sendRegisterEmailVerificationCodeServerSchema
   )
   if (typeof input === 'string') {
     return NextResponse.json(input)

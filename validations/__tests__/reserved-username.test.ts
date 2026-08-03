@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   hashReservedUsername,
@@ -61,23 +61,47 @@ describe('isReservedUsername 精确匹配', () => {
   })
 })
 
-// 这些模块会被客户端表单 import, 一旦引入服务端词表, 整份表就会随
-// /login /register /settings/user 的 chunk 投送给任何访客
-describe('客户端可达模块不得引用服务端词表', () => {
-  const clientReachableFiles = [
-    'validations/auth.ts',
-    'validations/user.ts',
-    'validations/admin.ts'
-  ]
+// 这道断言是整份词表不下发浏览器的唯一防线。node:crypto 挡不住:
+// 实测让一个 'use client' 组件 import ~/validations/reserved-username.server 后
+// `next build` 照常成功, Turbopack 给 node:crypto 上了 polyfill, 32 条明文 + 29 条
+// 摘要连同错误消息一起进了客户端 chunk。所以这里扫两层——客户端组件本身, 以及被
+// 它们复用的 validations 模块——任何一层引用 *.server 都会红。
+describe('客户端可达模块不得引用服务端模块', () => {
+  const repoRoot = new URL('../../', import.meta.url)
+  const serverImportPattern = /from\s+['"][^'"]*\.server['"]/
 
-  it.each(clientReachableFiles)('%s 不引用 server 词表', (file) => {
-    const source = readFileSync(new URL(`../../${file}`, import.meta.url), {
+  const listSourceFiles = (dir: string) =>
+    readdirSync(new URL(dir, repoRoot), {
+      recursive: true,
       encoding: 'utf-8'
     })
-    expect(source).not.toMatch(
-      /from\s+['"][^'"]*reserved-usernames\.server['"]/
-    )
+      .filter((entry) => /\.tsx?$/.test(entry) && !entry.includes('__tests__'))
+      .map((entry) => `${dir}/${entry}`)
+
+  const readSource = (file: string) =>
+    readFileSync(new URL(file, repoRoot), { encoding: 'utf-8' })
+
+  const clientComponents = [
+    ...listSourceFiles('components'),
+    ...listSourceFiles('app')
+  ].filter((file) => /^\s*(['"])use client\1/.test(readSource(file)))
+
+  // validations 下除 *.server.ts 外的模块都可能被客户端 schema 复用
+  const sharedValidations = listSourceFiles('validations').filter(
+    (file) => !file.endsWith('.server.ts')
+  )
+
+  it('扫描面非空, 防止 glob 写错后静默全绿', () => {
+    expect(clientComponents.length).toBeGreaterThan(50)
+    expect(sharedValidations.length).toBeGreaterThan(10)
   })
+
+  it.each([...clientComponents, ...sharedValidations])(
+    '%s 不引用 *.server 模块',
+    (file) => {
+      expect(readSource(file)).not.toMatch(serverImportPattern)
+    }
+  )
 })
 
 describe('客户端 schema 不校验保留词', () => {

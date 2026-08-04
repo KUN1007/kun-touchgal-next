@@ -52,4 +52,22 @@ describe('parseCookies', () => {
   it('parses multiple cookies and trims the surrounding space', () => {
     expect(parseCookies('a=1; b=2')).toEqual({ a: '1', b: '2' })
   })
+
+  // 两个解码函数对畸形序列都抛 URIError, 换成 decodeURIComponent 没有改变触发面
+  it('falls back to the raw value on a malformed escape', () => {
+    expect(parseCookies('kun=100%').kun).toBe('100%')
+    expect(parseCookies('kun=a%zz').kun).toBe('a%zz')
+    expect(parseCookies('kun=%E4%B8').kun).toBe('%E4%B8')
+  })
+
+  // proxy 在 /admin /user /edit 上读 token, 一个第三方坏 cookie 不能让它 500
+  it('isolates a malformed cookie from the rest of the header', () => {
+    const token = 'eyJhbGciOiJIUzI1NiJ9.eyJ1aWQiOjF9.ab-_9xQwErTyUiOp'
+    const cookies = parseCookies(
+      `_third=100%; kun-galgame-patch-moe-token=${token}`
+    )
+
+    expect(cookies._third).toBe('100%')
+    expect(cookies['kun-galgame-patch-moe-token']).toBe(token)
+  })
 })

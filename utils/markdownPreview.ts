@@ -6,24 +6,48 @@ const escapeHtml = (text: string): string => {
     .replace(/"/g, '&quot;')
 }
 
+const INLINE_PATTERN =
+  /!\[([^\]]*)\]\(([^)]+)\)|\[([^\]]+)\]\(([^)]+)\)|`([^`]+)`|\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*|~~(.+?)~~/
+
+// 逐段消费而非链式 replace: 生成的标签不再参与后续匹配, 否则用户文本能借上一条规则
+// 生成的引号截断属性 (如 ![a](q[w](x onerror=alert 1 )X) 会把 onerror 注入 img)
 const renderInlineMarkdown = (text: string): string => {
-  return text
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, src) => {
-      return `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" class="max-w-full rounded-lg border border-default-200 my-2" />`
-    })
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, href) => {
-      return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(text)}</a>`
-    })
-    .replace(/`([^`]+)`/g, (_, code) => {
-      return `<code>${escapeHtml(code)}</code>`
-    })
-    .replace(
-      /\*\*\*(.+?)\*\*\*/g,
-      (_, t) => `<strong><em>${escapeHtml(t)}</em></strong>`
-    )
-    .replace(/\*\*(.+?)\*\*/g, (_, t) => `<strong>${escapeHtml(t)}</strong>`)
-    .replace(/\*(.+?)\*/g, (_, t) => `<em>${escapeHtml(t)}</em>`)
-    .replace(/~~(.+?)~~/g, (_, t) => `<del>${escapeHtml(t)}</del>`)
+  let rest = text
+  let html = ''
+
+  while (rest) {
+    const match = INLINE_PATTERN.exec(rest)
+    if (!match) {
+      html += escapeHtml(rest)
+      break
+    }
+
+    const groups: (string | undefined)[] = match
+    const [, alt, src, linkText, href, code, both, bold, italic, strike] =
+      groups
+
+    html += escapeHtml(rest.slice(0, match.index))
+
+    if (src !== undefined) {
+      html += `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt ?? '')}" class="max-w-full rounded-lg border border-default-200 my-2" />`
+    } else if (href !== undefined) {
+      html += `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(linkText ?? '')}</a>`
+    } else if (code !== undefined) {
+      html += `<code>${escapeHtml(code)}</code>`
+    } else if (both !== undefined) {
+      html += `<strong><em>${renderInlineMarkdown(both)}</em></strong>`
+    } else if (bold !== undefined) {
+      html += `<strong>${renderInlineMarkdown(bold)}</strong>`
+    } else if (italic !== undefined) {
+      html += `<em>${renderInlineMarkdown(italic)}</em>`
+    } else if (strike !== undefined) {
+      html += `<del>${renderInlineMarkdown(strike)}</del>`
+    }
+
+    rest = rest.slice(match.index + match[0].length)
+  }
+
+  return html
 }
 
 export const markdownToPreviewHtml = (markdown: string): string => {

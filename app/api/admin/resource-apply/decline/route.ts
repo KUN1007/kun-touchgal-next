@@ -17,6 +17,8 @@ import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
 import { kickS3DeletionDrain } from '~/server/storage/s3Outbox'
 import { invalidateUnread } from '~/app/api/message/unread/cache'
 
+class DeclineResourceError extends Error {}
+
 const declinePatchResource = async (
   input: z.infer<typeof declinePatchResourceSchema>,
   adminUid: number
@@ -42,45 +44,58 @@ const declinePatchResource = async (
 
   const s3Links = resource.links.filter((link) => link.storage === 's3')
 
-  const response = await prisma.$transaction(async (prisma) => {
-    await cleanupResourceCommentDerivatives(prisma, resourceId)
-    await prisma.patch_resource.delete({
-      where: { id: resourceId }
-    })
-    await recalcPatchType(resource.patch_id, prisma)
-    // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
-    await enqueueSearchOutbox(prisma, resource.patch_id)
-    // 事务性入队 S3 删除：与行删除原子提交，取代提交后 Promise.all 的不可恢复删除
-    await enqueueResourceLinkDeletions(
-      prisma,
-      s3Links.map((link) => ({
-        content: link.content,
-        patchId: resource.patch_id,
-        hash: link.hash,
-        s3Key: link.s3_key
-      }))
-    )
-
-    await createMessage(
-      {
-        type: 'system',
-        content: `您上传的资源「${resource.name || resource.patch.name}」未通过审核，原因：${reason}`,
-        recipient_id: resource.user_id,
-        link: `/${resource.patch.unique_id}?tab=resources&resourceSection=${resource.section}`
-      },
-      prisma
-    )
-
-    await prisma.admin_log.create({
-      data: {
-        type: 'decline',
-        user_id: adminUid,
-        content: `管理员 ${admin.name} 拒绝了一条资源\n\n拒绝原因:${reason}\nGalgame 名称:${resource.patch.name}\n资源 ID:${resource.id}\n资源标题:${resource.name}\n上传用户:${resource.user.name}`
+  try {
+    await prisma.$transaction(async (prisma) => {
+      // 评论衍生物必须在删除前清理: 删除后 patch_comment 已随级联消失, 无从收集 id
+      await cleanupResourceCommentDerivatives(prisma, resourceId)
+      // guarded delete 以 status 条件 + 行锁闭合"读状态→删除"窗口: 并发 approve (2→0)
+      // 要么先提交使删除匹配 0 行而跳过, 要么被行锁阻塞后见新状态——不再误删已上线资源
+      // (级联带走评论 + S3 出箱即时排空, 不可恢复). 零计数抛出回滚, 一并撤销上面的清理
+      const removed = await prisma.patch_resource.deleteMany({
+        where: { id: resourceId, status: 2 }
+      })
+      if (removed.count === 0) {
+        throw new DeclineResourceError('当前资源状态无需审核')
       }
-    })
+      await recalcPatchType(resource.patch_id, prisma)
+      // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
+      await enqueueSearchOutbox(prisma, resource.patch_id)
+      // 事务性入队 S3 删除：与行删除原子提交，取代提交后 Promise.all 的不可恢复删除
+      await enqueueResourceLinkDeletions(
+        prisma,
+        s3Links.map((link) => ({
+          content: link.content,
+          patchId: resource.patch_id,
+          hash: link.hash,
+          s3Key: link.s3_key
+        }))
+      )
 
-    return {}
-  })
+      await createMessage(
+        {
+          type: 'system',
+          content: `您上传的资源「${resource.name || resource.patch.name}」未通过审核，原因：${reason}`,
+          recipient_id: resource.user_id,
+          link: `/${resource.patch.unique_id}?tab=resources&resourceSection=${resource.section}`
+        },
+        prisma
+      )
+
+      await prisma.admin_log.create({
+        data: {
+          type: 'decline',
+          user_id: adminUid,
+          content: `管理员 ${admin.name} 拒绝了一条资源\n\n拒绝原因:${reason}\nGalgame 名称:${resource.patch.name}\n资源 ID:${resource.id}\n资源标题:${resource.name}\n上传用户:${resource.user.name}`
+        }
+      })
+    })
+  } catch (error) {
+    // 守卫未命中: 必须在下面的提交后副作用之前返回, 否则会触发 S3 出箱排空
+    if (error instanceof DeclineResourceError) {
+      return error.message
+    }
+    throw error
+  }
 
   queueSearchSync(resource.patch_id)
   // 事务提交后失效: 事务内失效会被并发读回填旧值 (M-04), 且 Redis 故障不应回滚写入
@@ -100,7 +115,7 @@ const declinePatchResource = async (
   // 即时消费删除出箱；抢不到锁则由定时任务兜底
   kickS3DeletionDrain()
 
-  return response
+  return {}
 }
 
 export const PUT = async (req: NextRequest) => {

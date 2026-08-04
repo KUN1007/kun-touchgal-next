@@ -12,6 +12,8 @@ import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResou
 import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
 import { invalidateUnread } from '~/app/api/message/unread/cache'
 
+class ApproveResourceError extends Error {}
+
 const approvePatchResource = async (
   input: z.infer<typeof approvePatchResourceSchema>,
   adminUid: number
@@ -37,35 +39,45 @@ const approvePatchResource = async (
     return '管理员不存在'
   }
 
-  const response = await prisma.$transaction(async (prisma) => {
-    await prisma.patch_resource.update({
-      where: { id: resourceId },
-      data: { status: { set: 0 } }
-    })
-    await recalcPatchType(resource.patch_id, prisma)
-    // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
-    await enqueueSearchOutbox(prisma, resource.patch_id)
-
-    await createMessage(
-      {
-        type: 'system',
-        content: `您上传的资源「${resource.name || resource.patch.name}」已通过审核，感谢分享！`,
-        recipient_id: resource.user_id,
-        link: `/${resource.patch.unique_id}?tab=resources&resourceSection=${resource.section}&resourceId=${resource.id}`
-      },
-      prisma
-    )
-
-    await prisma.admin_log.create({
-      data: {
-        type: 'approve',
-        user_id: adminUid,
-        content: `管理员 ${admin.name} 审核通过了一条资源\n\nGalgame 名称:${resource.patch.name}\n资源 ID:${resource.id}\n资源标题:${resource.name}\n上传用户:${resource.user.name}`
+  try {
+    await prisma.$transaction(async (prisma) => {
+      // updateMany 而非 update: 上面的状态检查在事务外, 并发 decline 已删除该行时
+      // 裸 update 抛 P2025 逃逸为 500; 带 status 条件的零计数走字符串错误契约
+      const approved = await prisma.patch_resource.updateMany({
+        where: { id: resourceId, status: 2 },
+        data: { status: 0 }
+      })
+      if (approved.count === 0) {
+        throw new ApproveResourceError('当前资源状态无需审核')
       }
-    })
+      await recalcPatchType(resource.patch_id, prisma)
+      // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
+      await enqueueSearchOutbox(prisma, resource.patch_id)
 
-    return {}
-  })
+      await createMessage(
+        {
+          type: 'system',
+          content: `您上传的资源「${resource.name || resource.patch.name}」已通过审核，感谢分享！`,
+          recipient_id: resource.user_id,
+          link: `/${resource.patch.unique_id}?tab=resources&resourceSection=${resource.section}&resourceId=${resource.id}`
+        },
+        prisma
+      )
+
+      await prisma.admin_log.create({
+        data: {
+          type: 'approve',
+          user_id: adminUid,
+          content: `管理员 ${admin.name} 审核通过了一条资源\n\nGalgame 名称:${resource.patch.name}\n资源 ID:${resource.id}\n资源标题:${resource.name}\n上传用户:${resource.user.name}`
+        }
+      })
+    })
+  } catch (error) {
+    if (error instanceof ApproveResourceError) {
+      return error.message
+    }
+    throw error
+  }
 
   queueSearchSync(resource.patch_id)
   // 事务提交后失效: 事务内失效会被并发读回填旧值 (M-04), 且 Redis 故障不应回滚写入
@@ -82,7 +94,7 @@ const approvePatchResource = async (
 
   await invalidateUnread(resource.user_id).catch(() => undefined)
 
-  return response
+  return {}
 }
 
 export const PUT = async (req: NextRequest) => {

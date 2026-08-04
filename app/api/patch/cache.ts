@@ -64,6 +64,12 @@ const parsePatchFavoriteStatus = (cachedStatus: string) => {
 type PatchFavoriteCacheResult = {
   isFavorite: boolean | null
   version: string
+  canWrite: boolean
+}
+
+const logPatchFavoriteCacheError = (message: string, error: unknown) => {
+  // eslint-disable-next-line no-console
+  console.error(message, error)
 }
 
 export const getCachedPatchFavoriteStatus = async (
@@ -73,20 +79,37 @@ export const getCachedPatchFavoriteStatus = async (
   if (uid <= 0) {
     return {
       isFavorite: false,
-      version: PATCH_FAVORITE_DEFAULT_VERSION
+      version: PATCH_FAVORITE_DEFAULT_VERSION,
+      canWrite: false
     }
   }
 
-  const [cachedStatus, currentVersion] = await getKvs([
-    getPatchFavoriteCacheKey(uniqueId, uid),
-    getPatchFavoriteVersionKey(uid)
-  ])
+  let cached: (string | null)[]
+
+  try {
+    cached = await getKvs([
+      getPatchFavoriteCacheKey(uniqueId, uid),
+      getPatchFavoriteVersionKey(uid)
+    ])
+  } catch (error) {
+    // Redis 读失败降级为回源数据库: isFavorite=null 使调用方走 Prisma 查询,
+    // canWrite=false 使其跳过写回 (慢 Redis 下写回会再耗一个 commandTimeout)
+    logPatchFavoriteCacheError('Failed to read patch favorite cache:', error)
+    return {
+      isFavorite: null,
+      version: PATCH_FAVORITE_DEFAULT_VERSION,
+      canWrite: false
+    }
+  }
+
+  const [cachedStatus, currentVersion] = cached
   const version = currentVersion ?? PATCH_FAVORITE_DEFAULT_VERSION
 
   if (cachedStatus === null) {
     return {
       isFavorite: null,
-      version
+      version,
+      canWrite: true
     }
   }
 
@@ -94,13 +117,15 @@ export const getCachedPatchFavoriteStatus = async (
   if (!parsedStatus || parsedStatus.version !== version) {
     return {
       isFavorite: null,
-      version
+      version,
+      canWrite: true
     }
   }
 
   return {
     isFavorite: parsedStatus.isFavorite,
-    version
+    version,
+    canWrite: true
   }
 }
 
@@ -114,13 +139,18 @@ export const setCachedPatchFavoriteStatus = async (
     return
   }
 
-  const cacheVersion = version ?? (await getPatchFavoriteCacheVersion(uid))
+  // 写缓存失败不应使请求失败; 版本落后的写入会在下次读时被版本比对判为不匹配而回源
+  try {
+    const cacheVersion = version ?? (await getPatchFavoriteCacheVersion(uid))
 
-  await setKv(
-    getPatchFavoriteCacheKey(uniqueId, uid),
-    serializePatchFavoriteStatus(cacheVersion, isFavorite),
-    PATCH_FAVORITE_CACHE_DURATION
-  )
+    await setKv(
+      getPatchFavoriteCacheKey(uniqueId, uid),
+      serializePatchFavoriteStatus(cacheVersion, isFavorite),
+      PATCH_FAVORITE_CACHE_DURATION
+    )
+  } catch (error) {
+    logPatchFavoriteCacheError('Failed to write patch favorite cache:', error)
+  }
 }
 
 export const invalidatePatchContentCache = async (uniqueId: string) => {

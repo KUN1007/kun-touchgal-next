@@ -137,14 +137,55 @@ export const buildPatchIntroduction = async (
   resourceUpdateTime: patch.resource_update_time
 })
 
-export const getCachedPatchContent = async (uniqueId: string) => {
-  const cachedPatch = await getKv(getPatchCacheKey(uniqueId))
-  return cachedPatch ? (JSON.parse(cachedPatch) as CachedPatch) : null
+// Redis 读失败时降级为直连数据库 (canWrite=false 表示本次不参与单飞、不写缓存),
+// canWrite 语义取自 galgameListCache / comment cache / resource detail cache。
+// 刻意不设它们的 parse 失败分支: SET 是原子的不会留半个值, 且键前缀无碰撞
+// (patch:<8 字符> vs patch:favorite: / patch:comment: / patch:resource:detail:),
+// 旧序列化格式仍是合法 JSON, 该分支不可达
+export interface PatchContentCacheResult<T> {
+  response: T | null
+  canWrite: boolean
 }
 
-export const getCachedPatchIntroduction = async (uniqueId: string) => {
-  const cachedIntro = await getKv(getPatchIntroductionCacheKey(uniqueId))
-  return cachedIntro ? (JSON.parse(cachedIntro) as PatchIntroduction) : null
+const logPatchContentCacheError = (message: string, error: unknown) => {
+  // eslint-disable-next-line no-console
+  console.error(message, error)
+}
+
+export const getCachedPatchContent = async (
+  uniqueId: string
+): Promise<PatchContentCacheResult<CachedPatch>> => {
+  let cached: string | null
+
+  try {
+    cached = await getKv(getPatchCacheKey(uniqueId))
+  } catch (error) {
+    logPatchContentCacheError('Failed to read patch content cache:', error)
+    return { response: null, canWrite: false }
+  }
+
+  return {
+    response: cached ? (JSON.parse(cached) as CachedPatch) : null,
+    canWrite: true
+  }
+}
+
+export const getCachedPatchIntroduction = async (
+  uniqueId: string
+): Promise<PatchContentCacheResult<PatchIntroduction>> => {
+  let cached: string | null
+
+  try {
+    cached = await getKv(getPatchIntroductionCacheKey(uniqueId))
+  } catch (error) {
+    logPatchContentCacheError('Failed to read patch introduction cache:', error)
+    return { response: null, canWrite: false }
+  }
+
+  return {
+    response: cached ? (JSON.parse(cached) as PatchIntroduction) : null,
+    canWrite: true
+  }
 }
 
 export const setCachedPatchContent = async (
@@ -218,12 +259,14 @@ export const getPatchFavoriteStatus = async (
   })
 
   const isFavorite = Boolean(relation)
-  await setCachedPatchFavoriteStatus(
-    uniqueId,
-    uid,
-    isFavorite,
-    cachedFavoriteStatus.version
-  )
+  if (cachedFavoriteStatus.canWrite) {
+    await setCachedPatchFavoriteStatus(
+      uniqueId,
+      uid,
+      isFavorite,
+      cachedFavoriteStatus.version
+    )
+  }
 
   return isFavorite
 }

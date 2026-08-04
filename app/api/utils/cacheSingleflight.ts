@@ -67,7 +67,11 @@ export const kunCacheSingleflight = async <T>({
     }
 
     const response = await query()
-    await writeCache(response)
+    // 写缓存失败 (Redis 故障) 不应使请求失败, 与上方 writeCacheIfAbsent 分支对齐
+    await writeCache(response).catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error(`Failed to write cache for ${cacheKey}:`, error)
+    })
     return response
   } finally {
     // 锁有 TTL 自愈且释放带 token 校验, 无需阻塞响应等待释放

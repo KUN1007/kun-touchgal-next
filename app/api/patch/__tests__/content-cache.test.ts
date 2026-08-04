@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   kvStore,
@@ -10,6 +10,7 @@ const {
   acquireKvLockMock,
   releaseKvLockMock,
   findUniqueMock,
+  favoriteFindFirstMock,
   markdownMock
 } = vi.hoisted(() => {
   const kvStore = new Map<string, string>()
@@ -41,6 +42,7 @@ const {
       lockStore.delete(key)
     }),
     findUniqueMock: vi.fn(),
+    favoriteFindFirstMock: vi.fn(),
     markdownMock: vi.fn(async (markdown: string) => `<p>${markdown}</p>`)
   }
 })
@@ -59,7 +61,7 @@ vi.mock('~/lib/redis', () => ({
 vi.mock('~/prisma/index', () => ({
   prisma: {
     patch: { findUnique: findUniqueMock },
-    user_patch_favorite_folder_relation: { findFirst: vi.fn() }
+    user_patch_favorite_folder_relation: { findFirst: favoriteFindFirstMock }
   }
 }))
 
@@ -113,6 +115,7 @@ beforeEach(() => {
   kvStore.clear()
   lockStore.clear()
   findUniqueMock.mockResolvedValue(patchRow)
+  favoriteFindFirstMock.mockResolvedValue(null)
 })
 
 describe('getPatchById', () => {
@@ -322,5 +325,109 @@ describe('getPatchIntroduction', () => {
 
     expect(setKvMock).not.toHaveBeenCalled()
     expect(setKvIfAbsentMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('Redis 故障降级', () => {
+  const redisError = new Error('Redis unavailable')
+  const viewer = { uid: 42, role: 1 }
+  let consoleError: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined)
+  })
+
+  // mockRejectedValue 覆盖的是 hoisted 里的默认实现, clearAllMocks 不会恢复它
+  afterEach(() => {
+    consoleError.mockRestore()
+    getKvMock.mockImplementation(
+      async (key: string) => kvStore.get(key) ?? null
+    )
+    getKvsMock.mockImplementation(async (keys: string[]) =>
+      keys.map((key) => kvStore.get(key) ?? null)
+    )
+    setKvMock.mockImplementation(async (key: string, value: string) => {
+      kvStore.set(key, value)
+    })
+  })
+
+  it('读缓存抛错时 getPatchById 直连数据库且不参与单飞', async () => {
+    getKvMock.mockRejectedValue(redisError)
+
+    const result = await getPatchById(input, null)
+
+    expect(result).toMatchObject({ id: 7, uniqueId, isFavorite: false })
+    expect(findUniqueMock).toHaveBeenCalledTimes(1)
+    expect(acquireKvLockMock).not.toHaveBeenCalled()
+    expect(setKvMock).not.toHaveBeenCalled()
+  })
+
+  it('读缓存抛错时 getPatchPageData 直连数据库且不参与单飞', async () => {
+    getKvMock.mockRejectedValue(redisError)
+
+    const result = await getPatchPageData(input, null)
+
+    expect(result).toMatchObject({
+      patch: { id: 7, uniqueId, isFavorite: false },
+      intro: { introduction: '<p># intro</p>' }
+    })
+    expect(findUniqueMock).toHaveBeenCalledTimes(1)
+    expect(acquireKvLockMock).not.toHaveBeenCalled()
+    expect(setKvMock).not.toHaveBeenCalled()
+  })
+
+  it('读缓存抛错时 getPatchIntroduction 直连数据库且不参与单飞', async () => {
+    getKvMock.mockRejectedValue(redisError)
+
+    const result = await getPatchIntroduction(input)
+
+    expect(result).toMatchObject({ introduction: '<p># intro</p>' })
+    expect(findUniqueMock).toHaveBeenCalledTimes(1)
+    expect(acquireKvLockMock).not.toHaveBeenCalled()
+    expect(setKvMock).not.toHaveBeenCalled()
+  })
+
+  it('写缓存抛错时持锁者仍返回回源结果', async () => {
+    setKvMock.mockRejectedValue(redisError)
+
+    const result = await getPatchPageData(input, null)
+
+    expect(result).toMatchObject({
+      patch: { id: 7, uniqueId, isFavorite: false },
+      intro: { introduction: '<p># intro</p>' }
+    })
+    expect(consoleError).toHaveBeenCalledWith(
+      `Failed to write cache for ${getPatchIntroductionCacheKey(uniqueId)}:`,
+      redisError
+    )
+  })
+
+  it('收藏状态缓存读抛错时回源数据库判定收藏且不写回', async () => {
+    getKvsMock.mockRejectedValue(redisError)
+    favoriteFindFirstMock.mockResolvedValue({ id: 3 })
+
+    const result = await getPatchById(input, viewer)
+
+    expect(result).toMatchObject({ id: 7, uniqueId, isFavorite: true })
+    expect(favoriteFindFirstMock).toHaveBeenCalledTimes(1)
+    // 写回会在慢 Redis 下再耗一个 commandTimeout, 读失败后必须跳过
+    expect(setKvMock).not.toHaveBeenCalledWith(
+      expect.stringContaining('patch:favorite'),
+      expect.anything(),
+      expect.anything()
+    )
+  })
+
+  it('收藏状态缓存写抛错时不影响响应', async () => {
+    setKvMock.mockRejectedValue(redisError)
+
+    await expect(getPatchById(input, viewer)).resolves.toMatchObject({
+      id: 7,
+      uniqueId,
+      isFavorite: false
+    })
+    expect(favoriteFindFirstMock).toHaveBeenCalledTimes(1)
   })
 })

@@ -7,7 +7,13 @@ import prettierRecommended from 'eslint-plugin-prettier/recommended'
 import react from 'eslint-plugin-react'
 
 export default defineConfig([
-  globalIgnores(['.next/', 'node_modules/', 'prisma/generated/']),
+  // migration/backup 是已执行完毕的一次性脚本归档 (多带 @ts-nocheck), 不再维护
+  globalIgnores([
+    '.next/',
+    'node_modules/',
+    'prisma/generated/',
+    'migration/backup/'
+  ]),
   // eslint-plugin-react / import / jsx-a11y 仍用 ESLint 10 已移除的旧 context API, 须经 fixup 桥接
   ...fixupConfigRules(nextCoreWebVitals),
   js.configs.recommended,
@@ -28,6 +34,11 @@ export default defineConfig([
       'no-debugger': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       'no-console': 'warn',
+      // 注释里的零宽字符是保留词体系的示例, 模板串里的全角空格是中文报表缩进, 均非笔误
+      'no-irregular-whitespace': [
+        'error',
+        { skipComments: true, skipTemplates: true }
+      ],
       // ESLint 10 recommended 新增; 存量代码为「let 初始值 + 分支覆盖」风格, 维持升级前基线
       'no-useless-assignment': 'off',
       'sort-imports': 'off',
@@ -40,6 +51,20 @@ export default defineConfig([
       'react-hooks/refs': 'off',
       'react-hooks/incompatible-library': 'off',
       'react-hooks/immutability': 'off'
+    }
+  },
+  {
+    files: ['**/*.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: {
+        require: 'readonly',
+        module: 'writable',
+        __dirname: 'readonly'
+      }
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off'
     }
   }
 ])

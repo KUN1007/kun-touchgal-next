@@ -40,7 +40,7 @@ export const parseResourceLink = (input: string): ParsedResourceLink => {
     return { url: trimmedInput, code: '' }
   }
 
-  let url = urlMatch[0].replace(TRAILING_PUNCTUATION_REGEX, '')
+  const url = urlMatch[0].replace(TRAILING_PUNCTUATION_REGEX, '')
   let code = ''
 
   try {

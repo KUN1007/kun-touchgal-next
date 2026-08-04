@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-control-regex -- 匹配控制字符正是本模式的用途
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F]/
 
 export const SAFE_LINK_PROTOCOLS = [

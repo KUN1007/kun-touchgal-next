@@ -1,3 +1,4 @@
+import { createHash } from 'crypto'
 import { prisma } from '~/prisma/index'
 import { delKv, getKv, setKv, setKvIfAbsent } from '~/lib/redis'
 import { HOME_CACHE_DURATION } from '~/config/cache'
@@ -5,7 +6,10 @@ import {
   GalgameCardSelectField,
   toGalgameCardCount
 } from '~/constants/api/select'
-import { buildVisibilityCacheKey } from '../utils/visibilityCacheKey'
+import {
+  buildVisibilityCacheKey,
+  exceedsSharedCacheBlockedTagLimit
+} from '../utils/visibilityCacheKey'
 import { kunCacheSingleflight } from '~/app/api/utils/cacheSingleflight'
 import {
   getResourceVisibilityWhere,
@@ -16,8 +20,15 @@ import type { HomeResource } from '~/types/api/home'
 
 const HOME_CACHE_KEY_PREFIX = 'home:v2'
 
-const getHomeCacheKey = (visibilityWhere: Prisma.patchWhereInput) =>
-  `${HOME_CACHE_KEY_PREFIX}:${buildVisibilityCacheKey(visibilityWhere)}`
+// 与 galgame / resource / tag 列表缓存一致: 视角部分取哈希, 避免屏蔽标签
+// 原样进入键名令键长随客户端输入增长
+const getHomeCacheKey = (visibilityWhere: Prisma.patchWhereInput) => {
+  const hash = createHash('sha1')
+    .update(buildVisibilityCacheKey(visibilityWhere))
+    .digest('hex')
+    .slice(0, 16)
+  return `${HOME_CACHE_KEY_PREFIX}:${hash}`
+}
 
 interface HomeResponse {
   galgames: GalgameCard[]
@@ -200,7 +211,11 @@ export const getHomeData = async (
 ): Promise<HomeResponse> => {
   const cacheKey = getHomeCacheKey(visibilityWhere)
 
-  const cached = bypassCache
+  // 屏蔽标签过多的视角不参与共享缓存, 见 exceedsSharedCacheBlockedTagLimit
+  const skipSharedCache =
+    bypassCache || exceedsSharedCacheBlockedTagLimit(visibilityWhere)
+
+  const cached = skipSharedCache
     ? { response: null, canWrite: false }
     : await getCachedHomeData(cacheKey)
   if (cached.response) {

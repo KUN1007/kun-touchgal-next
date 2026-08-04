@@ -12,6 +12,7 @@ import {
   type KunViewer
 } from '~/app/api/utils/contentVisibility'
 import { kunCacheSingleflight } from '~/app/api/utils/cacheSingleflight'
+import { exceedsSharedCacheBlockedTagLimit } from '~/app/api/utils/visibilityCacheKey'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 import type { PatchResource, ResourceListResponse } from '~/types/api/resource'
 
@@ -119,9 +120,11 @@ export const getPatchResource = async (
   viewer: KunViewer | null,
   bypassCache: boolean
 ): Promise<ResourceListResponse> => {
-  const cacheKey = bypassCache
-    ? null
-    : await getResourceListCacheKey(input, visibilityWhere)
+  // 屏蔽标签过多的视角不参与共享缓存, 见 exceedsSharedCacheBlockedTagLimit
+  const cacheKey =
+    bypassCache || exceedsSharedCacheBlockedTagLimit(visibilityWhere)
+      ? null
+      : await getResourceListCacheKey(input, visibilityWhere)
 
   const cached = await getCachedResourceList(cacheKey)
   if (cached.response) {

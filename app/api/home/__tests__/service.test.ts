@@ -37,10 +37,22 @@ vi.mock('~/prisma/index', () => ({
 }))
 
 import { getHomeData } from '~/app/api/home/service'
+import { SHARED_CACHE_MAX_BLOCKED_TAG_IDS } from '~/app/api/utils/visibilityCacheKey'
 
-const CACHE_KEY = 'home:v2:all:'
+// sha1('all:') 前 16 位, 即 buildVisibilityCacheKey({}) 的哈希
+const CACHE_KEY = 'home:v2:69fdeab2a1c8368d'
 const LOCK_KEY = `${CACHE_KEY}:lock`
 const CACHED_RESPONSE = { galgames: [], resources: [{ id: 1 }] }
+
+const blockedTagWhere = (count: number) => ({
+  NOT: {
+    tag: {
+      some: {
+        tag_id: { in: Array.from({ length: count }, (_, index) => index + 1) }
+      }
+    }
+  }
+})
 
 describe('getHomeData', () => {
   beforeEach(() => {
@@ -135,6 +147,34 @@ describe('getHomeData', () => {
     expect(setKvMock).not.toHaveBeenCalled()
     expect(setKvIfAbsentMock).not.toHaveBeenCalled()
     expect(releaseKvLockMock).not.toHaveBeenCalled()
+  })
+
+  it('skips the shared cache entirely when too many tags are blocked', async () => {
+    const response = await getHomeData(
+      blockedTagWhere(SHARED_CACHE_MAX_BLOCKED_TAG_IDS + 1),
+      null,
+      false
+    )
+
+    expect(response).toEqual({ galgames: [], resources: [] })
+    expect(patchFindManyMock).toHaveBeenCalledTimes(1)
+    expect(getKvMock).not.toHaveBeenCalled()
+    expect(acquireKvLockMock).not.toHaveBeenCalled()
+    expect(setKvMock).not.toHaveBeenCalled()
+    expect(setKvIfAbsentMock).not.toHaveBeenCalled()
+  })
+
+  it('still uses the shared cache at the blocked tag limit', async () => {
+    getKvMock.mockResolvedValue(null)
+    acquireKvLockMock.mockResolvedValue('token-1')
+
+    await getHomeData(
+      blockedTagWhere(SHARED_CACHE_MAX_BLOCKED_TAG_IDS),
+      null,
+      false
+    )
+
+    expect(setKvMock).toHaveBeenCalledTimes(1)
   })
 
   it('queries directly without locking when the cache read fails', async () => {

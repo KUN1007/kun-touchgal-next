@@ -27,6 +27,10 @@ vi.mock('~/prisma/index', () => ({
 
 import { invalidateTagListCache } from '~/app/api/tag/cache'
 import { getTag } from '~/app/api/tag/all/service'
+import { SHARED_CACHE_MAX_BLOCKED_TAG_IDS } from '~/app/api/utils/visibilityCacheKey'
+
+const blockedTagIds = (count: number) =>
+  Array.from({ length: count }, (_, index) => index + 1)
 
 const TAGS = [{ id: 1, name: 'ADV', count: 7, alias: ['AVG'] }]
 const RESPONSE = { tags: TAGS, total: 1 }
@@ -39,6 +43,27 @@ describe('getTag', () => {
     getKvMock.mockResolvedValue(null)
     setKvMock.mockResolvedValue(undefined)
     delKvMock.mockResolvedValue(undefined)
+  })
+
+  it('skips the shared cache entirely when too many tags are blocked', async () => {
+    const response = await getTag(
+      { page: 1, limit: 100 },
+      blockedTagIds(SHARED_CACHE_MAX_BLOCKED_TAG_IDS + 1)
+    )
+
+    expect(response).toEqual(RESPONSE)
+    expect(findManyMock).toHaveBeenCalledTimes(1)
+    expect(getKvMock).not.toHaveBeenCalled()
+    expect(setKvMock).not.toHaveBeenCalled()
+  })
+
+  it('still uses the shared cache at the blocked tag limit', async () => {
+    await getTag(
+      { page: 1, limit: 100 },
+      blockedTagIds(SHARED_CACHE_MAX_BLOCKED_TAG_IDS)
+    )
+
+    expect(setKvMock).toHaveBeenCalledTimes(1)
   })
 
   it('queries the selected page and writes the response for 300 seconds on cache miss', async () => {

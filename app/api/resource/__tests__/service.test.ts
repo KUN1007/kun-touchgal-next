@@ -42,6 +42,17 @@ vi.mock('~/prisma/index', () => ({
 }))
 
 import { getPatchResource } from '~/app/api/resource/service'
+import { SHARED_CACHE_MAX_BLOCKED_TAG_IDS } from '~/app/api/utils/visibilityCacheKey'
+
+const blockedTagWhere = (count: number) => ({
+  NOT: {
+    tag: {
+      some: {
+        tag_id: { in: Array.from({ length: count }, (_, index) => index + 1) }
+      }
+    }
+  }
+})
 
 const INPUT = {
   sortField: 'created',
@@ -64,6 +75,23 @@ describe('getPatchResource', () => {
     setKvMock.mockResolvedValue(undefined)
     setKvIfAbsentMock.mockResolvedValue(true)
     releaseKvLockMock.mockResolvedValue(undefined)
+  })
+
+  it('skips the shared cache entirely when too many tags are blocked', async () => {
+    const response = await getPatchResource(
+      INPUT,
+      blockedTagWhere(SHARED_CACHE_MAX_BLOCKED_TAG_IDS + 1),
+      null,
+      false
+    )
+
+    expect(response).toEqual(EMPTY_RESPONSE)
+    expect(resourceFindManyMock).toHaveBeenCalledTimes(1)
+    // 连缓存版本号都不再读取
+    expect(getKvsMock).not.toHaveBeenCalled()
+    expect(getKvMock).not.toHaveBeenCalled()
+    expect(acquireKvLockMock).not.toHaveBeenCalled()
+    expect(setKvMock).not.toHaveBeenCalled()
   })
 
   it('returns cached response without querying or locking', async () => {

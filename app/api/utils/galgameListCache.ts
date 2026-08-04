@@ -1,7 +1,10 @@
 import { createHash } from 'crypto'
 import { delKv, getKv, setKv, setKvIfAbsent } from '~/lib/redis'
 import { GALGAME_LIST_CACHE_DURATION } from '~/config/cache'
-import { buildVisibilityCacheKey } from './visibilityCacheKey'
+import {
+  buildVisibilityCacheKey,
+  exceedsSharedCacheBlockedTagLimit
+} from './visibilityCacheKey'
 import { kunCacheSingleflight } from './cacheSingleflight'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 
@@ -134,6 +137,11 @@ const setGalgameListCacheIfAbsent = async (
 export const withGalgameListCache = async (
   options: WithGalgameListCacheOptions
 ): Promise<GalgameListResponse> => {
+  // 屏蔽标签过多的视角不参与共享缓存, 见 exceedsSharedCacheBlockedTagLimit
+  if (exceedsSharedCacheBlockedTagLimit(options.visibilityWhere)) {
+    return options.query()
+  }
+
   const cacheKey = getGalgameListCacheKey(options)
 
   const cached = await getCachedGalgameList(cacheKey)

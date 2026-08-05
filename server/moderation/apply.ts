@@ -26,6 +26,7 @@ import {
   MODERATION_REJECT_NOTICE,
   MODERATION_S3_TIMEOUT_MS
 } from '~/constants/moderation'
+import type { ModerationContentType } from '~/constants/moderation'
 import { APPEAL_CONTENT_TYPE, APPEAL_SETTINGS_LINK } from '~/constants/appeal'
 import type { ModerationAvatarPayload, ModerationTextPayload } from './submit'
 
@@ -331,7 +332,7 @@ export const applyModerationVerdict = async (
         task.content_type === 'resource'
           ? MODERATION_REJECT_NOTICE.resource(payload.name ?? '')
           : MODERATION_REJECT_NOTICE[
-              task.content_type as 'comment' | 'rating' | 'avatar' | 'bio'
+              task.content_type as Exclude<ModerationContentType, 'resource'>
             ]()
       await createMessage(
         {

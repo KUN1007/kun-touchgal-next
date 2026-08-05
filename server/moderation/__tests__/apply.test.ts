@@ -7,6 +7,9 @@ const {
   claimMock,
   findRatingMock,
   updateRatingMock,
+  updateCommentMock,
+  findResourceMock,
+  updateResourceMock,
   updateUserMock,
   recomputeOneMock
 } = vi.hoisted(() => ({
@@ -15,6 +18,9 @@ const {
   claimMock: vi.fn(),
   findRatingMock: vi.fn(),
   updateRatingMock: vi.fn(),
+  updateCommentMock: vi.fn(),
+  findResourceMock: vi.fn(),
+  updateResourceMock: vi.fn(),
   updateUserMock: vi.fn(),
   recomputeOneMock: vi.fn()
 }))
@@ -23,6 +29,8 @@ const transactionClient = {
   $executeRaw: executeRawMock,
   moderation_task: { updateMany: claimMock },
   patch_rating: { findUnique: findRatingMock, update: updateRatingMock },
+  patch_comment: { updateMany: updateCommentMock },
+  patch_resource: { findUnique: findResourceMock, update: updateResourceMock },
   user: { update: updateUserMock }
 }
 
@@ -54,8 +62,22 @@ vi.mock('~/app/api/resource/cache', () => ({
   invalidateResourceListCache: vi.fn()
 }))
 
+vi.mock('~/app/api/patch/cache', () => ({
+  invalidatePatchContentCache: vi.fn(),
+  invalidatePatchContentCacheByPatchId: vi.fn()
+}))
+
+vi.mock('~/app/api/patch/comment/cache', () => ({
+  invalidatePatchCommentCache: vi.fn()
+}))
+
 vi.mock('~/app/api/user/session/cache', () => ({
   invalidateUserSession: vi.fn()
+}))
+
+// resource 拒绝路径的这次失效没有 .catch, 不 mock 会真连 Redis 并抛出
+vi.mock('~/app/api/utils/pendingResourceCache', () => ({
+  invalidateUserPendingResourceCache: vi.fn()
 }))
 
 vi.mock('~/server/search/sync', () => ({
@@ -75,6 +97,21 @@ vi.mock('~/lib/s3', () => ({
 import { applyModerationVerdict } from '~/server/moderation/apply'
 import { purgeCloudflareCache } from '~/app/api/utils/purgeCloudflareCache'
 import { deleteFileFromS3 } from '~/lib/s3'
+import { createDedupMessage, createMessage } from '~/app/api/utils/message'
+import { recalcPatchType } from '~/app/api/patch/resource/_helper'
+import { enqueueSearchOutbox, queueSearchSync } from '~/server/search/sync'
+import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import {
+  invalidatePatchContentCache,
+  invalidatePatchContentCacheByPatchId
+} from '~/app/api/patch/cache'
+import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
+import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
+import {
+  MODERATION_REJECT_CODE_MAP,
+  MODERATION_REJECT_NOTICE
+} from '~/constants/moderation'
+import { APPEAL_SETTINGS_LINK } from '~/constants/appeal'
 
 const created = new Date('2026-01-01T00:00:00.000Z')
 const ratingTask = (overrides: Partial<moderation_taskModel> = {}) =>
@@ -112,7 +149,14 @@ beforeEach(() => {
   claimMock.mockResolvedValue({ count: 1 })
   findRatingMock.mockResolvedValue({ patch_id: 10, status: 1 })
   updateRatingMock.mockResolvedValue({})
+  updateCommentMock.mockResolvedValue({ count: 1 })
+  findResourceMock.mockResolvedValue({ patch_id: 10, status: 3 })
+  updateResourceMock.mockResolvedValue({})
   updateUserMock.mockResolvedValue({})
+  vi.mocked(recalcPatchType).mockResolvedValue('kun-unique-id')
+  // 这两处失效在 apply.ts 里挂了 .catch, mock 必须返回 Promise
+  vi.mocked(invalidatePatchContentCache).mockResolvedValue(undefined)
+  vi.mocked(invalidatePatchContentCacheByPatchId).mockResolvedValue(undefined)
   vi.mocked(deleteFileFromS3).mockResolvedValue(undefined)
   vi.mocked(purgeCloudflareCache).mockResolvedValue({ status: 200 })
   recomputeOneMock.mockImplementation(
@@ -265,5 +309,154 @@ describe('applyModerationVerdict', () => {
       'avatar/user_100/pending-abc-mini.avif'
     )
     consoleErrorSpy.mockRestore()
+  })
+
+  it('hides the rejected comment and notifies the author with an appeal link', async () => {
+    await expect(
+      applyModerationVerdict({
+        task: ratingTask({ content_type: 'comment', content_id: 7 }),
+        approved: false,
+        rejectCode: 'ATK',
+        rejectReason: '辱骂他人'
+      })
+    ).resolves.toBe(true)
+
+    expect(claimMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'rejected',
+          reject_code: 'ATK',
+          reject_reason: '辱骂他人'
+        })
+      })
+    )
+    expect(updateCommentMock).toHaveBeenCalledWith({
+      where: { id: 7, status: 1 },
+      data: { status: 2 }
+    })
+    expect(createMessage).toHaveBeenCalledWith(
+      {
+        type: 'system',
+        content: MODERATION_REJECT_NOTICE.comment(),
+        link: APPEAL_SETTINGS_LINK,
+        recipient_id: 100
+      },
+      transactionClient
+    )
+    // 被拒评论不进公开基线: 既不补发创建时被拦下的通知, 也不失效评论缓存
+    expect(createDedupMessage).not.toHaveBeenCalled()
+    expect(invalidatePatchCommentCache).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the reject code label when the verdict carries no reason', async () => {
+    await expect(
+      applyModerationVerdict({
+        task: ratingTask({ content_type: 'comment', content_id: 7 }),
+        approved: false,
+        rejectCode: 'BLK'
+      })
+    ).resolves.toBe(true)
+
+    expect(claimMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          reject_code: 'BLK',
+          reject_reason: MODERATION_REJECT_CODE_MAP.BLK
+        })
+      })
+    )
+  })
+
+  it('hides the rejected rating and recomputes the patch rating summary', async () => {
+    await expect(
+      applyModerationVerdict({
+        task: ratingTask(),
+        approved: false,
+        rejectCode: 'ATK',
+        rejectReason: '辱骂他人'
+      })
+    ).resolves.toBe(true)
+
+    expect(updateRatingMock).toHaveBeenCalledWith({
+      where: { id: 5 },
+      data: { status: 2 }
+    })
+    // 被隐藏的评分要退出统计, 拒绝同样得重算并失效详情缓存
+    expect(recomputeOneMock).toHaveBeenCalledWith(10, transactionClient)
+    expect(invalidatePatchContentCacheByPatchId).toHaveBeenCalledWith(10)
+    expect(createMessage).toHaveBeenCalledWith(
+      {
+        type: 'system',
+        content: MODERATION_REJECT_NOTICE.rating(),
+        link: APPEAL_SETTINGS_LINK,
+        recipient_id: 100
+      },
+      transactionClient
+    )
+  })
+
+  it('hides the rejected resource and refreshes the caches gating its visibility', async () => {
+    await expect(
+      applyModerationVerdict({
+        task: ratingTask({
+          content_type: 'resource',
+          content_id: 8,
+          payload: { text: 'kun', name: '汉化补丁 v1.0' }
+        }),
+        approved: false,
+        rejectCode: 'FEE',
+        rejectReason: '违反免费原则'
+      })
+    ).resolves.toBe(true)
+
+    expect(updateResourceMock).toHaveBeenCalledWith({
+      where: { id: 8 },
+      data: { status: 1 }
+    })
+    expect(enqueueSearchOutbox).toHaveBeenCalledWith(transactionClient, 10)
+    expect(createMessage).toHaveBeenCalledWith(
+      {
+        type: 'system',
+        content: MODERATION_REJECT_NOTICE.resource('汉化补丁 v1.0'),
+        link: APPEAL_SETTINGS_LINK,
+        recipient_id: 100
+      },
+      transactionClient
+    )
+    expect(queueSearchSync).toHaveBeenCalledWith(10)
+    expect(invalidatePatchContentCache).toHaveBeenCalledWith('kun-unique-id')
+    expect(invalidateResourceListCache).toHaveBeenCalledTimes(1)
+    expect(invalidateUserPendingResourceCache).toHaveBeenCalledWith(100)
+  })
+
+  it('keeps the existing bio and omits the appeal link when a profile verdict rejects', async () => {
+    await expect(
+      applyModerationVerdict({
+        task: ratingTask({
+          content_type: 'bio',
+          content_id: null,
+          patch_id: null,
+          payload: { text: 'new bio', bio: 'new bio' }
+        }),
+        approved: false,
+        rejectCode: 'AD'
+      })
+    ).resolves.toBe(true)
+
+    // 新签名从未落地, 拒绝只清审核标记
+    expect(updateUserMock).toHaveBeenCalledWith({
+      where: { id: 100 },
+      data: { bio_status: 0 }
+    })
+    // avatar / bio 未被应用, 无申诉入口
+    expect(createMessage).toHaveBeenCalledWith(
+      {
+        type: 'system',
+        content: MODERATION_REJECT_NOTICE.bio(),
+        link: '',
+        recipient_id: 100
+      },
+      transactionClient
+    )
   })
 })

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import { ResourceCard } from './ResourceCard'
 import { FilterBar } from './FilterBar'
 import { KunLoading } from '~/components/kun/Loading'
@@ -29,19 +30,36 @@ export const CardContainer = ({ initialResources, initialTotal }: Props) => {
   const fetchData = async () => {
     setLoading(true)
 
-    const { resources, total: nextTotal } = await kunFetchGet<{
-      resources: PatchResource[]
-      total: number
-    }>('/resource', {
-      sortField,
-      sortOrder,
-      page,
-      limit: 50
-    })
+    try {
+      const response = await kunFetchGet<
+        | {
+            resources: PatchResource[]
+            total: number
+          }
+        | string
+      >('/resource', {
+        sortField,
+        sortOrder,
+        page,
+        limit: 50
+      })
 
-    setResources(resources)
-    setTotal(nextTotal)
-    setLoading(false)
+      if (typeof response === 'string') {
+        kunErrorHandler(response, () => {})
+        setResources([])
+        setTotal(0)
+        return
+      }
+
+      setResources(response.resources)
+      setTotal(response.total)
+    } catch (error) {
+      setResources([])
+      setTotal(0)
+      errorReporter(error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {

@@ -83,7 +83,7 @@ export const resizeImage = (
 ): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     const image = new Image()
-    image.src = URL.createObjectURL(file)
+    const objectUrl = URL.createObjectURL(file)
     image.onload = () => {
       let newWidth = image.width
       let newHeight = image.height
@@ -105,6 +105,7 @@ export const resizeImage = (
       canvas.height = newHeight
 
       ctx?.drawImage(image, 0, 0, newWidth, newHeight)
+      URL.revokeObjectURL(objectUrl)
       const resizedBlob = dataURItoBlob(canvas.toDataURL('image/webp', 0.77))
       const file = new File([resizedBlob], 'image.webp', { type: 'image/webp' })
 
@@ -115,5 +116,11 @@ export const resizeImage = (
         resolve(file)
       }
     }
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      toast.error('图片加载失败, 图片可能已损坏或格式不受支持')
+      reject(new Error('图片加载失败'))
+    }
+    image.src = objectUrl
   })
 }

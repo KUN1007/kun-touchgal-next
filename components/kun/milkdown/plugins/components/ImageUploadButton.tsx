@@ -5,7 +5,7 @@ import { ImagePlus } from 'lucide-react'
 import { callCommand } from '@milkdown/utils'
 import { insertImageCommand } from '@milkdown/preset-commonmark'
 import toast from 'react-hot-toast'
-import { resizeImage } from '~/utils/resizeImage'
+import { checkImageValid, resizeImage } from '~/utils/resizeImage'
 import { kunFetchFormData } from '~/utils/kunFetch'
 import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import { MenuButton } from '../MenuButton'
@@ -27,11 +27,17 @@ export const ImageUploadButton = ({
   const handleFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const file = event.target.files?.[0]
+    const input = event.target
+    const file = input.files?.[0]
     if (!file) return
+    input.value = ''
+
+    if (!checkImageValid(file)) return
+
+    const miniImage = await resizeImage(file, 1920, 1080).catch(() => null)
+    if (!miniImage) return
 
     const formData = new FormData()
-    const miniImage = await resizeImage(file, 1920, 1080)
     formData.append('image', miniImage)
 
     toast('正在上传图片...')

@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import { getRemoteIp } from './getRemoteIp'
+import { sendKunEmail } from './sendKunEmail'
 import { getKv, setKv } from '~/lib/redis'
 import { kunMoyuMoe } from '~/config/moyu-moe'
 import { createKunResetPasswordEmailTemplate } from '~/constants/email/verify-templates'
@@ -49,34 +50,11 @@ export const sendResetPasswordLinkEmail = async (
 
   const resetLink = `${getSiteAddress()}/auth/forgot/reset?token=${encodeURIComponent(token)}`
 
-  const res = await fetch(
-    `${process.env.KUN_VISUAL_NOVEL_EMAIL_HOST}/api/v1/send/message`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Server-API-Key': process.env.KUN_VISUAL_NOVEL_EMAIL_PASSWORD || '',
-        Authorization: `Bearer ${process.env.KUN_VISUAL_NOVEL_EMAIL_PASSWORD}`
-      },
-      body: JSON.stringify({
-        to: [email],
-        from: process.env.KUN_VISUAL_NOVEL_EMAIL_ACCOUNT,
-        sender: `${process.env.KUN_VISUAL_NOVEL_EMAIL_FROM}<${process.env.KUN_VISUAL_NOVEL_EMAIL_ACCOUNT}>`,
-        subject: `${kunMoyuMoe.titleShort} - 重置密码`,
-        tag: 'reset-password',
-        html_body: createKunResetPasswordEmailTemplate(resetLink),
-        plain_body: `我们收到了您重置密码的请求, 请在 30 分钟内访问此链接设置新密码: ${resetLink}`
-      })
-    }
-  )
-
-  if (!res.ok) {
-    const text = await res.text()
-    return text
-  }
-
-  const r = await res.json()
-  if (r.status === 'error') {
-    return JSON.stringify(r)
-  }
+  return sendKunEmail({
+    to: [email],
+    subject: `${kunMoyuMoe.titleShort} - 重置密码`,
+    tag: 'reset-password',
+    html_body: createKunResetPasswordEmailTemplate(resetLink),
+    plain_body: `我们收到了您重置密码的请求, 请在 30 分钟内访问此链接设置新密码: ${resetLink}`
+  })
 }

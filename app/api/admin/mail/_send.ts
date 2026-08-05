@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import { setKv } from '~/lib/redis'
 import { kunMoyuMoe } from '~/config/moyu-moe'
 import { emailTemplates } from '~/constants/email/group-templates'
+import { sendKunEmail } from '~/app/api/utils/sendKunEmail'
 
 const CACHE_KEY = 'auth:mail:notice'
 
@@ -54,34 +55,11 @@ export const sendEmailHTML = async (
     validateEmailCode
   )
 
-  const res = await fetch(
-    `${process.env.KUN_VISUAL_NOVEL_EMAIL_HOST}/api/v1/send/message`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Server-API-Key': process.env.KUN_VISUAL_NOVEL_EMAIL_PASSWORD || '',
-        Authorization: `Bearer ${process.env.KUN_VISUAL_NOVEL_EMAIL_PASSWORD}`
-      },
-      body: JSON.stringify({
-        to: [email],
-        from: process.env.KUN_VISUAL_NOVEL_EMAIL_ACCOUNT,
-        sender: `${process.env.KUN_VISUAL_NOVEL_EMAIL_FROM}<${process.env.KUN_VISUAL_NOVEL_EMAIL_ACCOUNT}>`,
-        subject: getEmailSubject(templateId),
-        tag: templateId,
-        html_body: content,
-        plain_body: '请在支持 HTML 的邮件客户端中查看此邮件'
-      })
-    }
-  )
-
-  if (!res.ok) {
-    const text = await res.text()
-    return text
-  }
-
-  const r = await res.json()
-  if (r.status === 'error') {
-    return JSON.stringify(r)
-  }
+  return sendKunEmail({
+    to: [email],
+    subject: getEmailSubject(templateId),
+    tag: templateId,
+    html_body: content,
+    plain_body: '请在支持 HTML 的邮件客户端中查看此邮件'
+  })
 }

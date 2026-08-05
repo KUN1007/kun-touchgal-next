@@ -1,11 +1,11 @@
 'use client'
 
 import toast from 'react-hot-toast'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@heroui/button'
 import { ModalBody, ModalFooter } from '@heroui/modal'
 import { kunFetchFormData } from '~/utils/kunFetch'
-import { kunErrorHandler } from '~/utils/kunErrorHandler'
+import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import { KunImageCropper } from '~/components/kun/cropper/KunImageCropper'
 import { dataURItoBlob } from '~/utils/dataURItoBlob'
 import { compressDataURLToWebp } from '~/utils/resizeImage'
@@ -21,6 +21,14 @@ export const RewritePatchBanner = ({ patchId, onClose }: Props) => {
   const [banner, setBanner] = useState<Blob | null>(null)
   const [bannerOriginal, setBannerOriginal] = useState<Blob | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string>('')
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+      }
+    }
+  }, [previewUrl])
 
   const removeBanner = async () => {
     setPreviewUrl('')
@@ -44,17 +52,22 @@ export const RewritePatchBanner = ({ patchId, onClose }: Props) => {
 
     setUpdating(true)
 
-    const res = await kunFetchFormData<KunResponse<{}>>(
-      '/patch/banner',
-      formData
-    )
-    kunErrorHandler(res, () => {
-      setBanner(null)
-      setPreviewUrl('')
-    })
-    toast.success('更新图片成功')
-    setUpdating(false)
-    onClose()
+    try {
+      const res = await kunFetchFormData<KunResponse<{}>>(
+        '/patch/banner',
+        formData
+      )
+      kunErrorHandler(res, () => {
+        setBanner(null)
+        setPreviewUrl('')
+        toast.success('更新图片成功')
+        onClose()
+      })
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setUpdating(false)
+    }
   }
 
   const onImageComplete = async (croppedImage: string) => {

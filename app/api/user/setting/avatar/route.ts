@@ -160,7 +160,10 @@ const updateUserAvatar = async (
   }
 
   await invalidateUserSession(uid)
-  await purgeCache(uid)
+  // best-effort: 头像已更新成功, purge 失败不应使请求整体报错
+  await purgeCache(uid).catch((error) =>
+    console.error('Failed to purge avatar CDN cache:', error)
+  )
 
   return { avatar: imageLink }
 }

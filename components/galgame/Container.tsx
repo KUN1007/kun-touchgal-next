@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import { GalgameCard } from './Card'
 import { FilterBar } from './FilterBar'
 import { KunHeader } from '../kun/Header'
@@ -46,25 +47,42 @@ export const CardContainer = ({
   const fetchPatches = async () => {
     setLoading(true)
 
-    const { galgames, total } = await kunFetchGet<{
-      galgames: GalgameCard[]
-      total: number
-    }>('/galgame', {
-      selectedType,
-      selectedLanguage,
-      selectedPlatform,
-      sortField,
-      sortOrder,
-      page,
-      limit: 24,
-      yearString: JSON.stringify(selectedYears),
-      monthString: JSON.stringify(selectedMonths),
-      minRatingCount: sortField === 'rating' ? minRatingCount : 0
-    })
+    try {
+      const response = await kunFetchGet<
+        | {
+            galgames: GalgameCard[]
+            total: number
+          }
+        | string
+      >('/galgame', {
+        selectedType,
+        selectedLanguage,
+        selectedPlatform,
+        sortField,
+        sortOrder,
+        page,
+        limit: 24,
+        yearString: JSON.stringify(selectedYears),
+        monthString: JSON.stringify(selectedMonths),
+        minRatingCount: sortField === 'rating' ? minRatingCount : 0
+      })
 
-    setGalgames(galgames)
-    setTotal(total)
-    setLoading(false)
+      if (typeof response === 'string') {
+        kunErrorHandler(response, () => {})
+        setGalgames([])
+        setTotal(0)
+        return
+      }
+
+      setGalgames(response.galgames)
+      setTotal(response.total)
+    } catch (error) {
+      setGalgames([])
+      setTotal(0)
+      errorReporter(error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {

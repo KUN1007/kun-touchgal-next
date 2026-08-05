@@ -61,11 +61,19 @@ export const markdownToPreviewHtml = (markdown: string): string => {
   let codeContent = ''
   let codeLanguage = ''
   let inList: 'ul' | 'ol' | null = null
+  let inTable = false
 
   const flushList = () => {
     if (inList) {
       result.push(`</${inList}>`)
       inList = null
+    }
+  }
+
+  const flushTable = () => {
+    if (inTable) {
+      result.push('</tbody></table>')
+      inTable = false
     }
   }
 
@@ -82,6 +90,7 @@ export const markdownToPreviewHtml = (markdown: string): string => {
         inCodeBlock = false
       } else {
         flushList()
+        flushTable()
         inCodeBlock = true
         codeLanguage = line.slice(3).trim()
       }
@@ -91,6 +100,11 @@ export const markdownToPreviewHtml = (markdown: string): string => {
     if (inCodeBlock) {
       codeContent += line + '\n'
       continue
+    }
+
+    const tableMatch = line.match(/^\|(.+)\|$/)
+    if (inTable && !tableMatch) {
+      flushTable()
     }
 
     if (line.trim() === '') {
@@ -193,26 +207,27 @@ export const markdownToPreviewHtml = (markdown: string): string => {
       continue
     }
 
-    const tableMatch = line.match(/^\|(.+)\|$/)
     if (tableMatch) {
       const cells = tableMatch[1]
         .split('|')
         .map((c) => c.trim())
         .filter(Boolean)
       const nextLine = lines[i + 1]
-      const isHeader = nextLine && /^\|[\s\-:]+\|$/.test(nextLine)
+      const isHeader = nextLine && /^\|(?:\s*:?-+:?\s*\|)+$/.test(nextLine)
 
       if (isHeader) {
+        flushTable()
         result.push(
           '<table><thead><tr>' +
             cells.map((c) => `<th>${renderInlineMarkdown(c)}</th>`).join('') +
             '</tr></thead><tbody>'
         )
+        inTable = true
         i++
         continue
       }
 
-      if (result.length && result[result.length - 1] === '<tbody>') {
+      if (inTable) {
         result.push(
           '<tr>' +
             cells.map((c) => `<td>${renderInlineMarkdown(c)}</td>`).join('') +
@@ -222,10 +237,6 @@ export const markdownToPreviewHtml = (markdown: string): string => {
       }
     }
 
-    if (result.length && result[result.length - 1] === '<tbody>') {
-      result.push('</tbody></table>')
-    }
-
     result.push(`<p>${renderInlineMarkdown(line)}</p>`)
   }
 
@@ -233,10 +244,7 @@ export const markdownToPreviewHtml = (markdown: string): string => {
     result.push(`<pre><code>${escapeHtml(codeContent.trimEnd())}</code></pre>`)
   }
 
-  if (result.length && result[result.length - 1] === '<tbody>') {
-    result.push('</tbody></table>')
-  }
-
+  flushTable()
   flushList()
 
   return result.join('\n')

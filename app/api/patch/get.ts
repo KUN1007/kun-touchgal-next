@@ -36,7 +36,7 @@ export const getPatchById = async (
   const patch = cached.canWrite
     ? await kunCacheSingleflight({
         cacheKey: getPatchCacheKey(uniqueId),
-        readCache: async () => (await getCachedPatchContent(uniqueId)).response,
+        readCache: () => getCachedPatchContent(uniqueId),
         writeCache: async (response) => {
           if (response !== PATCH_NOT_FOUND) {
             await setCachedPatchContent(uniqueId, response)

@@ -233,7 +233,7 @@ export const getHomeData = async (
 
   return kunCacheSingleflight({
     cacheKey,
-    readCache: async () => (await getCachedHomeData(cacheKey)).response,
+    readCache: () => getCachedHomeData(cacheKey),
     writeCache: (response) => setHomeCache(cacheKey, response),
     writeCacheIfAbsent: (response) => setHomeCacheIfAbsent(cacheKey, response),
     query: () => queryHomeData(visibilityWhere, statusWhere)

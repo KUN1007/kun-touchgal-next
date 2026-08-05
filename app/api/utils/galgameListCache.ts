@@ -156,7 +156,7 @@ export const withGalgameListCache = async (
 
   return kunCacheSingleflight({
     cacheKey,
-    readCache: async () => (await getCachedGalgameList(cacheKey)).response,
+    readCache: () => getCachedGalgameList(cacheKey),
     writeCache: (response) => setGalgameListCache(cacheKey, response),
     writeCacheIfAbsent: (response) =>
       setGalgameListCacheIfAbsent(cacheKey, response),

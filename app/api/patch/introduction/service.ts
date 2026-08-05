@@ -38,8 +38,7 @@ export const getPatchIntroduction = async (
   const result = cached.canWrite
     ? await kunCacheSingleflight({
         cacheKey: `${getPatchIntroductionCacheKey(uniqueId)}:intro`,
-        readCache: async () =>
-          (await getCachedPatchIntroduction(uniqueId)).response,
+        readCache: () => getCachedPatchIntroduction(uniqueId),
         writeCache: async (response) => {
           if (response !== PATCH_NOT_FOUND) {
             await setCachedPatchIntroduction(uniqueId, response)

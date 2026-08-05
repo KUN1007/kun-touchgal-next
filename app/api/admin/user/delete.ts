@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { isPrismaTransactionConflict, prisma } from '~/prisma/index'
 import { deleteKunToken } from '~/app/api/utils/jwt'
 import { deleteResource } from '../resource/delete'
+import { invalidatePatchResourceDetailCache } from '~/app/api/patch/resource/cache'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import {
   invalidatePatchContentCache,
@@ -60,6 +61,14 @@ export const deleteUser = async (
     where: {
       user_id: input.uid,
       section: 'patch',
+      status: 0
+    }
+  })
+  // 资源详情缓存装 status=0 的全部 section, 资源列表只列 section='patch',
+  // 故两个计数各驱动一个失效
+  const publicAnySectionResourceCount = await prisma.patch_resource.count({
+    where: {
+      user_id: input.uid,
       status: 0
     }
   })
@@ -160,6 +169,9 @@ export const deleteUser = async (
 
   await Promise.all([invalidateTagListCache(), invalidateCompanyListCache()])
   await deleteKunToken(input.uid)
+  if (publicAnySectionResourceCount > 0) {
+    await invalidatePatchResourceDetailCache()
+  }
   if (publicResourceCount > 0) {
     await invalidateResourceListCache()
   }

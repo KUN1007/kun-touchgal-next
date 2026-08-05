@@ -103,6 +103,9 @@ const declinePatchResource = async (
     () => undefined
   )
 
+  // 带守卫的删除只匹配 status=2 的待审行, 它们不在资源列表 / 详情缓存的 status=0
+  // 集合里: 下面的 status === 0 在守卫下恒不成立 (快照为 0 时删除匹配 0 行, 已抛
+  // DeclineResourceError 提前返回), 详情缓存同理无需失效
   if (resource.section === 'patch' && resource.status === 0) {
     await invalidateResourceListCache()
   }

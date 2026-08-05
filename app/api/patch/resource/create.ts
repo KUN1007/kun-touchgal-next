@@ -4,6 +4,7 @@ import { patchResourceCreateSchema } from '~/validations/patch'
 import { createMessage } from '~/app/api/utils/message'
 import { markdownToHtml } from '~/app/api/utils/render/markdownToHtml'
 import { bindUploadedResource, recalcPatchType } from './_helper'
+import { invalidatePatchResourceDetailCache } from './cache'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
@@ -210,8 +211,11 @@ export const createPatchResource = async (
   )
   await invalidateUserSession(uid)
 
-  if (resource.status === 0 && resource.section === 'patch') {
-    await invalidateResourceListCache()
+  if (resource.status === 0) {
+    await invalidatePatchResourceDetailCache()
+    if (resource.section === 'patch') {
+      await invalidateResourceListCache()
+    }
   }
 
   // 新资源进入待审核 (2/3): 作者的 hasPendingResource 由 false 翻真, 立即失效

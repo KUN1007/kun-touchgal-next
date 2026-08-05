@@ -14,6 +14,7 @@ import {
   recalcPatchType,
   enqueueResourceLinkDeletions
 } from '~/app/api/patch/resource/_helper'
+import { invalidatePatchResourceDetailCache } from '~/app/api/patch/resource/cache'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import {
   invalidatePatchContentCache,
@@ -179,6 +180,8 @@ const approveAppeal = async (
     if (resourceUniqueId !== null) {
       await invalidatePatchContentCache(resourceUniqueId).catch(() => undefined)
     }
+    // 恢复至 status 0 使该资源重回公开集: 详情缓存装两个 section, 不分 section 失效
+    await invalidatePatchResourceDetailCache()
     await invalidateResourceListCache()
   }
   // comment 恢复 (2→0) 改 _count.comment, rating 恢复改 ratingSummary, 失效详情缓存 (M-05)
@@ -399,6 +402,8 @@ const rejectAppeal = async (
       await invalidatePatchContentCache(outcome.affectedUniqueId).catch(
         () => undefined
       )
+      // 不失效资源列表 / 详情缓存: 带守卫的删除只匹配 hiddenStatus (resource 为 1) 的行,
+      // 这些行本就不在两个缓存的 status=0 集合里
       kickS3DeletionDrain()
     }
   }

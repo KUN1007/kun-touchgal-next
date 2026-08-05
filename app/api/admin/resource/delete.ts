@@ -6,6 +6,7 @@ import {
   recalcPatchType,
   sanitizeResourceLinksForAuditLog
 } from '~/app/api/patch/resource/_helper'
+import { invalidatePatchResourceDetailCache } from '~/app/api/patch/resource/cache'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
@@ -87,8 +88,11 @@ export const deleteResource = async (
   // 事务提交后失效: 事务内失效会被并发读回填旧值 (M-04), 且 Redis 故障不应回滚写入
   await invalidatePatchContentCache(affectedUniqueId).catch(() => undefined)
 
-  if (patchResource.status === 0 && patchResource.section === 'patch') {
-    await invalidateResourceListCache()
+  if (patchResource.status === 0) {
+    await invalidatePatchResourceDetailCache()
+    if (patchResource.section === 'patch') {
+      await invalidateResourceListCache()
+    }
   }
 
   // 删除待审核 (2/3) 资源: 作者 hasPendingResource 可能翻假, 失效以尽早停止 bypass

@@ -103,6 +103,8 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
   // 级联删除经 DB 触发器递减 tag/company 计数, 故需失效列表缓存
   await Promise.all([invalidateTagListCache(), invalidateCompanyListCache()])
 
+  // 不失效 patch 资源详情缓存: 该缓存按 patch_id 分键, 补丁连同详情页一并消失后其键
+  // 不再可达, 而版本号是全站共享的, 递增只会白清其他补丁的缓存
   if (
     patchResources.some(
       (resource) => resource.status === 0 && resource.section === 'patch'

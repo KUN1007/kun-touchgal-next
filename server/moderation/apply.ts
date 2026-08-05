@@ -10,6 +10,7 @@ import { createMentionMessage } from '~/app/api/utils/createMentionMessage'
 import { buildCommentLink } from '~/utils/patch/buildCommentLink'
 import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
+import { invalidatePatchResourceDetailCache } from '~/app/api/patch/resource/cache'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import {
   invalidatePatchContentCache,
@@ -388,6 +389,7 @@ export const applyModerationVerdict = async (
     if (resourceUniqueId !== null) {
       await invalidatePatchContentCache(resourceUniqueId).catch(() => undefined)
     }
+    await invalidatePatchResourceDetailCache()
     await invalidateResourceListCache()
     // 资源离开待审核 (3→0/1): 作者 hasPendingResource 可能翻假, 失效以尽早停止 bypass
     await invalidateUserPendingResourceCache(task.user_id)

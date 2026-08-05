@@ -5,6 +5,7 @@ import {
   enqueueResourceLinkDeletions,
   recalcPatchType
 } from './_helper'
+import { invalidatePatchResourceDetailCache } from './cache'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
@@ -80,8 +81,11 @@ export const deleteResource = async (
   await invalidatePatchContentCache(affectedUniqueId).catch(() => undefined)
   await invalidateUserSession(resourceUserUid)
 
-  if (patchResource.status === 0 && patchResource.section === 'patch') {
-    await invalidateResourceListCache()
+  if (patchResource.status === 0) {
+    await invalidatePatchResourceDetailCache()
+    if (patchResource.section === 'patch') {
+      await invalidateResourceListCache()
+    }
   }
 
   // 管理员删除待审核 (2/3) 资源: 作者 hasPendingResource 可能翻假, 失效以尽早停止 bypass

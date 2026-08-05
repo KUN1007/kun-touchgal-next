@@ -7,6 +7,7 @@ import {
   enqueueResourceLinkDeletions,
   recalcPatchType
 } from './_helper'
+import { invalidatePatchResourceDetailCache } from './cache'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
@@ -293,9 +294,14 @@ export const updatePatchResource = async (
     () => undefined
   )
 
-  const wasListed = resource.status === 0 && resource.section === 'patch'
-  const isListed =
-    updatedResource.status === 0 && updatedResource.section === 'patch'
+  const wasPublic = resource.status === 0
+  const isPublic = updatedResource.status === 0
+  if (wasPublic || isPublic) {
+    await invalidatePatchResourceDetailCache()
+  }
+
+  const wasListed = wasPublic && resource.section === 'patch'
+  const isListed = isPublic && updatedResource.section === 'patch'
   if (wasListed || isListed) {
     await invalidateResourceListCache()
   }

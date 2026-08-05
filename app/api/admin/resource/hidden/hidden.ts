@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
+import { invalidatePatchResourceDetailCache } from '~/app/api/patch/resource/cache'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import {
@@ -95,6 +96,7 @@ export const updateResourceHidden = async (
     )
   )
 
+  await invalidatePatchResourceDetailCache()
   await invalidateResourceListCache()
 
   return { count: targetIds.length }

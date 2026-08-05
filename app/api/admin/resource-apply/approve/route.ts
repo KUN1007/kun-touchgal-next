@@ -6,6 +6,7 @@ import { createMessage } from '~/app/api/utils/message'
 import { kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { approvePatchResourceSchema } from '~/validations/admin'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
+import { invalidatePatchResourceDetailCache } from '~/app/api/patch/resource/cache'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
@@ -84,6 +85,9 @@ const approvePatchResource = async (
   await invalidatePatchContentCache(resource.patch.unique_id).catch(
     () => undefined
   )
+
+  // 2→0 使该资源进入公开集: 详情缓存装两个 section, 故不分 section 无条件失效
+  await invalidatePatchResourceDetailCache()
 
   if (resource.section === 'patch') {
     await invalidateResourceListCache()

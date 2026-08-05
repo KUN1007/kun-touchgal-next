@@ -3,7 +3,6 @@
 import { Button, Select, SelectItem, Tab, Tabs } from '@heroui/react'
 import { useEffect, useRef, useState } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
-import { kunShouldBackfillDeletedRow } from '~/utils/pagination'
 import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { useMounted } from '~/hooks/useMounted'
 import { ReportCard } from './ReportCard'
@@ -67,6 +66,11 @@ export const Report = ({ initialReports, total, title, targetType }: Props) => {
         }
         return
       }
+      const totalPage = Math.max(1, Math.ceil(response.total / limit))
+      if (targetPage > totalPage) {
+        setPage(totalPage)
+        return
+      }
       setReports(response.reports)
       setTotalCount(response.total)
     } catch {
@@ -80,7 +84,9 @@ export const Report = ({ initialReports, total, title, targetType }: Props) => {
     }
   }
   // 处理成功后在本地移除该举报 (服务端会一并处理同目标的其他待处理举报),
-  // 只有当前页被抽空且不在第一页时才回退页码走正常 refetch
+  // 只有当前页被抽空且不在第一页时才回退页码走正常 refetch。
+  // 同目标的其他举报可分布在任意页, 本地递减只是即时反馈,
+  // totalCount 须无条件静默 refetch 以服务端为准 (顺带补齐前移行)
   const handleReportsHandled = (handled: AdminReport) => {
     const targetId =
       handled.targetType === 'comment'
@@ -106,10 +112,7 @@ export const Report = ({ initialReports, total, title, targetType }: Props) => {
     }
     setReports((prev) => prev.filter((report) => !isRelated(report)))
     setTotalCount((prev) => Math.max(0, prev - removedCount))
-    if (
-      kunShouldBackfillDeletedRow(totalCount, page, limit) &&
-      latestFetchRequestIdRef.current === renderFetchRequestId
-    ) {
+    if (latestFetchRequestIdRef.current === renderFetchRequestId) {
       fetchData(page, activeTab, { silent: true })
     }
   }

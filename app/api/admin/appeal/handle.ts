@@ -20,6 +20,7 @@ import {
   invalidatePatchContentCacheByPatchId
 } from '~/app/api/patch/cache'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
+import { collectCommentSubtreeIds } from '~/app/api/patch/comment/subtree'
 import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
@@ -261,23 +262,14 @@ const rejectAppeal = async (
           let affectedUniqueId = ''
 
           if (type === 'comment') {
-            // 删除前用递归 CTE 收集根+后代 id, 供删除后清理其审核任务与 pending 申诉
-            const descendants = await tx.$queryRaw<{ id: number }[]>`
-              WITH RECURSIVE descendants AS (
-                SELECT id FROM patch_comment WHERE id = ${contentId}
-                UNION ALL
-                SELECT pc.id FROM patch_comment pc
-                INNER JOIN descendants d ON pc.parent_id = d.id
-              )
-              SELECT id FROM descendants
-            `
+            // 删除前收集根+后代 id, 供删除后清理其审核任务与 pending 申诉
+            const subtreeIds = await collectCommentSubtreeIds([contentId], tx)
             const deleted = await tx.patch_comment.deleteMany({
               where: { id: contentId, status: hiddenStatus }
             })
             if (deleted.count > 0) {
-              const ids = descendants.map((row) => row.id)
-              await deletePendingModerationTasks('comment', ids, tx)
-              await deletePendingAppeals('comment', ids, tx)
+              await deletePendingModerationTasks('comment', subtreeIds, tx)
+              await deletePendingAppeals('comment', subtreeIds, tx)
               didDelete = true
               contentDeleted = true
             } else {

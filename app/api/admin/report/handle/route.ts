@@ -2,8 +2,12 @@ import { z } from 'zod'
 import { NextRequest, NextResponse } from 'next/server'
 import { kunParsePostBody } from '~/app/api/utils/parseQuery'
 import { prisma } from '~/prisma/index'
+import type { Prisma } from '~/prisma/generated/prisma/client'
 import { adminHandleReportSchema } from '~/validations/admin'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
+import { deletePendingModerationTasks } from '~/server/moderation/submit'
+import { deletePendingAppeals } from '~/server/moderation/appeal'
+import { collectCommentSubtreeIds } from '~/app/api/patch/comment/subtree'
 import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 import { invalidatePatchContentCacheByPatchId } from '~/app/api/patch/cache'
@@ -65,16 +69,34 @@ const handleReport = async (
     // triggers ON DELETE SET NULL on patch_report.comment_id / rating_id, which
     // would cause the subsequent lookup by comment_id / rating_id to miss
     // everything, leaving the reports stuck in pending with no notifications.
+    // Deleting a comment also cascades to its whole reply subtree, whose
+    // pending reports would be orphaned (comment_id SET NULL, stuck in the
+    // pending list forever) — collect descendant ids and handle them too.
+    let pendingWhere: Prisma.patch_reportWhereInput = relatedWhere
+    let commentDescendantIds: number[] = []
+    if (input.action === 'delete' && targetType === 'comment' && targetId) {
+      commentDescendantIds = await collectCommentSubtreeIds([targetId], tx)
+      pendingWhere = {
+        status: 0,
+        target_type: targetType,
+        comment_id: { in: commentDescendantIds }
+      }
+    }
+
     const relatedReports = await tx.patch_report.findMany({
-      where: relatedWhere,
+      where: pendingWhere,
       select: { id: true, sender_id: true, reason: true }
     })
 
     if (input.action === 'delete' && targetId) {
       if (targetType === 'comment') {
         await tx.patch_comment.deleteMany({ where: { id: targetId } })
+        await deletePendingModerationTasks('comment', commentDescendantIds, tx)
+        await deletePendingAppeals('comment', commentDescendantIds, tx)
       } else {
         await tx.patch_rating.deleteMany({ where: { id: targetId } })
+        await deletePendingModerationTasks('rating', [targetId], tx)
+        await deletePendingAppeals('rating', [targetId], tx)
       }
     }
 

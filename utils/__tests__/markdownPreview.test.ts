@@ -85,6 +85,43 @@ describe('markdownToPreviewHtml', () => {
     expect(markdownToPreviewHtml('*[a](https://kungal.com)*')).toBe(
       '<p><em><a href="https://kungal.com" target="_blank" rel="noopener noreferrer">a</a></em></p>'
     )
+    expect(markdownToPreviewHtml('[a *b* `c`](https://kungal.com)')).toBe(
+      '<p><a href="https://kungal.com" target="_blank" rel="noopener noreferrer">a <em>b</em> <code>c</code></a></p>'
+    )
+  })
+
+  it('多列表格渲染为完整闭合的 table 结构', () => {
+    expect(markdownToPreviewHtml('| a | b |\n|---|---|\n| 1 | 2 |')).toBe(
+      '<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody>\n' +
+        '<tr><td>1</td><td>2</td></tr>\n' +
+        '</tbody></table>'
+    )
+  })
+
+  it('带对齐语法的分隔符可被识别', () => {
+    const html = markdownToPreviewHtml('| a | b |\n| :--- | ---: |\n| 1 | 2 |')
+    expect(html).toContain('<th>a</th><th>b</th>')
+    expect(html).toContain('<tr><td>1</td><td>2</td></tr>')
+    expect(html).toMatch(/<\/tbody><\/table>$/)
+  })
+
+  it('表格在后续内容前闭合', () => {
+    expect(markdownToPreviewHtml('| a |\n| --- |\n| 1 |\n\nafter')).toBe(
+      '<table><thead><tr><th>a</th></tr></thead><tbody>\n' +
+        '<tr><td>1</td></tr>\n' +
+        '</tbody></table>\n' +
+        '<p>after</p>'
+    )
+  })
+
+  it('表格在文档结尾处闭合', () => {
+    expect(markdownToPreviewHtml('| a |\n| --- |')).toBe(
+      '<table><thead><tr><th>a</th></tr></thead><tbody>\n</tbody></table>'
+    )
+  })
+
+  it('无分隔符的竖线行仍是字面段落', () => {
+    expect(markdownToPreviewHtml('| a |')).toBe('<p>| a |</p>')
   })
 
   // 期望值取自服务端 unified 管线 (app/api/utils/render/markdownToHtml.ts) 的实测输出,

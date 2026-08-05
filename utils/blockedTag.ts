@@ -19,10 +19,15 @@ export const parseBlockedTagIds = (value?: string | null) => {
       return []
     }
 
-    return [...new Set(data)]
-      .map((id) => Number(id))
-      .filter((id) => Number.isInteger(id) && id > 0 && id <= INT4_MAX)
-      .slice(0, MAX_BLOCKED_TAG_IDS)
+    // 去重必须在 Number 归一化之后, 否则 "1" / "01" / "1.0" 互不相等全部存活,
+    // 重复项会进缓存键并挤占 MAX_BLOCKED_TAG_IDS 配额
+    return [
+      ...new Set(
+        data
+          .map((id) => Number(id))
+          .filter((id) => Number.isInteger(id) && id > 0 && id <= INT4_MAX)
+      )
+    ].slice(0, MAX_BLOCKED_TAG_IDS)
   } catch {
     return []
   }

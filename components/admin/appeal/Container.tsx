@@ -1,8 +1,9 @@
 'use client'
 
 import { Select, SelectItem } from '@heroui/react'
-import { useEffect, useState, type Key } from 'react'
+import { useEffect, useRef, useState, type Key } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { kunShouldBackfillDeletedRow } from '~/utils/pagination'
 import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { KunPagination } from '~/components/kun/Pagination'
 import { useMounted } from '~/hooks/useMounted'
@@ -32,17 +33,31 @@ export const Appeal = ({ initialAppeals, initialTotal }: Props) => {
   const limit = 30
   const isMounted = useMounted()
 
-  const fetchData = async () => {
-    setLoading(true)
+  const latestFetchRequestIdRef = useRef(0)
+  // 本渲染时刻的请求序号; 删行后补齐前比对, 若期间有过新请求 (翻页/筛选变更)
+  // 则闭包参数已过期, 跳过静默补齐让用户请求的响应落地
+  const renderFetchRequestId = latestFetchRequestIdRef.current
+
+  const fetchData = async ({ silent = false } = {}) => {
+    const requestId = latestFetchRequestIdRef.current + 1
+    latestFetchRequestIdRef.current = requestId
+    if (!silent) {
+      setLoading(true)
+    }
     try {
       const response = await kunFetchGet<{
         appeals: AdminAppealItem[]
         total: number
       }>('/admin/appeal', { page, limit, status })
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
       setAppeals(response.appeals)
       setTotal(response.total)
     } finally {
-      setLoading(false)
+      if (requestId === latestFetchRequestIdRef.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -55,6 +70,12 @@ export const Appeal = ({ initialAppeals, initialTotal }: Props) => {
       }
       setAppeals((prev) => prev.filter((appeal) => appeal.id !== appealId))
       setTotal((prev) => Math.max(0, prev - 1))
+      if (
+        kunShouldBackfillDeletedRow(total, page, limit) &&
+        latestFetchRequestIdRef.current === renderFetchRequestId
+      ) {
+        fetchData({ silent: true })
+      }
     } else {
       setAppeals((prev) =>
         prev.map((appeal) =>

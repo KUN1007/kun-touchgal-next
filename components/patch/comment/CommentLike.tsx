@@ -49,7 +49,6 @@ export const CommentLikeButton = ({ comment, isDisabled }: Props) => {
         variant="ghost"
         size="sm"
         className="gap-2"
-        disabled={loading}
         isDisabled={isDisabled}
         isLoading={loading}
         onPress={toggleLike}

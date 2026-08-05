@@ -58,4 +58,28 @@ describe('GET /api/edit/duplicate', () => {
     expect(await res.json()).toEqual({ uniqueId: 'cafebabe' })
     expect(findFirstMock.mock.calls[0][0].where.id).toBeUndefined()
   })
+
+  // 指数记法可用 4 字符表达低于 int4 下界的整数, max(10) 限长挡不住
+  it('低于 int4 下界的 bangumiId (-9e9) 不进入查询, 返回空对象', async () => {
+    const res = await GET(request('bangumiId=-9e9'))
+
+    expect(await res.json()).toEqual({})
+    expect(findFirstMock).not.toHaveBeenCalled()
+  })
+
+  it('低于 int4 下界的 steamId (-9e9) 不进入查询, 返回空对象', async () => {
+    const res = await GET(request('steamId=-9e9'))
+
+    expect(await res.json()).toEqual({})
+    expect(findFirstMock).not.toHaveBeenCalled()
+  })
+
+  it('低于 int4 下界的 excludeId (-9e9) 只是不排除, 不影响其余条件', async () => {
+    findFirstMock.mockResolvedValue({ unique_id: 'cafebabe' })
+
+    const res = await GET(request('bangumiId=427846&excludeId=-9e9'))
+
+    expect(await res.json()).toEqual({ uniqueId: 'cafebabe' })
+    expect(findFirstMock.mock.calls[0][0].where.id).toBeUndefined()
+  })
 })

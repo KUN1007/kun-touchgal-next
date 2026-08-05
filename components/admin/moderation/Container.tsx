@@ -161,8 +161,14 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
       setTasks((prev) => prev.filter((task) => task.id !== taskId))
       setTotal((prev) => Math.max(0, prev - 1))
     }
-    // 改判后任务不可再操作, 从批量选中集移除; 重试回 pending 仍可改判, 保留选中
-    if (patch.status === 'approved' || patch.status === 'rejected') {
+    // 改判后任务不可再操作, 或任务已离开当前筛选列表 (如 manual 筛选下重试回
+    // pending), 均从批量选中集移除——不可见的任务绝不能留作批量操作目标;
+    // 仅当重试后任务仍可见 (all 筛选) 才保留选中
+    if (
+      !staysVisible ||
+      patch.status === 'approved' ||
+      patch.status === 'rejected'
+    ) {
       setSelectedTaskIds((prev) => {
         if (!prev.has(taskId)) {
           return prev

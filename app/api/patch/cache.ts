@@ -153,11 +153,27 @@ export const setCachedPatchFavoriteStatus = async (
   }
 }
 
+const getPatchContentCacheKeys = (uniqueId: string) => [
+  getPatchCacheKey(uniqueId),
+  getPatchIntroductionCacheKey(uniqueId)
+]
+
+// 失败仍向上抛出: 调用方一律 best-effort 吞掉, 此处只负责把静默失败记成日志
+const delPatchContentCacheKeys = async (keys: string[]) => {
+  try {
+    await delKvs(keys)
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to invalidate patch content cache:', error)
+    throw error
+  }
+}
+
+// 两键走单条 DEL (键数恒为 2, 必在 delKvs 单批内, 故 Redis 单命令原子): 拆成两次
+// 删除时, introduction 键失败而 patch 键成功会留下"新 summary + 旧 HTML"的不一致缓存
+// (introduction 缓存内嵌渲染后 HTML, patch 缓存存 raw markdown), 且持续到 TTL 过期
 export const invalidatePatchContentCache = async (uniqueId: string) => {
-  await Promise.all([
-    delKv(getPatchCacheKey(uniqueId)),
-    delKv(getPatchIntroductionCacheKey(uniqueId))
-  ])
+  await delPatchContentCacheKeys(getPatchContentCacheKeys(uniqueId))
 }
 
 // 只持有数字 patch_id 的写路径 (评分/评论统计变更) 用它失效补丁详情缓存:
@@ -174,8 +190,8 @@ export const invalidatePatchContentCacheByPatchId = async (
     where: { id: { in: ids } },
     select: { unique_id: true }
   })
-  await Promise.all(
-    patches.map((patch) => invalidatePatchContentCache(patch.unique_id))
+  await delPatchContentCacheKeys(
+    patches.flatMap((patch) => getPatchContentCacheKeys(patch.unique_id))
   )
 }
 

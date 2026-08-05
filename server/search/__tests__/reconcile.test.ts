@@ -177,6 +177,22 @@ describe('reconcileSearchIndex keyset 分批加载 PG', () => {
     expect(addDocumentsMock).not.toHaveBeenCalled()
   })
 
+  it('先扫索引后扫 PG: 两次扫描间新建并被出箱写入索引的 patch 不会被误删', async () => {
+    // 顺序承重: 若回退为先 PG 后索引, 扫描间隙内新建 patch 会进 idsToDelete 被误删
+    patchFindManyMock.mockResolvedValueOnce([{ id: 1, updated: t(100) }])
+    patchFindManyMock.mockResolvedValueOnce([])
+    getDocumentsMock.mockResolvedValue({
+      results: [{ id: 1, updated: 100 }],
+      total: 1
+    })
+
+    await reconcileSearchIndex()
+
+    expect(getDocumentsMock.mock.invocationCallOrder[0]).toBeLessThan(
+      patchFindManyMock.mock.invocationCallOrder[0]
+    )
+  })
+
   it('未配置 Meili 时抛错且不触碰数据库', async () => {
     getMeiliClientMock.mockReturnValue(null)
 

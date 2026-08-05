@@ -27,24 +27,10 @@ export const reconcileSearchIndex =
     }
     const index = client.index(GALGAME_INDEX)
 
-    const pgUpdatedById = new Map<number, number>()
-    let lastId = 0
-    for (;;) {
-      const pgRows = await prisma.patch.findMany({
-        where: { id: { gt: lastId } },
-        orderBy: { id: 'asc' },
-        take: RECONCILE_BATCH_SIZE,
-        select: { id: true, updated: true }
-      })
-      if (pgRows.length === 0) {
-        break
-      }
-      for (const row of pgRows) {
-        pgUpdatedById.set(row.id, Math.floor(row.updated.getTime() / 1000))
-      }
-      lastId = pgRows[pgRows.length - 1].id
-    }
-
+    // 必须先扫索引、后扫 PG：反过来时，两次扫描之间新建并被出箱排空（与本任务
+    // 不共锁）写入索引的 patch 不在 PG 快照中，会被当作索引多余文档误删，且索引
+    // 删除不触碰 patch.updated，只能等下一轮对账才恢复。先扫索引则该 patch 不在
+    // 索引快照（不进 idsToDelete）、在 PG 快照（走幂等的 idsToSync），严格安全
     const indexUpdatedById = new Map<number, number>()
     for (let offset = 0; ; offset += RECONCILE_BATCH_SIZE) {
       const page = await index.getDocuments<{ id: number; updated: number }>({
@@ -61,6 +47,24 @@ export const reconcileSearchIndex =
       ) {
         break
       }
+    }
+
+    const pgUpdatedById = new Map<number, number>()
+    let lastId = 0
+    for (;;) {
+      const pgRows = await prisma.patch.findMany({
+        where: { id: { gt: lastId } },
+        orderBy: { id: 'asc' },
+        take: RECONCILE_BATCH_SIZE,
+        select: { id: true, updated: true }
+      })
+      if (pgRows.length === 0) {
+        break
+      }
+      for (const row of pgRows) {
+        pgUpdatedById.set(row.id, Math.floor(row.updated.getTime() / 1000))
+      }
+      lastId = pgRows[pgRows.length - 1].id
     }
 
     const idsToDelete = [...indexUpdatedById.keys()].filter(

@@ -93,6 +93,8 @@ model user_message {
 
   @@index([recipient_id, status, type, id])
   @@index([recipient_id, sender_id, type])
+  @@index([recipient_id, created(sort: Desc), id(sort: Desc)])
+  @@index([recipient_id, type, created(sort: Desc), id(sort: Desc)])
 }
 
 model user_patch_favorite_folder {

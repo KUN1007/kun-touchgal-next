@@ -66,21 +66,11 @@ export const handleBatchPatchTags = async (
             tag_id: tagId
           }))
         })
-
-        await tx.patch_tag.updateMany({
-          where: { id: { in: allTagIds } },
-          data: { count: { increment: 1 } }
-        })
       }
 
       if (tagsToRemove.length > 0) {
         await tx.patch_tag_relation.deleteMany({
           where: { patch_id: patchId, tag_id: { in: tagsToRemove } }
-        })
-
-        await tx.patch_tag.updateMany({
-          where: { id: { in: tagsToRemove } },
-          data: { count: { decrement: 1 } }
         })
       }
     },

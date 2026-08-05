@@ -99,22 +99,15 @@ export const ensurePatchCompaniesFromVNDB = async (
     const companyIds = allCompanies.map((c) => c.id)
 
     if (companyIds.length) {
-      // count 只按实际插入的关联递增,避免并发下重复 increment
-      const insertedRelations =
-        await prisma.patch_company_relation.createManyAndReturn({
-          data: companyIds.map((cid) => ({
-            patch_id: patchId,
-            company_id: cid
-          })),
-          select: { company_id: true },
-          skipDuplicates: true
-        })
+      const insertedRelations = await prisma.patch_company_relation.createMany({
+        data: companyIds.map((cid) => ({
+          patch_id: patchId,
+          company_id: cid
+        })),
+        skipDuplicates: true
+      })
 
-      if (insertedRelations.length) {
-        await prisma.patch_company.updateMany({
-          where: { id: { in: insertedRelations.map((r) => r.company_id) } },
-          data: { count: { increment: 1 } }
-        })
+      if (insertedRelations.count) {
         changed = true
       }
     }

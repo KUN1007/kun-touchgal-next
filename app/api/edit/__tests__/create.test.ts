@@ -4,7 +4,11 @@ import { Prisma } from '~/prisma/generated/prisma/client'
 
 const {
   uploadImageToS3Mock,
+  deleteFileFromS3Mock,
+  enqueueS3DeletionMock,
+  kickS3DeletionDrainMock,
   patchFindFirstMock,
+  patchFindUniqueMock,
   transactionMock,
   patchCreateMock,
   patchUpdateMock,
@@ -18,7 +22,11 @@ const {
   postToIndexNowMock
 } = vi.hoisted(() => ({
   uploadImageToS3Mock: vi.fn(),
+  deleteFileFromS3Mock: vi.fn(),
+  enqueueS3DeletionMock: vi.fn(),
+  kickS3DeletionDrainMock: vi.fn(),
   patchFindFirstMock: vi.fn(),
+  patchFindUniqueMock: vi.fn(),
   transactionMock: vi.fn(),
   patchCreateMock: vi.fn(),
   patchUpdateMock: vi.fn(),
@@ -40,12 +48,18 @@ const transactionClient = {
 }
 
 vi.mock('~/lib/s3', () => ({
-  uploadImageToS3: uploadImageToS3Mock
+  uploadImageToS3: uploadImageToS3Mock,
+  deleteFileFromS3: deleteFileFromS3Mock
+}))
+
+vi.mock('~/server/storage/s3Outbox', () => ({
+  enqueueS3Deletion: enqueueS3DeletionMock,
+  kickS3DeletionDrain: kickS3DeletionDrainMock
 }))
 
 vi.mock('~/prisma/index', () => ({
   prisma: {
-    patch: { findFirst: patchFindFirstMock },
+    patch: { findFirst: patchFindFirstMock, findUnique: patchFindUniqueMock },
     $transaction: transactionMock
   }
 }))
@@ -123,7 +137,10 @@ describe('createGalgame', () => {
     vi.clearAllMocks()
     committed = false
     uploadImageToS3Mock.mockResolvedValue(undefined)
+    deleteFileFromS3Mock.mockResolvedValue(undefined)
     patchFindFirstMock.mockResolvedValue(null)
+    // 补偿清理的守卫查询: 默认 null = 事务确已回滚
+    patchFindUniqueMock.mockResolvedValue(null)
     patchCreateMock.mockResolvedValue({ id: 42 })
     transactionMock.mockImplementation(
       async (callback: (tx: typeof transactionClient) => unknown) => {
@@ -153,6 +170,8 @@ describe('createGalgame', () => {
     expect(committed).toBe(false)
     expect(patchUpdateMock).not.toHaveBeenCalled()
     expect(enqueueSearchOutboxMock).not.toHaveBeenCalled()
+    // keys 赋值早于上传: PUT 的 Promise.all 部分成功也会被补偿清理 (删除幂等)
+    expect(deleteFileFromS3Mock).toHaveBeenCalledTimes(2)
   }, 30000)
 
   it('bangumi_id 预检命中时返回重复提示, 不开启事务', async () => {
@@ -190,6 +209,56 @@ describe('createGalgame', () => {
     expect(committed).toBe(false)
     expect(invalidateUserSessionMock).not.toHaveBeenCalled()
     expect(queueSearchSyncMock).not.toHaveBeenCalled()
+    // P2002 抛自 patch.create, 早于上传, 不应触发 banner 补偿清理
+    expect(patchFindUniqueMock).not.toHaveBeenCalled()
+    expect(deleteFileFromS3Mock).not.toHaveBeenCalled()
+  }, 30000)
+
+  it('上传成功后事务内步骤失败时, 补偿删除已上传的 banner 对象', async () => {
+    const image = await createPng(400, 300)
+    ratingStatCreateMock.mockRejectedValueOnce(new Error('db glitch'))
+
+    await expect(createGalgame(makeInput(image), 1)).rejects.toThrow(
+      'db glitch'
+    )
+    expect(committed).toBe(false)
+    expect(deleteFileFromS3Mock).toHaveBeenCalledWith(
+      'patch/42/banner/banner.avif'
+    )
+    expect(deleteFileFromS3Mock).toHaveBeenCalledWith(
+      'patch/42/banner/banner-mini.avif'
+    )
+    expect(deleteFileFromS3Mock).toHaveBeenCalledTimes(2)
+    expect(enqueueS3DeletionMock).not.toHaveBeenCalled()
+  }, 30000)
+
+  it('补偿即时删除失败时, 失败的 key 落删除写出箱兜底', async () => {
+    const image = await createPng(400, 300)
+    ratingStatCreateMock.mockRejectedValueOnce(new Error('db glitch'))
+    deleteFileFromS3Mock.mockRejectedValue(new Error('S3 flaky'))
+
+    await expect(createGalgame(makeInput(image), 1)).rejects.toThrow(
+      'db glitch'
+    )
+    const { prisma } = await import('~/prisma/index')
+    // 入箱必须用全局 client (事务已回滚, tx client 不可用)
+    expect(enqueueS3DeletionMock).toHaveBeenCalledWith(prisma, [
+      'patch/42/banner/banner.avif',
+      'patch/42/banner/banner-mini.avif'
+    ])
+    expect(kickS3DeletionDrainMock).toHaveBeenCalledTimes(1)
+  }, 30000)
+
+  it('patch 行仍存在 (commit 响应丢失但实际已提交) 时不删 S3 对象', async () => {
+    const image = await createPng(400, 300)
+    ratingStatCreateMock.mockRejectedValueOnce(new Error('connection reset'))
+    patchFindUniqueMock.mockResolvedValue({ id: 42 })
+
+    await expect(createGalgame(makeInput(image), 1)).rejects.toThrow(
+      'connection reset'
+    )
+    expect(deleteFileFromS3Mock).not.toHaveBeenCalled()
+    expect(enqueueS3DeletionMock).not.toHaveBeenCalled()
   }, 30000)
 
   it('非 P2002 的错误继续抛出', async () => {

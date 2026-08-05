@@ -16,7 +16,16 @@ export const getBlockedTagIds = cache(async () => {
     'kun-patch-setting-store|state|data|kunBlockedTagIds'
   )?.value
   if (cachedBlockedTagIds !== undefined) {
-    return parseBlockedTagIds(cachedBlockedTagIds)
+    const cached = parseBlockedTagIds(cachedBlockedTagIds)
+    if (cached !== null) {
+      // 镜像 cookie 未验签, 采信前必须验证会话有效 (见 API 版同名函数);
+      // 坏缓存 (cached === null) 落入下方 DB 分支时自会验证
+      const result = await loadAuthUser()
+      if (!result) {
+        return []
+      }
+      return cached
+    }
   }
 
   const result = await loadAuthUser()
@@ -38,14 +47,17 @@ export const getAuthenticatedBlockedTagIds = cache(async () => {
     'kun-patch-setting-store|state|data|kunBlockedTagIds'
   )?.value
   if (cachedBlockedTagIds !== undefined) {
-    const result = await loadAuthUser()
-    if (!result) {
-      return null
-    }
+    const cached = parseBlockedTagIds(cachedBlockedTagIds)
+    if (cached !== null) {
+      const result = await loadAuthUser()
+      if (!result) {
+        return null
+      }
 
-    return {
-      payload: result.payload,
-      blockedTagIds: parseBlockedTagIds(cachedBlockedTagIds)
+      return {
+        payload: result.payload,
+        blockedTagIds: cached
+      }
     }
   }
 

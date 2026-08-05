@@ -2,16 +2,15 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { getTagSchema } from '~/validations/tag'
 import { getCachedTagList, getTagListCacheKey, setTagListCache } from '../cache'
-import { SHARED_CACHE_MAX_BLOCKED_TAG_IDS } from '~/app/api/utils/visibilityCacheKey'
 
 export const getTag = async (
   input: z.infer<typeof getTagSchema>,
   blockedTagIds: number[] = []
 ) => {
   const { page, limit } = input
-  // 屏蔽标签过多的视角不参与共享缓存, 见 SHARED_CACHE_MAX_BLOCKED_TAG_IDS
+  // 带屏蔽标签的视角不参与共享缓存 (键数量由未验签 cookie 决定, 见 hasBlockedTagFilter)
   const cacheKey =
-    blockedTagIds.length > SHARED_CACHE_MAX_BLOCKED_TAG_IDS
+    blockedTagIds.length > 0
       ? null
       : await getTagListCacheKey(input, blockedTagIds)
   const cached = await getCachedTagList(cacheKey)

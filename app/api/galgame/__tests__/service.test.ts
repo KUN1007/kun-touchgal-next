@@ -53,7 +53,6 @@ vi.mock('~/server/search/filter-builder', () => ({
 }))
 
 import { getGalgame } from '~/app/api/galgame/service'
-import { SHARED_CACHE_MAX_BLOCKED_TAG_IDS } from '~/app/api/utils/visibilityCacheKey'
 
 const blockedTagWhere = (count: number) => ({
   NOT: {
@@ -101,12 +100,12 @@ describe('getGalgame', () => {
     queryGalgameIndexMock.mockResolvedValue(EMPTY_RESPONSE)
   })
 
-  it('skips the shared cache entirely when too many tags are blocked', async () => {
+  it('skips the shared cache entirely when any tag is blocked', async () => {
     isMeiliEnabledMock.mockReturnValue(true)
 
     const response = await getGalgame(INPUT, {
       ...VISIBILITY,
-      visibilityWhere: blockedTagWhere(SHARED_CACHE_MAX_BLOCKED_TAG_IDS + 1)
+      visibilityWhere: blockedTagWhere(1)
     })
 
     expect(response).toEqual(EMPTY_RESPONSE)
@@ -115,6 +114,20 @@ describe('getGalgame', () => {
     expect(acquireKvLockMock).not.toHaveBeenCalled()
     expect(setKvMock).not.toHaveBeenCalled()
     expect(setKvIfAbsentMock).not.toHaveBeenCalled()
+  })
+
+  it('skips the shared cache for large blocked tag sets too', async () => {
+    isMeiliEnabledMock.mockReturnValue(true)
+
+    const response = await getGalgame(INPUT, {
+      ...VISIBILITY,
+      visibilityWhere: blockedTagWhere(60)
+    })
+
+    expect(response).toEqual(EMPTY_RESPONSE)
+    expect(queryGalgameIndexMock).toHaveBeenCalledTimes(1)
+    expect(getKvMock).not.toHaveBeenCalled()
+    expect(setKvMock).not.toHaveBeenCalled()
   })
 
   it('returns cached response without querying or locking', async () => {

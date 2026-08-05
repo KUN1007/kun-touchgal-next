@@ -395,12 +395,15 @@ export const applyModerationVerdict = async (
     const payload = task.payload as unknown as ModerationAvatarPayload
     const imageBedUrl = process.env.KUN_VISUAL_NOVEL_IMAGE_BED_URL
     await invalidateUserSession(task.user_id)
-    // approve: 新头像已复制到正式 key, 刷新 CDN
+    // approve: 新头像已复制到正式 key, 刷新 CDN; best-effort, 抛错会跳过下方
+    // pending 清理且任务已非 pending 不会重试, 使暂存对象永久泄漏
     if (approved) {
       await purgeCloudflareCache([
         `${imageBedUrl}/${payload.avatarKey}`,
         `${imageBedUrl}/${payload.avatarMiniKey}`
-      ])
+      ]).catch((error) =>
+        console.error('Failed to purge avatar CDN cache:', error)
+      )
     }
     // pending 暂存对象无论通过与否都清理; 拒绝时用户原头像与正式 key 保持不动
     await deleteFileFromS3(payload.pendingKey).catch((error) =>

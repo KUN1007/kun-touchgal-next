@@ -73,6 +73,8 @@ vi.mock('~/lib/s3', () => ({
 }))
 
 import { applyModerationVerdict } from '~/server/moderation/apply'
+import { purgeCloudflareCache } from '~/app/api/utils/purgeCloudflareCache'
+import { deleteFileFromS3 } from '~/lib/s3'
 
 const created = new Date('2026-01-01T00:00:00.000Z')
 const ratingTask = (overrides: Partial<moderation_taskModel> = {}) =>
@@ -111,6 +113,8 @@ beforeEach(() => {
   findRatingMock.mockResolvedValue({ patch_id: 10, status: 1 })
   updateRatingMock.mockResolvedValue({})
   updateUserMock.mockResolvedValue({})
+  vi.mocked(deleteFileFromS3).mockResolvedValue(undefined)
+  vi.mocked(purgeCloudflareCache).mockResolvedValue({ status: 200 })
   recomputeOneMock.mockImplementation(
     async (_patchId: number, tx: typeof transactionClient) => {
       expect(tx).toBe(transactionClient)
@@ -217,5 +221,49 @@ describe('applyModerationVerdict', () => {
     expect(executeRawMock).not.toHaveBeenCalled()
     expect(claimMock).toHaveBeenCalledTimes(1)
     expect(findRatingMock).not.toHaveBeenCalled()
+  })
+
+  it('still deletes pending avatar objects when the CDN purge rejects', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
+    vi.mocked(purgeCloudflareCache).mockRejectedValueOnce(
+      new Error('cf unreachable')
+    )
+
+    await expect(
+      applyModerationVerdict({
+        task: ratingTask({
+          content_type: 'avatar',
+          content_id: null,
+          patch_id: null,
+          payload: {
+            pendingKey: 'avatar/user_100/pending-abc.avif',
+            pendingMiniKey: 'avatar/user_100/pending-abc-mini.avif',
+            avatarKey: 'avatar/user_100/avatar.avif',
+            avatarMiniKey: 'avatar/user_100/avatar-mini.avif',
+            avatarLink:
+              'https://img.kungal.com/avatar/user_100/avatar-mini.avif?v=1',
+            pendingLink:
+              'https://img.kungal.com/avatar/user_100/pending-abc-mini.avif?v=1'
+          }
+        }),
+        approved: true
+      })
+    ).resolves.toBe(true)
+
+    expect(purgeCloudflareCache).toHaveBeenCalledTimes(1)
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to purge avatar CDN cache:',
+      expect.any(Error)
+    )
+    expect(deleteFileFromS3).toHaveBeenCalledTimes(2)
+    expect(deleteFileFromS3).toHaveBeenCalledWith(
+      'avatar/user_100/pending-abc.avif'
+    )
+    expect(deleteFileFromS3).toHaveBeenCalledWith(
+      'avatar/user_100/pending-abc-mini.avif'
+    )
+    consoleErrorSpy.mockRestore()
   })
 })

@@ -37,7 +37,10 @@ const updatePatchBanner = async (
     return res
   }
 
-  await purgeCache(patchId)
+  // best-effort: banner 已上传成功, purge 失败不应使请求整体报错
+  await purgeCache(patchId).catch((error) =>
+    console.error('Failed to purge banner CDN cache:', error)
+  )
 
   return {}
 }

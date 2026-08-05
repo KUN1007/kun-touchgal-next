@@ -1,7 +1,8 @@
+import toast from 'react-hot-toast'
 import { Decoration } from '@milkdown/prose/view'
 import { kunFetchFormData } from '~/utils/kunFetch'
 import { checkImageValid, resizeImage } from '~/utils/resizeImage'
-import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
+import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import type { Uploader } from '@milkdown/plugin-upload'
 import type { Node } from '@milkdown/prose/model'
 
@@ -27,13 +28,16 @@ export const kunUploader: Uploader = async (files, schema) => {
 
   const nodes = await Promise.all(
     images.map(async (image) => {
+      // resize 失败已在 resizeImage 内部弹出具体原因, 此处早退避免重复 toast
       const miniImage = await resizeImage(image, 1920, 1080).catch(() => null)
-      if (!miniImage) return undefined
-
-      const formData = new FormData()
-      formData.append('image', miniImage)
+      if (!miniImage) {
+        return undefined
+      }
 
       try {
+        const formData = new FormData()
+        formData.append('image', miniImage)
+
         const res = await kunFetchFormData<
           KunResponse<{
             imageLink: string
@@ -50,14 +54,16 @@ export const kunUploader: Uploader = async (files, schema) => {
         })
 
         return uploadedNode
-      } catch (error) {
-        errorReporter(error)
+      } catch {
+        toast.error(`图片 ${image.name} 上传失败`)
         return undefined
       }
     })
   )
 
-  return nodes.filter((node): node is Node => node !== undefined)
+  // 业务错误 (字符串响应) 或网络异常时该项为 undefined; 必须过滤,
+  // 否则 plugin-upload 内部 replaceWith 抛错, 上传占位符永久残留
+  return nodes.filter((node): node is Node => Boolean(node))
 }
 
 export const kunUploadWidgetFactory = (

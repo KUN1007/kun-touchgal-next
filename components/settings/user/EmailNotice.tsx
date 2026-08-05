@@ -19,7 +19,8 @@ export const EmailNotice = () => {
     }
 
     const res = await kunFetchPost<KunResponse<{}>>(
-      `/user/setting/email-notice`
+      `/user/setting/email-notice`,
+      { enableEmailNotice: value }
     )
     if (typeof res !== 'string') {
       setUser({ ...user, enableEmailNotice: value })

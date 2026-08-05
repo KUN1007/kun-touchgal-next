@@ -267,7 +267,9 @@ export const CompanyDetailContainer: FC<Props> = ({
         selectedMonths={selectedMonths}
         setSelectedMonths={withPageReset(setSelectedMonths)}
         minRatingCount={minRatingCount}
-        setMinRatingCount={withPageReset(setMinRatingCount)}
+        // 该值经 400ms debounce 后才进入查询依赖, 包 withPageReset 会让 page
+        // 先于 debounced 值变化, 多发一次用旧阈值的请求
+        setMinRatingCount={setMinRatingCount}
         defaultMinRatingCount={DEFAULT_TAG_COMPANY_MIN_RATING_COUNT}
         endYear={filterEndYear}
       />

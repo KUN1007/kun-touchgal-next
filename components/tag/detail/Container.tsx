@@ -1,7 +1,7 @@
 'use client'
 
 import { useShallow } from 'zustand/react/shallow'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useDebounce } from 'use-debounce'
 import { kunFetchDelete, kunFetchGet, kunFetchPost } from '~/utils/kunFetch'
 import { Chip } from '@heroui/chip'
@@ -28,6 +28,7 @@ import {
   DEFAULT_GALGAME_SORT_FIELD,
   DEFAULT_GALGAME_SORT_ORDER,
   DEFAULT_TAG_COMPANY_MIN_RATING_COUNT,
+  kunShouldResetOverflowPage,
   parseGalgameFilterArray,
   parseNonNegativeIntParam,
   parsePositiveIntParam
@@ -93,6 +94,7 @@ export const TagDetailContainer = ({
   const [patches, setPatches] = useState<GalgameCard[]>(initialPatches)
   const [totalCount, setTotalCount] = useState(total)
   const [loading, setLoading] = useState(false)
+  const latestFetchRequestIdRef = useRef(0)
   const [updatingBlockedTag, setUpdatingBlockedTag] = useState(false)
   const { isOpen, onOpen, onClose } = useDisclosure()
   const isBlocked = user.blockedTagIds.includes(tag.id)
@@ -104,6 +106,9 @@ export const TagDetailContainer = ({
   }
 
   const fetchPatches = async () => {
+    const requestId = latestFetchRequestIdRef.current + 1
+    latestFetchRequestIdRef.current = requestId
+
     setLoading(true)
 
     try {
@@ -127,6 +132,10 @@ export const TagDetailContainer = ({
         minRatingCount: sortField === 'rating' ? debouncedMinRatingCount : 0
       })
 
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+
       if (typeof response === 'string') {
         kunErrorHandler(response, () => {})
         setPatches([])
@@ -134,14 +143,31 @@ export const TagDetailContainer = ({
         return
       }
 
+      if (
+        kunShouldResetOverflowPage(
+          response.total,
+          response.galgames.length,
+          page
+        )
+      ) {
+        setPage(1)
+        return
+      }
+
       setPatches(response.galgames)
       setTotalCount(response.total)
     } catch (error) {
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+
       setPatches([])
       setTotalCount(0)
       errorReporter(error)
     } finally {
-      setLoading(false)
+      if (requestId === latestFetchRequestIdRef.current) {
+        setLoading(false)
+      }
     }
   }
 

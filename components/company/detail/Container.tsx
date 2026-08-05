@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useDebounce } from 'use-debounce'
 import { useRouter } from '@bprogress/next'
 import { useSearchParams } from 'next/navigation'
@@ -30,6 +30,7 @@ import {
   DEFAULT_GALGAME_SORT_FIELD,
   DEFAULT_GALGAME_SORT_ORDER,
   DEFAULT_TAG_COMPANY_MIN_RATING_COUNT,
+  kunShouldResetOverflowPage,
   parseGalgameFilterArray,
   parseNonNegativeIntParam,
   parsePositiveIntParam
@@ -91,6 +92,7 @@ export const CompanyDetailContainer: FC<Props> = ({
   const [patches, setPatches] = useState<GalgameCard[]>(initialPatches)
   const [totalCount, setTotalCount] = useState(total)
   const [loading, setLoading] = useState(false)
+  const latestFetchRequestIdRef = useRef(0)
   const withPageReset = <T,>(setter: (value: T) => void) => {
     return (value: T) => {
       setPage(1)
@@ -99,6 +101,9 @@ export const CompanyDetailContainer: FC<Props> = ({
   }
 
   const fetchPatches = async () => {
+    const requestId = latestFetchRequestIdRef.current + 1
+    latestFetchRequestIdRef.current = requestId
+
     setLoading(true)
 
     try {
@@ -122,6 +127,10 @@ export const CompanyDetailContainer: FC<Props> = ({
         minRatingCount: sortField === 'rating' ? debouncedMinRatingCount : 0
       })
 
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+
       if (typeof response === 'string') {
         kunErrorHandler(response, () => {})
         setPatches([])
@@ -129,14 +138,31 @@ export const CompanyDetailContainer: FC<Props> = ({
         return
       }
 
+      if (
+        kunShouldResetOverflowPage(
+          response.total,
+          response.galgames.length,
+          page
+        )
+      ) {
+        setPage(1)
+        return
+      }
+
       setPatches(response.galgames)
       setTotalCount(response.total)
     } catch (error) {
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+
       setPatches([])
       setTotalCount(0)
       errorReporter(error)
     } finally {
-      setLoading(false)
+      if (requestId === latestFetchRequestIdRef.current) {
+        setLoading(false)
+      }
     }
   }
 

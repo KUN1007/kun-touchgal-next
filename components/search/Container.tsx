@@ -17,6 +17,7 @@ import { FilterBar } from '~/components/galgame/FilterBar'
 import { GalgameCardSkeleton } from '~/components/galgame/CardSkeleton'
 import { useSettingStore } from '~/store/settingStore'
 import { cn } from '~/utils/cn'
+import { kunShouldResetOverflowPage } from '~/utils/galgameFilter'
 import type { FocusEvent } from 'react'
 import type { SearchSuggestionNav } from './Suggestion'
 import type { SearchSuggestionType } from '~/types/api/search'
@@ -167,8 +168,16 @@ export const SearchPage = ({ filterEndYear }: Props) => {
         return
       }
 
-      setPatches(Array.isArray(response.galgames) ? response.galgames : [])
-      setTotal(typeof response.total === 'number' ? response.total : 0)
+      const galgames = Array.isArray(response.galgames) ? response.galgames : []
+      const nextTotal = typeof response.total === 'number' ? response.total : 0
+
+      if (kunShouldResetOverflowPage(nextTotal, galgames.length, currentPage)) {
+        setPage(1)
+        return
+      }
+
+      setPatches(galgames)
+      setTotal(nextTotal)
       setHasSearched(true)
       if (isSearchStoreHydrated) {
         addToHistory(selectedSuggestions)

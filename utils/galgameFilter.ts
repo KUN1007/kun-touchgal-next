@@ -66,3 +66,14 @@ export const parseNonNegativeIntParam = (
 
   return Math.floor(parsed)
 }
+
+// debounced 筛选 (评分人数阈值) 不重置页码, 收紧后页码可能越界;
+// 响应到达时判定并重置到第 1 页自愈。
+// page > 1 保证至多触发一次, 不会因 total 与列表不一致而循环
+export const kunShouldResetOverflowPage = (
+  total: number,
+  listLength: number,
+  page: number
+) => {
+  return total > 0 && listLength === 0 && page > 1
+}

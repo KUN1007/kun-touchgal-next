@@ -25,23 +25,25 @@ const sendBulkEmail = async (
   const emailList = users.map((user) => user.email)
 
   const batchSize = 100
+  let failed = 0
   for (let i = 0; i < emailList.length; i += batchSize) {
     const batch = emailList.slice(i, i + batchSize)
 
-    await Promise.all(
+    const results = await Promise.all(
       batch.map((email) => sendEmailHTML(templateId, variables, email))
     )
+    failed += results.filter((result) => typeof result === 'string').length
   }
 
   await prisma.admin_log.create({
     data: {
       type: 'create',
       user_id: uid,
-      content: `管理员 ${admin.name} 向全体用户发送了邮件\n\n${JSON.stringify(variables)}`
+      content: `管理员 ${admin.name} 向全体用户发送了邮件 (共 ${emailList.length} 封, 失败 ${failed} 封)\n\n${JSON.stringify(variables)}`
     }
   })
 
-  return { count: emailList.length }
+  return { count: emailList.length, failed }
 }
 
 export const POST = async (req: NextRequest) => {

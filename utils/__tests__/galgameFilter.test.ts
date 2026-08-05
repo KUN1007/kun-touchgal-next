@@ -1,5 +1,52 @@
 import { describe, expect, it } from 'vitest'
-import { kunShouldResetOverflowPage } from '~/utils/galgameFilter'
+import {
+  DEFAULT_GALGAME_FILTER_SELECTION,
+  MAX_GALGAME_FILTER_VALUES,
+  kunShouldResetOverflowPage,
+  parseGalgameFilterArray
+} from '~/utils/galgameFilter'
+import { buildGalgameDateFilter } from '~/app/api/utils/galgameQuery'
+
+// CJK 单字保证每个元素在 JSON 里恰好 3 字符且不触发转义 (ASCII 段含 " 与 \),
+// 251 个元素才能恰好压在 max(1007) 之内
+const makeValues = (length: number) =>
+  Array.from({ length }, (_, i) => String.fromCharCode(0x4e00 + i))
+
+describe('parseGalgameFilterArray', () => {
+  it('保留上限以内的选项', () => {
+    const values = makeValues(MAX_GALGAME_FILTER_VALUES)
+    expect(parseGalgameFilterArray(JSON.stringify(values))).toEqual(values)
+  })
+
+  it('元素数量超上限时回落到默认选项', () => {
+    expect(
+      parseGalgameFilterArray(
+        JSON.stringify(makeValues(MAX_GALGAME_FILTER_VALUES + 1))
+      )
+    ).toEqual(DEFAULT_GALGAME_FILTER_SELECTION)
+  })
+})
+
+describe('buildGalgameDateFilter', () => {
+  const countConditions = (payload: string) => {
+    const values = parseGalgameFilterArray(payload)
+    const where = buildGalgameDateFilter(values, values) as { OR?: unknown[] }
+    return where.OR?.length ?? 0
+  }
+
+  it('满额选项的年月笛卡尔积以上限的平方封顶', () => {
+    expect(
+      countConditions(JSON.stringify(makeValues(MAX_GALGAME_FILTER_VALUES)))
+    ).toBe(MAX_GALGAME_FILTER_VALUES ** 2)
+  })
+
+  it('超上限载荷回落为默认选项, 不再展开条件', () => {
+    // 251 个元素恰好压在 yearString/monthString 的 max(1007) 之内,
+    // 未设上限时会展开出 63001 个 LIKE 谓词
+    expect(JSON.stringify(makeValues(251)).length).toBeLessThanOrEqual(1007)
+    expect(countConditions(JSON.stringify(makeValues(251)))).toBe(0)
+  })
+})
 
 describe('kunShouldResetOverflowPage', () => {
   it('筛选收紧后页码越界 (有结果但当前页为空) 时重置', () => {

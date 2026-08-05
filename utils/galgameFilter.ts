@@ -19,6 +19,11 @@ export const getSearchParamValue = (
   return Array.isArray(value) ? value[0] : (value ?? undefined)
 }
 
+// 年份与月份在 buildGalgameDateFilter 中做笛卡尔积, 元素数量无上限时
+// 单个请求可展开出数万个 LIKE 谓词。年份选项为 all/future/unknown +
+// (当前年 - 1979), 2026 年共 50 项且每年 +1, 月份选项 13 项, 64 覆盖两者
+export const MAX_GALGAME_FILTER_VALUES = 64
+
 const isStringArray = (value: unknown): value is string[] => {
   return (
     Array.isArray(value) &&
@@ -35,7 +40,7 @@ export const parseGalgameFilterArray = (value: string | null | undefined) => {
   try {
     const parsed = JSON.parse(value)
 
-    return isStringArray(parsed)
+    return isStringArray(parsed) && parsed.length <= MAX_GALGAME_FILTER_VALUES
       ? parsed
       : [...DEFAULT_GALGAME_FILTER_SELECTION]
   } catch {

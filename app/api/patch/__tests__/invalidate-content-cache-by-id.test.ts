@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { findManyMock, delKvMock } = vi.hoisted(() => ({
+const { findManyMock, delKvsMock } = vi.hoisted(() => ({
   findManyMock: vi.fn(),
-  delKvMock: vi.fn(async () => undefined)
+  delKvsMock: vi.fn(async () => undefined)
 }))
 
 vi.mock('~/lib/redis', () => ({
-  delKv: delKvMock,
-  delKvs: vi.fn(),
+  delKv: vi.fn(),
+  delKvs: delKvsMock,
   getKv: vi.fn(),
   getKvs: vi.fn(),
   setKv: vi.fn()
@@ -22,11 +22,40 @@ vi.mock('~/prisma/index', () => ({
 import {
   getPatchCacheKey,
   getPatchIntroductionCacheKey,
+  invalidatePatchContentCache,
   invalidatePatchContentCacheByPatchId
 } from '~/app/api/patch/cache'
 
 beforeEach(() => {
   vi.clearAllMocks()
+})
+
+describe('invalidatePatchContentCache', () => {
+  it('两键合并为单条 DEL, 不拆成多次删除', async () => {
+    await invalidatePatchContentCache('aaaaaaaa')
+
+    expect(delKvsMock).toHaveBeenCalledTimes(1)
+    expect(delKvsMock).toHaveBeenCalledWith([
+      getPatchCacheKey('aaaaaaaa'),
+      getPatchIntroductionCacheKey('aaaaaaaa')
+    ])
+  })
+
+  it('删除失败时记录日志并向上抛出, 由调用方 best-effort 吞掉', async () => {
+    const error = new Error('redis down')
+    delKvsMock.mockRejectedValueOnce(error)
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    await expect(invalidatePatchContentCache('aaaaaaaa')).rejects.toThrow(
+      'redis down'
+    )
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to invalidate patch content cache:',
+      error
+    )
+
+    consoleSpy.mockRestore()
+  })
 })
 
 describe('invalidatePatchContentCacheByPatchId', () => {
@@ -39,13 +68,13 @@ describe('invalidatePatchContentCacheByPatchId', () => {
       where: { id: { in: [7] } },
       select: { unique_id: true }
     })
-    expect(delKvMock).toHaveBeenCalledWith(getPatchCacheKey('aaaaaaaa'))
-    expect(delKvMock).toHaveBeenCalledWith(
+    expect(delKvsMock).toHaveBeenCalledWith([
+      getPatchCacheKey('aaaaaaaa'),
       getPatchIntroductionCacheKey('aaaaaaaa')
-    )
+    ])
   })
 
-  it('批量入参先去重再查询, 命中的每个 patch 都失效', async () => {
+  it('批量入参先去重再查询, 命中的每个 patch 都在同一条 DEL 内失效', async () => {
     findManyMock.mockResolvedValue([
       { unique_id: 'aaaaaaaa' },
       { unique_id: 'bbbbbbbb' }
@@ -57,14 +86,19 @@ describe('invalidatePatchContentCacheByPatchId', () => {
       where: { id: { in: [10, 20] } },
       select: { unique_id: true }
     })
-    expect(delKvMock).toHaveBeenCalledWith(getPatchCacheKey('aaaaaaaa'))
-    expect(delKvMock).toHaveBeenCalledWith(getPatchCacheKey('bbbbbbbb'))
+    expect(delKvsMock).toHaveBeenCalledTimes(1)
+    expect(delKvsMock).toHaveBeenCalledWith([
+      getPatchCacheKey('aaaaaaaa'),
+      getPatchIntroductionCacheKey('aaaaaaaa'),
+      getPatchCacheKey('bbbbbbbb'),
+      getPatchIntroductionCacheKey('bbbbbbbb')
+    ])
   })
 
   it('空数组短路返回, 不查询数据库也不删缓存', async () => {
     await invalidatePatchContentCacheByPatchId([])
 
     expect(findManyMock).not.toHaveBeenCalled()
-    expect(delKvMock).not.toHaveBeenCalled()
+    expect(delKvsMock).not.toHaveBeenCalled()
   })
 })

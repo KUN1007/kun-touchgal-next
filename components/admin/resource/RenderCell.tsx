@@ -2,7 +2,6 @@
 
 import { Chip } from '@heroui/react'
 import Link from 'next/link'
-import { SUPPORTED_RESOURCE_LINK_MAP } from '~/constants/resource'
 import { RESOURCE_STATUS_MAP } from '~/constants/admin'
 import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { ResourceEdit } from './ResourceEdit'
@@ -22,6 +21,16 @@ export const RenderCell = (
 ) => {
   switch (columnKey) {
     case 'name':
+      return <span className="font-medium">{resource.name}</span>
+    case 'section': {
+      const isPatch = resource.section === 'patch'
+      return (
+        <Chip color={isPatch ? 'secondary' : 'primary'} variant="flat">
+          {isPatch ? '补丁' : '资源'}
+        </Chip>
+      )
+    }
+    case 'patchName':
       return (
         <Link
           href={`/${resource.uniqueId}`}
@@ -41,50 +50,6 @@ export const RenderCell = (
             }
           }}
         />
-      )
-    case 'storage':
-      if (!resource.links.length) {
-        return (
-          <Chip color="default" variant="flat">
-            无链接
-          </Chip>
-        )
-      }
-      return (
-        <div className="flex flex-wrap gap-1">
-          {resource.links.slice(0, 2).map((link) => (
-            <Chip key={link.id} color="primary" variant="flat">
-              {SUPPORTED_RESOURCE_LINK_MAP[link.storage]}
-            </Chip>
-          ))}
-          {resource.links.length > 2 && (
-            <Chip color="default" variant="flat">
-              +{resource.links.length - 2}
-            </Chip>
-          )}
-        </div>
-      )
-    case 'size':
-      if (!resource.links.length) {
-        return (
-          <Chip size="sm" variant="flat">
-            无链接
-          </Chip>
-        )
-      }
-      return (
-        <div className="flex flex-wrap gap-1">
-          {resource.links.slice(0, 2).map((link) => (
-            <Chip key={link.id} size="sm" variant="flat">
-              {link.size}
-            </Chip>
-          ))}
-          {resource.links.length > 2 && (
-            <Chip size="sm" variant="flat">
-              +{resource.links.length - 2}
-            </Chip>
-          )}
-        </div>
       )
     case 'created':
       return (

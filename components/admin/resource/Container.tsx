@@ -41,11 +41,11 @@ import type { PatchResource } from '~/types/api/patch'
 type ResourceSearchType = 'content' | 'info' | 'user'
 
 const columns = [
-  { name: '资源', id: 'name' },
+  { name: '资源标题', id: 'name' },
   { name: '用户', id: 'user' },
-  { name: '存储', id: 'storage' },
-  { name: '大小', id: 'size' },
   { name: '创建时间', id: 'created' },
+  { name: '资源类别', id: 'section' },
+  { name: '所属游戏', id: 'patchName' },
   { name: '状态', id: 'status' },
   { name: '操作', id: 'actions' }
 ]

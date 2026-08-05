@@ -149,38 +149,45 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
     }
   }, [debouncedUserInput])
 
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const params: Record<string, string | number> = { page, limit }
+      if (searchType !== 'user' && debouncedContent) {
+        params.search = debouncedContent
+        params.searchType = searchType
+      }
+      if (searchType === 'user' && selectedUserId) {
+        params.userId = selectedUserId
+      }
+
+      const res = await kunFetchGet<{
+        resources: AdminResource[]
+        total: number
+      }>('/admin/resource', params)
+
+      if (typeof res === 'string') {
+        toast.error(res)
+        return
+      }
+
+      const totalPage = Math.max(1, Math.ceil(res.total / limit))
+      if (page > totalPage) {
+        setPage(totalPage)
+        return
+      }
+
+      setResources(res.resources)
+      setTotal(res.total)
+      setSelectedKeys(new Set<string | number>())
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (!isMounted) {
       return
-    }
-    const fetchData = async () => {
-      setLoading(true)
-      try {
-        const params: Record<string, string | number> = { page, limit }
-        if (searchType !== 'user' && debouncedContent) {
-          params.search = debouncedContent
-          params.searchType = searchType
-        }
-        if (searchType === 'user' && selectedUserId) {
-          params.userId = selectedUserId
-        }
-
-        const res = await kunFetchGet<{
-          resources: AdminResource[]
-          total: number
-        }>('/admin/resource', params)
-
-        if (typeof res === 'string') {
-          toast.error(res)
-          return
-        }
-
-        setResources(res.resources)
-        setTotal(res.total)
-        setSelectedKeys(new Set<string | number>())
-      } finally {
-        setLoading(false)
-      }
     }
     fetchData()
   }, [page, limit, searchType, debouncedContent, selectedUserId])
@@ -200,9 +207,19 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
   // 单条删除后只移除该行; 当前页被抽空且不在第一页时回退页码走正常 refetch
   const handleResourceDeleted = (resourceId: number) => {
     if (resources.length === 1 && page > 1) {
+      setSelectedKeys(new Set<string | number>())
       setPage(page - 1)
       return
     }
+    setSelectedKeys((prev) => {
+      if (prev === 'all') {
+        return prev
+      }
+      const next = new Set(
+        [...prev].filter((key) => Number(key) !== resourceId)
+      )
+      return next.size === prev.size ? prev : next
+    })
     setResources((prev) =>
       prev.filter((resource) => resource.id !== resourceId)
     )
@@ -239,26 +256,7 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
     setBatchDeleting(false)
     onBatchClose()
     setSelectedKeys(new Set<string | number>())
-
-    // 刷新列表
-    const params: Record<string, string | number> = { page, limit }
-    if (searchType !== 'user' && debouncedContent) {
-      params.search = debouncedContent
-      params.searchType = searchType
-    }
-    if (searchType === 'user' && selectedUserId) {
-      params.userId = selectedUserId
-    }
-    const refreshRes = await kunFetchGet<{
-      resources: AdminResource[]
-      total: number
-    }>('/admin/resource', params)
-    if (typeof refreshRes === 'string') {
-      toast.error(refreshRes)
-    } else {
-      setResources(refreshRes.resources)
-      setTotal(refreshRes.total)
-    }
+    await fetchData()
   }
 
   const handleBatchStatus = async (status: 0 | 1) => {
@@ -282,26 +280,7 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
 
     setBatchHiding(false)
     setSelectedKeys(new Set<string | number>())
-
-    // 刷新列表
-    const params: Record<string, string | number> = { page, limit }
-    if (searchType !== 'user' && debouncedContent) {
-      params.search = debouncedContent
-      params.searchType = searchType
-    }
-    if (searchType === 'user' && selectedUserId) {
-      params.userId = selectedUserId
-    }
-    const refreshRes = await kunFetchGet<{
-      resources: AdminResource[]
-      total: number
-    }>('/admin/resource', params)
-    if (typeof refreshRes === 'string') {
-      toast.error(refreshRes)
-    } else {
-      setResources(refreshRes.resources)
-      setTotal(refreshRes.total)
-    }
+    await fetchData()
   }
 
   const handleSearchTypeChange = (keys: 'all' | Set<Key>) => {

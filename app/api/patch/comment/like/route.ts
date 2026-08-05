@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { NextRequest, NextResponse } from 'next/server'
 import { kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { prisma } from '~/prisma/index'
+import { Prisma } from '~/prisma/generated/prisma/client'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { createDedupMessage } from '~/app/api/utils/message'
 import { buildCommentLink } from '~/utils/patch/buildCommentLink'
@@ -13,6 +14,9 @@ const commentIdSchema = z.object({
     .min(1)
     .max(9999999)
 })
+
+// 通告锁命名空间: 见 app/api/patch/rating/like/route.ts 的说明, 三条点赞路由共用
+const LIKE_LOCK_NAMESPACE = 481004
 
 const toggleCommentLike = async (
   input: z.infer<typeof commentIdSchema>,
@@ -38,16 +42,6 @@ const toggleCommentLike = async (
     return '未找到评论'
   }
 
-  const existingLike = await prisma.user_patch_comment_like_relation.findUnique(
-    {
-      where: {
-        user_id_comment_id: {
-          user_id: uid,
-          comment_id: commentId
-        }
-      }
-    }
-  )
   const messageData = {
     type: 'like' as const,
     content: `赞了您的评论：${comment.content.slice(0, 107)}`,
@@ -61,44 +55,63 @@ const toggleCommentLike = async (
   }
   const legacyMessageLink = `/${comment.patch.unique_id}`
 
-  const response = await prisma.$transaction(async (tx) => {
-    if (existingLike) {
-      await tx.user_patch_comment_like_relation.delete({
+  // deleteMany + createMany(skipDuplicates) 使并发双击不会触发 P2002/P2025
+  const response = await prisma
+    .$transaction(async (tx) => {
+      // 串行化同一用户的并发 toggle, 理由与 ::int 强转的必要性见 rating/like/route.ts
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${LIKE_LOCK_NAMESPACE}::int, ${uid}::int)`
+
+      const removed = await tx.user_patch_comment_like_relation.deleteMany({
         where: {
-          user_id_comment_id: {
-            user_id: uid,
-            comment_id: commentId
-          }
-        }
-      })
-      await tx.user_message.deleteMany({
-        where: {
-          type: 'like',
-          sender_id: uid,
-          recipient_id: comment.user_id,
-          OR: [
-            { link: messageData.link },
-            { link: legacyMessageLink, content: messageData.content }
-          ]
-        }
-      })
-    } else {
-      await tx.user_patch_comment_like_relation.create({
-        data: {
           user_id: uid,
           comment_id: commentId
         }
       })
-      await createDedupMessage(messageData, tx)
-    }
+      const isRemoved = removed.count > 0
+      if (isRemoved) {
+        await tx.user_message.deleteMany({
+          where: {
+            type: 'like',
+            sender_id: uid,
+            recipient_id: comment.user_id,
+            OR: [
+              { link: messageData.link },
+              { link: legacyMessageLink, content: messageData.content }
+            ]
+          }
+        })
+      } else {
+        await tx.user_patch_comment_like_relation.createMany({
+          data: {
+            user_id: uid,
+            comment_id: commentId
+          },
+          skipDuplicates: true
+        })
+        await createDedupMessage(messageData, tx)
+      }
 
-    await tx.user.update({
-      where: { id: comment.user_id },
-      data: { moemoepoint: { increment: existingLike ? -1 : 1 } }
+      await tx.user.update({
+        where: { id: comment.user_id },
+        data: { moemoepoint: { increment: isRemoved ? -1 : 1 } }
+      })
+
+      return !isRemoved
+    })
+    .catch((error: unknown) => {
+      // 外键命中 = 引用行被并发删除, 取舍同 rating/like/route.ts
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        return '未找到评论'
+      }
+      throw error
     })
 
-    return !existingLike
-  })
+  if (typeof response === 'string') {
+    return response
+  }
 
   await invalidateUserSession(comment.user_id)
   return response

@@ -50,8 +50,7 @@ export const ResourceLikeButton = ({ resource, isDisabled }: Props) => {
     <Tooltip key="like" color="default" content="点赞" placement="bottom">
       <Button
         variant="light"
-        disabled={loading}
-        isDisabled={isDisabled}
+        isDisabled={isDisabled || loading}
         onPress={toggleLike}
         className="min-w-0 px-2"
       >

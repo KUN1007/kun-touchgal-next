@@ -3,7 +3,11 @@ import { parseCookies } from '~/utils/cookies'
 import { verifyKunTokenEdge } from '~/app/api/utils/jwtEdge'
 import type { NextRequest } from 'next/server'
 
-const protectedPaths = ['/admin', '/user', '/edit']
+// 必须与 proxy.ts 的 config.matcher 保持同步: matcher 决定中间件是否运行,
+// 本表决定运行后是否拦截, 任一侧缺项都会让登录保护静默失效。
+// Next 要求 matcher 为字面量, 无法从此处推导, 故由
+// middleware/__tests__/auth-matcher.test.ts 断言两者一致。
+export const protectedPaths = ['/admin', '/user', '/edit']
 
 const domain =
   process.env.NODE_ENV === 'development'

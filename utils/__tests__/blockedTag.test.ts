@@ -32,4 +32,19 @@ describe('parseBlockedTagIds', () => {
 
     expect(parseBlockedTagIds(JSON.stringify(ids))).toEqual(range(10))
   })
+
+  // 去重须在 Number 归一化之后, 否则字符串变体全部存活并进缓存键
+  it('dedupes numeric variants of the same id', () => {
+    expect(parseBlockedTagIds('[1,"1","01","1.0"]')).toEqual([1])
+  })
+
+  // 重复变体不得挤占配额内的有效 id
+  it('caps after deduping variants', () => {
+    const variants = Array.from({ length: MAX_BLOCKED_TAG_IDS }, (_, index) =>
+      '1'.padStart(index + 1, '0')
+    )
+    const ids = [1, ...variants, ...range(10, 2)]
+
+    expect(parseBlockedTagIds(JSON.stringify(ids))).toEqual(range(11))
+  })
 })

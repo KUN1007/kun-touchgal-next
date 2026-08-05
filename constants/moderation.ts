@@ -83,7 +83,12 @@ export const MODERATION_CODE_MAX_LENGTH = 16
 // 复述命中点等同于把审核规则的边界透露给违规者, 便于其改写后重投. reject_code 经
 // MODERATION_REJECT_CODE_MAP 映射出的类别名则在申诉页展示 —— 类别粒度不足以逆向出
 // 规则边界, 但能告诉用户该往哪个方向改; 这里的通知文案仍不带, 保持消息体简短
-export const MODERATION_REJECT_NOTICE = {
+// 类型注解不是装饰: 新增 MODERATION_CONTENT_TYPE 成员时这里缺键会在编译期报错,
+// 挡住 apply.ts 拒绝分支按 content_type 取文案时的运行时 undefined
+export const MODERATION_REJECT_NOTICE: Record<
+  Exclude<ModerationContentType, 'resource'>,
+  () => string
+> & { resource: (name: string) => string } = {
   comment: () =>
     '您发布的评论未通过内容审核，已被隐藏。如有异议，您可以点击本条消息前往 账户设置 → 内容申诉，修改内容并提交人工复核。',
   rating: () =>

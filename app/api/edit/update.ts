@@ -10,7 +10,10 @@ export const updateGalgame = async (
   input: z.infer<typeof patchUpdateSchema>,
   uid: number
 ) => {
-  const patch = await prisma.patch.findUnique({ where: { id: input.id } })
+  const patch = await prisma.patch.findUnique({
+    where: { id: input.id },
+    select: { unique_id: true }
+  })
   if (!patch) {
     return '该 ID 下未找到对应 Galgame'
   }
@@ -26,7 +29,8 @@ export const updateGalgame = async (
       where: {
         vndb_id: normalizedVndbId,
         vndb_relation_id: normalizedVndbRelationId
-      }
+      },
+      select: { id: true, unique_id: true }
     })
     if (galgame && galgame.id !== input.id) {
       return `Galgame VNDB ID 与 Relation ID 的组合与游戏 ID 为 ${galgame.unique_id} 的游戏重复`
@@ -38,7 +42,8 @@ export const updateGalgame = async (
     : ''
   if (normalizedDlsiteCode) {
     const dlsitePatch = await prisma.patch.findFirst({
-      where: { dlsite_code: normalizedDlsiteCode }
+      where: { dlsite_code: normalizedDlsiteCode },
+      select: { id: true, unique_id: true }
     })
     if (dlsitePatch && dlsitePatch.id !== input.id) {
       return `Galgame DLSite Code 与游戏 ID 为 ${dlsitePatch.unique_id} 的游戏重复`

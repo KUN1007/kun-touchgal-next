@@ -100,6 +100,40 @@ describe('updateGalgame', () => {
     )
   })
 
+  it('vndb_id 与 relation_id 组合被其它 Galgame 占用时返回重复提示, 不开启事务', async () => {
+    patchFindFirstMock.mockResolvedValue({ id: 99, unique_id: 'deadbeef' })
+
+    const res = await updateGalgame(
+      { ...makeInput(), vndbId: 'V19658', vndbRelationId: 'R57171' },
+      1
+    )
+
+    expect(res).toBe(
+      'Galgame VNDB ID 与 Relation ID 的组合与游戏 ID 为 deadbeef 的游戏重复'
+    )
+    expect(patchFindFirstMock).toHaveBeenCalledWith({
+      where: { vndb_id: 'v19658', vndb_relation_id: 'r57171' },
+      select: { id: true, unique_id: true }
+    })
+    expect(transactionMock).not.toHaveBeenCalled()
+  })
+
+  it('dlsite_code 被其它 Galgame 占用时返回重复提示, 不开启事务', async () => {
+    patchFindFirstMock.mockResolvedValue({ id: 99, unique_id: 'deadbeef' })
+
+    const res = await updateGalgame(
+      { ...makeInput(), dlsiteCode: 'rj123456' },
+      1
+    )
+
+    expect(res).toBe('Galgame DLSite Code 与游戏 ID 为 deadbeef 的游戏重复')
+    expect(patchFindFirstMock).toHaveBeenCalledWith({
+      where: { dlsite_code: 'RJ123456' },
+      select: { id: true, unique_id: true }
+    })
+    expect(transactionMock).not.toHaveBeenCalled()
+  })
+
   it('bangumi_id 被其它 Galgame 占用时返回重复提示, 不开启事务', async () => {
     patchFindFirstMock.mockResolvedValue({ id: 99, unique_id: 'deadbeef' })
 

@@ -4,13 +4,11 @@ const {
   handleBatchPatchTagsMock,
   tagFindManyMock,
   tagCreateManyMock,
-  tagUpdateManyMock,
   tagRelationFindManyMock,
   tagRelationCreateManyMock,
   companyFindManyMock,
   companyCreateManyMock,
-  companyUpdateManyMock,
-  companyRelationCreateManyAndReturnMock,
+  companyRelationCreateManyMock,
   aliasFindManyMock,
   aliasCreateManyMock,
   invalidateTagCacheMock,
@@ -19,13 +17,11 @@ const {
   handleBatchPatchTagsMock: vi.fn(),
   tagFindManyMock: vi.fn(),
   tagCreateManyMock: vi.fn(),
-  tagUpdateManyMock: vi.fn(),
   tagRelationFindManyMock: vi.fn(),
   tagRelationCreateManyMock: vi.fn(),
   companyFindManyMock: vi.fn(),
   companyCreateManyMock: vi.fn(),
-  companyUpdateManyMock: vi.fn(),
-  companyRelationCreateManyAndReturnMock: vi.fn(),
+  companyRelationCreateManyMock: vi.fn(),
   aliasFindManyMock: vi.fn(),
   aliasCreateManyMock: vi.fn(),
   invalidateTagCacheMock: vi.fn(),
@@ -48,8 +44,7 @@ vi.mock('~/prisma/index', () => ({
   prisma: {
     patch_tag: {
       findMany: tagFindManyMock,
-      createMany: tagCreateManyMock,
-      updateMany: tagUpdateManyMock
+      createMany: tagCreateManyMock
     },
     patch_tag_relation: {
       findMany: tagRelationFindManyMock,
@@ -57,11 +52,10 @@ vi.mock('~/prisma/index', () => ({
     },
     patch_company: {
       findMany: companyFindManyMock,
-      createMany: companyCreateManyMock,
-      updateMany: companyUpdateManyMock
+      createMany: companyCreateManyMock
     },
     patch_company_relation: {
-      createManyAndReturn: companyRelationCreateManyAndReturnMock
+      createMany: companyRelationCreateManyMock
     },
     patch_alias: {
       findMany: aliasFindManyMock,
@@ -92,13 +86,11 @@ beforeEach(() => {
   })
   tagFindManyMock.mockResolvedValue([])
   tagCreateManyMock.mockResolvedValue({ count: 1 })
-  tagUpdateManyMock.mockResolvedValue({ count: 1 })
   tagRelationFindManyMock.mockResolvedValue([])
   tagRelationCreateManyMock.mockResolvedValue({ count: 1 })
   companyFindManyMock.mockResolvedValue([])
   companyCreateManyMock.mockResolvedValue({ count: 1 })
-  companyUpdateManyMock.mockResolvedValue({ count: 1 })
-  companyRelationCreateManyAndReturnMock.mockResolvedValue([{ company_id: 1 }])
+  companyRelationCreateManyMock.mockResolvedValue({ count: 1 })
   aliasFindManyMock.mockResolvedValue([])
   aliasCreateManyMock.mockResolvedValue({ count: 1 })
   invalidateTagCacheMock.mockResolvedValue(undefined)
@@ -220,13 +212,11 @@ describe('processSubmittedExternalData company dedup', () => {
     expect(createArgs.data[0].name).toBe('Key')
   })
 
-  it('increments count only for relations actually inserted', async () => {
+  it('marks company changed only for relations actually inserted', async () => {
     companyFindManyMock
       .mockResolvedValueOnce([{ name: 'Key' }])
       .mockResolvedValueOnce([{ id: 5 }])
-    companyRelationCreateManyAndReturnMock.mockResolvedValueOnce([
-      { company_id: 5 }
-    ])
+    companyRelationCreateManyMock.mockResolvedValueOnce({ count: 1 })
 
     await processSubmittedExternalData(
       1,
@@ -236,15 +226,14 @@ describe('processSubmittedExternalData company dedup', () => {
     )
 
     expect(companyCreateManyMock).not.toHaveBeenCalled()
-    expect(companyUpdateManyMock).toHaveBeenCalledTimes(1)
-    expect(companyUpdateManyMock.mock.calls[0][0].where.id.in).toEqual([5])
+    expect(invalidateCompanyCacheMock).toHaveBeenCalledTimes(1)
   })
 
-  it('skips count increment and invalidation when nothing changed', async () => {
+  it('skips invalidation when nothing changed', async () => {
     companyFindManyMock
       .mockResolvedValueOnce([{ name: 'Key' }])
       .mockResolvedValueOnce([{ id: 5 }])
-    companyRelationCreateManyAndReturnMock.mockResolvedValueOnce([])
+    companyRelationCreateManyMock.mockResolvedValueOnce({ count: 0 })
 
     await processSubmittedExternalData(
       1,
@@ -254,7 +243,6 @@ describe('processSubmittedExternalData company dedup', () => {
     )
 
     expect(companyCreateManyMock).not.toHaveBeenCalled()
-    expect(companyUpdateManyMock).not.toHaveBeenCalled()
     expect(invalidateCompanyCacheMock).not.toHaveBeenCalled()
   })
 })

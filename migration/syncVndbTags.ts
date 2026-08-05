@@ -224,11 +224,6 @@ async function processPatchTags(
       })),
       skipDuplicates: true
     })
-
-    await prisma.patch_tag.updateMany({
-      where: { id: { in: newTagIds } },
-      data: { count: { increment: 1 } }
-    })
   }
 
   return { ensured: reallyToCreate.length, related: tagIds.length }

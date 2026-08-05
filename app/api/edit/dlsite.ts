@@ -59,19 +59,12 @@ export const ensurePatchCompanyFromDlsite = async (
 
     if (!company) return
 
-    // count 只按实际插入的关联递增,避免并发下重复 increment
     const insertedRelation = await prisma.patch_company_relation.createMany({
       data: [{ patch_id: patchId, company_id: company.id }],
       skipDuplicates: true
     })
 
     if (insertedRelation.count) {
-      await prisma.patch_company.update({
-        where: { id: company.id },
-        data: {
-          count: { increment: 1 }
-        }
-      })
       changed = true
     }
 

@@ -28,11 +28,6 @@ const handleAddPatchTag = async (
     await prisma.patch_tag_relation.createMany({
       data: toCreate.map((id) => ({ patch_id: patchId, tag_id: id }))
     })
-
-    await prisma.patch_tag.updateMany({
-      where: { id: { in: toCreate } },
-      data: { count: { increment: 1 } }
-    })
     // 事务性入队：与标签/会社变更原子提交，关闭崩溃丢失窗口
     await enqueueSearchOutbox(prisma, patchId)
     return true
@@ -91,11 +86,6 @@ const handleRemovePatchTag = async (
 
     await prisma.patch_tag_relation.deleteMany({
       where: { patch_id: patchId, tag_id: { in: toDelete } }
-    })
-
-    await prisma.patch_tag.updateMany({
-      where: { id: { in: toDelete } },
-      data: { count: { decrement: 1 } }
     })
     // 事务性入队：与标签/会社变更原子提交，关闭崩溃丢失窗口
     await enqueueSearchOutbox(prisma, patchId)

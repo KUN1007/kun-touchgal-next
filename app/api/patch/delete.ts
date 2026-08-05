@@ -2,6 +2,8 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { enqueueResourceLinkDeletions } from './resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { invalidateTagListCache } from '~/app/api/tag/cache'
+import { invalidateCompanyListCache } from '~/app/api/company/cache'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
 import { queueSearchRemove, enqueueSearchOutbox } from '~/server/search/sync'
@@ -97,6 +99,9 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
   })
 
   queueSearchRemove(patchId)
+
+  // 级联删除经 DB 触发器递减 tag/company 计数, 故需失效列表缓存
+  await Promise.all([invalidateTagListCache(), invalidateCompanyListCache()])
 
   if (
     patchResources.some(

@@ -77,10 +77,6 @@ const ensureTagsWithSources = async (
       data: newTagIds.map((tagId) => ({ patch_id: patchId, tag_id: tagId })),
       skipDuplicates: true
     })
-    await prisma.patch_tag.updateMany({
-      where: { id: { in: newTagIds } },
-      data: { count: { increment: 1 } }
-    })
     mutationState.tagChanged = true
   }
 
@@ -138,26 +134,19 @@ export const ensureCompanies = async (
 
   if (!companyIds.length) return createdCount > 0
 
-  // count 只按实际插入的关联递增,避免并发下重复 increment
-  const insertedRelations =
-    await prisma.patch_company_relation.createManyAndReturn({
-      data: companyIds.map((companyId) => ({
-        patch_id: patchId,
-        company_id: companyId
-      })),
-      select: { company_id: true },
-      skipDuplicates: true
-    })
+  const insertedRelations = await prisma.patch_company_relation.createMany({
+    data: companyIds.map((companyId) => ({
+      patch_id: patchId,
+      company_id: companyId
+    })),
+    skipDuplicates: true
+  })
 
-  if (insertedRelations.length) {
-    await prisma.patch_company.updateMany({
-      where: { id: { in: insertedRelations.map((r) => r.company_id) } },
-      data: { count: { increment: 1 } }
-    })
+  if (insertedRelations.count) {
     mutationState.companyChanged = true
   }
 
-  return createdCount > 0 || insertedRelations.length > 0
+  return createdCount > 0 || insertedRelations.count > 0
 }
 
 const ensureAliases = async (patchId: number, aliases: string[]) => {

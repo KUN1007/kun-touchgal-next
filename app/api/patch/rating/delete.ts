@@ -3,6 +3,10 @@ import { prisma } from '~/prisma/index'
 import { recomputePatchRatingStat } from './stat'
 import { invalidatePatchContentCacheByPatchId } from '~/app/api/patch/cache'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
+import {
+  collectPendingReportIds,
+  deleteReportsByIds
+} from '~/server/report/pending'
 
 const ratingIdSchema = z.object({
   ratingId: z.coerce.number({ message: 'ID 不正确' }).min(1).max(9999999)
@@ -30,8 +34,15 @@ export const deletePatchRating = async (
   }
 
   await prisma.$transaction(async (tx) => {
+    // 举报外键是 SET NULL, 删除前先无锁收集 pending 举报主键, 删除后按主键清理
+    const reportIds = await collectPendingReportIds(
+      'rating',
+      input.ratingId,
+      tx
+    )
     await tx.patch_rating.delete({ where: { id: input.ratingId } })
     await deletePendingModerationTasks('rating', input.ratingId, tx)
+    await deleteReportsByIds(reportIds, tx)
     await recomputePatchRatingStat(rating.patch_id, tx)
   })
 

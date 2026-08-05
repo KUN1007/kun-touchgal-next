@@ -2,6 +2,10 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
+import {
+  collectPendingReportIds,
+  deleteReportsByIds
+} from '~/server/report/pending'
 import { buildCommentLink } from '~/utils/patch/buildCommentLink'
 import { collectCommentSubtreeIds } from './subtree'
 import { invalidatePatchCommentCache } from './cache'
@@ -117,10 +121,14 @@ export const deleteComment = async (
     // 统一清理尚未有最终裁决的审核任务
     const subtreeIds = await collectCommentSubtreeIds([comment.id], tx)
 
+    // 举报外键是 SET NULL, 删除前先无锁收集 pending 举报主键, 删除后按主键清理
+    const reportIds = await collectPendingReportIds('comment', subtreeIds, tx)
+
     await deleteCommentWithReplies(comment, tx)
 
     await deletePendingModerationTasks('comment', subtreeIds, tx)
     await deletePendingAppeals('comment', subtreeIds, tx)
+    await deleteReportsByIds(reportIds, tx)
   })
 
   await invalidatePatchCommentCache(comment.patch_id)

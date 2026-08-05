@@ -9,6 +9,8 @@ const {
   messageDeleteManyMock,
   deletePendingModerationTasksMock,
   deletePendingAppealsMock,
+  collectPendingReportIdsMock,
+  deleteReportsByIdsMock,
   invalidateCommentCacheMock,
   invalidateContentMock
 } = vi.hoisted(() => ({
@@ -20,6 +22,8 @@ const {
   messageDeleteManyMock: vi.fn(),
   deletePendingModerationTasksMock: vi.fn(),
   deletePendingAppealsMock: vi.fn(),
+  collectPendingReportIdsMock: vi.fn(),
+  deleteReportsByIdsMock: vi.fn(),
   invalidateCommentCacheMock: vi.fn(async () => undefined),
   invalidateContentMock: vi.fn(async () => undefined)
 }))
@@ -43,6 +47,11 @@ vi.mock('~/server/moderation/submit', () => ({
 
 vi.mock('~/server/moderation/appeal', () => ({
   deletePendingAppeals: deletePendingAppealsMock
+}))
+
+vi.mock('~/server/report/pending', () => ({
+  collectPendingReportIds: collectPendingReportIdsMock,
+  deleteReportsByIds: deleteReportsByIdsMock
 }))
 
 vi.mock('~/app/api/patch/comment/cache', () => ({
@@ -73,6 +82,8 @@ beforeEach(() => {
   childFindManyMock.mockResolvedValue([])
   deleteMock.mockResolvedValue({})
   messageDeleteManyMock.mockResolvedValue({ count: 1 })
+  collectPendingReportIdsMock.mockResolvedValue([])
+  deleteReportsByIdsMock.mockResolvedValue(undefined)
   transactionMock.mockImplementation(
     async (callback: (tx: typeof transactionClient) => Promise<unknown>) =>
       callback(transactionClient)

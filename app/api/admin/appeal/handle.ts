@@ -24,6 +24,10 @@ import { collectCommentSubtreeIds } from '~/app/api/patch/comment/subtree'
 import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
+import {
+  collectPendingReportIds,
+  deleteReportsByIds
+} from '~/server/report/pending'
 import { kickS3DeletionDrain } from '~/server/storage/s3Outbox'
 import { APPEAL_RESULT_NOTICE, APPEAL_SETTINGS_LINK } from '~/constants/appeal'
 import { MODERATION_CONTENT_TYPE_MAP } from '~/constants/moderation'
@@ -262,14 +266,21 @@ const rejectAppeal = async (
           let affectedUniqueId = ''
 
           if (type === 'comment') {
-            // 删除前收集根+后代 id, 供删除后清理其审核任务与 pending 申诉
+            // 删除前收集根+后代 id, 供删除后清理其审核任务与 pending 申诉;
+            // 举报外键是 SET NULL, 主键也须在删除前收集、确认删除后再清理
             const subtreeIds = await collectCommentSubtreeIds([contentId], tx)
+            const reportIds = await collectPendingReportIds(
+              'comment',
+              subtreeIds,
+              tx
+            )
             const deleted = await tx.patch_comment.deleteMany({
               where: { id: contentId, status: hiddenStatus }
             })
             if (deleted.count > 0) {
               await deletePendingModerationTasks('comment', subtreeIds, tx)
               await deletePendingAppeals('comment', subtreeIds, tx)
+              await deleteReportsByIds(reportIds, tx)
               didDelete = true
               contentDeleted = true
             } else {
@@ -286,9 +297,16 @@ const rejectAppeal = async (
               SELECT status FROM patch_rating WHERE id = ${contentId} FOR UPDATE
             `
             if (locked.length > 0 && locked[0].status === hiddenStatus) {
+              // 举报外键是 SET NULL, 删除前先收集 pending 举报主键, 删除后按主键清理
+              const reportIds = await collectPendingReportIds(
+                'rating',
+                contentId,
+                tx
+              )
               await tx.patch_rating.deleteMany({ where: { id: contentId } })
               await deletePendingModerationTasks('rating', contentId, tx)
               await deletePendingAppeals('rating', contentId, tx)
+              await deleteReportsByIds(reportIds, tx)
               // 隐藏态(2)评分不计入 ratingSummary, 删除无需重算统计 (对齐 adminDeleteRating)
               didDelete = true
               contentDeleted = true

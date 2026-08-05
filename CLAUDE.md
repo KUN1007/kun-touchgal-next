@@ -31,7 +31,7 @@ pnpm start / pnpm stop  # PM2 (ecosystem.config.cjs)
 
 - Server Component（`app/**/page.tsx`）→ `app/**/actions.ts` → service → `prisma` / `redis`。
 - Client Component → `utils/kunFetch.ts` → `app/api/**/route.ts` → `parseQuery` + Zod 校验 → 鉴权 → service/cache → Prisma。
-- `proxy.ts`（Next 16 前身为 `middleware.ts`）：对 `/api/*`（排除 `/api/upload/*`，其在 handler 内自行校验）做 CSRF；对 `/admin`、`/user`、`/comment`、`/edit` 做登录保护。
+- `proxy.ts`（Next 16 前身为 `middleware.ts`）：对 `/api/*`（排除 `/api/upload/*`，其在 handler 内自行校验）做 CSRF；对 `/admin`、`/user`、`/edit` 做登录保护。
 - 认证：JWT cookie 名 `kun-galgame-patch-moe-token`；proxy 用 `app/api/utils/jwtEdge.ts`，服务端用 `jwt.ts` / `verifyHeaderCookie`。
 - 数据层入口：`prisma/index.ts`（Prisma 7 + pg pool）、`lib/redis.ts`、`lib/s3.ts`。Prisma model 拆分在 `prisma/schema/*.prisma`，生成到 `prisma/generated/prisma`。
 

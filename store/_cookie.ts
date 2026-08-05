@@ -90,13 +90,20 @@ export const cookieStorage: StateStorage = {
     Object.keys(keyCookies).forEach((startWithKey) => {
       const keySegments = startWithKey.split('|')
 
-      keyObject = mergeDeep(
-        keyObject,
-        setNestedKeys(keySegments, keyCookies[startWithKey]) as Record<
-          string,
-          any
-        >
-      )
+      // 守卫必须是单键粒度: 外部注入的畸形转义 (decodeURIComponent 抛 URIError)
+      // 或坏 JSON 只丢这一个键, 让 zustand merge 回落该字段的初始值; 包在
+      // forEach 外会让一个坏 cookie 静默清空整个 store
+      try {
+        keyObject = mergeDeep(
+          keyObject,
+          setNestedKeys(keySegments, keyCookies[startWithKey]) as Record<
+            string,
+            any
+          >
+        )
+      } catch {
+        // 跳过无法解码的 cookie
+      }
     })
 
     return JSON.stringify(keyObject[key])

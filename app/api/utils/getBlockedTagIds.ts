@@ -17,7 +17,10 @@ export const getBlockedTagIds = async (
   const cachedBlockedTagIds =
     cookies['kun-patch-setting-store|state|data|kunBlockedTagIds']
   if (cachedBlockedTagIds !== undefined) {
-    return parseBlockedTagIds(cachedBlockedTagIds)
+    const cached = parseBlockedTagIds(cachedBlockedTagIds)
+    if (cached !== null) {
+      return cached
+    }
   }
 
   const result = await (loadAuth ? loadAuth() : verifyKunTokenWithUser(token))
@@ -38,11 +41,14 @@ export const getAuthenticatedBlockedTagIds = async (req: NextRequest) => {
   const cachedBlockedTagIds =
     cookies['kun-patch-setting-store|state|data|kunBlockedTagIds']
   if (cachedBlockedTagIds !== undefined) {
-    const payload = await verifyKunToken(token)
-    if (!payload) {
-      return null
+    const cached = parseBlockedTagIds(cachedBlockedTagIds)
+    if (cached !== null) {
+      const payload = await verifyKunToken(token)
+      if (!payload) {
+        return null
+      }
+      return cached
     }
-    return parseBlockedTagIds(cachedBlockedTagIds)
   }
 
   const result = await verifyKunTokenWithUser(token)

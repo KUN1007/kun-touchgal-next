@@ -16,7 +16,10 @@ export const getBlockedTagIds = cache(async () => {
     'kun-patch-setting-store|state|data|kunBlockedTagIds'
   )?.value
   if (cachedBlockedTagIds !== undefined) {
-    return parseBlockedTagIds(cachedBlockedTagIds)
+    const cached = parseBlockedTagIds(cachedBlockedTagIds)
+    if (cached !== null) {
+      return cached
+    }
   }
 
   const result = await loadAuthUser()
@@ -38,14 +41,17 @@ export const getAuthenticatedBlockedTagIds = cache(async () => {
     'kun-patch-setting-store|state|data|kunBlockedTagIds'
   )?.value
   if (cachedBlockedTagIds !== undefined) {
-    const result = await loadAuthUser()
-    if (!result) {
-      return null
-    }
+    const cached = parseBlockedTagIds(cachedBlockedTagIds)
+    if (cached !== null) {
+      const result = await loadAuthUser()
+      if (!result) {
+        return null
+      }
 
-    return {
-      payload: result.payload,
-      blockedTagIds: parseBlockedTagIds(cachedBlockedTagIds)
+      return {
+        payload: result.payload,
+        blockedTagIds: cached
+      }
     }
   }
 

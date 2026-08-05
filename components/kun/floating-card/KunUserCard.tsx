@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { User } from '@heroui/react'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import { KunUserStatCard } from './KunUserStatCard'
 import { KunUserCardSkeleton } from './KunUserCardSkeleton'
 import { UserFollow } from '~/components/user/follow/Follow'
@@ -17,11 +18,11 @@ export const KunUserCard = ({ uid }: UserCardProps) => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const user = await kunFetchGet<FloatingCardUser>(
+      const res = await kunFetchGet<KunResponse<FloatingCardUser>>(
         '/user/profile/floating',
         { uid }
       )
-      setUser(user)
+      kunErrorHandler(res, setUser)
     }
     fetchData()
   }, [])

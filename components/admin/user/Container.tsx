@@ -98,6 +98,25 @@ export const User = ({ initialUsers, initialTotal }: Props) => {
     setPage(1)
   }
 
+  // 单条编辑后就地更新该行, 不整表刷新
+  const handleUserUpdated = (updated: AdminUser) => {
+    setUsers((prev) =>
+      prev.map((user) =>
+        user.id === updated.id ? { ...user, ...updated } : user
+      )
+    )
+  }
+
+  // 单条删除后只移除该行; 当前页被抽空且不在第一页时回退页码走正常 refetch
+  const handleUserDeleted = (uid: number) => {
+    if (users.length === 1 && page > 1) {
+      setPage(page - 1)
+      return
+    }
+    setUsers((prev) => prev.filter((user) => user.id !== uid))
+    setTotal((prev) => Math.max(0, prev - 1))
+  }
+
   const currentPlaceholder =
     searchTypeOptions.find((option) => option.key === searchType)
       ?.placeholder ?? '搜索用户名...'
@@ -157,7 +176,10 @@ export const User = ({ initialUsers, initialTotal }: Props) => {
               <TableRow key={item.id}>
                 {(columnKey) => (
                   <TableCell>
-                    {RenderCell(item, columnKey.toString())}
+                    {RenderCell(item, columnKey.toString(), {
+                      onUpdated: handleUserUpdated,
+                      onDeleted: handleUserDeleted
+                    })}
                   </TableCell>
                 )}
               </TableRow>

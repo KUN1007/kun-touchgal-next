@@ -20,15 +20,22 @@ import { Textarea } from '@heroui/input'
 import { MoreVertical } from 'lucide-react'
 import { useUserStore } from '~/store/userStore'
 import { kunFetchDelete, kunFetchGet, kunFetchPut } from '~/utils/kunFetch'
+import { markdownToText } from '~/utils/markdownToText'
 import type { AdminComment } from '~/types/api/admin'
 import toast from 'react-hot-toast'
 
 interface Props {
   initialComment: AdminComment
-  onSuccess?: () => Promise<void> | void
+  onUpdated?: (comment: AdminComment) => void
+  // 删除会级联带走整棵回复子树, 回传实际删除的全部 id
+  onDeleted?: (commentIds: number[]) => void
 }
 
-export const CommentEdit = ({ initialComment, onSuccess }: Props) => {
+export const CommentEdit = ({
+  initialComment,
+  onUpdated,
+  onDeleted
+}: Props) => {
   const currentUser = useUserStore((state) => state.user)
 
   const {
@@ -40,15 +47,18 @@ export const CommentEdit = ({ initialComment, onSuccess }: Props) => {
   const handleDeleteComment = async () => {
     setDeleting(true)
     try {
-      const res = await kunFetchDelete<KunResponse<{}>>('/admin/comment', {
-        commentIds: String(initialComment.id)
-      })
+      const res = await kunFetchDelete<KunResponse<{ deletedIds: number[] }>>(
+        '/admin/comment',
+        {
+          commentIds: String(initialComment.id)
+        }
+      )
       if (typeof res === 'string') {
         toast.error(res)
       } else {
         onCloseDelete()
         toast.success('评论删除成功')
-        await onSuccess?.()
+        onDeleted?.(res.deletedIds)
       }
     } finally {
       setDeleting(false)
@@ -71,7 +81,7 @@ export const CommentEdit = ({ initialComment, onSuccess }: Props) => {
         toast.error(res)
       } else {
         toast.success(status === 0 ? '已恢复该评论' : '已隐藏该评论')
-        await onSuccess?.()
+        onUpdated?.({ ...initialComment, status })
       }
     } finally {
       setHiding(false)
@@ -123,7 +133,11 @@ export const CommentEdit = ({ initialComment, onSuccess }: Props) => {
         onCloseEdit()
         setEditContent('')
         toast.success('更新评论成功!')
-        await onSuccess?.()
+        // 与服务端列表一致: 展示 markdown 转纯文本后的 233 字预览
+        onUpdated?.({
+          ...initialComment,
+          content: markdownToText(editContent.trim()).slice(0, 233)
+        })
       }
     } finally {
       setUpdating(false)

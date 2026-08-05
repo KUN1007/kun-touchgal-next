@@ -46,7 +46,8 @@ interface Props {
   isSelected: boolean
   isSelectionDisabled?: boolean
   onSelectionChange: (isSelected: boolean) => void
-  onRefresh: () => Promise<void> | void
+  onUpdated: (rating: AdminRating) => void
+  onDeleted: (ratingId: number) => void
 }
 
 export const RatingCard = ({
@@ -54,7 +55,8 @@ export const RatingCard = ({
   isSelected,
   isSelectionDisabled,
   onSelectionChange,
-  onRefresh
+  onUpdated,
+  onDeleted
 }: Props) => {
   return (
     <Card className={isSelected ? 'ring-2 ring-primary-300' : undefined}>
@@ -136,7 +138,11 @@ export const RatingCard = ({
             </div>
           </div>
 
-          <RatingEdit initialRating={rating} onSuccess={onRefresh} />
+          <RatingEdit
+            initialRating={rating}
+            onUpdated={onUpdated}
+            onDeleted={onDeleted}
+          />
         </div>
       </CardBody>
     </Card>

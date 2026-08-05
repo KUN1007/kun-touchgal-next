@@ -24,6 +24,7 @@ import type { AdminUser } from '~/types/api/admin'
 
 interface Props {
   initialUser: AdminUser
+  onUpdated?: (user: AdminUser) => void
 }
 
 const roleOptions = Object.entries(USER_ROLE_MAP).map(([value, label]) => ({
@@ -36,7 +37,7 @@ const statusOptions = Object.entries(USER_STATUS_MAP).map(([value, label]) => ({
   label
 }))
 
-export const UserEdit = ({ initialUser }: Props) => {
+export const UserEdit = ({ initialUser, onUpdated }: Props) => {
   const [user, setUser] = useState<AdminUser>(initialUser)
   const [formUser, setFormUser] = useState<AdminUser>(initialUser)
   const [password, setPassword] = useState('')
@@ -88,6 +89,7 @@ export const UserEdit = ({ initialUser }: Props) => {
         setPassword('')
         toast.success('更新用户信息成功')
         onClose()
+        onUpdated?.(formUser)
       })
     } catch (error) {
       errorReporter(error)

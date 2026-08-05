@@ -249,6 +249,33 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
     setSelectedRatingIds(new Set())
   }
 
+  // 单条编辑/隐藏后就地更新该卡片, 不整表刷新
+  const handleRatingUpdated = (updated: AdminRating) => {
+    setRatings((prev) =>
+      prev.map((rating) =>
+        rating.id === updated.id ? { ...rating, ...updated } : rating
+      )
+    )
+  }
+
+  // 单条删除后只移除该卡片; 当前页被抽空且不在第一页时回退页码走正常 refetch
+  const handleRatingDeleted = (ratingId: number) => {
+    setSelectedRatingIds((prev) => {
+      if (!prev.has(ratingId)) {
+        return prev
+      }
+      const next = new Set(prev)
+      next.delete(ratingId)
+      return next
+    })
+    if (ratings.length === 1 && page > 1) {
+      setPage(page - 1)
+      return
+    }
+    setRatings((prev) => prev.filter((rating) => rating.id !== ratingId))
+    setTotal((prev) => Math.max(0, prev - 1))
+  }
+
   const handleBatchDelete = async () => {
     if (!selectedRatingIds.size) {
       return
@@ -390,7 +417,8 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
                 onSelectionChange={(isSelected) =>
                   handleRatingSelectionChange(rating.id, isSelected)
                 }
-                onRefresh={fetchData}
+                onUpdated={handleRatingUpdated}
+                onDeleted={handleRatingDeleted}
               />
             ))}
           </>

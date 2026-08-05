@@ -38,6 +38,15 @@ export const Feedback = ({ initialFeedbacks, total: initialTotal }: Props) => {
     setTotal(res.total)
   }
 
+  // 处理成功后就地把该条标记为已处理, 不整表刷新
+  const handleFeedbackHandled = (feedbackId: number) => {
+    setFeedbacks((prev) =>
+      prev.map((feedback) =>
+        feedback.id === feedbackId ? { ...feedback, status: 1 } : feedback
+      )
+    )
+  }
+
   useEffect(() => {
     if (!isMounted) {
       return
@@ -55,7 +64,11 @@ export const Feedback = ({ initialFeedbacks, total: initialTotal }: Props) => {
         ) : (
           <>
             {feedbacks.map((feedback) => (
-              <FeedbackCard key={feedback.id} feedback={feedback} />
+              <FeedbackCard
+                key={feedback.id}
+                feedback={feedback}
+                onHandled={handleFeedbackHandled}
+              />
             ))}
           </>
         )}

@@ -25,10 +25,11 @@ import toast from 'react-hot-toast'
 
 interface Props {
   initialRating: AdminRating
-  onSuccess?: () => Promise<void> | void
+  onUpdated?: (rating: AdminRating) => void
+  onDeleted?: (ratingId: number) => void
 }
 
-export const RatingEdit = ({ initialRating, onSuccess }: Props) => {
+export const RatingEdit = ({ initialRating, onUpdated, onDeleted }: Props) => {
   const currentUser = useUserStore((state) => state.user)
 
   const {
@@ -48,7 +49,7 @@ export const RatingEdit = ({ initialRating, onSuccess }: Props) => {
       } else {
         onCloseDelete()
         toast.success('评价删除成功')
-        await onSuccess?.()
+        onDeleted?.(initialRating.id)
       }
     } finally {
       setDeleting(false)
@@ -71,7 +72,7 @@ export const RatingEdit = ({ initialRating, onSuccess }: Props) => {
         toast.error(res)
       } else {
         toast.success(status === 0 ? '已恢复该评价' : '已隐藏该评价')
-        await onSuccess?.()
+        onUpdated?.({ ...initialRating, status })
       }
     } finally {
       setHiding(false)
@@ -120,7 +121,11 @@ export const RatingEdit = ({ initialRating, onSuccess }: Props) => {
         onCloseEdit()
         setEditContent('')
         toast.success('更新评价成功!')
-        await onSuccess?.()
+        // 与服务端列表一致: 展示 233 字截断预览
+        onUpdated?.({
+          ...initialRating,
+          shortSummary: editContent.trim().slice(0, 233)
+        })
       }
     } finally {
       setUpdating(false)

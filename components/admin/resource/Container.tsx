@@ -36,6 +36,7 @@ import { RenderCell } from './RenderCell'
 import { useDebounce } from 'use-debounce'
 import { KunPagination } from '~/components/kun/Pagination'
 import type { AdminResource, AdminUser } from '~/types/api/admin'
+import type { PatchResource } from '~/types/api/patch'
 
 type ResourceSearchType = 'content' | 'info' | 'user'
 
@@ -186,6 +187,27 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
 
   const selectedCount =
     selectedKeys === 'all' ? resources.length : selectedKeys.size
+
+  // 单条编辑后就地更新该行, 不整表刷新
+  const handleResourceUpdated = (updated: PatchResource) => {
+    setResources((prev) =>
+      prev.map((resource) =>
+        resource.id === updated.id ? { ...resource, ...updated } : resource
+      )
+    )
+  }
+
+  // 单条删除后只移除该行; 当前页被抽空且不在第一页时回退页码走正常 refetch
+  const handleResourceDeleted = (resourceId: number) => {
+    if (resources.length === 1 && page > 1) {
+      setPage(page - 1)
+      return
+    }
+    setResources((prev) =>
+      prev.filter((resource) => resource.id !== resourceId)
+    )
+    setTotal((prev) => Math.max(0, prev - 1))
+  }
 
   const handleBatchDelete = async () => {
     setBatchDeleting(true)
@@ -444,7 +466,10 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
               <TableRow key={item.id}>
                 {columns.map((column) => (
                   <TableCell key={column.id}>
-                    {RenderCell(item, column.id)}
+                    {RenderCell(item, column.id, {
+                      onUpdated: handleResourceUpdated,
+                      onDeleted: handleResourceDeleted
+                    })}
                   </TableCell>
                 ))}
               </TableRow>

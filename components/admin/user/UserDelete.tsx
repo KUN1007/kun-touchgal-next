@@ -19,9 +19,10 @@ import type { AdminUser } from '~/types/api/admin'
 
 interface Props {
   user: AdminUser
+  onDeleted?: (uid: number) => void
 }
 
-export const UserDelete = ({ user }: Props) => {
+export const UserDelete = ({ user, onDeleted }: Props) => {
   const currentUser = useUserStore((state) => state.user)
 
   const { isOpen, onOpen, onClose } = useDisclosure()
@@ -33,6 +34,7 @@ export const UserDelete = ({ user }: Props) => {
     })
     kunErrorHandler(res, () => {
       toast.success('永久删除用户成功')
+      onDeleted?.(user.id)
     })
     setDeleting(false)
     onClose()

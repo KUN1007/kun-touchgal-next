@@ -71,6 +71,18 @@ export const ResourceApply = ({ initialResources, initialTotal }: Props) => {
     )
   }
 
+  // 同意/拒绝后该资源不再处于待审核, 直接从列表移除
+  const handleResourceResolved = (resourceId: number) => {
+    if (resources.length === 1 && page > 1) {
+      setPage(page - 1)
+      return
+    }
+    setResources((prev) =>
+      prev.filter((resource) => resource.id !== resourceId)
+    )
+    setTotal((prev) => Math.max(0, prev - 1))
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -99,6 +111,7 @@ export const ResourceApply = ({ initialResources, initialTotal }: Props) => {
                 <ResourceApprovalButton
                   resource={resource}
                   onResourceUpdated={handleResourceUpdated}
+                  onResourceResolved={handleResourceResolved}
                 />
               }
             />

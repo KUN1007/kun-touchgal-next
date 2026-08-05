@@ -256,6 +256,33 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
     setSelectedCommentIds(new Set())
   }
 
+  // 单条编辑/隐藏后就地更新该卡片, 不整表刷新
+  const handleCommentUpdated = (updated: AdminComment) => {
+    setComments((prev) =>
+      prev.map((comment) =>
+        comment.id === updated.id ? { ...comment, ...updated } : comment
+      )
+    )
+  }
+
+  // 单条删除后只移除对应卡片 (服务端级联删除的回复一并移除);
+  // 当前页被抽空且不在第一页时回退页码走正常 refetch
+  const handleCommentDeleted = (commentIds: number[]) => {
+    const idSet = new Set(commentIds)
+    setSelectedCommentIds((prev) => {
+      const next = new Set([...prev].filter((id) => !idSet.has(id)))
+      return next.size === prev.size ? prev : next
+    })
+    const removedCount = comments.filter((comment) =>
+      idSet.has(comment.id)
+    ).length
+    if (removedCount >= comments.length && page > 1) {
+      setPage(page - 1)
+      return
+    }
+    setComments((prev) => prev.filter((comment) => !idSet.has(comment.id)))
+    setTotal((prev) => Math.max(0, prev - removedCount))
+  }
   const handleBatchDelete = async () => {
     if (!selectedCommentIds.size) {
       return
@@ -425,7 +452,8 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
                 onSelectionChange={(isSelected) =>
                   handleCommentSelectionChange(comment.id, isSelected)
                 }
-                onRefresh={fetchData}
+                onUpdated={handleCommentUpdated}
+                onDeleted={handleCommentDeleted}
               />
             ))}
           </>

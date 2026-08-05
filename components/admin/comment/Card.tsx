@@ -12,7 +12,8 @@ interface Props {
   isSelected: boolean
   isSelectionDisabled?: boolean
   onSelectionChange: (isSelected: boolean) => void
-  onRefresh: () => Promise<void> | void
+  onUpdated: (comment: AdminComment) => void
+  onDeleted: (commentIds: number[]) => void
 }
 
 export const CommentCard = ({
@@ -20,7 +21,8 @@ export const CommentCard = ({
   isSelected,
   isSelectionDisabled,
   onSelectionChange,
-  onRefresh
+  onUpdated,
+  onDeleted
 }: Props) => {
   return (
     <Card className={isSelected ? 'ring-2 ring-primary-300' : undefined}>
@@ -82,7 +84,11 @@ export const CommentCard = ({
             </div>
           </div>
 
-          <CommentEdit initialComment={comment} onSuccess={onRefresh} />
+          <CommentEdit
+            initialComment={comment}
+            onUpdated={onUpdated}
+            onDeleted={onDeleted}
+          />
         </div>
       </CardBody>
     </Card>

@@ -56,6 +56,34 @@ export const Report = ({ initialReports, total, title, targetType }: Props) => {
       setLoading(false)
     }
   }
+  // 处理成功后在本地移除该举报 (服务端会一并处理同目标的其他待处理举报),
+  // 只有当前页被抽空且不在第一页时才回退页码走正常 refetch
+  const handleReportsHandled = (handled: AdminReport) => {
+    const targetId =
+      handled.targetType === 'comment'
+        ? handled.comment?.id
+        : handled.rating?.id
+    const isRelated = (report: AdminReport) => {
+      if (report.id === handled.id) {
+        return true
+      }
+      if (!targetId || report.targetType !== handled.targetType) {
+        return false
+      }
+      const reportTargetId =
+        handled.targetType === 'comment'
+          ? report.comment?.id
+          : report.rating?.id
+      return reportTargetId === targetId
+    }
+    const removedCount = reports.filter(isRelated).length
+    if (removedCount >= reports.length && page > 1) {
+      setPage(page - 1)
+      return
+    }
+    setReports((prev) => prev.filter((report) => !isRelated(report)))
+    setTotalCount((prev) => Math.max(0, prev - removedCount))
+  }
 
   useEffect(() => {
     if (!isMounted) {
@@ -107,7 +135,7 @@ export const Report = ({ initialReports, total, title, targetType }: Props) => {
               <ReportCard
                 key={report.id}
                 report={report}
-                onHandled={() => fetchData(page, activeTab)}
+                onHandled={handleReportsHandled}
               />
             ))}
           </>

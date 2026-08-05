@@ -10,7 +10,7 @@ import type { AdminCreator } from '~/types/api/admin'
 interface RenderCellProps {
   creator: AdminCreator
   columnKey: string
-  onUpdate: () => void
+  onUpdate: (creatorId: number, status: number) => void
 }
 
 const getStatusColor = (status: number) => {

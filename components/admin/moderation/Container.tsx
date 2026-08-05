@@ -144,6 +144,37 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
     fetchStats()
   }, [])
 
+  // 单条改判/重试后只更新对应卡片: 状态不再匹配当前筛选时从列表移除, 否则就地更新
+  const handleTaskUpdated = (
+    taskId: number,
+    patch: Partial<AdminModerationTask>
+  ) => {
+    const staysVisible =
+      !patch.status || status === 'all' || status === patch.status
+    if (staysVisible) {
+      setTasks((prev) =>
+        prev.map((task) => (task.id === taskId ? { ...task, ...patch } : task))
+      )
+    } else if (tasks.length === 1 && page > 1) {
+      setPage(page - 1)
+    } else {
+      setTasks((prev) => prev.filter((task) => task.id !== taskId))
+      setTotal((prev) => Math.max(0, prev - 1))
+    }
+    // 改判后任务不可再操作, 从批量选中集移除; 重试回 pending 仍可改判, 保留选中
+    if (patch.status === 'approved' || patch.status === 'rejected') {
+      setSelectedTaskIds((prev) => {
+        if (!prev.has(taskId)) {
+          return prev
+        }
+        const next = new Set(prev)
+        next.delete(taskId)
+        return next
+      })
+    }
+    fetchStats()
+  }
+
   const fetchBlacklist = async () => {
     const res = await kunFetchGet<
       KunResponse<{ items: AdminModerationBlacklistItem[] }>
@@ -416,10 +447,7 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
               onSelectionChange={(isSelected) =>
                 handleTaskSelectionChange(task.id, isSelected)
               }
-              onRefresh={() => {
-                fetchData()
-                fetchStats()
-              }}
+              onTaskUpdated={handleTaskUpdated}
               onAddBlacklist={handleOpenBlacklist}
             />
           ))

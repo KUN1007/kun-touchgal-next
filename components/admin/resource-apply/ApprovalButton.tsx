@@ -22,11 +22,13 @@ import type { PatchResource } from '~/types/api/patch'
 interface Props {
   resource: AdminResource
   onResourceUpdated?: (resource: PatchResource) => void
+  onResourceResolved?: (resourceId: number) => void
 }
 
 export const ResourceApprovalButton = ({
   resource,
-  onResourceUpdated
+  onResourceUpdated,
+  onResourceResolved
 }: Props) => {
   const [approving, setApproving] = useState(false)
   const {
@@ -52,6 +54,7 @@ export const ResourceApprovalButton = ({
     kunErrorHandler(res, () => {
       toast.success('已通过该资源的发布申请')
       onCloseApprove()
+      onResourceResolved?.(resource.id)
     })
     setApproving(false)
   }
@@ -77,6 +80,7 @@ export const ResourceApprovalButton = ({
     kunErrorHandler(res, () => {
       toast.success('已拒绝该资源的发布申请')
       onCloseDecline()
+      onResourceResolved?.(resource.id)
     })
     setDeclining(false)
   }

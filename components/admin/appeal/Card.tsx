@@ -30,10 +30,10 @@ const formatPayload = (contentType: string, payload: AppealPayload) =>
 
 interface Props {
   appeal: AdminAppealItem
-  onRefresh: () => void
+  onHandled: (appealId: number, nextStatus: string) => void
 }
 
-export const AppealCard = ({ appeal, onRefresh }: Props) => {
+export const AppealCard = ({ appeal, onHandled }: Props) => {
   const [handling, setHandling] = useState(false)
   const { isOpen, onOpen, onClose } = useDisclosure()
 
@@ -52,7 +52,7 @@ export const AppealCard = ({ appeal, onRefresh }: Props) => {
         approve ? '申诉已通过, 内容已恢复' : '申诉已拒绝, 内容已删除'
       )
       onClose()
-      onRefresh()
+      onHandled(appeal.id, approve ? 'approved' : 'rejected')
     } finally {
       setHandling(false)
     }

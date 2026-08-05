@@ -7,9 +7,10 @@ import type { AdminFeedback } from '~/types/api/admin'
 
 interface Props {
   feedback: AdminFeedback
+  onHandled: (feedbackId: number) => void
 }
 
-export const FeedbackCard = ({ feedback }: Props) => {
+export const FeedbackCard = ({ feedback, onHandled }: Props) => {
   return (
     <Card>
       <CardBody>
@@ -63,7 +64,7 @@ export const FeedbackCard = ({ feedback }: Props) => {
             </div>
           </div>
 
-          <FeedbackHandler initialFeedback={feedback} />
+          <FeedbackHandler initialFeedback={feedback} onHandled={onHandled} />
         </div>
       </CardBody>
     </Card>

@@ -28,7 +28,7 @@ import type { AdminReport } from '~/types/api/admin'
 
 interface Props {
   report: AdminReport
-  onHandled: () => void
+  onHandled: (report: AdminReport) => void
 }
 
 const buildTargetPreview = (report: AdminReport) => {
@@ -72,7 +72,7 @@ export const ReportCard = ({ report, onHandled }: Props) => {
       onClose()
       setHandleContent('')
       toast.success(actionType === 'reject' ? '驳回举报成功!' : '处理举报成功!')
-      onHandled()
+      onHandled(report)
     }
     setUpdating(false)
   }

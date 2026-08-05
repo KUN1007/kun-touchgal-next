@@ -25,9 +25,10 @@ import toast from 'react-hot-toast'
 
 interface Props {
   initialFeedback: AdminFeedback
+  onHandled?: (feedbackId: number) => void
 }
 
-export const FeedbackHandler = ({ initialFeedback }: Props) => {
+export const FeedbackHandler = ({ initialFeedback, onHandled }: Props) => {
   const currentUser = useUserStore((state) => state.user)
 
   const {
@@ -52,6 +53,7 @@ export const FeedbackHandler = ({ initialFeedback }: Props) => {
       onCloseHandle()
       setHandleContent('')
       toast.success('处理反馈成功!')
+      onHandled?.(initialFeedback.id)
     }
     setUpdating(false)
   }

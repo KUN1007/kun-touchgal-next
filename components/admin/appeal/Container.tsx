@@ -46,6 +46,24 @@ export const Appeal = ({ initialAppeals, initialTotal }: Props) => {
     }
   }
 
+  // 处理成功后只更新本地对应卡片: pending 筛选下直接移除, 全部筛选下就地更新状态
+  const handleAppealHandled = (appealId: number, nextStatus: string) => {
+    if (status === 'pending') {
+      if (appeals.length === 1 && page > 1) {
+        setPage(page - 1)
+        return
+      }
+      setAppeals((prev) => prev.filter((appeal) => appeal.id !== appealId))
+      setTotal((prev) => Math.max(0, prev - 1))
+    } else {
+      setAppeals((prev) =>
+        prev.map((appeal) =>
+          appeal.id === appealId ? { ...appeal, status: nextStatus } : appeal
+        )
+      )
+    }
+  }
+
   useEffect(() => {
     if (!isMounted) {
       return
@@ -96,7 +114,11 @@ export const Appeal = ({ initialAppeals, initialTotal }: Props) => {
           <KunCardSkeleton count={3} />
         ) : appeals.length ? (
           appeals.map((appeal) => (
-            <AppealCard key={appeal.id} appeal={appeal} onRefresh={fetchData} />
+            <AppealCard
+              key={appeal.id}
+              appeal={appeal}
+              onHandled={handleAppealHandled}
+            />
           ))
         ) : (
           <div className="space-y-1 py-12 text-center">

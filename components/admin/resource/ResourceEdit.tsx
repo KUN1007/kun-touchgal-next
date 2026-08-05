@@ -16,13 +16,19 @@ import { useUserStore } from '~/store/userStore'
 import { kunFetchDelete } from '~/utils/kunFetch'
 import { EditResourceDialog } from '~/components/patch/resource/edit/EditResourceDialog'
 import type { AdminResource } from '~/types/api/admin'
+import type { PatchResource } from '~/types/api/patch'
 
 interface Props {
   initialResource: AdminResource
+  onUpdated?: (resource: PatchResource) => void
+  onDeleted?: (resourceId: number) => void
 }
 
-// TODO: Reactivity (列表卡片仍不随保存更新)
-export const ResourceEdit = ({ initialResource }: Props) => {
+export const ResourceEdit = ({
+  initialResource,
+  onUpdated,
+  onDeleted
+}: Props) => {
   const currentUser = useUserStore((state) => state.user)
   // 保存后回写: 列表的 initialResource 是服务端快照且不刷新, 若继续用它做
   // 表单初值, 再次编辑同一条会把上次的改动整体回退
@@ -50,6 +56,7 @@ export const ResourceEdit = ({ initialResource }: Props) => {
       toast.error(res)
     } else {
       toast.success('删除资源链接成功')
+      onDeleted?.(initialResource.id)
     }
 
     setDeleting(false)
@@ -95,6 +102,7 @@ export const ResourceEdit = ({ initialResource }: Props) => {
           resource={resource}
           onSuccess={(updated) => {
             setResource({ ...resource, ...updated })
+            onUpdated?.(updated)
             onCloseEdit()
           }}
           type="admin"

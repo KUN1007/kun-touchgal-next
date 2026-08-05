@@ -9,7 +9,6 @@ import {
   TableRow
 } from '@heroui/react'
 import { useState } from 'react'
-import { kunFetchGet } from '~/utils/kunFetch'
 import { RenderCell } from './RenderCell'
 import type { AdminCreator } from '~/types/api/admin'
 
@@ -28,15 +27,13 @@ const columns = [
 export const Creator = ({ initialCreators, total }: Props) => {
   const [creators, setCreators] = useState<AdminCreator[]>(initialCreators)
 
-  const fetchCreators = async () => {
-    const { creators } = await kunFetchGet<{
-      creators: AdminCreator[]
-      total: number
-    }>('/admin/creator', {
-      page: 1,
-      limit: 30
-    })
-    setCreators(creators)
+  // 同意/拒绝后就地更新该行状态 (2 - 同意, 3 - 拒绝), 不整表刷新
+  const handleCreatorUpdated = (creatorId: number, status: number) => {
+    setCreators((prev) =>
+      prev.map((creator) =>
+        creator.id === creatorId ? { ...creator, status } : creator
+      )
+    )
   }
 
   return (
@@ -56,7 +53,7 @@ export const Creator = ({ initialCreators, total }: Props) => {
                   {RenderCell({
                     creator,
                     columnKey: columnKey.toString(),
-                    onUpdate: fetchCreators
+                    onUpdate: handleCreatorUpdated
                   })}
                 </TableCell>
               )}

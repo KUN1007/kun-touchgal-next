@@ -76,6 +76,8 @@ export const deleteComment = async (
 
   const patchIds = [...new Set(comments.map((comment) => comment.patch_id))]
 
+  // 级联删除会带走整棵回复子树, 把实际删除的全部 id 返回给调用方
+  let deletedIds: number[] = []
   await prisma.$transaction(async (prisma) => {
     const targetIds = comments.map((comment) => comment.id)
 
@@ -90,6 +92,8 @@ export const deleteComment = async (
       )
       SELECT id FROM descendants
     `
+
+    deletedIds = descendantRows.map((row) => row.id)
 
     await prisma.patch_comment.deleteMany({
       where: {
@@ -126,5 +130,5 @@ export const deleteComment = async (
   // 批量删除评论改变 _count.comment, 失效补丁详情缓存 (M-05)
   await invalidatePatchContentCacheByPatchId(patchIds).catch(() => undefined)
 
-  return {}
+  return { deletedIds }
 }

@@ -11,7 +11,16 @@ import { UserDelete } from './UserDelete'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
 import type { AdminUser as AdminUserType } from '~/types/api/admin'
 
-export const RenderCell = (user: AdminUserType, columnKey: string) => {
+interface RenderActions {
+  onUpdated: (user: AdminUserType) => void
+  onDeleted: (uid: number) => void
+}
+
+export const RenderCell = (
+  user: AdminUserType,
+  columnKey: string,
+  actions?: RenderActions
+) => {
   switch (columnKey) {
     case 'user':
       return (
@@ -41,8 +50,8 @@ export const RenderCell = (user: AdminUserType, columnKey: string) => {
     case 'actions':
       return (
         <div className="flex items-center gap-2">
-          <UserEdit initialUser={user} />
-          <UserDelete user={user} />
+          <UserEdit initialUser={user} onUpdated={actions?.onUpdated} />
+          <UserDelete user={user} onDeleted={actions?.onDeleted} />
         </div>
       )
     default:

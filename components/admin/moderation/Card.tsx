@@ -65,7 +65,7 @@ interface Props {
   isSelected: boolean
   isSelectionDisabled: boolean
   onSelectionChange: (isSelected: boolean) => void
-  onRefresh: () => void
+  onTaskUpdated: (taskId: number, patch: Partial<AdminModerationTask>) => void
   onAddBlacklist: (pattern: string) => void
 }
 
@@ -74,7 +74,7 @@ export const ModerationTaskCard = ({
   isSelected,
   isSelectionDisabled,
   onSelectionChange,
-  onRefresh,
+  onTaskUpdated,
   onAddBlacklist
 }: Props) => {
   const [reviewing, setReviewing] = useState(false)
@@ -103,7 +103,15 @@ export const ModerationTaskCard = ({
       }
       toast.success(pendingApprove ? '已改判为通过' : '已改判为拒绝')
       onClose()
-      onRefresh()
+      onTaskUpdated(task.id, {
+        status: pendingApprove ? 'approved' : 'rejected',
+        rejectCode: '',
+        // 与服务端落库一致: 改判拒绝写入固定原因, model 记为 admin, Token 清零
+        rejectReason: pendingApprove ? '' : '经人工复核为违规内容',
+        model: 'admin',
+        tokensIn: 0,
+        tokensOut: 0
+      })
     } finally {
       setReviewing(false)
     }
@@ -121,7 +129,8 @@ export const ModerationTaskCard = ({
         return
       }
       toast.success('已重新加入审核队列')
-      onRefresh()
+      // 与服务端 requeue 一致: 清掉上次拒绝原因并重置重试计数
+      onTaskUpdated(task.id, { status: 'pending', rejectReason: '', retry: 0 })
     } finally {
       setRetrying(false)
     }

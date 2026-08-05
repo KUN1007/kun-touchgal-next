@@ -8,8 +8,18 @@ import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { ResourceEdit } from './ResourceEdit'
 import { KunUser } from '~/components/kun/floating-card/KunUser'
 import type { AdminResource } from '~/types/api/admin'
+import type { PatchResource } from '~/types/api/patch'
 
-export const RenderCell = (resource: AdminResource, columnKey: string) => {
+interface RenderActions {
+  onUpdated: (resource: PatchResource) => void
+  onDeleted: (resourceId: number) => void
+}
+
+export const RenderCell = (
+  resource: AdminResource,
+  columnKey: string,
+  actions?: RenderActions
+) => {
   switch (columnKey) {
     case 'name':
       return (
@@ -98,7 +108,13 @@ export const RenderCell = (resource: AdminResource, columnKey: string) => {
       )
     }
     case 'actions':
-      return <ResourceEdit initialResource={resource} />
+      return (
+        <ResourceEdit
+          initialResource={resource}
+          onUpdated={actions?.onUpdated}
+          onDeleted={actions?.onDeleted}
+        />
+      )
     default:
       return (
         <Chip color="primary" variant="flat">

@@ -54,6 +54,12 @@ export const SearchPage = ({ filterEndYear }: Props) => {
   const [selectedMonths, setSelectedMonths] = useState<string[]>(['all'])
   const [minRatingCount, setMinRatingCount] = useState(10)
   const [debouncedMinRatingCount] = useDebounce(minRatingCount, 400)
+  const withPageReset = <T,>(setter: (value: T) => void) => {
+    return (value: T) => {
+      setPage(1)
+      setter(value)
+    }
+  }
 
   const [showHistory, setShowHistory] = useState(false)
   const searchData = useSearchStore((state) => state.data)
@@ -259,7 +265,7 @@ export const SearchPage = ({ filterEndYear }: Props) => {
           showSuggestions={showSuggestions}
           setShowSuggestions={setShowSuggestions}
           selectedSuggestions={selectedSuggestions}
-          setSelectedSuggestions={setSelectedSuggestions}
+          setSelectedSuggestions={withPageReset(setSelectedSuggestions)}
           setShowHistory={setShowHistory}
           activeDescendantId={activeDescendantId}
           suggestionNavRef={suggestionNavRef}
@@ -271,7 +277,7 @@ export const SearchPage = ({ filterEndYear }: Props) => {
             query={query}
             debouncedQuery={debouncedQuery}
             setQuery={setQuery}
-            setSelectedSuggestions={setSelectedSuggestions}
+            setSelectedSuggestions={withPageReset(setSelectedSuggestions)}
             activeIndex={activeSuggestionIndex}
             setActiveIndex={setActiveSuggestionIndex}
             navRef={suggestionNavRef}
@@ -281,7 +287,7 @@ export const SearchPage = ({ filterEndYear }: Props) => {
         {isSearchStoreHydrated && (
           <SearchHistory
             showHistory={showHistory}
-            setSelectedSuggestions={setSelectedSuggestions}
+            setSelectedSuggestions={withPageReset(setSelectedSuggestions)}
             setShowHistory={setShowHistory}
           />
         )}
@@ -289,21 +295,21 @@ export const SearchPage = ({ filterEndYear }: Props) => {
 
       <FilterBar
         selectedType={selectedType}
-        setSelectedType={setSelectedType}
+        setSelectedType={withPageReset(setSelectedType)}
         sortField={sortField}
-        setSortField={setSortField}
+        setSortField={withPageReset(setSortField)}
         sortOrder={sortOrder}
-        setSortOrder={setSortOrder}
+        setSortOrder={withPageReset(setSortOrder)}
         selectedLanguage={selectedLanguage}
-        setSelectedLanguage={setSelectedLanguage}
+        setSelectedLanguage={withPageReset(setSelectedLanguage)}
         selectedPlatform={selectedPlatform}
-        setSelectedPlatform={setSelectedPlatform}
+        setSelectedPlatform={withPageReset(setSelectedPlatform)}
         selectedYears={selectedYears}
-        setSelectedYears={setSelectedYears}
+        setSelectedYears={withPageReset(setSelectedYears)}
         selectedMonths={selectedMonths}
-        setSelectedMonths={setSelectedMonths}
+        setSelectedMonths={withPageReset(setSelectedMonths)}
         minRatingCount={minRatingCount}
-        setMinRatingCount={setMinRatingCount}
+        setMinRatingCount={withPageReset(setMinRatingCount)}
         endYear={filterEndYear}
       />
 

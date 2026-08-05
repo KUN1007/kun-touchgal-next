@@ -36,6 +36,12 @@ export const CardContainer = ({
   const [minRatingCount, setMinRatingCount] = useState(
     DEFAULT_GALGAME_MIN_RATING_COUNT
   )
+  const withPageReset = <T,>(setter: (value: T) => void) => {
+    return (value: T) => {
+      setPage(1)
+      setter(value)
+    }
+  }
 
   const fetchPatches = async () => {
     setLoading(true)
@@ -89,21 +95,21 @@ export const CardContainer = ({
 
       <FilterBar
         selectedType={selectedType}
-        setSelectedType={setSelectedType}
+        setSelectedType={withPageReset(setSelectedType)}
         sortField={sortField}
-        setSortField={setSortField}
+        setSortField={withPageReset(setSortField)}
         sortOrder={sortOrder}
-        setSortOrder={setSortOrder}
+        setSortOrder={withPageReset(setSortOrder)}
         selectedLanguage={selectedLanguage}
-        setSelectedLanguage={setSelectedLanguage}
+        setSelectedLanguage={withPageReset(setSelectedLanguage)}
         selectedPlatform={selectedPlatform}
-        setSelectedPlatform={setSelectedPlatform}
+        setSelectedPlatform={withPageReset(setSelectedPlatform)}
         selectedYears={selectedYears}
-        setSelectedYears={setSelectedYears}
+        setSelectedYears={withPageReset(setSelectedYears)}
         selectedMonths={selectedMonths}
-        setSelectedMonths={setSelectedMonths}
+        setSelectedMonths={withPageReset(setSelectedMonths)}
         minRatingCount={minRatingCount}
-        setMinRatingCount={setMinRatingCount}
+        setMinRatingCount={withPageReset(setMinRatingCount)}
         endYear={filterEndYear}
       />
 

@@ -3,6 +3,7 @@ import { kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { prisma } from '~/prisma/index'
 import { adminModerationRetrySchema } from '~/validations/admin'
+import { requeueModerationTask } from '~/server/moderation/apply'
 
 export const PUT = async (req: NextRequest) => {
   const input = await kunParsePutBody(req, adminModerationRetrySchema)
@@ -36,17 +37,7 @@ export const PUT = async (req: NextRequest) => {
     return NextResponse.json('该任务已有 AI 裁决, 请直接改判')
   }
 
-  const res = await prisma.moderation_task.updateMany({
-    where: { id: task.id, status: 'manual' },
-    data: {
-      status: 'pending',
-      retry: 0,
-      next_attempt: new Date(),
-      // 清掉上次处理遗留的租约, 否则未过期的租约会阻塞重新认领
-      picked_at: null,
-      reject_reason: ''
-    }
-  })
+  const res = await requeueModerationTask(task.id)
   if (res.count === 0) {
     return NextResponse.json('该任务已被处理, 请刷新后重试')
   }

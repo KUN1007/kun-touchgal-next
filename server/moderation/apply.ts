@@ -1,5 +1,5 @@
 import { prisma } from '~/prisma/index'
-import type { Prisma } from '~/prisma/generated/prisma/client'
+import { Prisma } from '~/prisma/generated/prisma/client'
 import type { moderation_taskModel } from '~/prisma/generated/prisma/models'
 import {
   createDedupMessage,
@@ -50,6 +50,23 @@ export const markTaskManual = async (taskId: number, reason: string) =>
   prisma.moderation_task.updateMany({
     where: { id: taskId, status: 'pending' },
     data: { status: 'manual', reject_reason: reason.slice(0, 500) }
+  })
+
+// 人工把转人工的任务重新丢回队列. 认领守卫同时要求 verdict 为空:
+// 否则与 worker 的 m=1 回写 (verdict 非空 + status manual) 构成分钟级 TOCTOU
+// 竞态——AI 拿不准转人工的任务会被重新丢回队列, 下一轮 worker 自动放行/拒绝,
+// 绕过人工最终裁决
+export const requeueModerationTask = async (taskId: number) =>
+  prisma.moderation_task.updateMany({
+    where: { id: taskId, status: 'manual', verdict: { equals: Prisma.DbNull } },
+    data: {
+      status: 'pending',
+      retry: 0,
+      next_attempt: new Date(),
+      // 清掉上次处理遗留的租约, 否则未过期的租约会阻塞重新认领
+      picked_at: null,
+      reject_reason: ''
+    }
   })
 
 // 创建时被拦截而未发送的通知, 在评论对他人可见后补发

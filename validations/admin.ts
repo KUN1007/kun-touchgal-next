@@ -329,6 +329,12 @@ export const adminModerationRetrySchema = z.object({
   taskId: z.coerce.number().min(1).max(9999999)
 })
 
+// 上限与列表每页条数一致: 全选当前页即为单次批量的最大规模
+export const adminModerationBatchSchema = z.object({
+  taskIds: z.array(z.coerce.number().min(1).max(9999999)).min(1).max(30),
+  action: z.enum(['approve', 'reject', 'retry'])
+})
+
 export const adminModerationBlacklistCreateSchema = z.object({
   pattern: z
     .string()

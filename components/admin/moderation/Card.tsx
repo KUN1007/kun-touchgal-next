@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   CardBody,
+  Checkbox,
   Chip,
   Modal,
   ModalBody,
@@ -50,14 +51,29 @@ const contentLinkMap: Partial<
     `/${uniqueId}?tab=resources&resourceId=${contentId}`
 }
 
+// 灰度 (dry_run) 任务只记录 AI 裁决不落内容, 供 AI/人工对照遥测; 改判会覆盖
+// model/tokens/reviewed 元数据, 永远不可人工裁决 (单条卡片按钮同样不渲染)
+export const canReviewModerationTask = (task: AdminModerationTask) =>
+  (task.status === 'pending' || task.status === 'manual') && !task.dryRun
+
+// 仅审核失败转人工的任务可重试; verdict 非空为 AI 拿不准 (m=1) 转人工
+export const canRetryModerationTask = (task: AdminModerationTask) =>
+  task.status === 'manual' && task.verdict == null && !task.dryRun
+
 interface Props {
   task: AdminModerationTask
+  isSelected: boolean
+  isSelectionDisabled: boolean
+  onSelectionChange: (isSelected: boolean) => void
   onRefresh: () => void
   onAddBlacklist: (pattern: string) => void
 }
 
 export const ModerationTaskCard = ({
   task,
+  isSelected,
+  isSelectionDisabled,
+  onSelectionChange,
   onRefresh,
   onAddBlacklist
 }: Props) => {
@@ -111,9 +127,8 @@ export const ModerationTaskCard = ({
     }
   }
 
-  const canReview = task.status === 'pending' || task.status === 'manual'
-  // 仅审核失败转人工的任务可重试; verdict 非空为 AI 拿不准 (m=1) 转人工
-  const canRetry = task.status === 'manual' && task.verdict == null
+  const canReview = canReviewModerationTask(task)
+  const canRetry = canRetryModerationTask(task)
 
   const buildContentLink = contentLinkMap[task.contentType]
   const contentLink =
@@ -130,9 +145,17 @@ export const ModerationTaskCard = ({
 
   return (
     <>
-      <Card>
+      <Card className={isSelected ? 'ring-2 ring-primary-300' : undefined}>
         <CardBody className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
+            {canReview && (
+              <Checkbox
+                aria-label={`选择审核任务 ${task.id}`}
+                isDisabled={isSelectionDisabled}
+                isSelected={isSelected}
+                onValueChange={onSelectionChange}
+              />
+            )}
             <Chip color="primary" variant="flat" size="sm">
               {MODERATION_CONTENT_TYPE_MAP[task.contentType] ??
                 task.contentType}

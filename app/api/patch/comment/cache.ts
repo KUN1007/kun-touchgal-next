@@ -129,7 +129,7 @@ export const withPatchCommentPageCache = async (
 
   return kunCacheSingleflight({
     cacheKey,
-    readCache: async () => (await readCommentPageCache(cacheKey)).response,
+    readCache: () => readCommentPageCache(cacheKey),
     writeCache: (response) => setCommentPageCache(cacheKey, response),
     writeCacheIfAbsent: (response) =>
       setCommentPageCacheIfAbsent(cacheKey, response),

@@ -10,9 +10,15 @@ const sleep = (ms: number) =>
     setTimeout(resolve, ms)
   })
 
+// 与各缓存读 helper 的返回形状一致: canWrite=false 表示 Redis 读故障
+export interface KunCacheReadResult<T> {
+  response: T | null
+  canWrite: boolean
+}
+
 interface KunCacheSingleflightOptions<T> {
   cacheKey: string
-  readCache: () => Promise<T | null>
+  readCache: () => Promise<KunCacheReadResult<T>>
   writeCache: (response: T) => Promise<void>
   writeCacheIfAbsent: (response: T) => Promise<void>
   query: () => Promise<T>
@@ -45,8 +51,13 @@ export const kunCacheSingleflight = async <T>({
     for (const delayMs of CACHE_SINGLEFLIGHT_RETRY_DELAYS_MS) {
       await sleep(delayMs)
       const retried = await readCache()
-      if (retried !== null) {
-        return retried
+      if (retried.response !== null) {
+        return retried.response
+      }
+      // 读故障 (canWrite=false) 说明 Redis 已不可用, 走完剩余重试梯只会
+      // 空耗 (挂起型故障下每次读最坏撞满 commandTimeout), 立即回源
+      if (!retried.canWrite) {
+        break
       }
     }
     // 等待超时 (持锁者异常或查询过慢), 直接回源保证可用,
@@ -62,8 +73,8 @@ export const kunCacheSingleflight = async <T>({
   try {
     // 调用方首次读到 miss 后, 前一持锁者可能已完成写入并释放锁
     const cached = await readCache()
-    if (cached !== null) {
-      return cached
+    if (cached.response !== null) {
+      return cached.response
     }
 
     const response = await query()

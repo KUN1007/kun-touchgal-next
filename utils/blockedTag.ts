@@ -8,15 +8,18 @@ export const MAX_BLOCKED_TAG_IDS = 512
 // (同类先例见 validations/edit.ts 的 bangumi_id / steam_id)
 const INT4_MAX = 2147483647
 
+// null = 镜像 cookie 不可用 (畸形转义 / 坏 JSON / 非数组), 调用方须回落 DB,
+// 与 next/headers 对畸形值的丢弃语义对齐; 回落 [] 会把 DB 里的屏蔽列表短路掉。
+// 空数组是合法缓存值 (用户未屏蔽任何标签), 不能与坏缓存混为一谈
 export const parseBlockedTagIds = (value?: string | null) => {
   if (!value) {
-    return []
+    return null
   }
 
   try {
     const data = JSON.parse(value)
     if (!Array.isArray(data)) {
-      return []
+      return null
     }
 
     // 去重必须在 Number 归一化之后, 否则 "1" / "01" / "1.0" 互不相等全部存活,
@@ -29,7 +32,7 @@ export const parseBlockedTagIds = (value?: string | null) => {
       )
     ].slice(0, MAX_BLOCKED_TAG_IDS)
   } catch {
-    return []
+    return null
   }
 }
 

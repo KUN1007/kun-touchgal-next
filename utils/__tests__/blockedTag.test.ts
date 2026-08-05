@@ -19,6 +19,13 @@ describe('parseBlockedTagIds', () => {
     expect(parseBlockedTagIds(JSON.stringify(range(328)))).toHaveLength(328)
   })
 
+  // tag_id 是 int4, 越界值会让 Prisma 抛 P2020 冒泡成 500
+  it('drops ids beyond int4 range', () => {
+    const ids = [1, 2147483647, 2147483648, 1e21]
+
+    expect(parseBlockedTagIds(JSON.stringify(ids))).toEqual([1, 2147483647])
+  })
+
   // 截断发生在过滤之后, 否则无效项可以挤掉配额内的有效 id
   it('caps after filtering out invalid entries', () => {
     const ids = [...range(MAX_BLOCKED_TAG_IDS).map((id) => -id), ...range(10)]

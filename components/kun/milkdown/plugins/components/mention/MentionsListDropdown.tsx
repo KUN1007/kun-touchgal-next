@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import { useInstance } from '@milkdown/react'
 import { editorViewCtx } from '@milkdown/kit/core'
 import { usePluginViewContext } from '@prosemirror-adapter/react'
@@ -113,19 +114,33 @@ export const MentionsListDropdown = () => {
     })
   }
 
-  const fetchUsers = async (queryText: string) => {
-    startTransition(async () => {
-      const response = await kunFetchGet<KunUser[]>('/user/mention/search', {
-        query: queryText
-      })
-      setUsers(response)
-    })
-  }
   useEffect(() => {
-    if (debouncedQuery.length && !/\s/.test(debouncedQuery)) {
-      fetchUsers(debouncedQuery)
-    } else {
+    // 服务端 schema 限制 query 最长 20, 超长必然失败, 不发请求
+    if (
+      !debouncedQuery.length ||
+      debouncedQuery.length > 20 ||
+      /\s/.test(debouncedQuery)
+    ) {
       setUsers([])
+      return
+    }
+
+    let cancelled = false
+    startTransition(async () => {
+      try {
+        const response = await kunFetchGet<KunResponse<KunUser[]>>(
+          '/user/mention/search',
+          { query: debouncedQuery }
+        )
+        if (!cancelled) {
+          kunErrorHandler(response, setUsers)
+        }
+      } catch {
+        // 输入过程中的自动搜索, 网络错误静默即可
+      }
+    })
+    return () => {
+      cancelled = true
     }
   }, [debouncedQuery])
 

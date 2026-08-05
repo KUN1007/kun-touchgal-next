@@ -80,5 +80,8 @@ describe('markdownToPreviewHtml', () => {
     expect(markdownToPreviewHtml('*[a](https://kungal.com)*')).toBe(
       '<p><em><a href="https://kungal.com" target="_blank" rel="noopener noreferrer">a</a></em></p>'
     )
+    expect(markdownToPreviewHtml('[a *b* `c`](https://kungal.com)')).toBe(
+      '<p><a href="https://kungal.com" target="_blank" rel="noopener noreferrer">a <em>b</em> <code>c</code></a></p>'
+    )
   })
 })

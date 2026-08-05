@@ -31,7 +31,7 @@ const renderInlineMarkdown = (text: string): string => {
     if (src !== undefined) {
       html += `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt ?? '')}" class="max-w-full rounded-lg border border-default-200 my-2" />`
     } else if (href !== undefined) {
-      html += `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(linkText ?? '')}</a>`
+      html += `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${renderInlineMarkdown(linkText ?? '')}</a>`
     } else if (code !== undefined) {
       html += `<code>${escapeHtml(code)}</code>`
     } else if (both !== undefined) {

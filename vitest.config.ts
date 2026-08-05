@@ -9,13 +9,15 @@ export default defineConfig({
   },
   test: {
     include: ['**/__tests__/**/*.test.ts'],
-    // standalone 构建会复制整份项目目录, 残留的构建目录里有一套 __tests__ 副本会被收集;
-    // 显式 exclude 会整体覆盖 Vitest 默认值 (含 node_modules), 故必须展开 configDefaults
+    // 构建目录 (standalone 会复制整份项目) 与 Agent worktree 都藏着 __tests__ 副本,
+    // 陈旧副本会 FAIL; 显式 exclude 会整体覆盖 Vitest 默认值 (含 node_modules),
+    // 故必须展开 configDefaults
     exclude: [
       ...configDefaults.exclude,
       '.next/**',
       '.next-deploy/**',
-      '.next-previous/**'
+      '.next-previous/**',
+      '.claude/**'
     ]
   }
 })

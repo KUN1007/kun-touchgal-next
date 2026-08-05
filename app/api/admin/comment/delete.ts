@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
-import { Prisma } from '~/prisma/generated/prisma/client'
 import { adminDeleteCommentSchema } from '~/validations/admin'
+import { collectCommentSubtreeIds } from '~/app/api/patch/comment/subtree'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
@@ -83,17 +83,7 @@ export const deleteComment = async (
 
     // 级联删除会带走整棵回复子树, 删除前先收集全部后代 id
     // 以清理它们尚未有最终裁决的审核任务
-    const descendantRows = await prisma.$queryRaw<{ id: number }[]>`
-      WITH RECURSIVE descendants AS (
-        SELECT id FROM patch_comment WHERE id IN (${Prisma.join(targetIds)})
-        UNION ALL
-        SELECT pc.id FROM patch_comment pc
-        INNER JOIN descendants d ON pc.parent_id = d.id
-      )
-      SELECT id FROM descendants
-    `
-
-    deletedIds = descendantRows.map((row) => row.id)
+    deletedIds = await collectCommentSubtreeIds(targetIds, prisma)
 
     await prisma.patch_comment.deleteMany({
       where: {
@@ -103,17 +93,9 @@ export const deleteComment = async (
       }
     })
 
-    await deletePendingModerationTasks(
-      'comment',
-      descendantRows.map((row) => row.id),
-      prisma
-    )
+    await deletePendingModerationTasks('comment', deletedIds, prisma)
 
-    await deletePendingAppeals(
-      'comment',
-      descendantRows.map((row) => row.id),
-      prisma
-    )
+    await deletePendingAppeals('comment', deletedIds, prisma)
 
     await prisma.admin_log.create({
       data: {

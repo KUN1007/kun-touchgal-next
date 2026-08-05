@@ -7,9 +7,15 @@ const {
   transactionMock,
   findRelatedReportsMock,
   deleteRatingMock,
+  deleteCommentMock,
+  queryRawMock,
   updateReportsMock,
   createMessagesMock,
-  recomputeOneMock
+  recomputeOneMock,
+  invalidateCommentCacheMock,
+  invalidateContentCacheMock,
+  deletePendingModerationTasksMock,
+  deletePendingAppealsMock
 } = vi.hoisted(() => ({
   kunParsePostBodyMock: vi.fn(),
   verifyHeaderCookieMock: vi.fn(),
@@ -17,9 +23,15 @@ const {
   transactionMock: vi.fn(),
   findRelatedReportsMock: vi.fn(),
   deleteRatingMock: vi.fn(),
+  deleteCommentMock: vi.fn(),
+  queryRawMock: vi.fn(),
   updateReportsMock: vi.fn(),
   createMessagesMock: vi.fn(),
-  recomputeOneMock: vi.fn()
+  recomputeOneMock: vi.fn(),
+  invalidateCommentCacheMock: vi.fn(),
+  invalidateContentCacheMock: vi.fn(),
+  deletePendingModerationTasksMock: vi.fn(),
+  deletePendingAppealsMock: vi.fn()
 }))
 
 const events: string[] = []
@@ -31,7 +43,9 @@ const transactionClient = {
     updateMany: updateReportsMock
   },
   patch_rating: { deleteMany: deleteRatingMock },
-  user_message: { createMany: createMessagesMock }
+  patch_comment: { deleteMany: deleteCommentMock },
+  user_message: { createMany: createMessagesMock },
+  $queryRaw: queryRawMock
 }
 
 vi.mock('next/server', () => ({
@@ -60,6 +74,22 @@ vi.mock('~/prisma/index', () => ({
 
 vi.mock('~/app/api/patch/rating/stat', () => ({
   recomputePatchRatingStat: recomputeOneMock
+}))
+
+vi.mock('~/app/api/patch/comment/cache', () => ({
+  invalidatePatchCommentCache: invalidateCommentCacheMock
+}))
+
+vi.mock('~/app/api/patch/cache', () => ({
+  invalidatePatchContentCacheByPatchId: invalidateContentCacheMock
+}))
+
+vi.mock('~/server/moderation/submit', () => ({
+  deletePendingModerationTasks: deletePendingModerationTasksMock
+}))
+
+vi.mock('~/server/moderation/appeal', () => ({
+  deletePendingAppeals: deletePendingAppealsMock
 }))
 
 import { POST } from '~/app/api/admin/report/handle/route'
@@ -97,8 +127,14 @@ beforeEach(() => {
     { id: 1, sender_id: 7, reason: 'spam' }
   ])
   deleteRatingMock.mockResolvedValue({ count: 1 })
+  deleteCommentMock.mockResolvedValue({ count: 1 })
+  queryRawMock.mockResolvedValue([])
   updateReportsMock.mockResolvedValue({ count: 1 })
   createMessagesMock.mockResolvedValue({ count: 1 })
+  invalidateCommentCacheMock.mockResolvedValue(undefined)
+  invalidateContentCacheMock.mockResolvedValue(undefined)
+  deletePendingModerationTasksMock.mockResolvedValue({ count: 0 })
+  deletePendingAppealsMock.mockResolvedValue({ count: 0 })
   transactionMock.mockImplementation(
     async (callback: (tx: typeof transactionClient) => Promise<unknown>) => {
       events.push('transaction-start')
@@ -124,6 +160,16 @@ describe('POST /api/admin/report/handle', () => {
 
     await expect(response.json()).resolves.toEqual({})
     expect(deleteRatingMock).toHaveBeenCalledWith({ where: { id: 5 } })
+    expect(deletePendingModerationTasksMock).toHaveBeenCalledWith(
+      'rating',
+      [5],
+      transactionClient
+    )
+    expect(deletePendingAppealsMock).toHaveBeenCalledWith(
+      'rating',
+      [5],
+      transactionClient
+    )
     expect(recomputeOneMock).toHaveBeenCalledWith(10, transactionClient)
     expect(deleteRatingMock.mock.invocationCallOrder[0]).toBeLessThan(
       recomputeOneMock.mock.invocationCallOrder[0]
@@ -134,5 +180,92 @@ describe('POST /api/admin/report/handle', () => {
       'recompute',
       'transaction-commit'
     ])
+  })
+
+  it('handles pending reports across the reply subtree when deleting a comment', async () => {
+    findReportMock.mockResolvedValue({
+      id: 1,
+      status: 0,
+      target_type: 'comment',
+      reason: 'spam',
+      comment_id: 5,
+      rating_id: null,
+      patch_id: 10
+    })
+    queryRawMock.mockResolvedValue([{ id: 5 }, { id: 6 }, { id: 7 }])
+    findRelatedReportsMock.mockResolvedValue([
+      { id: 1, sender_id: 7, reason: 'spam' },
+      { id: 2, sender_id: 8, reason: 'reply spam' }
+    ])
+
+    const response = await POST(request)
+
+    await expect(response.json()).resolves.toEqual({})
+    // 删除 comment 会级联整棵回复子树, pending 举报须按子树全部 id 匹配,
+    // 否则子树举报因 ON DELETE SET NULL 变成永远待处理的孤儿
+    expect(findRelatedReportsMock).toHaveBeenCalledWith({
+      where: {
+        status: 0,
+        target_type: 'comment',
+        comment_id: { in: [5, 6, 7] }
+      },
+      select: { id: true, sender_id: true, reason: true }
+    })
+    expect(deleteCommentMock).toHaveBeenCalledWith({ where: { id: 5 } })
+    // 子树收集与举报收集都必须发生在删除之前: 删除会级联子树并触发
+    // ON DELETE SET NULL, 之后按 comment_id 收集会漏掉一切
+    expect(queryRawMock.mock.invocationCallOrder[0]).toBeLessThan(
+      deleteCommentMock.mock.invocationCallOrder[0]
+    )
+    expect(findRelatedReportsMock.mock.invocationCallOrder[0]).toBeLessThan(
+      deleteCommentMock.mock.invocationCallOrder[0]
+    )
+    expect(deletePendingModerationTasksMock).toHaveBeenCalledWith(
+      'comment',
+      [5, 6, 7],
+      transactionClient
+    )
+    expect(deletePendingAppealsMock).toHaveBeenCalledWith(
+      'comment',
+      [5, 6, 7],
+      transactionClient
+    )
+    expect(updateReportsMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { in: [1, 2] } } })
+    )
+    const messageRows = createMessagesMock.mock.calls[0][0].data
+    expect(
+      messageRows.map((row: { recipient_id: number }) => row.recipient_id)
+    ).toEqual([7, 8])
+    expect(recomputeOneMock).not.toHaveBeenCalled()
+    expect(invalidateCommentCacheMock).toHaveBeenCalledWith(10)
+  })
+
+  it('does not collect a comment subtree when rejecting a comment report', async () => {
+    kunParsePostBodyMock.mockResolvedValue({
+      reportId: 1,
+      action: 'reject',
+      content: ''
+    })
+    findReportMock.mockResolvedValue({
+      id: 1,
+      status: 0,
+      target_type: 'comment',
+      reason: 'spam',
+      comment_id: 5,
+      rating_id: null,
+      patch_id: 10
+    })
+
+    const response = await POST(request)
+
+    await expect(response.json()).resolves.toEqual({})
+    // 驳回不删除评论, 子树举报的目标仍然存在, 只处理同目标的举报
+    expect(queryRawMock).not.toHaveBeenCalled()
+    expect(deleteCommentMock).not.toHaveBeenCalled()
+    expect(findRelatedReportsMock).toHaveBeenCalledWith({
+      where: { status: 0, target_type: 'comment', comment_id: 5 },
+      select: { id: true, sender_id: true, reason: true }
+    })
   })
 })

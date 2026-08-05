@@ -21,7 +21,6 @@ import {
 import { Search } from 'lucide-react'
 import { useEffect, useRef, useState, type Key } from 'react'
 import { kunFetchDelete, kunFetchGet } from '~/utils/kunFetch'
-import { kunShouldBackfillDeletedRow } from '~/utils/pagination'
 import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { useMounted } from '~/hooks/useMounted'
 import { CommentCard } from './Card'
@@ -285,7 +284,9 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
   }
 
   // 单条删除后只移除对应卡片 (服务端级联删除的回复一并移除);
-  // 当前页被抽空且不在第一页时回退页码走正常 refetch
+  // 当前页被抽空且不在第一页时回退页码走正常 refetch。
+  // 级联删除的回复可跨页且是否命中当前筛选客户端不可判定, 本地递减只是
+  // 即时反馈, total 须无条件静默 refetch 以服务端为准 (顺带补齐前移行)
   const handleCommentDeleted = (commentIds: number[]) => {
     const idSet = new Set(commentIds)
     setSelectedCommentIds((prev) => {
@@ -301,10 +302,7 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
     }
     setComments((prev) => prev.filter((comment) => !idSet.has(comment.id)))
     setTotal((prev) => Math.max(0, prev - removedCount))
-    if (
-      kunShouldBackfillDeletedRow(total, page, limit) &&
-      latestFetchRequestIdRef.current === renderFetchRequestId
-    ) {
+    if (latestFetchRequestIdRef.current === renderFetchRequestId) {
       fetchData({ silent: true })
     }
   }

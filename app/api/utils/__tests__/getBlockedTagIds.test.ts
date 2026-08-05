@@ -35,10 +35,11 @@ beforeEach(() => {
 })
 
 describe('getBlockedTagIds 镜像 cookie 回落', () => {
-  it('合法镜像 cookie 直接采信, 不查 DB', async () => {
+  it('合法镜像 cookie 验签后采信, 不全查 DB', async () => {
     const req = makeReq(`kun-galgame-patch-moe-token=tok; ${cacheKey}=[1,2]`)
 
     expect(await getBlockedTagIds(req)).toEqual([1, 2])
+    expect(verifyKunTokenMock).toHaveBeenCalledTimes(1)
     expect(verifyKunTokenWithUserMock).toHaveBeenCalledTimes(0)
   })
 

@@ -151,8 +151,7 @@ export const getPatchResource = async (
 
   const publicResources = await kunCacheSingleflight({
     cacheKey,
-    readCache: async () =>
-      (await getCachedPatchResourceDetail(cacheKey)).response,
+    readCache: () => getCachedPatchResourceDetail(cacheKey),
     writeCache: (response) => setPatchResourceDetailCache(cacheKey, response),
     writeCacheIfAbsent: (response) =>
       setPatchResourceDetailCacheIfAbsent(cacheKey, response),

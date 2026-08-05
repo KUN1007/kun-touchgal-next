@@ -143,6 +143,9 @@ importers:
       date-fns:
         specifier: ^4.4.0
         version: 4.4.0
+      decode-named-character-reference:
+        specifier: ^1.3.0
+        version: 1.3.0
       framer-motion:
         specifier: ^12.43.0
         version: 12.43.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -185,6 +188,9 @@ importers:
       meilisearch:
         specifier: ^0.60.0
         version: 0.60.0
+      micromark-util-decode-numeric-character-reference:
+        specifier: ^2.0.2
+        version: 2.0.2
       next:
         specifier: 16.2.12
         version: 16.2.12(@babel/core@7.29.7)(@types/node@24.1.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(sass@1.102.0)

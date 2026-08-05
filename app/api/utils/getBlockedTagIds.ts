@@ -19,6 +19,13 @@ export const getBlockedTagIds = async (
   if (cachedBlockedTagIds !== undefined) {
     const cached = parseBlockedTagIds(cachedBlockedTagIds)
     if (cached !== null) {
+      // 镜像 cookie 未验签, 采信前必须验证 token 有效, 否则任意非空 token
+      // 都能凭客户端输入左右可见性与缓存键 (见 visibilityCacheKey);
+      // 坏缓存 (cached === null) 无需在此验签, 落入下方 DB 分支时自会验证
+      const auth = await (loadAuth ? loadAuth() : verifyKunToken(token))
+      if (!auth) {
+        return []
+      }
       return cached
     }
   }

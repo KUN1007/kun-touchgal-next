@@ -28,7 +28,7 @@ interface PatchPageCachePayload {
 }
 
 interface PatchPageCacheResult {
-  payload: PatchPageCachePayload | null
+  response: PatchPageCachePayload | null
   canWrite: boolean
 }
 
@@ -40,7 +40,7 @@ const readPatchPageCache = async (
     getCachedPatchIntroduction(uniqueId)
   ])
   return {
-    payload:
+    response:
       cachedPatch.response && cachedIntro.response
         ? { patch: cachedPatch.response, intro: cachedIntro.response }
         : null,
@@ -75,10 +75,14 @@ export const getPatchPageData = async (
   const uid = viewer?.uid ?? 0
   const { uniqueId } = input
   const cached = await readPatchPageCache(uniqueId)
-  if (cached.payload) {
+  if (cached.response) {
     return {
-      patch: await withPatchFavoriteStatus(uniqueId, cached.payload.patch, uid),
-      intro: cached.payload.intro
+      patch: await withPatchFavoriteStatus(
+        uniqueId,
+        cached.response.patch,
+        uid
+      ),
+      intro: cached.response.intro
     }
   }
 
@@ -100,7 +104,7 @@ export const getPatchPageData = async (
   const result = cached.canWrite
     ? await kunCacheSingleflight({
         cacheKey: getPatchIntroductionCacheKey(uniqueId),
-        readCache: async () => (await readPatchPageCache(uniqueId)).payload,
+        readCache: () => readPatchPageCache(uniqueId),
         writeCache: async (response) => {
           if (response !== PATCH_NOT_FOUND) {
             await writePatchPageCache(uniqueId, response)

@@ -2,13 +2,54 @@ import crypto from 'crypto'
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { Prisma } from '~/prisma/generated/prisma/client'
-import { encodePatchBanner, putPatchBannerToS3 } from './_upload'
+import {
+  buildPatchBannerKeys,
+  encodePatchBanner,
+  putPatchBannerToS3
+} from './_upload'
+import { deleteFileFromS3 } from '~/lib/s3'
+import {
+  enqueueS3Deletion,
+  kickS3DeletionDrain
+} from '~/server/storage/s3Outbox'
 import { patchCreateSchema } from '~/validations/edit'
 import { kunMoyuMoe } from '~/config/moyu-moe'
 import { postToIndexNow } from './_postToIndexNow'
 import { processSubmittedExternalData } from './processExternalData'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
 import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
+
+// 事务回滚后的 banner 孤儿补偿: S3 上传发生在事务内, 回滚使对象失去 DB 引用, 而自增
+// id 不随回滚回退、永不复用, patch/ 前缀又无 lifecycle 规则, 对象会永久滞留. 先查
+// patch 行是否存在 —— 存在说明是 commit 响应丢失但实际已提交的极端情形, 此时不删
+// (误删会砍掉活行的 banner); 不存在才即时删除, 删除失败的 key 落删除写出箱由 worker
+// 兜底重试 (与 patch/resource/_helper.ts 的 bind 补偿同款). 全程 best-effort 吞错:
+// 原始事务错误必须原样交回调用方分流, 孤儿残留是可接受的次级损失
+const cleanupRolledBackBanner = async (patchId: number, keys: string[]) => {
+  try {
+    const committed = await prisma.patch.findUnique({
+      where: { id: patchId },
+      select: { id: true }
+    })
+    if (committed) {
+      return
+    }
+    const failedKeys: string[] = []
+    await Promise.all(
+      keys.map((key) =>
+        deleteFileFromS3(key).catch(() => {
+          failedKeys.push(key)
+        })
+      )
+    )
+    if (failedKeys.length) {
+      await enqueueS3Deletion(prisma, failedKeys)
+      kickS3DeletionDrain()
+    }
+  } catch {
+    // 补偿链自身的失败不上抛
+  }
+}
 
 type CreateGalgameInput = Omit<
   z.infer<typeof patchCreateSchema>,
@@ -108,6 +149,10 @@ export const createGalgame = async (input: CreateGalgameInput, uid: number) => {
     return encodedBanner
   }
 
+  // keys 在上传前就赋值: putPatchBannerToS3 内部 Promise.all 部分成功后抛错时已有
+  // 对象落盘, DeleteObject 幂等, 宁多删不漏删
+  let uploadedBanner: { patchId: number; keys: string[] } | null = null
+
   const res = await prisma
     .$transaction(
       async (prisma) => {
@@ -132,6 +177,10 @@ export const createGalgame = async (input: CreateGalgameInput, uid: number) => {
 
         const newId = patch.id
 
+        uploadedBanner = {
+          patchId: newId,
+          keys: buildPatchBannerKeys(newId, Boolean(encodedBanner.fullBanner))
+        }
         await putPatchBannerToS3(encodedBanner, newId)
 
         const imageLink = `${process.env.KUN_VISUAL_NOVEL_IMAGE_BED_URL}/patch/${newId}/banner/banner.avif`
@@ -173,7 +222,15 @@ export const createGalgame = async (input: CreateGalgameInput, uid: number) => {
       },
       { timeout: 60000 }
     )
-    .catch((error) => {
+    .catch(async (error) => {
+      // 事务已回滚 (或 commit 结果不确定), 补偿清理已上传的 banner 对象; P2002 发生在
+      // patch.create, 早于上传, 彼时 uploadedBanner 仍为 null 不会触发清理
+      if (uploadedBanner) {
+        await cleanupRolledBackBanner(
+          uploadedBanner.patchId,
+          uploadedBanner.keys
+        )
+      }
       // bangumi_id / steam_id / dlsite_code / (vndb_id, vndb_relation_id) 的唯一索引
       // 兜底并发创建: 预检与 patch.create 之间隔着 encodePatchBanner, 实测可达十几秒,
       // 两个填同一外部 ID 的请求会双双通过预检. 字符串在此处返回是安全的(事务已回滚),

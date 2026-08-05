@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { cookieGetMock, loadAuthUserMock } = vi.hoisted(() => ({
-  cookieGetMock: vi.fn(),
+const { cookiesMock, loadAuthUserMock } = vi.hoisted(() => ({
+  cookiesMock: vi.fn(),
   loadAuthUserMock: vi.fn()
 }))
 
+vi.mock('react', () => ({
+  cache: (fn: (...args: unknown[]) => unknown) => fn
+}))
+
 vi.mock('next/headers', () => ({
-  cookies: async () => ({ get: cookieGetMock })
+  cookies: cookiesMock
 }))
 
 vi.mock('~/utils/actions/loadAuthUser', () => ({
@@ -20,10 +24,13 @@ import {
 
 const cacheKey = 'kun-patch-setting-store|state|data|kunBlockedTagIds'
 
-const setCookies = (map: Record<string, string>) => {
-  cookieGetMock.mockImplementation((name: string) =>
-    map[name] !== undefined ? { name, value: map[name] } : undefined
-  )
+const makeCookieStore = (map: Record<string, string | undefined>) => ({
+  get: (name: string) =>
+    map[name] === undefined ? undefined : { value: map[name] }
+})
+
+const setCookies = (map: Record<string, string | undefined>) => {
+  cookiesMock.mockResolvedValue(makeCookieStore(map))
 }
 
 const payload = { uid: 1, name: 'kun', role: 1, iss: '', aud: '', jti: 'j' }
@@ -36,12 +43,26 @@ beforeEach(() => {
   })
 })
 
-describe('getBlockedTagIds 镜像 cookie 回落', () => {
-  it('合法镜像 cookie 直接采信, 不查 DB', async () => {
-    setCookies({ 'kun-galgame-patch-moe-token': 'tok', [cacheKey]: '[1,2]' })
+describe('getBlockedTagIds 镜像 cookie 验签与回落', () => {
+  it('token 有效时采信镜像 cookie 的屏蔽标签', async () => {
+    setCookies({ 'kun-galgame-patch-moe-token': 'tok', [cacheKey]: '[7,8]' })
 
-    expect(await getBlockedTagIds()).toEqual([1, 2])
-    expect(loadAuthUserMock).toHaveBeenCalledTimes(0)
+    await expect(getBlockedTagIds()).resolves.toEqual([7, 8])
+    expect(loadAuthUserMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('token 无效时丢弃未验签的镜像 cookie', async () => {
+    setCookies({ 'kun-galgame-patch-moe-token': 'tok', [cacheKey]: '[7,8]' })
+    loadAuthUserMock.mockResolvedValue(null)
+
+    await expect(getBlockedTagIds()).resolves.toEqual([])
+  })
+
+  it('无 token 时直接返回空且不查会话', async () => {
+    setCookies({})
+
+    await expect(getBlockedTagIds()).resolves.toEqual([])
+    expect(loadAuthUserMock).not.toHaveBeenCalled()
   })
 
   // 真正的畸形转义 (%2) 在 next/headers 层就被丢弃走 DB; 这里覆盖的是
@@ -49,7 +70,7 @@ describe('getBlockedTagIds 镜像 cookie 回落', () => {
   it('不可解析的镜像 cookie 回落 DB', async () => {
     setCookies({ 'kun-galgame-patch-moe-token': 'tok', [cacheKey]: 'kun' })
 
-    expect(await getBlockedTagIds()).toEqual([10, 20])
+    await expect(getBlockedTagIds()).resolves.toEqual([10, 20])
     expect(loadAuthUserMock).toHaveBeenCalledTimes(1)
   })
 })
@@ -58,7 +79,7 @@ describe('getAuthenticatedBlockedTagIds 镜像 cookie 回落', () => {
   it('合法镜像 cookie 采信缓存值', async () => {
     setCookies({ 'kun-galgame-patch-moe-token': 'tok', [cacheKey]: '[1,2]' })
 
-    expect(await getAuthenticatedBlockedTagIds()).toEqual({
+    await expect(getAuthenticatedBlockedTagIds()).resolves.toEqual({
       payload,
       blockedTagIds: [1, 2]
     })
@@ -67,7 +88,7 @@ describe('getAuthenticatedBlockedTagIds 镜像 cookie 回落', () => {
   it('不可解析的镜像 cookie 回落 DB 值', async () => {
     setCookies({ 'kun-galgame-patch-moe-token': 'tok', [cacheKey]: 'kun' })
 
-    expect(await getAuthenticatedBlockedTagIds()).toEqual({
+    await expect(getAuthenticatedBlockedTagIds()).resolves.toEqual({
       payload,
       blockedTagIds: [10, 20]
     })

@@ -18,6 +18,12 @@ export const getBlockedTagIds = cache(async () => {
   if (cachedBlockedTagIds !== undefined) {
     const cached = parseBlockedTagIds(cachedBlockedTagIds)
     if (cached !== null) {
+      // 镜像 cookie 未验签, 采信前必须验证会话有效 (见 API 版同名函数);
+      // 坏缓存 (cached === null) 落入下方 DB 分支时自会验证
+      const result = await loadAuthUser()
+      if (!result) {
+        return []
+      }
       return cached
     }
   }

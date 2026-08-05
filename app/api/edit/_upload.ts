@@ -5,11 +5,19 @@ import { checkBufferSize } from '~/app/api/utils/checkBufferSize'
 import { withEncodeSlotOrBusy } from '~/server/image/encodeLimit'
 import { ensureWithinPixelLimit } from '~/server/image/pixelGuard'
 
-export const uploadPatchBanner = async (
+export interface EncodedPatchBanner {
+  banner: Buffer
+  miniBanner: Buffer
+  fullBanner?: Buffer
+}
+
+// 校验与编码不依赖 patch id, 拆出来供 create.ts 在事务外先跑完: 这里所有"返回字符串即
+// 错误"的路径 (像素守卫 / 编码限流 / 体积超限) 都必须发生在建行之前. 若留在交互式事务
+// 内, 回调 return 字符串会被 Prisma 当作正常结束而提交, 留下一条只建了一半的 patch 行.
+export const encodePatchBanner = async (
   image: ArrayBuffer,
-  id: number,
   originalImage?: ArrayBuffer
-) => {
+): Promise<EncodedPatchBanner | string> => {
   if (image.byteLength === 0) {
     return '上传文件不能为空'
   }
@@ -79,18 +87,39 @@ export const uploadPatchBanner = async (
     return '图片体积过大'
   }
 
+  return { banner, miniBanner, fullBanner }
+}
+
+// 只做 S3 PUT, 失败直接抛出: 事务内调用时靠抛出触发回滚, 不会留下孤儿 patch 行.
+export const putPatchBannerToS3 = async (
+  encoded: EncodedPatchBanner,
+  id: number
+) => {
   const bucketName = `patch/${id}/banner`
 
   const uploadTasks = [
-    uploadImageToS3(`${bucketName}/banner.avif`, banner),
-    uploadImageToS3(`${bucketName}/banner-mini.avif`, miniBanner)
+    uploadImageToS3(`${bucketName}/banner.avif`, encoded.banner),
+    uploadImageToS3(`${bucketName}/banner-mini.avif`, encoded.miniBanner)
   ]
 
-  if (fullBanner) {
+  if (encoded.fullBanner) {
     uploadTasks.push(
-      uploadImageToS3(`${bucketName}/banner-full.avif`, fullBanner)
+      uploadImageToS3(`${bucketName}/banner-full.avif`, encoded.fullBanner)
     )
   }
 
   await Promise.all(uploadTasks)
+}
+
+export const uploadPatchBanner = async (
+  image: ArrayBuffer,
+  id: number,
+  originalImage?: ArrayBuffer
+) => {
+  const encoded = await encodePatchBanner(image, originalImage)
+  if (typeof encoded === 'string') {
+    return encoded
+  }
+
+  await putPatchBannerToS3(encoded, id)
 }

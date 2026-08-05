@@ -7,7 +7,7 @@ import localforage from 'localforage'
 import { useCreatePatchStore } from '~/store/editStore'
 import toast from 'react-hot-toast'
 import { kunFetchFormData } from '~/utils/kunFetch'
-import { kunErrorHandler } from '~/utils/kunErrorHandler'
+import { kunErrorHandler, errorReporter } from '~/utils/kunErrorHandler'
 import { patchCreateSchema } from '~/validations/edit'
 import { useRouter } from '@bprogress/next'
 import { cn } from '~/utils/cn'
@@ -106,19 +106,28 @@ export const PublishButton = ({ setErrors, className }: Props) => {
     setCreating(true)
     toast('正在发布中 ... 这可能需要 10s 左右的时间, 这取决于您的网络环境')
 
-    const res = await kunFetchFormData<
-      KunResponse<{
-        uniqueId: string
-      }>
-    >('/edit', formDataToSend)
-    kunErrorHandler(res, async (value) => {
-      resetData()
-      await localforage.removeItem('kun-patch-banner')
-      await localforage.removeItem('kun-patch-banner-original')
-      router.push(`/${value.uniqueId}`)
-    })
-    toast.success('发布完成, 正在为您跳转到资源介绍页面')
-    setCreating(false)
+    try {
+      const res = await kunFetchFormData<
+        KunResponse<{
+          uniqueId: string
+        }>
+      >('/edit', formDataToSend)
+      kunErrorHandler(res, async (value) => {
+        // kunErrorHandler 的回调签名是同步的 (res: T) => void, 不会被 await, 外层
+        // finally 会先于 await 之后的语句解禁按钮. 提示与跳转必须排在清理之前 ——
+        // 否则 localforage 失败(如 Safari 无痕)会让两者双双跳过, 用户停在原页无任何
+        // 反馈, 再点一次即重复创建
+        toast.success('发布完成, 正在为您跳转到资源介绍页面')
+        router.push(`/${value.uniqueId}`)
+        resetData()
+        await localforage.removeItem('kun-patch-banner')
+        await localforage.removeItem('kun-patch-banner-original')
+      })
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setCreating(false)
+    }
   }
 
   return (

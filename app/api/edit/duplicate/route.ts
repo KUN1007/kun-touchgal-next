@@ -2,17 +2,30 @@ import { z } from 'zod'
 import { NextRequest, NextResponse } from 'next/server'
 import { kunParseGetQuery } from '~/app/api/utils/parseQuery'
 import { prisma } from '~/prisma/index'
-import { duplicateSchema } from '~/validations/edit'
+import { duplicateSchema, INT4_MAX } from '~/validations/edit'
 import type { Prisma } from '~/prisma/generated/prisma/client'
+
+// 超出 int4 的值在 patch 表里必然不存在, 原样传给 Prisma 会抛 P2020 冒泡成 500,
+// 跳过该条件既安全又不会漏判. 与 create / update 不同, 查重是用户输入即触发的只读
+// 探测, 静默跳过比报错合适 —— 真正的提示由提交时的 patchCreateSchema 范围校验给出.
+// NaN / 小数 / ±Infinity 一并落到 undefined, 与原先 `if (bangumiId)` 的 falsy 跳过
+// 行为一致. 下界无需判断: 低于 int4 下界的负数至少 11 字符, duplicateQueryField(10)
+// 的 max(10) 已挡住
+const toSearchableInt = (value?: string) => {
+  const parsed = value ? Number(value) : undefined
+  return parsed !== undefined && Number.isInteger(parsed) && parsed <= INT4_MAX
+    ? parsed
+    : undefined
+}
 
 const duplicate = async (input: z.infer<typeof duplicateSchema>) => {
   const vndbId = input.vndbId?.toLowerCase()
   const vndbRelationId = input.vndbRelationId?.toLowerCase()
-  const bangumiId = input.bangumiId ? Number(input.bangumiId) : undefined
-  const steamId = input.steamId ? Number(input.steamId) : undefined
+  const bangumiId = toSearchableInt(input.bangumiId)
+  const steamId = toSearchableInt(input.steamId)
   const dlsiteCode = input.dlsiteCode?.toUpperCase()
   const title = input.title
-  const excludeId = input.excludeId ? Number(input.excludeId) : undefined
+  const excludeId = toSearchableInt(input.excludeId)
 
   const conditions: Prisma.patchWhereInput[] = []
 

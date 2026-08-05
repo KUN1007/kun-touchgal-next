@@ -27,15 +27,24 @@ const optionalVndbRelationId = z
   .max(10, { message: 'VNDB Relation ID 最多 10 个字符' })
   .regex(/^(r\d+)?$/i, { message: 'VNDB Relation ID 格式不正确, 例如 r5879' })
 
+// patch.bangumi_id / steam_id 是 Int 列 (int4). 仅靠 max(10) 会放行 2147483648 ~
+// 9999999999, 这些值一旦进入 Prisma 查询或写入就抛 P2020 而非返回业务错误消息,
+// 冒泡到路由即 500. 真实 Bangumi ID / Steam AppID 都远小于此, 在 schema 层挡掉
+export const INT4_MAX = 2147483647
+
+const isWithinInt4 = (value: string) => !value || Number(value) <= INT4_MAX
+
 const optionalBangumiId = z
   .string()
   .max(10, { message: 'Bangumi ID 最多 10 个字符' })
   .regex(/^(\d+)?$/, { message: 'Bangumi ID 必须为纯数字' })
+  .refine(isWithinInt4, { message: 'Bangumi ID 超出可用范围' })
 
 const optionalSteamId = z
   .string()
   .max(10, { message: 'Steam ID 最多 10 个字符' })
   .regex(/^(\d+)?$/, { message: 'Steam ID 必须为纯数字' })
+  .refine(isWithinInt4, { message: 'Steam ID 超出可用范围' })
 
 const optionalDlsiteCode = z
   .string()

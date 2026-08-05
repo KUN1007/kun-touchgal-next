@@ -39,31 +39,36 @@ export const UserFollow = ({
 
   const handleUnfollow = async () => {
     setFollowing(true)
-    const res = await kunFetchPost<KunResponse<{}>>('/user/follow/unfollow', {
-      uid
-    })
-    kunErrorHandler(res, () => {
-      setIsFollow(false)
-      onClose()
-    })
-    setFollowing(false)
+    try {
+      const res = await kunFetchPost<KunResponse<{}>>('/user/follow/unfollow', {
+        uid
+      })
+      kunErrorHandler(res, () => {
+        setIsFollow(false)
+        onClose()
+      })
+    } finally {
+      setFollowing(false)
+    }
   }
 
   const handleFollow = async () => {
     setFollowing(true)
 
-    if (isFollow) {
-      onOpen()
-    } else {
-      const res = await kunFetchPost<KunResponse<{}>>('/user/follow/follow', {
-        uid
-      })
-      kunErrorHandler(res, () => {})
-      setIsFollow(true)
-    }
+    try {
+      if (isFollow) {
+        onOpen()
+      } else {
+        const res = await kunFetchPost<KunResponse<{}>>('/user/follow/follow', {
+          uid
+        })
+        kunErrorHandler(res, () => setIsFollow(true))
+      }
 
-    router.refresh()
-    setFollowing(false)
+      router.refresh()
+    } finally {
+      setFollowing(false)
+    }
   }
 
   return (

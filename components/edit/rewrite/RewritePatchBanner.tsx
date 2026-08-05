@@ -1,7 +1,7 @@
 'use client'
 
 import toast from 'react-hot-toast'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@heroui/button'
 import { ModalBody, ModalFooter } from '@heroui/modal'
 import { kunFetchFormData } from '~/utils/kunFetch'
@@ -21,6 +21,14 @@ export const RewritePatchBanner = ({ patchId, onClose }: Props) => {
   const [banner, setBanner] = useState<Blob | null>(null)
   const [bannerOriginal, setBannerOriginal] = useState<Blob | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string>('')
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+      }
+    }
+  }, [previewUrl])
 
   const removeBanner = async () => {
     setPreviewUrl('')

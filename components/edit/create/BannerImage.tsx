@@ -17,6 +17,14 @@ export const BannerImage = ({ errors }: Props) => {
   const [initialUrl, setInitialUrl] = useState<string>('')
 
   useEffect(() => {
+    return () => {
+      if (initialUrl) {
+        URL.revokeObjectURL(initialUrl)
+      }
+    }
+  }, [initialUrl])
+
+  useEffect(() => {
     const fetchData = async () => {
       const localeBannerBlob: Blob | null =
         await localforage.getItem('kun-patch-banner')

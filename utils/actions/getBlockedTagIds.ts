@@ -16,6 +16,11 @@ export const getBlockedTagIds = cache(async () => {
     'kun-patch-setting-store|state|data|kunBlockedTagIds'
   )?.value
   if (cachedBlockedTagIds !== undefined) {
+    // 镜像 cookie 未验签, 采信前必须验证会话有效 (见 API 版同名函数)
+    const result = await loadAuthUser()
+    if (!result) {
+      return []
+    }
     return parseBlockedTagIds(cachedBlockedTagIds)
   }
 

@@ -5,6 +5,7 @@ import { getPatchByCompanySchema } from '~/validations/company'
 import { kunParseGetQuery } from '~/app/api/utils/parseQuery'
 import { GalgameCardSelectField } from '~/constants/api/select'
 import { getPatchVisibilityContext } from '~/app/api/utils/getPatchVisibilityContext'
+import { createAuthLoader } from '~/middleware/_verifyHeaderCookie'
 import {
   buildGalgameDateFilter,
   buildGalgameOrderBy,
@@ -17,7 +18,8 @@ export const GET = async (req: NextRequest) => {
   if (typeof input === 'string') {
     return NextResponse.json(input)
   }
-  const visibility = await getPatchVisibilityContext(req)
+  const loadAuth = createAuthLoader(req)
+  const visibility = await getPatchVisibilityContext(req, loadAuth)
 
   const response = await getPatchByCompany(input, visibility)
   return NextResponse.json(response)

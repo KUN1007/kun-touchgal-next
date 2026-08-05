@@ -27,7 +27,6 @@ vi.mock('~/prisma/index', () => ({
 
 import { invalidateTagListCache } from '~/app/api/tag/cache'
 import { getTag } from '~/app/api/tag/all/service'
-import { SHARED_CACHE_MAX_BLOCKED_TAG_IDS } from '~/app/api/utils/visibilityCacheKey'
 
 const blockedTagIds = (count: number) =>
   Array.from({ length: count }, (_, index) => index + 1)
@@ -45,11 +44,19 @@ describe('getTag', () => {
     delKvMock.mockResolvedValue(undefined)
   })
 
-  it('skips the shared cache entirely when too many tags are blocked', async () => {
-    const response = await getTag(
-      { page: 1, limit: 100 },
-      blockedTagIds(SHARED_CACHE_MAX_BLOCKED_TAG_IDS + 1)
+  it('skips the shared cache but still applies blocked tags when any tag is blocked', async () => {
+    const response = await getTag({ page: 1, limit: 100 }, [8, 9])
+
+    expect(response).toEqual(RESPONSE)
+    expect(findManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { notIn: [8, 9] } } })
     )
+    expect(getKvMock).not.toHaveBeenCalled()
+    expect(setKvMock).not.toHaveBeenCalled()
+  })
+
+  it('skips the shared cache for large blocked tag sets too', async () => {
+    const response = await getTag({ page: 1, limit: 100 }, blockedTagIds(60))
 
     expect(response).toEqual(RESPONSE)
     expect(findManyMock).toHaveBeenCalledTimes(1)
@@ -57,21 +64,12 @@ describe('getTag', () => {
     expect(setKvMock).not.toHaveBeenCalled()
   })
 
-  it('still uses the shared cache at the blocked tag limit', async () => {
-    await getTag(
-      { page: 1, limit: 100 },
-      blockedTagIds(SHARED_CACHE_MAX_BLOCKED_TAG_IDS)
-    )
-
-    expect(setKvMock).toHaveBeenCalledTimes(1)
-  })
-
   it('queries the selected page and writes the response for 300 seconds on cache miss', async () => {
-    const response = await getTag({ page: 2, limit: 100 }, [8, 9])
+    const response = await getTag({ page: 2, limit: 100 }, [])
 
     expect(response).toEqual(RESPONSE)
     expect(findManyMock).toHaveBeenCalledWith({
-      where: { id: { notIn: [8, 9] } },
+      where: undefined,
       take: 100,
       skip: 100,
       orderBy: { count: 'desc' },
@@ -103,18 +101,15 @@ describe('getTag', () => {
     expect(setKvMock).not.toHaveBeenCalled()
   })
 
-  it('isolates pages, limits, and blocked tag sets while normalizing set order', async () => {
-    await getTag({ page: 1, limit: 100 }, [9, 8, 9])
-    await getTag({ page: 1, limit: 100 }, [8, 9])
-    await getTag({ page: 2, limit: 100 }, [8, 9])
-    await getTag({ page: 1, limit: 50 }, [8, 9])
-    await getTag({ page: 1, limit: 100 }, [8])
+  it('isolates the cache key by page and limit', async () => {
+    await getTag({ page: 1, limit: 100 }, [])
+    await getTag({ page: 2, limit: 100 }, [])
+    await getTag({ page: 1, limit: 50 }, [])
 
-    const cacheKeys = [1, 3, 5, 7, 9].map(
+    const cacheKeys = [1, 3, 5].map(
       (callIndex) => getKvMock.mock.calls[callIndex][0] as string
     )
-    expect(cacheKeys[0]).toBe(cacheKeys[1])
-    expect(new Set(cacheKeys).size).toBe(4)
+    expect(new Set(cacheKeys).size).toBe(3)
   })
 
   it('queries directly and skips cache writes when the version read fails', async () => {

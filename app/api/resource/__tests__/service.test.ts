@@ -42,7 +42,6 @@ vi.mock('~/prisma/index', () => ({
 }))
 
 import { getPatchResource } from '~/app/api/resource/service'
-import { SHARED_CACHE_MAX_BLOCKED_TAG_IDS } from '~/app/api/utils/visibilityCacheKey'
 
 const blockedTagWhere = (count: number) => ({
   NOT: {
@@ -77,10 +76,10 @@ describe('getPatchResource', () => {
     releaseKvLockMock.mockResolvedValue(undefined)
   })
 
-  it('skips the shared cache entirely when too many tags are blocked', async () => {
+  it('skips the shared cache entirely when any tag is blocked', async () => {
     const response = await getPatchResource(
       INPUT,
-      blockedTagWhere(SHARED_CACHE_MAX_BLOCKED_TAG_IDS + 1),
+      blockedTagWhere(1),
       null,
       false
     )
@@ -91,6 +90,21 @@ describe('getPatchResource', () => {
     expect(getKvsMock).not.toHaveBeenCalled()
     expect(getKvMock).not.toHaveBeenCalled()
     expect(acquireKvLockMock).not.toHaveBeenCalled()
+    expect(setKvMock).not.toHaveBeenCalled()
+  })
+
+  it('skips the shared cache for large blocked tag sets too', async () => {
+    const response = await getPatchResource(
+      INPUT,
+      blockedTagWhere(60),
+      null,
+      false
+    )
+
+    expect(response).toEqual(EMPTY_RESPONSE)
+    expect(resourceFindManyMock).toHaveBeenCalledTimes(1)
+    expect(getKvsMock).not.toHaveBeenCalled()
+    expect(getKvMock).not.toHaveBeenCalled()
     expect(setKvMock).not.toHaveBeenCalled()
   })
 

@@ -8,6 +8,7 @@ import {
   toGalgameCardCount
 } from '~/constants/api/select'
 import { getPatchVisibilityContext } from '~/app/api/utils/getPatchVisibilityContext'
+import { createAuthLoader } from '~/middleware/_verifyHeaderCookie'
 import { Prisma } from '~/prisma/generated/prisma/client'
 import { isMeiliEnabled } from '~/lib/meilisearch'
 import {
@@ -418,7 +419,8 @@ export const POST = async (req: NextRequest) => {
   if (typeof input === 'string') {
     return NextResponse.json(input)
   }
-  const visibility = await getPatchVisibilityContext(req)
+  const loadAuth = createAuthLoader(req)
+  const visibility = await getPatchVisibilityContext(req, loadAuth)
 
   if (isMeiliEnabled()) {
     try {

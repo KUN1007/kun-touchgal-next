@@ -19,6 +19,10 @@ import { getPatchVisibilityWhere } from '~/app/api/utils/getPatchVisibilityWhere
 const worstCaseCookie =
   'kun-galgame-patch-moe-token=tok; kun-patch-setting-store|state|data|kunNsfwEnable=all'
 
+// 带屏蔽标签镜像 cookie: 未验签, 采信前必须验证 token
+const blockedCookie =
+  'kun-galgame-patch-moe-token=tok; kun-patch-setting-store|state|data|kunBlockedTagIds=[7,8]'
+
 const makeReq = (cookie: string) =>
   ({
     headers: { get: (key: string) => (key === 'cookie' ? cookie : null) }
@@ -55,5 +59,40 @@ describe('getPatchVisibilityWhere auth 去重', () => {
 
     expect(verifyKunTokenWithUserMock).toHaveBeenCalledTimes(1) // getBlockedTagIds
     expect(verifyKunTokenMock).toHaveBeenCalledTimes(1) // getNSFWHeader
+  })
+})
+
+describe('getBlockedTagIds 镜像 cookie 验签', () => {
+  it('token 有效时采信镜像 cookie 的屏蔽标签', async () => {
+    const req = makeReq(blockedCookie)
+    const loadAuth = createAuthLoader(req)
+
+    const where = await getPatchVisibilityWhere(req, loadAuth)
+
+    expect(where).toMatchObject({
+      NOT: { tag: { some: { tag_id: { in: [7, 8] } } } }
+    })
+    // 复用 loadAuth 的记忆化验证, 不额外验签
+    expect(verifyKunTokenWithUserMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('token 无效时丢弃未验签的镜像 cookie', async () => {
+    verifyKunTokenWithUserMock.mockResolvedValue(null)
+    const req = makeReq(blockedCookie)
+    const loadAuth = createAuthLoader(req)
+
+    const where = await getPatchVisibilityWhere(req, loadAuth)
+
+    expect(where.NOT).toBeUndefined()
+  })
+
+  it('不传 loadAuth 时同样先验签再采信镜像 cookie', async () => {
+    verifyKunTokenMock.mockResolvedValue(null)
+    const req = makeReq(blockedCookie)
+
+    const where = await getPatchVisibilityWhere(req)
+
+    expect(where.NOT).toBeUndefined()
+    expect(verifyKunTokenMock).toHaveBeenCalled()
   })
 })

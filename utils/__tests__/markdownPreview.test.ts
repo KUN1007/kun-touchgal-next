@@ -41,7 +41,12 @@ describe('markdownToPreviewHtml', () => {
       '![a](q[w](x onerror=location=name )![b](c[d](e onerror=location=name )f)',
       // 同源的良性表现: 后续规则匹配到生成标签内部
       '[a](x*y)*z*',
-      '[a](x`y)`z`'
+      '[a](x`y)`z`',
+      // 实体解码产出的特殊字符必须仍被 escapeHtml 拦下
+      '![a](x&quot;y)',
+      '[a](x&quot; onmouseover=&quot;alert&#40;1&#41;)',
+      '![a](x&#60;img src=y onerror=alert&#40;1&#41;&#62;)',
+      '![a](x&#34; onerror=&#34;alert&#40;1&#41;)'
     ]
 
     for (const markdown of cases) {
@@ -117,5 +122,55 @@ describe('markdownToPreviewHtml', () => {
 
   it('无分隔符的竖线行仍是字面段落', () => {
     expect(markdownToPreviewHtml('| a |')).toBe('<p>| a |</p>')
+  })
+
+  // 期望值取自服务端 unified 管线 (app/api/utils/render/markdownToHtml.ts) 的实测输出,
+  // 逐字比对的是浏览器最终显示的文本而非 HTML 字面量
+  it('实体引用的解码与发布端一致', () => {
+    // AT&amp;T 曾预览显示 AT&amp;T 而发布显示 AT&T
+    expect(markdownToPreviewHtml('AT&amp;T')).toBe('<p>AT&amp;T</p>')
+    expect(markdownToPreviewHtml('AT&T')).toBe('<p>AT&amp;T</p>')
+    expect(markdownToPreviewHtml('&copy; 2026')).toBe('<p>© 2026</p>')
+    expect(markdownToPreviewHtml('&nbsp;x')).toBe('<p>\u00A0x</p>')
+    expect(markdownToPreviewHtml('&#39;q&#39;')).toBe("<p>'q'</p>")
+    expect(markdownToPreviewHtml('&#x1F600;')).toBe('<p>😀</p>')
+    expect(markdownToPreviewHtml('&lt;script&gt;')).toBe(
+      '<p>&lt;script&gt;</p>'
+    )
+    expect(markdownToPreviewHtml('[a](x&#41;y)')).toBe(
+      '<p><a href="x)y" target="_blank" rel="noopener noreferrer">a</a></p>'
+    )
+  })
+
+  it('实体不参与结构判定', () => {
+    // 服务端输出纯文本 *foo* 而非 <em>, 故解码只能逐片段做, 不能整行预解码
+    expect(markdownToPreviewHtml('&#42;foo&#42;')).toBe('<p>*foo*</p>')
+    expect(markdownToPreviewHtml('&#96;code&#96;')).toBe('<p>`code`</p>')
+    expect(markdownToPreviewHtml('&#35; heading')).toBe('<p># heading</p>')
+  })
+
+  it('代码上下文不解码实体', () => {
+    // 服务端在代码块与代码 span 内同样不解码, 两侧本就一致
+    expect(markdownToPreviewHtml('`&amp;`')).toBe(
+      '<p><code>&amp;amp;</code></p>'
+    )
+    expect(markdownToPreviewHtml('```\n&amp;\n```')).toBe(
+      '<pre><code>&amp;amp;</code></pre>'
+    )
+  })
+
+  it('非法实体保持原样', () => {
+    // 反空转: 解码器不能把任意 &...; 都吞掉
+    expect(markdownToPreviewHtml('&notreal;')).toBe('<p>&amp;notreal;</p>')
+    expect(markdownToPreviewHtml('&notit;')).toBe('<p>&amp;notit;</p>')
+    expect(markdownToPreviewHtml('&amp')).toBe('<p>&amp;amp</p>')
+    expect(markdownToPreviewHtml('&Amp;')).toBe('<p>&amp;Amp;</p>')
+    expect(markdownToPreviewHtml('a & b')).toBe('<p>a &amp; b</p>')
+    // 超出 micromark 长度上限: 十进制 7 位、十六进制 6 位
+    expect(markdownToPreviewHtml('&#99999999;')).toBe('<p>&amp;#99999999;</p>')
+    expect(markdownToPreviewHtml('&#xfff9999;')).toBe('<p>&amp;#xfff9999;</p>')
+    // 越界与代理区码点归一为 U+FFFD
+    expect(markdownToPreviewHtml('&#0;')).toBe('<p>\uFFFD</p>')
+    expect(markdownToPreviewHtml('&#xD800;')).toBe('<p>\uFFFD</p>')
   })
 })

@@ -8,6 +8,7 @@ import {
   KUN_MODERATION_ENABLED_KEY
 } from '~/config/redis'
 import { prisma } from '~/prisma/index'
+import { clearModerationConfigCache } from '~/server/moderation/config'
 import { getModerationSetting } from './service'
 
 export const GET = async (req: NextRequest) => {
@@ -54,6 +55,7 @@ export const PUT = async (req: NextRequest) => {
   } else {
     await delKv(KUN_MODERATION_DRY_RUN_KEY)
   }
+  clearModerationConfigCache()
 
   await prisma.admin_log.create({
     data: {

@@ -91,11 +91,6 @@ export const ensurePatchTagsFromBangumi = async (
           })),
           skipDuplicates: true
         })
-
-        await prisma.patch_tag.updateMany({
-          where: { id: { in: newTagIds } },
-          data: { count: { increment: 1 } }
-        })
         changed = true
       }
     }

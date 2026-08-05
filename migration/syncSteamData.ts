@@ -53,11 +53,6 @@ async function processTags(patchId: number, data: SteamAppData, uid: number) {
         })),
         skipDuplicates: true
       })
-
-      await prisma.patch_tag.updateMany({
-        where: { id: { in: newTagIds } },
-        data: { count: { increment: 1 } }
-      })
     }
   }
 
@@ -99,11 +94,6 @@ async function processCompanies(
     if (!existingRelation) {
       await prisma.patch_company_relation.create({
         data: { patch_id: patchId, company_id: company.id }
-      })
-
-      await prisma.patch_company.update({
-        where: { id: company.id },
-        data: { count: { increment: 1 } }
       })
     }
   }

@@ -43,11 +43,6 @@ const handlePatchCompanyAction = (type: 'add' | 'delete') => {
         })
       }
 
-      await prisma.patch_company.updateMany({
-        where: { id: { in: affected } },
-        data: { count: { increment: isAdd ? 1 : -1 } }
-      })
-
       // 事务性入队：与标签/会社变更原子提交，关闭崩溃丢失窗口
       await enqueueSearchOutbox(prisma, patchId)
 

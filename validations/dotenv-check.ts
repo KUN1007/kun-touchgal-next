@@ -22,8 +22,8 @@ const rawEnvSchema = z.object({
   KUN_DATABASE_URL: z.string().url(),
   KUN_VISUAL_NOVEL_SITE_URL: z.string().url(),
 
-  NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV: z.string(),
-  NEXT_PUBLIC_KUN_PATCH_ADDRESS_PROD: z.string(),
+  NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV: z.string().url(),
+  NEXT_PUBLIC_KUN_PATCH_ADDRESS_PROD: z.string().url(),
 
   REDIS_HOST: z.string(),
   REDIS_PORT: z.string(),

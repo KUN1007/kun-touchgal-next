@@ -90,22 +90,33 @@ export const encodePatchBanner = async (
   return { banner, miniBanner, fullBanner }
 }
 
+// PUT 与事务回滚后的补偿清理 (create.ts) 共用同一份 key 拼接, 防两处字符串漂移
+export const buildPatchBannerKeys = (id: number, hasFull: boolean) => {
+  const prefix = `patch/${id}/banner`
+  const keys = [`${prefix}/banner.avif`, `${prefix}/banner-mini.avif`]
+  if (hasFull) {
+    keys.push(`${prefix}/banner-full.avif`)
+  }
+  return keys
+}
+
 // 只做 S3 PUT, 失败直接抛出: 事务内调用时靠抛出触发回滚, 不会留下孤儿 patch 行.
 export const putPatchBannerToS3 = async (
   encoded: EncodedPatchBanner,
   id: number
 ) => {
-  const bucketName = `patch/${id}/banner`
+  const [bannerKey, miniKey, fullKey] = buildPatchBannerKeys(
+    id,
+    Boolean(encoded.fullBanner)
+  )
 
   const uploadTasks = [
-    uploadImageToS3(`${bucketName}/banner.avif`, encoded.banner),
-    uploadImageToS3(`${bucketName}/banner-mini.avif`, encoded.miniBanner)
+    uploadImageToS3(bannerKey, encoded.banner),
+    uploadImageToS3(miniKey, encoded.miniBanner)
   ]
 
   if (encoded.fullBanner) {
-    uploadTasks.push(
-      uploadImageToS3(`${bucketName}/banner-full.avif`, encoded.fullBanner)
-    )
+    uploadTasks.push(uploadImageToS3(fullKey, encoded.fullBanner))
   }
 
   await Promise.all(uploadTasks)

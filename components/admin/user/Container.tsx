@@ -12,9 +12,10 @@ import {
   TableRow
 } from '@heroui/react'
 import { Search } from 'lucide-react'
-import { useEffect, useState, type Key } from 'react'
+import { useEffect, useRef, useState, type Key } from 'react'
 import { RenderCell } from './RenderCell'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { kunShouldBackfillDeletedRow } from '~/utils/pagination'
 import { KunTableSkeleton } from '~/components/kun/TableSkeleton'
 import { useMounted } from '~/hooks/useMounted'
 import { useDebounce } from 'use-debounce'
@@ -58,22 +59,37 @@ export const User = ({ initialUsers, initialTotal }: Props) => {
   const isMounted = useMounted()
 
   const [loading, setLoading] = useState(false)
-  const fetchData = async () => {
-    setLoading(true)
+  const latestFetchRequestIdRef = useRef(0)
+  // 本渲染时刻的请求序号; 删行后补齐前比对, 若期间有过新请求 (翻页/筛选变更)
+  // 则闭包参数已过期, 跳过静默补齐让用户请求的响应落地
+  const renderFetchRequestId = latestFetchRequestIdRef.current
 
-    const { users, total } = await kunFetchGet<{
-      users: AdminUser[]
-      total: number
-    }>('/admin/user', {
-      page,
-      limit,
-      search: debouncedQuery,
-      searchType
-    })
-
-    setLoading(false)
-    setUsers(users)
-    setTotal(total)
+  const fetchData = async ({ silent = false } = {}) => {
+    const requestId = latestFetchRequestIdRef.current + 1
+    latestFetchRequestIdRef.current = requestId
+    if (!silent) {
+      setLoading(true)
+    }
+    try {
+      const { users, total } = await kunFetchGet<{
+        users: AdminUser[]
+        total: number
+      }>('/admin/user', {
+        page,
+        limit,
+        search: debouncedQuery,
+        searchType
+      })
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+      setUsers(users)
+      setTotal(total)
+    } finally {
+      if (requestId === latestFetchRequestIdRef.current) {
+        setLoading(false)
+      }
+    }
   }
 
   useEffect(() => {
@@ -115,6 +131,12 @@ export const User = ({ initialUsers, initialTotal }: Props) => {
     }
     setUsers((prev) => prev.filter((user) => user.id !== uid))
     setTotal((prev) => Math.max(0, prev - 1))
+    if (
+      kunShouldBackfillDeletedRow(total, page, limit) &&
+      latestFetchRequestIdRef.current === renderFetchRequestId
+    ) {
+      fetchData({ silent: true })
+    }
   }
 
   const currentPlaceholder =

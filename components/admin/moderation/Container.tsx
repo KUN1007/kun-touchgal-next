@@ -17,7 +17,7 @@ import {
   ModalHeader,
   useDisclosure
 } from '@heroui/modal'
-import { useEffect, useState, type Key } from 'react'
+import { useEffect, useRef, useState, type Key } from 'react'
 import toast from 'react-hot-toast'
 import {
   kunFetchDelete,
@@ -25,6 +25,7 @@ import {
   kunFetchPost,
   kunFetchPut
 } from '~/utils/kunFetch'
+import { kunShouldBackfillDeletedRow } from '~/utils/pagination'
 import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { KunPagination } from '~/components/kun/Pagination'
 import { useMounted } from '~/hooks/useMounted'
@@ -92,9 +93,18 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
   const [batchAction, setBatchAction] = useState<BatchAction>('approve')
   const [batching, setBatching] = useState(false)
 
-  const fetchData = async () => {
-    setLoading(true)
-    setError('')
+  const latestFetchRequestIdRef = useRef(0)
+  // 本渲染时刻的请求序号; 删行后补齐前比对, 若期间有过新请求 (翻页/筛选变更)
+  // 则闭包参数已过期, 跳过静默补齐让用户请求的响应落地
+  const renderFetchRequestId = latestFetchRequestIdRef.current
+
+  const fetchData = async ({ silent = false } = {}) => {
+    const requestId = latestFetchRequestIdRef.current + 1
+    latestFetchRequestIdRef.current = requestId
+    if (!silent) {
+      setLoading(true)
+      setError('')
+    }
     try {
       const response = await kunFetchGet<
         KunResponse<{
@@ -102,8 +112,13 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
           total: number
         }>
       >('/admin/moderation', { page, limit, status })
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
       if (typeof response === 'string') {
-        setError(response)
+        if (!silent) {
+          setError(response)
+        }
         return
       }
       setTasks(response.tasks)
@@ -117,9 +132,13 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
         return new Set([...prev].filter((taskId) => selectableIds.has(taskId)))
       })
     } catch {
-      setError('网络错误, 请稍后重试')
+      if (!silent && requestId === latestFetchRequestIdRef.current) {
+        setError('网络错误, 请稍后重试')
+      }
     } finally {
-      setLoading(false)
+      if (requestId === latestFetchRequestIdRef.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -160,6 +179,12 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
     } else {
       setTasks((prev) => prev.filter((task) => task.id !== taskId))
       setTotal((prev) => Math.max(0, prev - 1))
+      if (
+        kunShouldBackfillDeletedRow(total, page, limit) &&
+        latestFetchRequestIdRef.current === renderFetchRequestId
+      ) {
+        fetchData({ silent: true })
+      }
     }
     // 改判后任务不可再操作, 从批量选中集移除; 重试回 pending 仍可改判, 保留选中
     if (patch.status === 'approved' || patch.status === 'rejected') {

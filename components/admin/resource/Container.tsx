@@ -28,7 +28,8 @@ import {
 import { ChevronDown, Eye, EyeOff, Search, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { kunFetchDelete, kunFetchGet, kunFetchPut } from '~/utils/kunFetch'
-import { useEffect, useState, type Key } from 'react'
+import { kunShouldBackfillDeletedRow } from '~/utils/pagination'
+import { useEffect, useRef, useState, type Key } from 'react'
 import type { Selection } from '@heroui/table'
 import { useMounted } from '~/hooks/useMounted'
 import { KunTableSkeleton } from '~/components/kun/TableSkeleton'
@@ -149,38 +150,59 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
     }
   }, [debouncedUserInput])
 
+  const latestFetchRequestIdRef = useRef(0)
+  // 本渲染时刻的请求序号; 删行/批量后刷新前比对, 若期间有过新请求 (翻页/筛选
+  // 变更) 则闭包参数已过期, 跳过静默刷新让用户请求的响应落地
+  const renderFetchRequestId = latestFetchRequestIdRef.current
+
+  const fetchData = async ({ silent = false } = {}) => {
+    const requestId = latestFetchRequestIdRef.current + 1
+    latestFetchRequestIdRef.current = requestId
+    if (!silent) {
+      setLoading(true)
+    }
+    try {
+      const params: Record<string, string | number> = { page, limit }
+      if (searchType !== 'user' && debouncedContent) {
+        params.search = debouncedContent
+        params.searchType = searchType
+      }
+      if (searchType === 'user' && selectedUserId) {
+        params.userId = selectedUserId
+      }
+
+      const res = await kunFetchGet<{
+        resources: AdminResource[]
+        total: number
+      }>('/admin/resource', params)
+
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+
+      if (typeof res === 'string') {
+        // 静默刷新失败不提示: 刚展示过操作成功的 toast, 紧跟报错只会误导
+        if (!silent) {
+          toast.error(res)
+        }
+        return
+      }
+
+      setResources(res.resources)
+      setTotal(res.total)
+      if (!silent) {
+        setSelectedKeys(new Set<string | number>())
+      }
+    } finally {
+      if (requestId === latestFetchRequestIdRef.current) {
+        setLoading(false)
+      }
+    }
+  }
+
   useEffect(() => {
     if (!isMounted) {
       return
-    }
-    const fetchData = async () => {
-      setLoading(true)
-      try {
-        const params: Record<string, string | number> = { page, limit }
-        if (searchType !== 'user' && debouncedContent) {
-          params.search = debouncedContent
-          params.searchType = searchType
-        }
-        if (searchType === 'user' && selectedUserId) {
-          params.userId = selectedUserId
-        }
-
-        const res = await kunFetchGet<{
-          resources: AdminResource[]
-          total: number
-        }>('/admin/resource', params)
-
-        if (typeof res === 'string') {
-          toast.error(res)
-          return
-        }
-
-        setResources(res.resources)
-        setTotal(res.total)
-        setSelectedKeys(new Set<string | number>())
-      } finally {
-        setLoading(false)
-      }
     }
     fetchData()
   }, [page, limit, searchType, debouncedContent, selectedUserId])
@@ -207,6 +229,17 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
       prev.filter((resource) => resource.id !== resourceId)
     )
     setTotal((prev) => Math.max(0, prev - 1))
+    if (
+      kunShouldBackfillDeletedRow(total, page, limit) &&
+      latestFetchRequestIdRef.current === renderFetchRequestId
+    ) {
+      // 'all' 的语义是「当前页全部」, 补齐会换入未展示过的新行,
+      // 先清空选中避免批量操作误伤
+      if (selectedKeys === 'all') {
+        setSelectedKeys(new Set<string | number>())
+      }
+      fetchData({ silent: true })
+    }
   }
 
   const handleBatchDelete = async () => {
@@ -240,24 +273,10 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
     onBatchClose()
     setSelectedKeys(new Set<string | number>())
 
-    // 刷新列表
-    const params: Record<string, string | number> = { page, limit }
-    if (searchType !== 'user' && debouncedContent) {
-      params.search = debouncedContent
-      params.searchType = searchType
-    }
-    if (searchType === 'user' && selectedUserId) {
-      params.userId = selectedUserId
-    }
-    const refreshRes = await kunFetchGet<{
-      resources: AdminResource[]
-      total: number
-    }>('/admin/resource', params)
-    if (typeof refreshRes === 'string') {
-      toast.error(refreshRes)
-    } else {
-      setResources(refreshRes.resources)
-      setTotal(refreshRes.total)
+    // 批量操作已自行清空选中, 刷新走 silent 避免整表骨架屏闪烁; 期间有过
+    // 新请求 (翻页/筛选变更) 则参数已过期, 跳过让用户请求的响应落地
+    if (latestFetchRequestIdRef.current === renderFetchRequestId) {
+      await fetchData({ silent: true })
     }
   }
 
@@ -283,24 +302,10 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
     setBatchHiding(false)
     setSelectedKeys(new Set<string | number>())
 
-    // 刷新列表
-    const params: Record<string, string | number> = { page, limit }
-    if (searchType !== 'user' && debouncedContent) {
-      params.search = debouncedContent
-      params.searchType = searchType
-    }
-    if (searchType === 'user' && selectedUserId) {
-      params.userId = selectedUserId
-    }
-    const refreshRes = await kunFetchGet<{
-      resources: AdminResource[]
-      total: number
-    }>('/admin/resource', params)
-    if (typeof refreshRes === 'string') {
-      toast.error(refreshRes)
-    } else {
-      setResources(refreshRes.resources)
-      setTotal(refreshRes.total)
+    // 批量操作已自行清空选中, 刷新走 silent 避免整表骨架屏闪烁; 期间有过
+    // 新请求 (翻页/筛选变更) 则参数已过期, 跳过让用户请求的响应落地
+    if (latestFetchRequestIdRef.current === renderFetchRequestId) {
+      await fetchData({ silent: true })
     }
   }
 

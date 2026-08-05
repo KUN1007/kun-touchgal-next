@@ -2,9 +2,10 @@
 
 import { Chip, Input, Select, SelectItem } from '@heroui/react'
 import { Search } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useDebounce } from 'use-debounce'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { kunShouldBackfillDeletedRow } from '~/utils/pagination'
 import { useMounted } from '~/hooks/useMounted'
 import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { KunPagination } from '~/components/kun/Pagination'
@@ -29,20 +30,36 @@ export const ResourceApply = ({ initialResources, initialTotal }: Props) => {
 
   const [loading, setLoading] = useState(false)
 
-  const fetchData = async () => {
-    setLoading(true)
-    const { resources, total } = await kunFetchGet<{
-      resources: AdminResource[]
-      total: number
-    }>('/admin/resource-apply', {
-      page,
-      limit,
-      search: debouncedQuery
-    })
+  const latestFetchRequestIdRef = useRef(0)
+  // 本渲染时刻的请求序号; 删行后补齐前比对, 若期间有过新请求 (翻页/筛选变更)
+  // 则闭包参数已过期, 跳过静默补齐让用户请求的响应落地
+  const renderFetchRequestId = latestFetchRequestIdRef.current
 
-    setLoading(false)
-    setResources(resources)
-    setTotal(total)
+  const fetchData = async ({ silent = false } = {}) => {
+    const requestId = latestFetchRequestIdRef.current + 1
+    latestFetchRequestIdRef.current = requestId
+    if (!silent) {
+      setLoading(true)
+    }
+    try {
+      const { resources, total } = await kunFetchGet<{
+        resources: AdminResource[]
+        total: number
+      }>('/admin/resource-apply', {
+        page,
+        limit,
+        search: debouncedQuery
+      })
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+      setResources(resources)
+      setTotal(total)
+    } finally {
+      if (requestId === latestFetchRequestIdRef.current) {
+        setLoading(false)
+      }
+    }
   }
 
   useEffect(() => {
@@ -81,6 +98,12 @@ export const ResourceApply = ({ initialResources, initialTotal }: Props) => {
       prev.filter((resource) => resource.id !== resourceId)
     )
     setTotal((prev) => Math.max(0, prev - 1))
+    if (
+      kunShouldBackfillDeletedRow(total, page, limit) &&
+      latestFetchRequestIdRef.current === renderFetchRequestId
+    ) {
+      fetchData({ silent: true })
+    }
   }
 
   return (

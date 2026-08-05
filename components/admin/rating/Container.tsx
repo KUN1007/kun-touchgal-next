@@ -19,8 +19,9 @@ import {
   useDisclosure
 } from '@heroui/modal'
 import { Search } from 'lucide-react'
-import { useEffect, useState, type Key } from 'react'
+import { useEffect, useRef, useState, type Key } from 'react'
 import { kunFetchDelete, kunFetchGet } from '~/utils/kunFetch'
+import { kunShouldBackfillDeletedRow } from '~/utils/pagination'
 import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { useMounted } from '~/hooks/useMounted'
 import { RatingCard } from './Card'
@@ -123,8 +124,17 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
     }
   }, [debouncedUserInput])
 
-  const fetchData = async () => {
-    setLoading(true)
+  const latestFetchRequestIdRef = useRef(0)
+  // 本渲染时刻的请求序号; 删行后补齐前比对, 若期间有过新请求 (翻页/筛选变更)
+  // 则闭包参数已过期, 跳过静默补齐让用户请求的响应落地
+  const renderFetchRequestId = latestFetchRequestIdRef.current
+
+  const fetchData = async ({ silent = false } = {}) => {
+    const requestId = latestFetchRequestIdRef.current + 1
+    latestFetchRequestIdRef.current = requestId
+    if (!silent) {
+      setLoading(true)
+    }
 
     try {
       const params: Record<string, string | number> = {
@@ -144,8 +154,14 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
         total: number
       }>('/admin/rating', params)
 
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
       if (typeof response === 'string') {
-        toast.error(response)
+        // 静默补齐失败不提示: 刚展示过操作成功的 toast, 紧跟报错只会误导
+        if (!silent) {
+          toast.error(response)
+        }
         return
       }
 
@@ -166,7 +182,9 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
         )
       })
     } finally {
-      setLoading(false)
+      if (requestId === latestFetchRequestIdRef.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -274,6 +292,12 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
     }
     setRatings((prev) => prev.filter((rating) => rating.id !== ratingId))
     setTotal((prev) => Math.max(0, prev - 1))
+    if (
+      kunShouldBackfillDeletedRow(total, page, limit) &&
+      latestFetchRequestIdRef.current === renderFetchRequestId
+    ) {
+      fetchData({ silent: true })
+    }
   }
 
   const handleBatchDelete = async () => {

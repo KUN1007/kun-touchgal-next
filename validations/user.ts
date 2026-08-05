@@ -120,3 +120,11 @@ export const blockedTagSchema = z.object({
 export const revokeLoginSessionSchema = z.object({
   sessionId: z.string().uuid({ message: '登录会话 ID 无效' })
 })
+
+export const allowPrivateMessageSchema = z.object({
+  allowPrivateMessage: z.boolean()
+})
+
+export const enableEmailNoticeSchema = z.object({
+  enableEmailNotice: z.boolean()
+})

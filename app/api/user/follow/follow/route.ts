@@ -15,20 +15,30 @@ const followUser = async (uid: number, currentUserUid: number) => {
   }
 
   return prisma.$transaction(async (prisma) => {
-    await prisma.user_follow_relation.create({
-      data: {
-        follower_id: currentUserUid,
-        following_id: uid
-      }
+    // skipDuplicates 幂等: 多标签页/并发重复关注返回成功而非 P2002 → 500,
+    // 客户端状态自然收敛为「已关注」; count 守卫使重复请求不发通知
+    const { count } = await prisma.user_follow_relation.createMany({
+      data: [
+        {
+          follower_id: currentUserUid,
+          following_id: uid
+        }
+      ],
+      skipDuplicates: true
     })
 
-    await createDedupMessage({
-      type: 'follow',
-      content: '关注了您',
-      sender_id: currentUserUid,
-      recipient_id: uid,
-      link: `/user/${currentUserUid}/comment`
-    })
+    if (count) {
+      await createDedupMessage(
+        {
+          type: 'follow',
+          content: '关注了您',
+          sender_id: currentUserUid,
+          recipient_id: uid,
+          link: `/user/${currentUserUid}/comment`
+        },
+        prisma
+      )
+    }
 
     return {}
   })

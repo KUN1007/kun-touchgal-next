@@ -15,6 +15,7 @@ import { Search } from 'lucide-react'
 import { useEffect, useRef, useState, type Key } from 'react'
 import { RenderCell } from './RenderCell'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { errorReporter } from '~/utils/kunErrorHandler'
 import { kunShouldBackfillDeletedRow } from '~/utils/pagination'
 import { KunTableSkeleton } from '~/components/kun/TableSkeleton'
 import { useMounted } from '~/hooks/useMounted'
@@ -85,6 +86,11 @@ export const User = ({ initialUsers, initialTotal }: Props) => {
       }
       setUsers(users)
       setTotal(total)
+    } catch (error) {
+      if (silent || requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+      errorReporter(error)
     } finally {
       if (requestId === latestFetchRequestIdRef.current) {
         setLoading(false)

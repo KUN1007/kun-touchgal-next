@@ -13,12 +13,11 @@ const unfollowUser = async (uid: number, currentUserUid: number) => {
     return '您不能取消关注自己'
   }
 
-  await prisma.user_follow_relation.delete({
+  // deleteMany 幂等: 关系已在别处被取消时 count 为 0 而非抛 P2025 → 500
+  await prisma.user_follow_relation.deleteMany({
     where: {
-      follower_id_following_id: {
-        follower_id: currentUserUid,
-        following_id: uid
-      }
+      follower_id: currentUserUid,
+      following_id: uid
     }
   })
 

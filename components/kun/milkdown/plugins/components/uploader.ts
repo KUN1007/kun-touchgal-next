@@ -1,7 +1,7 @@
 import toast from 'react-hot-toast'
 import { Decoration } from '@milkdown/prose/view'
 import { kunFetchFormData } from '~/utils/kunFetch'
-import { resizeImage } from '~/utils/resizeImage'
+import { checkImageValid, resizeImage } from '~/utils/resizeImage'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import type { Uploader } from '@milkdown/plugin-upload'
 import type { Node } from '@milkdown/prose/model'
@@ -19,14 +19,23 @@ export const kunUploader: Uploader = async (files, schema) => {
       continue
     }
 
+    if (!checkImageValid(file)) {
+      continue
+    }
+
     images.push(file)
   }
 
   const nodes = await Promise.all(
     images.map(async (image) => {
+      // resize 失败已在 resizeImage 内部弹出具体原因, 此处早退避免重复 toast
+      const miniImage = await resizeImage(image, 1920, 1080).catch(() => null)
+      if (!miniImage) {
+        return undefined
+      }
+
       try {
         const formData = new FormData()
-        const miniImage = await resizeImage(image, 1920, 1080)
         formData.append('image', miniImage)
 
         const res = await kunFetchFormData<

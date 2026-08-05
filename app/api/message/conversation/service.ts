@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { prisma } from '~/prisma/index'
+import { Prisma } from '~/prisma/generated/prisma/client'
 import {
   getConversationsSchema,
   createConversationSchema
@@ -161,46 +162,87 @@ export const getOrCreateConversation = async (
   const [userAId, userBId] =
     uid < targetUserId ? [uid, targetUserId] : [targetUserId, uid]
 
-  let conversation = await prisma.user_conversation.findUnique({
-    where: {
-      user_a_id_user_b_id: { user_a_id: userAId, user_b_id: userBId }
-    }
-  })
+  const findConversation = () =>
+    prisma.user_conversation.findUnique({
+      where: {
+        user_a_id_user_b_id: { user_a_id: userAId, user_b_id: userBId }
+      }
+    })
 
-  const isNew = !conversation
+  // 对同一目标的两个并发请求都会通过下面那次 findUnique, 落败者撞唯一索引.
+  // 扣费与 create 在同一个事务里, 落败者整条回滚不会白扣分, 这里只是把未捕获的
+  // 500 收敛成字符串/正常返回. isNew 必须为 false: 本次请求没有扣费, 客户端据此
+  // 决定是否弹「已消耗 N 萌萌点」
+  const recoverDuplicate = async (error: unknown) => {
+    if (
+      !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+      error.code !== 'P2002'
+    ) {
+      throw error
+    }
+    const existing = await findConversation()
+    if (!existing) {
+      throw error
+    }
+    return { conversationId: existing.id, isNew: false }
+  }
+
+  const conversation = await findConversation()
+  if (conversation) {
+    return { conversationId: conversation.id, isNew: false }
+  }
+
+  if (!targetUser.allow_private_message) {
+    return '对方已关闭私信功能'
+  }
+
   const isPrivileged = role > 2
-
-  if (!conversation) {
-    if (!targetUser.allow_private_message) {
-      return '对方已关闭私信功能'
-    }
-
-    if (!isPrivileged) {
-      if (currentUser.moemoepoint < MOEMOEPOINT_REQUIRED) {
-        return `萌萌点不足，发起私聊需要至少 ${MOEMOEPOINT_REQUIRED} 萌萌点`
-      }
-
-      if (currentUser.moemoepoint < MOEMOEPOINT_COST) {
-        return `萌萌点不足，开启新私聊需要消耗 ${MOEMOEPOINT_COST} 萌萌点`
-      }
-
-      conversation = await prisma.$transaction(async (tx) => {
-        await tx.user.update({
-          where: { id: uid },
-          data: { moemoepoint: { decrement: MOEMOEPOINT_COST } }
-        })
-
-        return tx.user_conversation.create({
-          data: { user_a_id: userAId, user_b_id: userBId }
-        })
-      })
-      await invalidateUserSession(uid)
-    } else {
-      conversation = await prisma.user_conversation.create({
+  if (isPrivileged) {
+    try {
+      const created = await prisma.user_conversation.create({
         data: { user_a_id: userAId, user_b_id: userBId }
       })
+      return { conversationId: created.id, isNew: true }
+    } catch (error) {
+      return recoverDuplicate(error)
     }
   }
 
-  return { conversationId: conversation.id, isNew }
+  const insufficient = `萌萌点不足，发起私聊需要至少 ${MOEMOEPOINT_REQUIRED} 萌萌点`
+  if (currentUser.moemoepoint < MOEMOEPOINT_REQUIRED) {
+    return insufficient
+  }
+
+  let created: { id: number } | null
+  try {
+    // 条件更新即 CAS: 余额守卫必须落在 WHERE 里. 上面那次读取自事务之外, 只是省一次
+    // 往返的快速失败, 不是安全边界; 并发请求读到同一份快照会一起通过它, 各扣一次把
+    // 余额扣成负数 (唯一索引只约束同一对用户, 对 N 个不同目标并发不设防).
+    // 谓词用 REQUIRED 而非 COST, 保留「需要 20 才能开一个, 付 10」的语义.
+    // 余额不足时返回 null 而非错误字符串: 回调返回字符串照样提交事务
+    created = await prisma.$transaction(async (tx) => {
+      const { count } = await tx.user.updateMany({
+        where: { id: uid, moemoepoint: { gte: MOEMOEPOINT_REQUIRED } },
+        data: { moemoepoint: { decrement: MOEMOEPOINT_COST } }
+      })
+      if (!count) {
+        return null
+      }
+
+      return tx.user_conversation.create({
+        data: { user_a_id: userAId, user_b_id: userBId }
+      })
+    })
+  } catch (error) {
+    return recoverDuplicate(error)
+  }
+
+  if (!created) {
+    return insufficient
+  }
+
+  // 失效必须留在 catch 之外: 它失败时钱已经扣了, 该以 500 逃逸, 不能被
+  // recoverDuplicate 当成撞唯一索引处理
+  await invalidateUserSession(uid)
+  return { conversationId: created.id, isNew: true }
 }

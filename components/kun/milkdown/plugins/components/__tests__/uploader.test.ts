@@ -21,6 +21,7 @@ vi.mock('~/utils/kunFetch', () => ({
 }))
 
 vi.mock('~/utils/resizeImage', () => ({
+  checkImageValid: () => true,
   resizeImage: resizeImageMock
 }))
 
@@ -83,5 +84,20 @@ describe('kunUploader', () => {
 
     expect(nodes).toEqual([{ src: 'https://img.kun/b.avif', alt: 'b.png' }])
     expect(toastErrorMock).toHaveBeenCalledWith('图片 a.png 上传失败')
+  })
+
+  it('resize 失败时早退, 不重复弹上传失败 toast', async () => {
+    resizeImageMock
+      .mockRejectedValueOnce(new Error('图片加载失败'))
+      .mockResolvedValueOnce(new Blob(['mini']))
+    kunFetchFormDataMock.mockResolvedValueOnce({
+      imageLink: 'https://img.kun/b.avif'
+    })
+
+    const nodes = await upload([makeImage('a.png'), makeImage('b.png')])
+
+    expect(nodes).toEqual([{ src: 'https://img.kun/b.avif', alt: 'b.png' }])
+    expect(toastErrorMock).not.toHaveBeenCalled()
+    expect(kunFetchFormDataMock).toHaveBeenCalledTimes(1)
   })
 })

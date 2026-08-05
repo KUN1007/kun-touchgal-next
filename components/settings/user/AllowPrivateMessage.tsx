@@ -19,7 +19,8 @@ export const AllowPrivateMessage = () => {
     }
 
     const res = await kunFetchPost<KunResponse<{}>>(
-      `/user/setting/allow-private-message`
+      `/user/setting/allow-private-message`,
+      { allowPrivateMessage: value }
     )
     if (typeof res !== 'string') {
       setUser({ ...user, allowPrivateMessage: value })

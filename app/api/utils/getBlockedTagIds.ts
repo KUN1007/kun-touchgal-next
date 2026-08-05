@@ -17,6 +17,12 @@ export const getBlockedTagIds = async (
   const cachedBlockedTagIds =
     cookies['kun-patch-setting-store|state|data|kunBlockedTagIds']
   if (cachedBlockedTagIds !== undefined) {
+    // 镜像 cookie 未验签, 采信前必须验证 token 有效, 否则任意非空 token
+    // 都能凭客户端输入左右可见性与缓存键 (见 visibilityCacheKey)
+    const auth = await (loadAuth ? loadAuth() : verifyKunToken(token))
+    if (!auth) {
+      return []
+    }
     return parseBlockedTagIds(cachedBlockedTagIds)
   }
 

@@ -1,3 +1,6 @@
+import { decodeNamedCharacterReference } from 'decode-named-character-reference'
+import { decodeNumericCharacterReference } from 'micromark-util-decode-numeric-character-reference'
+
 const escapeHtml = (text: string): string => {
   return text
     .replace(/&/g, '&amp;')
@@ -5,6 +8,34 @@ const escapeHtml = (text: string): string => {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
 }
+
+// 与 micromark 的 characterReference 构造同规: 长度上限 命名 31 / 十进制 7 / 十六进制 6,
+// 必须以 ; 收尾, 命名解码失败则整体不算实体
+const CHARACTER_REFERENCE_PATTERN =
+  /&(?:#(?:[xX]([\da-fA-F]{1,6})|(\d{1,7}))|([\da-zA-Z]{1,31}));/g
+
+// CommonMark 在代码块与代码 span 之外把实体引用解码成字面字符, 服务端管线同此。
+// 预览器不解码会双重编码 (AT&amp;T 预览显示 AT&amp;T 而发布显示 AT&T)。
+// 必须逐片段解码而非整行预解码: 实体不参与结构判定, &#42;foo&#42; 在服务端是纯文本而非 <em>。
+// 解码结果必须无条件再过 escapeHtml, 顺序不可颠倒。
+const decodeCharacterReferences = (text: string): string => {
+  return text.replace(
+    CHARACTER_REFERENCE_PATTERN,
+    (whole, hexadecimal, decimal, named) => {
+      if (hexadecimal !== undefined) {
+        return decodeNumericCharacterReference(hexadecimal, 16)
+      }
+      if (decimal !== undefined) {
+        return decodeNumericCharacterReference(decimal, 10)
+      }
+      const decoded = decodeNamedCharacterReference(named)
+      return decoded === false ? whole : decoded
+    }
+  )
+}
+
+const escapeText = (text: string): string =>
+  escapeHtml(decodeCharacterReferences(text))
 
 const INLINE_PATTERN =
   /!\[([^\]]*)\]\(([^)]+)\)|\[([^\]]+)\]\(([^)]+)\)|`([^`]+)`|\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*|~~(.+?)~~/
@@ -18,7 +49,7 @@ const renderInlineMarkdown = (text: string): string => {
   while (rest) {
     const match = INLINE_PATTERN.exec(rest)
     if (!match) {
-      html += escapeHtml(rest)
+      html += escapeText(rest)
       break
     }
 
@@ -26,13 +57,14 @@ const renderInlineMarkdown = (text: string): string => {
     const [, alt, src, linkText, href, code, both, bold, italic, strike] =
       groups
 
-    html += escapeHtml(rest.slice(0, match.index))
+    html += escapeText(rest.slice(0, match.index))
 
     if (src !== undefined) {
-      html += `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt ?? '')}" class="max-w-full rounded-lg border border-default-200 my-2" />`
+      html += `<img src="${escapeText(src)}" alt="${escapeText(alt ?? '')}" class="max-w-full rounded-lg border border-default-200 my-2" />`
     } else if (href !== undefined) {
-      html += `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${renderInlineMarkdown(linkText ?? '')}</a>`
+      html += `<a href="${escapeText(href)}" target="_blank" rel="noopener noreferrer">${renderInlineMarkdown(linkText ?? '')}</a>`
     } else if (code !== undefined) {
+      // 代码 span 内服务端同样不解码实体, 此处保持 escapeHtml
       html += `<code>${escapeHtml(code)}</code>`
     } else if (both !== undefined) {
       html += `<strong><em>${renderInlineMarkdown(both)}</em></strong>`

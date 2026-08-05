@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '~/prisma/index'
 import { getPatchVisibilityWhere } from '~/app/api/utils/getPatchVisibilityWhere'
+import { createAuthLoader } from '~/middleware/_verifyHeaderCookie'
 import type { Prisma } from '~/prisma/generated/prisma/client'
 
 const getRandomUniqueId = async (visibilityWhere: Prisma.patchWhereInput) => {
@@ -28,7 +29,8 @@ const getRandomUniqueId = async (visibilityWhere: Prisma.patchWhereInput) => {
 }
 
 export const GET = async (req: NextRequest) => {
-  const visibilityWhere = await getPatchVisibilityWhere(req)
+  const loadAuth = createAuthLoader(req)
+  const visibilityWhere = await getPatchVisibilityWhere(req, loadAuth)
 
   const response = await getRandomUniqueId(visibilityWhere)
   return NextResponse.json(response)

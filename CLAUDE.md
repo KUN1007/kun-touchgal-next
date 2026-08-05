@@ -17,7 +17,7 @@ pnpm build            # 生产构建 (Next standalone)
 pnpm test             # Vitest 全量 (vitest run)
 pnpm test -- app/api/user/follow/__tests__/route.test.ts   # 运行单个测试文件
 pnpm typecheck        # tsc --noEmit
-pnpm lint             # eslint app components lib  (lint:fix 可自动修复)
+pnpm lint             # eslint . 全仓 (lint:fix 可自动修复)
 pnpm format           # prettier --write
 pnpm prisma:push      # prisma db push + generate (改了 schema 后)
 pnpm prisma:generate  # 仅重新生成 client

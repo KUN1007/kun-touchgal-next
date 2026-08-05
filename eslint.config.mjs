@@ -10,6 +10,11 @@ export default defineConfig([
   // migration/backup 是已执行完毕的一次性脚本归档 (多带 @ts-nocheck), 不再维护
   globalIgnores([
     '.next/',
+    // deployBuild.ts 的暂存构建 (构建失败会残留) 与回滚备份, 内含整份源码副本
+    '.next-deploy/',
+    '.next-previous/',
+    // Agent 隔离运行的 worktree, 每个都是完整源码副本 (eslint 不读 .gitignore)
+    '.claude/',
     'node_modules/',
     'prisma/generated/',
     'migration/backup/'

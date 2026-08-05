@@ -46,7 +46,7 @@ pnpm dev:webpack             # Webpack 开发服务器
 pnpm test                    # 全量 Vitest
 pnpm test -- path/to/foo.test.ts
 pnpm typecheck               # tsc --noEmit
-pnpm lint                    # eslint app components lib
+pnpm lint                    # eslint . 全仓
 pnpm lint:fix
 pnpm format                  # Prettier 写入全仓库，仅在明确需要时运行
 pnpm build                   # Next standalone；随后自动执行 postbuild

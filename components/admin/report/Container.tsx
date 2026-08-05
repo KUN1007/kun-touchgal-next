@@ -1,8 +1,9 @@
 'use client'
 
 import { Button, Select, SelectItem, Tab, Tabs } from '@heroui/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { kunShouldBackfillDeletedRow } from '~/utils/pagination'
 import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { useMounted } from '~/hooks/useMounted'
 import { ReportCard } from './ReportCard'
@@ -28,9 +29,22 @@ export const Report = ({ initialReports, total, title, targetType }: Props) => {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const fetchData = async (targetPage = page, targetTab = activeTab) => {
-    setLoading(true)
-    setError('')
+  const latestFetchRequestIdRef = useRef(0)
+  // 本渲染时刻的请求序号; 删行后补齐前比对, 若期间有过新请求 (翻页/筛选变更)
+  // 则闭包参数已过期, 跳过静默补齐让用户请求的响应落地
+  const renderFetchRequestId = latestFetchRequestIdRef.current
+
+  const fetchData = async (
+    targetPage = page,
+    targetTab = activeTab,
+    { silent = false } = {}
+  ) => {
+    const requestId = latestFetchRequestIdRef.current + 1
+    latestFetchRequestIdRef.current = requestId
+    if (!silent) {
+      setLoading(true)
+      setError('')
+    }
 
     try {
       const response = await kunFetchGet<
@@ -44,16 +58,25 @@ export const Report = ({ initialReports, total, title, targetType }: Props) => {
         tab: targetTab,
         targetType
       })
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
       if (typeof response === 'string') {
-        setError(response)
+        if (!silent) {
+          setError(response)
+        }
         return
       }
       setReports(response.reports)
       setTotalCount(response.total)
     } catch {
-      setError('网络错误, 请稍后重试')
+      if (!silent && requestId === latestFetchRequestIdRef.current) {
+        setError('网络错误, 请稍后重试')
+      }
     } finally {
-      setLoading(false)
+      if (requestId === latestFetchRequestIdRef.current) {
+        setLoading(false)
+      }
     }
   }
   // 处理成功后在本地移除该举报 (服务端会一并处理同目标的其他待处理举报),
@@ -83,6 +106,12 @@ export const Report = ({ initialReports, total, title, targetType }: Props) => {
     }
     setReports((prev) => prev.filter((report) => !isRelated(report)))
     setTotalCount((prev) => Math.max(0, prev - removedCount))
+    if (
+      kunShouldBackfillDeletedRow(totalCount, page, limit) &&
+      latestFetchRequestIdRef.current === renderFetchRequestId
+    ) {
+      fetchData(page, activeTab, { silent: true })
+    }
   }
 
   useEffect(() => {

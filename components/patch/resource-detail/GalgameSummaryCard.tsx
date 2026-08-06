@@ -80,14 +80,19 @@ interface Props {
 }
 
 // 资源页顶部的所属游戏简版卡片: 仅封面 / 游戏名 / 分类, 点击返回游戏详情页;
-// 封面贴卡片上左下边缘 (右侧无圆角), hover 蓝边与游戏页资源卡一致
+// 封面贴卡片上左下边缘 (右侧无圆角), hover 蓝边与游戏页资源卡一致;
+// 边线必须经 after 伪元素叠画在内容之上: 占位 border 会把封面推出 1px 缝,
+// 盒外 ring 在深色封面旁读作白缝, 普通 inset ring 会被贴边封面遮住;
+// 线色必须半透明 (divider): 不透明浅灰压在深色封面上仍读作白线;
+// rounded-large 与 HeroUI Card 默认圆角耦合 (rounded-[inherit] 在 v4 不生成);
+// after:z-20 必须压过 HeroUI Image 自带的 z-10, 否则线在封面区域被图片盖住
 export const GalgameSummaryCard = ({ galgame }: Props) => {
   return (
     <Card
       isPressable
       as={Link}
       href={`/${galgame.uniqueId}`}
-      className="group w-full border border-transparent transition hover:border-primary-400"
+      className="group w-full after:pointer-events-none after:absolute after:inset-0 after:z-20 after:rounded-large after:ring-1 after:ring-inset after:ring-divider after:transition hover:after:ring-primary-400"
     >
       <CardBody className="flex flex-row items-stretch gap-4 p-0 sm:gap-6">
         <div className="relative aspect-video w-32 shrink-0 bg-default-100 sm:w-48">

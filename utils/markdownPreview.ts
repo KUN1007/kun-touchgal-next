@@ -240,10 +240,7 @@ export const markdownToPreviewHtml = (markdown: string): string => {
     }
 
     if (tableMatch) {
-      const cells = tableMatch[1]
-        .split('|')
-        .map((c) => c.trim())
-        .filter(Boolean)
+      const cells = tableMatch[1].split('|').map((c) => c.trim())
       const nextLine = lines[i + 1]
       const isHeader = nextLine && /^\|(?:\s*:?-+:?\s*\|)+$/.test(nextLine)
 

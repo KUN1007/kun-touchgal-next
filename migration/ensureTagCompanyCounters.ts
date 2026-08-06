@@ -3,42 +3,102 @@ import { prisma } from '~/prisma/index'
 
 // patch_tag.count / patch_company.count 由关系表行数驱动:
 // 关系行随 patch 级联删除 / user 级联删除 / 显式解绑消失时同步递减, 插入时递增。
-// 行级触发器在 ON DELETE CASCADE 下逐行触发, 关闭删除侧漏减;
-// skipDuplicates 冲突未实插的行不触发, 并发重复 increment 口子一并关闭。
+// 语句级触发器 + transition table: 级联删除的每条内部 DELETE 同样触发, 删除侧不漏减;
+// ON CONFLICT 未实插的行不进 transition 表, 并发重复 increment 口子一并关闭。
+// 不用行级触发器: 行级版的父表行锁顺序 = 调用方数组顺序, 各 createMany 调用点
+// 顺序互不一致(请求体 / 无 orderBy 的 findMany / 外部 API), 并发反序插入即死锁。
+// 函数内必须 FOR 循环逐 id 升序点查更新 —— ORDER BY + FOR UPDATE 的加锁顺序由
+// 执行计划决定, 不保证有序; 也不得显式 FOR UPDATE: 它与并发 INSERT 经外键 RI 检查
+// 对父行持有的 FOR KEY SHARE 冲突, UPDATE count 自带的 FOR NO KEY UPDATE 才相容。
 // 上线顺序: 先部署拆除应用层手工计数的代码, 再跑本脚本 —— 窗口期漏计由
 // 同事务的全量 backfill 一并修正; 顺序颠倒则窗口期双计且无法自愈。
 
-// 无 status 的纯关系表: 父表 count 只随关系行增删迁移
+// 无 status 的纯关系表: 父表 count 只随关系行增删迁移。
+// 引用 transition 表的触发器不能挂 INSERT OR DELETE 合体, 按事件拆三个
 const buildRelationCounterTrigger = (
   name: string,
   parentTable: string,
   fkColumn: string,
   relationTable: string
 ): string[] => [
+  // 已装过旧行级版的库: 先摘旧触发器与旧函数再装新版
+  `DROP TRIGGER IF EXISTS ${name} ON "${relationTable}"`,
+  `DROP FUNCTION IF EXISTS ${name}()`,
   `
-CREATE OR REPLACE FUNCTION ${name}() RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION ${name}_ins() RETURNS trigger AS $$
+DECLARE
+  r RECORD;
 BEGIN
-  IF TG_OP = 'INSERT' THEN
-    UPDATE "${parentTable}" SET count = count + 1 WHERE id = NEW.${fkColumn};
-    RETURN NEW;
-  ELSIF TG_OP = 'DELETE' THEN
-    UPDATE "${parentTable}" SET count = GREATEST(count - 1, 0) WHERE id = OLD.${fkColumn};
-    RETURN OLD;
-  ELSIF TG_OP = 'UPDATE' AND NEW.${fkColumn} IS DISTINCT FROM OLD.${fkColumn} THEN
-    UPDATE "${parentTable}" SET count = GREATEST(count - 1, 0) WHERE id = OLD.${fkColumn};
-    UPDATE "${parentTable}" SET count = count + 1 WHERE id = NEW.${fkColumn};
-    RETURN NEW;
-  END IF;
+  FOR r IN
+    SELECT ${fkColumn} AS fk, COUNT(*)::int AS c
+    FROM new_rows GROUP BY ${fkColumn} ORDER BY ${fkColumn}
+  LOOP
+    UPDATE "${parentTable}" SET count = count + r.c WHERE id = r.fk;
+  END LOOP;
   RETURN NULL;
 END;
 $$ LANGUAGE plpgsql
 `,
-  `DROP TRIGGER IF EXISTS ${name} ON "${relationTable}"`,
   `
-CREATE TRIGGER ${name}
-AFTER INSERT OR DELETE OR UPDATE OF ${fkColumn}
-ON "${relationTable}"
-FOR EACH ROW EXECUTE FUNCTION ${name}()
+CREATE OR REPLACE FUNCTION ${name}_del() RETURNS trigger AS $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT ${fkColumn} AS fk, COUNT(*)::int AS c
+    FROM old_rows GROUP BY ${fkColumn} ORDER BY ${fkColumn}
+  LOOP
+    UPDATE "${parentTable}" SET count = GREATEST(count - r.c, 0) WHERE id = r.fk;
+  END LOOP;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql
+`,
+  `
+CREATE OR REPLACE FUNCTION ${name}_upd() RETURNS trigger AS $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT fk, SUM(delta)::int AS c
+    FROM (
+      SELECT o.${fkColumn} AS fk, -1 AS delta
+      FROM old_rows o JOIN new_rows n USING (id)
+      WHERE o.${fkColumn} IS DISTINCT FROM n.${fkColumn}
+      UNION ALL
+      SELECT n.${fkColumn}, 1
+      FROM old_rows o JOIN new_rows n USING (id)
+      WHERE o.${fkColumn} IS DISTINCT FROM n.${fkColumn}
+    ) s
+    GROUP BY fk ORDER BY fk
+  LOOP
+    UPDATE "${parentTable}" SET count = GREATEST(count + r.c, 0) WHERE id = r.fk;
+  END LOOP;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql
+`,
+  `DROP TRIGGER IF EXISTS ${name}_ins ON "${relationTable}"`,
+  `
+CREATE TRIGGER ${name}_ins
+AFTER INSERT ON "${relationTable}"
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION ${name}_ins()
+`,
+  `DROP TRIGGER IF EXISTS ${name}_del ON "${relationTable}"`,
+  `
+CREATE TRIGGER ${name}_del
+AFTER DELETE ON "${relationTable}"
+REFERENCING OLD TABLE AS old_rows
+FOR EACH STATEMENT EXECUTE FUNCTION ${name}_del()
+`,
+  `DROP TRIGGER IF EXISTS ${name}_upd ON "${relationTable}"`,
+  // 带列列表 (UPDATE OF) 的触发器不能用 transition 表, 改由函数内 IS DISTINCT FROM 过滤
+  `
+CREATE TRIGGER ${name}_upd
+AFTER UPDATE ON "${relationTable}"
+REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION ${name}_upd()
 `
 ]
 

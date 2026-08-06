@@ -11,8 +11,7 @@ const {
   hasPendingModerationMock,
   createModerationTaskMock,
   deletePendingModerationTasksMock,
-  collectPendingReportIdsMock,
-  deleteReportsByIdsMock
+  deleteOrphanReportsMock
 } = vi.hoisted(() => ({
   findUniqueMock: vi.fn(),
   transactionMock: vi.fn(),
@@ -24,8 +23,7 @@ const {
   hasPendingModerationMock: vi.fn(),
   createModerationTaskMock: vi.fn(),
   deletePendingModerationTasksMock: vi.fn(),
-  collectPendingReportIdsMock: vi.fn(),
-  deleteReportsByIdsMock: vi.fn()
+  deleteOrphanReportsMock: vi.fn()
 }))
 
 const events: string[] = []
@@ -57,8 +55,7 @@ vi.mock('~/server/moderation/submit', () => ({
 }))
 
 vi.mock('~/server/report/pending', () => ({
-  collectPendingReportIds: collectPendingReportIdsMock,
-  deleteReportsByIds: deleteReportsByIdsMock
+  deleteOrphanReports: deleteOrphanReportsMock
 }))
 
 import { createPatchRating } from '~/app/api/patch/rating/create'
@@ -107,8 +104,7 @@ beforeEach(() => {
   hasPendingModerationMock.mockResolvedValue(false)
   createModerationTaskMock.mockResolvedValue(undefined)
   deletePendingModerationTasksMock.mockResolvedValue(undefined)
-  collectPendingReportIdsMock.mockResolvedValue([])
-  deleteReportsByIdsMock.mockResolvedValue(undefined)
+  deleteOrphanReportsMock.mockResolvedValue(undefined)
   transactionMock.mockImplementation(
     async (callback: (tx: typeof transactionClient) => Promise<unknown>) => {
       events.push('transaction-start')
@@ -164,17 +160,13 @@ describe('public patch rating write transactions', () => {
     await deletePatchRating({ ratingId: 5 }, 7, 1)
 
     expect(recomputeOneMock).toHaveBeenCalledWith(10, transactionClient)
-    // 举报外键 SET NULL: 主键在删除前收集 (无锁), 删除后按主键清理 (锁序一致)
-    expect(collectPendingReportIdsMock).toHaveBeenCalledWith(
+    // 举报外键 SET NULL: 删除后按 NULL 目标清理级联置空的孤儿 (锁序一致)
+    expect(deleteOrphanReportsMock).toHaveBeenCalledWith(
       'rating',
-      5,
       transactionClient
     )
-    expect(
-      collectPendingReportIdsMock.mock.invocationCallOrder[0]
-    ).toBeLessThan(deleteMock.mock.invocationCallOrder[0])
     expect(deleteMock.mock.invocationCallOrder[0]).toBeLessThan(
-      deleteReportsByIdsMock.mock.invocationCallOrder[0]
+      deleteOrphanReportsMock.mock.invocationCallOrder[0]
     )
     expect(events).toEqual([
       'transaction-start',

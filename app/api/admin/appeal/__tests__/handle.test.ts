@@ -20,8 +20,7 @@ const {
   recomputeOneMock,
   deletePendingTasksMock,
   deletePendingAppealsMock,
-  collectPendingReportIdsMock,
-  deleteReportsByIdsMock,
+  deleteOrphanReportsMock,
   isPrismaConflictMock,
   invalidateContentMock,
   invalidateContentByPatchIdMock,
@@ -52,8 +51,7 @@ const {
   recomputeOneMock: vi.fn(),
   deletePendingTasksMock: vi.fn(),
   deletePendingAppealsMock: vi.fn(),
-  collectPendingReportIdsMock: vi.fn(),
-  deleteReportsByIdsMock: vi.fn(),
+  deleteOrphanReportsMock: vi.fn(),
   isPrismaConflictMock: vi.fn(),
   invalidateContentMock: vi.fn(),
   invalidateContentByPatchIdMock: vi.fn(),
@@ -113,8 +111,7 @@ vi.mock('~/server/moderation/appeal', () => ({
 }))
 
 vi.mock('~/server/report/pending', () => ({
-  collectPendingReportIds: collectPendingReportIdsMock,
-  deleteReportsByIds: deleteReportsByIdsMock
+  deleteOrphanReports: deleteOrphanReportsMock
 }))
 
 vi.mock('~/app/api/patch/cache', () => ({
@@ -185,8 +182,7 @@ beforeEach(() => {
   createLogMock.mockResolvedValue({})
   deletePendingTasksMock.mockResolvedValue({ count: 0 })
   deletePendingAppealsMock.mockResolvedValue({ count: 0 })
-  collectPendingReportIdsMock.mockResolvedValue([])
-  deleteReportsByIdsMock.mockResolvedValue(undefined)
+  deleteOrphanReportsMock.mockResolvedValue(undefined)
   isPrismaConflictMock.mockReturnValue(false)
   invalidateContentMock.mockResolvedValue(undefined)
   invalidateContentByPatchIdMock.mockResolvedValue(undefined)
@@ -236,25 +232,19 @@ describe('handleAppeal approve', () => {
 describe('handleAppeal reject', () => {
   it('deletes a still-hidden rating and writes notice + audit inside the transaction', async () => {
     txQueryRawMock.mockResolvedValue([{ status: 2 }])
-    collectPendingReportIdsMock.mockResolvedValue([81])
 
     const result = await handleAppeal({ appealId: 1, approve: false }, 99)
 
     expect(result).toEqual({})
     // 守卫删除: FOR UPDATE 读到隐藏态才删 (R1)
     expect(deleteRatingMock).toHaveBeenCalledWith({ where: { id: 5 } })
-    // 举报外键 SET NULL: 主键在删除前收集 (无锁), 删除后按主键清理 (锁序一致)
-    expect(collectPendingReportIdsMock).toHaveBeenCalledWith(
+    // 举报外键 SET NULL: 删除后按 NULL 目标清理级联置空的孤儿 (锁序一致)
+    expect(deleteOrphanReportsMock).toHaveBeenCalledWith(
       'rating',
-      5,
       transactionClient
     )
-    expect(
-      collectPendingReportIdsMock.mock.invocationCallOrder[0]
-    ).toBeLessThan(deleteRatingMock.mock.invocationCallOrder[0])
-    expect(deleteReportsByIdsMock).toHaveBeenCalledWith([81], transactionClient)
     expect(deleteRatingMock.mock.invocationCallOrder[0]).toBeLessThan(
-      deleteReportsByIdsMock.mock.invocationCallOrder[0]
+      deleteOrphanReportsMock.mock.invocationCallOrder[0]
     )
     // R3: 通知与审计随删除同事务 —— createMessage 收到 tx, admin_log 写在 tx 上
     expect(createMessageMock).toHaveBeenCalledTimes(1)
@@ -279,7 +269,7 @@ describe('handleAppeal reject', () => {
     expect(result).toEqual({})
     expect(deleteRatingMock).not.toHaveBeenCalled()
     // 内容保留 → 其举报仍有效, 不得清理
-    expect(deleteReportsByIdsMock).not.toHaveBeenCalled()
+    expect(deleteOrphanReportsMock).not.toHaveBeenCalled()
     expect(createMessageMock.mock.calls[0][0].content).toBe(
       APPEAL_RESULT_NOTICE.rejectedKept(MODERATION_CONTENT_TYPE_MAP.rating)
     )
@@ -390,7 +380,6 @@ describe('handleAppeal reject', () => {
     })
     // CTE 返回根+后代 id
     txQueryRawMock.mockResolvedValue([{ id: 5 }, { id: 6 }])
-    collectPendingReportIdsMock.mockResolvedValue([71, 72])
 
     const result = await handleAppeal({ appealId: 1, approve: false }, 99)
 
@@ -410,18 +399,13 @@ describe('handleAppeal reject', () => {
       [5, 6],
       transactionClient
     )
-    // 举报外键 SET NULL: 主键须在删除前收集, 确认删除后按主键清理
-    expect(collectPendingReportIdsMock).toHaveBeenCalledWith(
+    // 举报外键 SET NULL: 删除后按 NULL 目标清理级联置空的孤儿
+    expect(deleteOrphanReportsMock).toHaveBeenCalledWith(
       'comment',
-      [5, 6],
       transactionClient
     )
-    expect(
-      collectPendingReportIdsMock.mock.invocationCallOrder[0]
-    ).toBeLessThan(deleteCommentMock.mock.invocationCallOrder[0])
-    expect(deleteReportsByIdsMock).toHaveBeenCalledWith(
-      [71, 72],
-      transactionClient
+    expect(deleteCommentMock.mock.invocationCallOrder[0]).toBeLessThan(
+      deleteOrphanReportsMock.mock.invocationCallOrder[0]
     )
     expect(createMessageMock.mock.calls[0][1]).toBe(transactionClient)
     expect(invalidateCommentCacheMock).toHaveBeenCalledWith(10)

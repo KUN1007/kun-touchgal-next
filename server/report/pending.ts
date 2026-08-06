@@ -5,39 +5,21 @@ import type { AdminReportTargetType } from '~/types/api/admin'
 type ReportClient = Prisma.TransactionClient | typeof prisma
 
 // 删除评论/评分时清理其尚未处理的举报, 已处理的举报保留作历史记录。
-// patch_report.comment_id / rating_id 是 ON DELETE SET NULL, 内容删除后
-// 无从按目标 id 匹配 (孤儿举报); 而删除前直接清理会持有举报行锁再等内容
-// 行锁, 与级联 SET NULL 的「内容行→举报行」锁序相反, 可与并发的举报处理
-// 死锁 —— 故拆两步: 删除前无锁收集主键, 删除后按主键清理
-
-export const collectPendingReportIds = async (
+// patch_report.comment_id / rating_id 是 ON DELETE SET NULL; 删除前清理
+// 会持有举报行锁再等内容行锁, 与级联 SET NULL 的「内容行→举报行」锁序
+// 相反, 可与并发的举报处理死锁 —— 故在删除之后清理: 级联置空对本事务
+// 可见, 目标 id 为 NULL 且 status 仍为 0 的行即为孤儿 (含删除期间并发
+// 新增的举报与历史遗留)。创建路径必填目标 id, 故 NULL 只可能来自级联,
+// 按 NULL 目标清理零误伤; status: 0 防误删已被并发处理的历史记录
+export const deleteOrphanReports = async (
   targetType: AdminReportTargetType,
-  contentId: number | number[],
   db: ReportClient = prisma
 ) => {
-  const idFilter = Array.isArray(contentId) ? { in: contentId } : contentId
-  const reports = await db.patch_report.findMany({
+  await db.patch_report.deleteMany({
     where: {
       target_type: targetType,
       status: 0,
-      ...(targetType === 'comment'
-        ? { comment_id: idFilter }
-        : { rating_id: idFilter })
-    },
-    select: { id: true }
-  })
-  return reports.map((report) => report.id)
-}
-
-// status: 0 条件防误删收集间隙中已被并发处理 (转为历史记录) 的举报
-export const deleteReportsByIds = async (
-  reportIds: number[],
-  db: ReportClient = prisma
-) => {
-  if (!reportIds.length) {
-    return
-  }
-  await db.patch_report.deleteMany({
-    where: { id: { in: reportIds }, status: 0 }
+      ...(targetType === 'comment' ? { comment_id: null } : { rating_id: null })
+    }
   })
 }

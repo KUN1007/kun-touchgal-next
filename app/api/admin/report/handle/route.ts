@@ -7,6 +7,7 @@ import { adminHandleReportSchema } from '~/validations/admin'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
+import { deleteOrphanReports } from '~/server/report/pending'
 import { collectCommentSubtreeIds } from '~/app/api/patch/comment/subtree'
 import { recomputePatchRatingStat } from '~/app/api/patch/rating/stat'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
@@ -111,6 +112,12 @@ const handleReport = async (
           handled_at: new Date()
         }
       })
+    }
+
+    // 收集与删除之间新提交的举报不在 relatedReports 里, 级联置空后滞留
+    // pending; 待 updateMany 将已收集举报转为历史后, 按 NULL 目标兜底清理
+    if (input.action === 'delete' && targetId) {
+      await deleteOrphanReports(targetType, tx)
     }
 
     const recipientIds = [...new Set(relatedReports.map((r) => r.sender_id))]

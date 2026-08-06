@@ -13,8 +13,7 @@ const {
   recomputeOneMock,
   deleteTasksMock,
   deleteAppealsMock,
-  collectReportIdsMock,
-  deleteReportsByIdsMock
+  deleteOrphanReportsMock
 } = vi.hoisted(() => ({
   findRatingsMock: vi.fn(),
   findAdminMock: vi.fn(),
@@ -28,8 +27,7 @@ const {
   recomputeOneMock: vi.fn(),
   deleteTasksMock: vi.fn(),
   deleteAppealsMock: vi.fn(),
-  collectReportIdsMock: vi.fn(),
-  deleteReportsByIdsMock: vi.fn()
+  deleteOrphanReportsMock: vi.fn()
 }))
 
 const transactionClient = {
@@ -62,8 +60,7 @@ vi.mock('~/server/moderation/appeal', () => ({
 }))
 
 vi.mock('~/server/report/pending', () => ({
-  collectPendingReportIds: collectReportIdsMock,
-  deleteReportsByIds: deleteReportsByIdsMock
+  deleteOrphanReports: deleteOrphanReportsMock
 }))
 
 import { deleteRating } from '~/app/api/admin/rating/delete'
@@ -117,8 +114,7 @@ beforeEach(() => {
   recomputeOneMock.mockResolvedValue(undefined)
   deleteTasksMock.mockResolvedValue(undefined)
   deleteAppealsMock.mockResolvedValue(undefined)
-  collectReportIdsMock.mockResolvedValue([])
-  deleteReportsByIdsMock.mockResolvedValue(undefined)
+  deleteOrphanReportsMock.mockResolvedValue(undefined)
   transactionMock.mockImplementation(
     async (callback: (tx: typeof transactionClient) => Promise<unknown>) =>
       callback(transactionClient)
@@ -131,17 +127,13 @@ describe('deleteRating', () => {
       deleteRating({ ratingIds: [1, 2, 3, 4] }, 99)
     ).resolves.toEqual({})
 
-    // 举报外键 SET NULL: 主键在删除前收集 (无锁), 删除后按主键清理 (锁序一致)
-    expect(collectReportIdsMock).toHaveBeenCalledWith(
+    // 举报外键 SET NULL: 删除后按 NULL 目标清理级联置空的孤儿 (锁序一致)
+    expect(deleteOrphanReportsMock).toHaveBeenCalledWith(
       'rating',
-      [1, 2, 3, 4],
       transactionClient
     )
-    expect(collectReportIdsMock.mock.invocationCallOrder[0]).toBeLessThan(
-      deleteManyMock.mock.invocationCallOrder[0]
-    )
     expect(deleteManyMock.mock.invocationCallOrder[0]).toBeLessThan(
-      deleteReportsByIdsMock.mock.invocationCallOrder[0]
+      deleteOrphanReportsMock.mock.invocationCallOrder[0]
     )
 
     expect(executeRawMock).toHaveBeenCalledTimes(1)

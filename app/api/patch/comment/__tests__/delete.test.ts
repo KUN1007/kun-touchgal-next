@@ -9,8 +9,7 @@ const {
   messageDeleteManyMock,
   deletePendingModerationTasksMock,
   deletePendingAppealsMock,
-  collectPendingReportIdsMock,
-  deleteReportsByIdsMock,
+  deleteOrphanReportsMock,
   invalidateCommentCacheMock,
   invalidateContentMock
 } = vi.hoisted(() => ({
@@ -22,8 +21,7 @@ const {
   messageDeleteManyMock: vi.fn(),
   deletePendingModerationTasksMock: vi.fn(),
   deletePendingAppealsMock: vi.fn(),
-  collectPendingReportIdsMock: vi.fn(),
-  deleteReportsByIdsMock: vi.fn(),
+  deleteOrphanReportsMock: vi.fn(),
   invalidateCommentCacheMock: vi.fn(async () => undefined),
   invalidateContentMock: vi.fn(async () => undefined)
 }))
@@ -50,8 +48,7 @@ vi.mock('~/server/moderation/appeal', () => ({
 }))
 
 vi.mock('~/server/report/pending', () => ({
-  collectPendingReportIds: collectPendingReportIdsMock,
-  deleteReportsByIds: deleteReportsByIdsMock
+  deleteOrphanReports: deleteOrphanReportsMock
 }))
 
 vi.mock('~/app/api/patch/comment/cache', () => ({
@@ -82,8 +79,7 @@ beforeEach(() => {
   childFindManyMock.mockResolvedValue([])
   deleteMock.mockResolvedValue({})
   messageDeleteManyMock.mockResolvedValue({ count: 1 })
-  collectPendingReportIdsMock.mockResolvedValue([])
-  deleteReportsByIdsMock.mockResolvedValue(undefined)
+  deleteOrphanReportsMock.mockResolvedValue(undefined)
   transactionMock.mockImplementation(
     async (callback: (tx: typeof transactionClient) => Promise<unknown>) =>
       callback(transactionClient)
@@ -158,5 +154,21 @@ describe('deleteComment 通知清理', () => {
     await deleteComment({ commentId: 11 }, 7, 1)
 
     expect(messageDeleteManyMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('deleteComment 举报清理', () => {
+  it('删除后按 NULL 目标清理级联置空的孤儿举报', async () => {
+    findUniqueMock.mockResolvedValue(baseComment)
+
+    await deleteComment({ commentId: 11 }, 7, 1)
+
+    expect(deleteOrphanReportsMock).toHaveBeenCalledWith(
+      'comment',
+      transactionClient
+    )
+    expect(deleteMock.mock.invocationCallOrder[0]).toBeLessThan(
+      deleteOrphanReportsMock.mock.invocationCallOrder[0]
+    )
   })
 })

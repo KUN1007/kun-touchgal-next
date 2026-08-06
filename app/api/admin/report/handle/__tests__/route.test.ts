@@ -6,6 +6,7 @@ const {
   findReportMock,
   transactionMock,
   findRelatedReportsMock,
+  deleteReportsMock,
   deleteRatingMock,
   deleteCommentMock,
   queryRawMock,
@@ -22,6 +23,7 @@ const {
   findReportMock: vi.fn(),
   transactionMock: vi.fn(),
   findRelatedReportsMock: vi.fn(),
+  deleteReportsMock: vi.fn(),
   deleteRatingMock: vi.fn(),
   deleteCommentMock: vi.fn(),
   queryRawMock: vi.fn(),
@@ -40,7 +42,8 @@ let finishRecompute: () => void
 const transactionClient = {
   patch_report: {
     findMany: findRelatedReportsMock,
-    updateMany: updateReportsMock
+    updateMany: updateReportsMock,
+    deleteMany: deleteReportsMock
   },
   patch_rating: { deleteMany: deleteRatingMock },
   patch_comment: { deleteMany: deleteCommentMock },
@@ -130,6 +133,7 @@ beforeEach(() => {
   deleteCommentMock.mockResolvedValue({ count: 1 })
   queryRawMock.mockResolvedValue([])
   updateReportsMock.mockResolvedValue({ count: 1 })
+  deleteReportsMock.mockResolvedValue({ count: 0 })
   createMessagesMock.mockResolvedValue({ count: 1 })
   invalidateCommentCacheMock.mockResolvedValue(undefined)
   invalidateContentCacheMock.mockResolvedValue(undefined)
@@ -173,6 +177,14 @@ describe('POST /api/admin/report/handle', () => {
     expect(recomputeOneMock).toHaveBeenCalledWith(10, transactionClient)
     expect(deleteRatingMock.mock.invocationCallOrder[0]).toBeLessThan(
       recomputeOneMock.mock.invocationCallOrder[0]
+    )
+    // 收集窗口内新提交的举报被级联置空: 待 updateMany 将已收集举报转为
+    // 历史后, 按 NULL 目标兜底清理 (先兜底会误删仍处 pending 的已收集举报)
+    expect(deleteReportsMock).toHaveBeenCalledWith({
+      where: { target_type: 'rating', status: 0, rating_id: null }
+    })
+    expect(updateReportsMock.mock.invocationCallOrder[0]).toBeLessThan(
+      deleteReportsMock.mock.invocationCallOrder[0]
     )
     expect(eventsBeforeRecompute).toEqual(['transaction-start'])
     expect(events).toEqual([
@@ -233,6 +245,12 @@ describe('POST /api/admin/report/handle', () => {
     expect(updateReportsMock).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: { in: [1, 2] } } })
     )
+    expect(deleteReportsMock).toHaveBeenCalledWith({
+      where: { target_type: 'comment', status: 0, comment_id: null }
+    })
+    expect(updateReportsMock.mock.invocationCallOrder[0]).toBeLessThan(
+      deleteReportsMock.mock.invocationCallOrder[0]
+    )
     const messageRows = createMessagesMock.mock.calls[0][0].data
     expect(
       messageRows.map((row: { recipient_id: number }) => row.recipient_id)
@@ -263,6 +281,8 @@ describe('POST /api/admin/report/handle', () => {
     // 驳回不删除评论, 子树举报的目标仍然存在, 只处理同目标的举报
     expect(queryRawMock).not.toHaveBeenCalled()
     expect(deleteCommentMock).not.toHaveBeenCalled()
+    // 未删除内容 → 不产生孤儿, 不做兜底清理
+    expect(deleteReportsMock).not.toHaveBeenCalled()
     expect(findRelatedReportsMock).toHaveBeenCalledWith({
       where: { status: 0, target_type: 'comment', comment_id: 5 },
       select: { id: true, sender_id: true, reason: true }

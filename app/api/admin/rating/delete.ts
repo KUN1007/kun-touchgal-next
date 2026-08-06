@@ -6,10 +6,7 @@ import { recomputePatchRatingStats } from '~/app/api/patch/rating/stat'
 import { invalidatePatchContentCacheByPatchId } from '~/app/api/patch/cache'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
-import {
-  collectPendingReportIds,
-  deleteReportsByIds
-} from '~/server/report/pending'
+import { deleteOrphanReports } from '~/server/report/pending'
 
 const adminLogContentLimit = 10007
 const adminDeleteRatingSummaryLimit = 10
@@ -112,13 +109,6 @@ export const deleteRating = async (
           FOR UPDATE
         `
 
-        // 举报外键是 SET NULL, 删除前先无锁收集 pending 举报主键, 删除后按主键清理
-        const reportIds = await collectPendingReportIds(
-          'rating',
-          ratingIds,
-          prisma
-        )
-
         await prisma.patch_rating.deleteMany({
           where: {
             id: {
@@ -128,7 +118,7 @@ export const deleteRating = async (
         })
         await deletePendingModerationTasks('rating', ratingIds, prisma)
         await deletePendingAppeals('rating', ratingIds, prisma)
-        await deleteReportsByIds(reportIds, prisma)
+        await deleteOrphanReports('rating', prisma)
 
         await recomputePatchRatingStats(
           lockedRatings

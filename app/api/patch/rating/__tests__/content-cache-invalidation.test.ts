@@ -9,8 +9,7 @@ const {
   preScreenMock,
   createTaskMock,
   deletePendingMock,
-  collectPendingReportIdsMock,
-  deleteReportsByIdsMock,
+  deleteOrphanReportsMock,
   invalidateContentMock,
   invalidateByIdMock
 } = vi.hoisted(() => ({
@@ -22,8 +21,7 @@ const {
   preScreenMock: vi.fn(),
   createTaskMock: vi.fn(async () => undefined),
   deletePendingMock: vi.fn(async () => undefined),
-  collectPendingReportIdsMock: vi.fn(async () => []),
-  deleteReportsByIdsMock: vi.fn(async () => undefined),
+  deleteOrphanReportsMock: vi.fn(async () => undefined),
   invalidateContentMock: vi.fn(async () => undefined),
   invalidateByIdMock: vi.fn(async () => undefined)
 }))
@@ -53,8 +51,7 @@ vi.mock('~/app/api/patch/cache', () => ({
 }))
 
 vi.mock('~/server/report/pending', () => ({
-  collectPendingReportIds: collectPendingReportIdsMock,
-  deleteReportsByIds: deleteReportsByIdsMock
+  deleteOrphanReports: deleteOrphanReportsMock
 }))
 
 import { createPatchRating } from '~/app/api/patch/rating/create'

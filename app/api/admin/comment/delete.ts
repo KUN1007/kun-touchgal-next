@@ -4,10 +4,7 @@ import { adminDeleteCommentSchema } from '~/validations/admin'
 import { collectCommentSubtreeIds } from '~/app/api/patch/comment/subtree'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
-import {
-  collectPendingReportIds,
-  deleteReportsByIds
-} from '~/server/report/pending'
+import { deleteOrphanReports } from '~/server/report/pending'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 import { invalidatePatchContentCacheByPatchId } from '~/app/api/patch/cache'
 
@@ -89,13 +86,6 @@ export const deleteComment = async (
     // 以清理它们尚未有最终裁决的审核任务
     deletedIds = await collectCommentSubtreeIds(targetIds, prisma)
 
-    // 举报外键是 SET NULL, 删除前先无锁收集 pending 举报主键, 删除后按主键清理
-    const reportIds = await collectPendingReportIds(
-      'comment',
-      deletedIds,
-      prisma
-    )
-
     await prisma.patch_comment.deleteMany({
       where: {
         id: {
@@ -108,7 +98,7 @@ export const deleteComment = async (
 
     await deletePendingAppeals('comment', deletedIds, prisma)
 
-    await deleteReportsByIds(reportIds, prisma)
+    await deleteOrphanReports('comment', prisma)
 
     await prisma.admin_log.create({
       data: {

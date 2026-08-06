@@ -1,14 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const {
-  deletePendingModerationTasksMock,
-  deletePendingAppealsMock,
-  collectPendingReportIdsMock
-} = vi.hoisted(() => ({
-  deletePendingModerationTasksMock: vi.fn(),
-  deletePendingAppealsMock: vi.fn(),
-  collectPendingReportIdsMock: vi.fn()
-}))
+const { deletePendingModerationTasksMock, deletePendingAppealsMock } =
+  vi.hoisted(() => ({
+    deletePendingModerationTasksMock: vi.fn(),
+    deletePendingAppealsMock: vi.fn()
+  }))
 
 vi.mock('~/prisma/index', () => ({
   prisma: {}
@@ -43,10 +39,6 @@ vi.mock('~/server/moderation/appeal', () => ({
   deletePendingAppeals: deletePendingAppealsMock
 }))
 
-vi.mock('~/server/report/pending', () => ({
-  collectPendingReportIds: collectPendingReportIdsMock
-}))
-
 vi.mock('~/app/api/user/session/cache', () => ({
   invalidateUserSession: vi.fn()
 }))
@@ -69,14 +61,13 @@ beforeEach(() => {
 })
 
 describe('cleanupResourceCommentDerivatives', () => {
-  it('资源有评论时清理站内信 (link 前缀) 与待裁决审核任务/申诉, 并返回收集的 pending 举报主键', async () => {
+  it('资源有评论时清理站内信 (link 前缀) 与待裁决审核任务/申诉', async () => {
     const tx = makeTx({
       patch: { unique_id: 'patch-10' },
       comment: [{ id: 11 }, { id: 12 }]
     })
-    collectPendingReportIdsMock.mockResolvedValue([21, 22])
 
-    const reportIds = await cleanupResourceCommentDerivatives(tx as any, 5)
+    await cleanupResourceCommentDerivatives(tx as any, 5)
 
     expect(tx.user_message.deleteMany).toHaveBeenCalledWith({
       where: {
@@ -93,33 +84,23 @@ describe('cleanupResourceCommentDerivatives', () => {
       [11, 12],
       tx
     )
-    // 举报只收集不删除: 删除须由调用方在资源行删除后执行
-    expect(collectPendingReportIdsMock).toHaveBeenCalledWith(
-      'comment',
-      [11, 12],
-      tx
-    )
-    expect(reportIds).toEqual([21, 22])
   })
 
   it('资源无评论时不做任何清理', async () => {
     const tx = makeTx({ patch: { unique_id: 'patch-10' }, comment: [] })
 
-    const reportIds = await cleanupResourceCommentDerivatives(tx as any, 5)
+    await cleanupResourceCommentDerivatives(tx as any, 5)
 
     expect(tx.user_message.deleteMany).not.toHaveBeenCalled()
     expect(deletePendingModerationTasksMock).not.toHaveBeenCalled()
     expect(deletePendingAppealsMock).not.toHaveBeenCalled()
-    expect(collectPendingReportIdsMock).not.toHaveBeenCalled()
-    expect(reportIds).toEqual([])
   })
 
   it('资源不存在时静默返回', async () => {
     const tx = makeTx(null)
 
-    const reportIds = await cleanupResourceCommentDerivatives(tx as any, 5)
+    await cleanupResourceCommentDerivatives(tx as any, 5)
 
     expect(tx.user_message.deleteMany).not.toHaveBeenCalled()
-    expect(reportIds).toEqual([])
   })
 })

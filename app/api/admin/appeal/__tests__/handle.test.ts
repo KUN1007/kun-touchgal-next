@@ -339,37 +339,28 @@ describe('handleAppeal reject', () => {
     expect(createMessageMock.mock.calls[0][0].content).toBe(
       APPEAL_RESULT_NOTICE.rejectedKept(MODERATION_CONTENT_TYPE_MAP.resource)
     )
-    // 资源保留 → 其评论仍在, 收集到的举报不得清理
-    expect(deleteReportsByIdsMock).not.toHaveBeenCalled()
+    // 资源保留 → 其评论仍在, 其举报不得清理
+    expect(deleteOrphanReportsMock).not.toHaveBeenCalled()
     expect(queueSearchSyncMock).not.toHaveBeenCalled()
     expect(kickDrainMock).not.toHaveBeenCalled()
   })
 
-  it('collects resource-comment pending reports before delete and cleans them after', async () => {
+  it('cleans orphaned resource-comment reports after the delete', async () => {
     findAppealMock.mockResolvedValue({
       ...ratingAppeal,
       content_type: 'resource'
     })
-    // 删除前无锁收集: 级联删评论后举报外键已置 NULL, 无从匹配
-    txFindResourceMock.mockResolvedValue({
-      comment: [{ id: 21 }, { id: 22 }]
-    })
-    collectPendingReportIdsMock.mockResolvedValue([91])
 
     const result = await handleAppeal({ appealId: 1, approve: false }, 99)
 
     expect(result).toEqual({})
-    expect(collectPendingReportIdsMock).toHaveBeenCalledWith(
+    // 级联删资源评论后举报外键已置 NULL, 按 NULL 目标清理孤儿
+    expect(deleteOrphanReportsMock).toHaveBeenCalledWith(
       'comment',
-      [21, 22],
       transactionClient
     )
-    expect(
-      collectPendingReportIdsMock.mock.invocationCallOrder[0]
-    ).toBeLessThan(deleteResourceMock.mock.invocationCallOrder[0])
-    expect(deleteReportsByIdsMock).toHaveBeenCalledWith([91], transactionClient)
     expect(deleteResourceMock.mock.invocationCallOrder[0]).toBeLessThan(
-      deleteReportsByIdsMock.mock.invocationCallOrder[0]
+      deleteOrphanReportsMock.mock.invocationCallOrder[0]
     )
   })
 

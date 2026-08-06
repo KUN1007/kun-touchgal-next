@@ -302,26 +302,15 @@ const rejectAppeal = async (
               contentDeleted = locked.length === 0
             }
           } else {
-            // 资源删除会级联删其评论 (resource_id Cascade), 评论举报外键是 SET NULL:
-            // 删除前无锁收集 pending 举报主键 (只读, 守卫未命中照常提交时无副作用),
-            // 确认删除后按主键清理
-            const resourceComments = await tx.patch_resource.findUnique({
-              where: { id: contentId },
-              select: { comment: { select: { id: true } } }
-            })
-            const commentIds = (resourceComments?.comment ?? []).map(
-              (comment) => comment.id
-            )
-            const reportIds = commentIds.length
-              ? await collectPendingReportIds('comment', commentIds, tx)
-              : []
+            // 资源删除会级联删其评论 (resource_id Cascade), 评论举报外键是
+            // SET NULL: 确认删除后清理级联置空的孤儿举报
             const deleted = await tx.patch_resource.deleteMany({
               where: { id: contentId, status: hiddenStatus }
             })
             if (deleted.count > 0 && patchId !== null) {
               await deletePendingModerationTasks('resource', contentId, tx)
               await deletePendingAppeals('resource', contentId, tx)
-              await deleteReportsByIds(reportIds, tx)
+              await deleteOrphanReports('comment', tx)
               affectedUniqueId = await recalcPatchType(patchId, tx)
               await enqueueSearchOutbox(tx, patchId)
               await enqueueResourceLinkDeletions(tx, resourceLinksForS3)

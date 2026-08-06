@@ -13,7 +13,7 @@ const {
   sanitizeResourceLinksForAuditLogMock,
   deletePendingModerationTasksMock,
   deletePendingAppealsMock,
-  deleteReportsByIdsMock,
+  deleteOrphanReportsMock,
   enqueueSearchOutboxMock,
   queueSearchSyncMock,
   invalidatePatchResourceDetailCacheMock,
@@ -35,7 +35,7 @@ const {
   sanitizeResourceLinksForAuditLogMock: vi.fn(),
   deletePendingModerationTasksMock: vi.fn(),
   deletePendingAppealsMock: vi.fn(),
-  deleteReportsByIdsMock: vi.fn(),
+  deleteOrphanReportsMock: vi.fn(),
   enqueueSearchOutboxMock: vi.fn(),
   queueSearchSyncMock: vi.fn(),
   invalidatePatchResourceDetailCacheMock: vi.fn(),
@@ -96,7 +96,7 @@ vi.mock('~/server/moderation/appeal', () => ({
 }))
 
 vi.mock('~/server/report/pending', () => ({
-  deleteReportsByIds: deleteReportsByIdsMock
+  deleteOrphanReports: deleteOrphanReportsMock
 }))
 
 vi.mock('~/server/search/sync', () => ({
@@ -136,7 +136,7 @@ const buildDeleted = (overrides: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   vi.resetAllMocks()
   userFindUniqueMock.mockResolvedValue({ id: 9, name: 'Admin' })
-  cleanupResourceCommentDerivativesMock.mockResolvedValue([])
+  cleanupResourceCommentDerivativesMock.mockResolvedValue(undefined)
   invalidatePatchContentCacheMock.mockResolvedValue(undefined)
   recalcPatchTypeMock.mockResolvedValue('patch-10')
   sanitizeResourceLinksForAuditLogMock.mockReturnValue([])
@@ -216,40 +216,41 @@ describe('删除资源按删除瞬间状态分派缓存失效', () => {
   })
 })
 
-// 举报外键 SET NULL: 主键在删除前由 cleanup 收集, 资源行删除后按主键清理 (锁序一致)
+// 举报外键 SET NULL: 资源行删除后按 NULL 目标清理级联置空的孤儿 (锁序一致)
 describe('资源删除清理其评论的 pending 举报', () => {
-  it('用户删除: cleanup 收集在删除前, 举报清理在删除后', async () => {
+  it('用户删除: cleanup 在删除前, 孤儿举报清理在删除后', async () => {
     resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
     transactionResourceDeleteMock.mockResolvedValue(buildDeleted())
-    cleanupResourceCommentDerivativesMock.mockResolvedValue([41, 42])
 
     await deleteResource({ resourceId: 1 }, 7, 2)
 
     expect(
       cleanupResourceCommentDerivativesMock.mock.invocationCallOrder[0]
     ).toBeLessThan(transactionResourceDeleteMock.mock.invocationCallOrder[0])
-    expect(deleteReportsByIdsMock).toHaveBeenCalledWith(
-      [41, 42],
+    expect(deleteOrphanReportsMock).toHaveBeenCalledWith(
+      'comment',
       transactionClient
     )
     expect(
       transactionResourceDeleteMock.mock.invocationCallOrder[0]
-    ).toBeLessThan(deleteReportsByIdsMock.mock.invocationCallOrder[0])
+    ).toBeLessThan(deleteOrphanReportsMock.mock.invocationCallOrder[0])
   })
 
-  it('管理员删除: 同款收集-删除-清理顺序', async () => {
+  it('管理员删除: 同款清理顺序', async () => {
     resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
     transactionResourceDeleteMock.mockResolvedValue(buildDeleted())
-    cleanupResourceCommentDerivativesMock.mockResolvedValue([43])
 
     await adminDeleteResource({ resourceId: 1 }, 9)
 
     expect(
       cleanupResourceCommentDerivativesMock.mock.invocationCallOrder[0]
     ).toBeLessThan(transactionResourceDeleteMock.mock.invocationCallOrder[0])
-    expect(deleteReportsByIdsMock).toHaveBeenCalledWith([43], transactionClient)
+    expect(deleteOrphanReportsMock).toHaveBeenCalledWith(
+      'comment',
+      transactionClient
+    )
     expect(
       transactionResourceDeleteMock.mock.invocationCallOrder[0]
-    ).toBeLessThan(deleteReportsByIdsMock.mock.invocationCallOrder[0])
+    ).toBeLessThan(deleteOrphanReportsMock.mock.invocationCallOrder[0])
   })
 })

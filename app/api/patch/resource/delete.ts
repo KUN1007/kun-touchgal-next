@@ -49,14 +49,16 @@ export const deleteResource = async (
   const s3Links = patchResource.links.filter((link) => link.storage === 's3')
 
   let affectedUniqueId = ''
-  const response = await prisma.$transaction(async (prisma) => {
+  const deletedResource = await prisma.$transaction(async (prisma) => {
     await prisma.user.update({
       where: { id: resourceUserUid },
       data: { moemoepoint: { increment: -3 } }
     })
 
     await cleanupResourceCommentDerivatives(prisma, input.resourceId)
-    await prisma.patch_resource.delete({
+    // 提交后的失效闸门读这里的返回值而非事务外快照: 快照与删除之间的并发 approve
+    // (2→0) 或隐藏 (0→1) 会让闸门误判该行删除时是否在 status=0 集合里
+    const deleted = await prisma.patch_resource.delete({
       where: { id: input.resourceId }
     })
     await deletePendingModerationTasks('resource', input.resourceId, prisma)
@@ -73,7 +75,7 @@ export const deleteResource = async (
         s3Key: link.s3_key
       }))
     )
-    return {}
+    return deleted
   })
 
   queueSearchSync(patchResource.patch_id)
@@ -81,20 +83,20 @@ export const deleteResource = async (
   await invalidatePatchContentCache(affectedUniqueId).catch(() => undefined)
   await invalidateUserSession(resourceUserUid)
 
-  if (patchResource.status === 0) {
+  if (deletedResource.status === 0) {
     await invalidatePatchResourceDetailCache()
-    if (patchResource.section === 'patch') {
+    if (deletedResource.section === 'patch') {
       await invalidateResourceListCache()
     }
   }
 
   // 管理员删除待审核 (2/3) 资源: 作者 hasPendingResource 可能翻假, 失效以尽早停止 bypass
-  if (patchResource.status === 2 || patchResource.status === 3) {
+  if (deletedResource.status === 2 || deletedResource.status === 3) {
     await invalidateUserPendingResourceCache(resourceUserUid)
   }
 
   // 即时消费删除出箱；抢不到锁则由定时任务兜底
   kickS3DeletionDrain()
 
-  return response
+  return {}
 }

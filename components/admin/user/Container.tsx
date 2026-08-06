@@ -181,6 +181,7 @@ export const User = ({ initialUsers, initialTotal }: Props) => {
         <Input
           fullWidth
           isClearable
+          maxLength={300}
           placeholder={currentPlaceholder}
           startContent={<Search className="text-default-300" size={20} />}
           value={searchQuery}

@@ -132,6 +132,7 @@ export const ResourceApply = ({ initialResources, initialTotal }: Props) => {
       <Input
         fullWidth
         isClearable
+        maxLength={300}
         placeholder="输入资源链接（或 BLAKE3 Hash），按回车搜索待审核资源"
         startContent={<Search className="text-default-300" size={20} />}
         value={searchQuery}

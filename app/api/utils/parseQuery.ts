@@ -2,6 +2,11 @@ import { z } from 'zod'
 import { NextRequest } from 'next/server'
 import type { ZodSchema } from 'zod'
 
+// 错误串必须是人话而非 error.message 的 JSON: 裸 toast/setError 调用方直接展示,
+// kunErrorHandler 依赖对它 JSON.parse 抛异常落入 catch 分支原样展示
+const formatZodErrorMessage = (error: z.ZodError) =>
+  error.issues.map((issue) => issue.message).join('\n')
+
 export const kunParseGetQuery = <T extends ZodSchema>(
   req: NextRequest,
   schema: T
@@ -11,7 +16,7 @@ export const kunParseGetQuery = <T extends ZodSchema>(
 
   const result = schema.safeParse(queryParams)
   if (!result.success) {
-    return result.error.message
+    return formatZodErrorMessage(result.error)
   }
 
   return result.data
@@ -25,7 +30,7 @@ export const kunParsePostBody = async <T extends ZodSchema>(
 
   const result = schema.safeParse(body)
   if (!result.success) {
-    return result.error.message
+    return formatZodErrorMessage(result.error)
   }
 
   return result.data
@@ -39,7 +44,7 @@ export const kunParsePutBody = async <T extends ZodSchema>(
 
   const result = schema.safeParse(body)
   if (!result.success) {
-    return result.error.message
+    return formatZodErrorMessage(result.error)
   }
 
   return result.data
@@ -54,7 +59,7 @@ export const kunParseDeleteQuery = <T extends ZodSchema>(
   const queryParams = Object.fromEntries(searchParams.entries())
   const result = schema.safeParse(queryParams)
   if (!result.success) {
-    return result.error.message
+    return formatZodErrorMessage(result.error)
   }
 
   return result.data
@@ -77,7 +82,7 @@ export const kunParseFormData = async <T extends ZodSchema>(
 
   const result = schema.safeParse(rawData)
   if (!result.success) {
-    return result.error.message
+    return formatZodErrorMessage(result.error)
   }
 
   return result.data

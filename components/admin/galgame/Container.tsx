@@ -86,6 +86,7 @@ export const Galgame = ({ initialGalgames, initialTotal }: Props) => {
       <Input
         fullWidth
         isClearable
+        maxLength={300}
         placeholder="输入 Galgame 名搜索 Galgame"
         startContent={<Search className="text-default-300" size={20} />}
         value={searchQuery}

@@ -11,7 +11,7 @@ const parseDisable2FABody = async (req: NextRequest) => {
   const result = disableUser2FASchema.safeParse(body)
 
   if (!result.success) {
-    return result.error.message
+    return result.error.issues.map((issue) => issue.message).join('\n')
   }
 
   return result.data

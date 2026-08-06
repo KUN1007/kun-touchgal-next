@@ -14,7 +14,7 @@ import { kunFetchPost } from '~/utils/kunFetch'
 import { Check, Plus } from 'lucide-react'
 import { useRouter } from '@bprogress/next'
 import { useUserStore } from '~/store/userStore'
-import { kunErrorHandler } from '~/utils/kunErrorHandler'
+import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 
 interface Props {
   uid: number
@@ -47,6 +47,8 @@ export const UserFollow = ({
         setIsFollow(false)
         onClose()
       })
+    } catch (error) {
+      errorReporter(error)
     } finally {
       setFollowing(false)
     }
@@ -66,6 +68,8 @@ export const UserFollow = ({
       }
 
       router.refresh()
+    } catch (error) {
+      errorReporter(error)
     } finally {
       setFollowing(false)
     }

@@ -34,8 +34,20 @@ export const handleBatchPatchTags = async (
     ...new Set(tagsToAdd.filter((tag) => !existingTagMap.has(tag)))
   ]
 
+  // 计数触发器只保证单语句内按 tag_id 升序加锁; 本事务先 INSERT 后 DELETE,
+  // 两语句锁集分离, 与反向并发编辑成环死锁。事务首条对并集升序预加锁建立全序。
+  // FOR NO KEY UPDATE 与 FK RI 的 KEY SHARE 相容, 只串行化触发器 UPDATE count 的竞争者。
+  // tagsToCreate 新建的 tag 不入锁集: 未提交的新行对并发事务不可见, 无竞争者。
+  const lockIds = [
+    ...new Set([...existingTags.map((tag) => tag.id), ...tagsToRemove])
+  ].sort((a, b) => a - b)
+
   await prisma.$transaction(
     async (tx) => {
+      if (lockIds.length > 0) {
+        await tx.$queryRaw`SELECT id FROM patch_tag WHERE id = ANY(${lockIds}::int4[]) ORDER BY id FOR NO KEY UPDATE`
+      }
+
       if (tagsToCreate.length > 0) {
         await tx.patch_tag.createMany({
           data: tagsToCreate.map((name) => ({

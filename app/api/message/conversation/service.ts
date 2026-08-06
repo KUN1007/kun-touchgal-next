@@ -238,6 +238,14 @@ export const getOrCreateConversation = async (
   }
 
   if (!created) {
+    // CAS 落空不只有余额不足一种成因: 余额在 20~29 时与同目标并发, 赢家扣费后
+    // 落败者 EPQ 重求值落空, 走不到 create 撞 P2002, recoverDuplicate 不可达,
+    // 而此刻会话已由赢家建好, 必须回读而不是报「萌萌点不足」. isNew 为 false
+    // 的理由同 recoverDuplicate: 本次请求没有扣费
+    const existing = await findConversation()
+    if (existing) {
+      return { conversationId: existing.id, isNew: false }
+    }
     return insufficient
   }
 

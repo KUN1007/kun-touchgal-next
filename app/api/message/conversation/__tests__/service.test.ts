@@ -111,6 +111,27 @@ describe('getOrCreateConversation', () => {
     expect(txState.committed).toBe(true)
   })
 
+  it('守卫落空但会话已被并发请求建好时, 回读已有会话而非报余额不足', async () => {
+    // 余额 20~29 的并发落败者: EPQ 重求值使 CAS 落空, 走不到 create 撞 P2002
+    userUpdateManyMock.mockResolvedValue({ count: 0 })
+    conversationFindUniqueMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 9 })
+
+    const result = await getOrCreateConversation(
+      { targetUserId: TARGET_UID },
+      UID,
+      NORMAL_ROLE
+    )
+
+    // isNew 必须是 false: 本次请求没扣费, 客户端据此不弹「已消耗」提示
+    expect(result).toEqual({ conversationId: 9, isNew: false })
+    expect(conversationCreateMock).not.toHaveBeenCalled()
+    expect(invalidateUserSessionMock).not.toHaveBeenCalled()
+    // 落空事务照常提交, 里面没有任何写入
+    expect(txState.committed).toBe(true)
+  })
+
   it('撞唯一索引时回读已有会话, 并标记本次未扣费', async () => {
     conversationFindUniqueMock
       .mockResolvedValueOnce(null)

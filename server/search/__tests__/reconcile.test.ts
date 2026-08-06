@@ -177,20 +177,49 @@ describe('reconcileSearchIndex keyset 分批加载 PG', () => {
     expect(addDocumentsMock).not.toHaveBeenCalled()
   })
 
-  it('先扫索引后扫 PG: 两次扫描间新建并被出箱写入索引的 patch 不会被误删', async () => {
-    // 顺序承重: 若回退为先 PG 后索引, 扫描间隙内新建 patch 会进 idsToDelete 被误删
-    patchFindManyMock.mockResolvedValueOnce([{ id: 1, updated: t(100) }])
-    patchFindManyMock.mockResolvedValueOnce([])
-    getDocumentsMock.mockResolvedValue({
-      results: [{ id: 1, updated: 100 }],
-      total: 1
-    })
+  it('索引快照整体定格早于 PG 扫描开始: 多批索引的末批仍先于 PG 首查', async () => {
+    // 顺序承重: 不变量是"末次 getDocuments < 首次 findMany"而非首调序 —— Promise.all
+    // 并发时首个任务同步先跑, 首调序断言照过; 多批索引下并发交错会把索引后批推到
+    // findMany 之后, 在此失败。索引必须 ≥2 批, 单批时本断言退化回首调序无区分力
+    getDocumentsMock
+      .mockResolvedValueOnce({ results: [{ id: 1, updated: 100 }], total: 2 })
+      .mockResolvedValueOnce({ results: [{ id: 2, updated: 100 }], total: 2 })
+    patchFindManyMock
+      .mockResolvedValueOnce([
+        { id: 1, updated: t(100) },
+        { id: 2, updated: t(100) }
+      ])
+      .mockResolvedValueOnce([])
 
     await reconcileSearchIndex()
 
-    expect(getDocumentsMock.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(Math.max(...getDocumentsMock.mock.invocationCallOrder)).toBeLessThan(
       patchFindManyMock.mock.invocationCallOrder[0]
     )
+  })
+
+  it('扫描重叠时新建并被出箱写入索引的 patch 不会被误删', async () => {
+    // 时序敏感 mock: getDocuments 先让出一拍模拟网络往返, 返回值按"当时世界"构造 —
+    // 若 PG 扫描已启动(findMany 被调过), 索引里已能看到间隙内出箱写入的 id=2。
+    // 正确实现的索引快照在 PG 扫描前整体定格, 看不到 id=2; 并发/颠倒实现会把它
+    // 扫进快照而 PG 快照无它 → 进 idsToDelete 误删, 此用例变红。让出一拍承重:
+    // 省掉后返回值在调用时刻定格, Promise.all 单批形态注入不触发, 假阴性
+    getDocumentsMock.mockImplementation(async () => {
+      await Promise.resolve()
+      const results = [{ id: 1, updated: 100 }]
+      if (patchFindManyMock.mock.calls.length > 0) {
+        results.push({ id: 2, updated: 100 })
+      }
+      return { results, total: results.length }
+    })
+    patchFindManyMock
+      .mockResolvedValueOnce([{ id: 1, updated: t(100) }])
+      .mockResolvedValueOnce([])
+
+    const result = await reconcileSearchIndex()
+
+    expect(result).toEqual({ total: 1, synced: 0, deleted: 0 })
+    expect(deleteDocumentsMock).not.toHaveBeenCalled()
   })
 
   it('未配置 Meili 时抛错且不触碰数据库', async () => {

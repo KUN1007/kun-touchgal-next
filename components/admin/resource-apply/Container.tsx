@@ -5,6 +5,7 @@ import { Search } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useDebounce } from 'use-debounce'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { errorReporter } from '~/utils/kunErrorHandler'
 import { kunShouldBackfillDeletedRow } from '~/utils/pagination'
 import { useMounted } from '~/hooks/useMounted'
 import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
@@ -65,6 +66,11 @@ export const ResourceApply = ({ initialResources, initialTotal }: Props) => {
       }
       setResources(response.resources)
       setTotal(response.total)
+    } catch (error) {
+      if (silent || requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+      errorReporter(error)
     } finally {
       if (requestId === latestFetchRequestIdRef.current) {
         setLoading(false)

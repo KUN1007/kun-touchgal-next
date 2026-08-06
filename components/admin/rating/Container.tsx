@@ -21,6 +21,7 @@ import {
 import { Search } from 'lucide-react'
 import { useEffect, useRef, useState, type Key } from 'react'
 import { kunFetchDelete, kunFetchGet } from '~/utils/kunFetch'
+import { errorReporter } from '~/utils/kunErrorHandler'
 import { kunShouldBackfillDeletedRow } from '~/utils/pagination'
 import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { useMounted } from '~/hooks/useMounted'
@@ -180,6 +181,11 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
           [...prev].filter((ratingId) => currentRatingIds.has(ratingId))
         )
       })
+    } catch (error) {
+      if (silent || requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+      errorReporter(error)
     } finally {
       if (requestId === latestFetchRequestIdRef.current) {
         setLoading(false)
@@ -320,6 +326,8 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
       setSelectedRatingIds(new Set())
       toast.success(`已删除 ${deleteCount} 条评价`)
       await fetchData()
+    } catch (error) {
+      errorReporter(error)
     } finally {
       setDeleting(false)
     }

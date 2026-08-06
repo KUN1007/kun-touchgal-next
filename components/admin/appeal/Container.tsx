@@ -3,6 +3,7 @@
 import { Select, SelectItem } from '@heroui/react'
 import { useEffect, useRef, useState, type Key } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { errorReporter } from '~/utils/kunErrorHandler'
 import { kunShouldBackfillDeletedRow } from '~/utils/pagination'
 import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { KunPagination } from '~/components/kun/Pagination'
@@ -64,6 +65,11 @@ export const Appeal = ({ initialAppeals, initialTotal }: Props) => {
       }
       setAppeals(response.appeals)
       setTotal(response.total)
+    } catch (error) {
+      if (silent || requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+      errorReporter(error)
     } finally {
       if (requestId === latestFetchRequestIdRef.current) {
         setLoading(false)

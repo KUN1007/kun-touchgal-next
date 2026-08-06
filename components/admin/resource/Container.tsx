@@ -28,6 +28,7 @@ import {
 import { ChevronDown, Eye, EyeOff, Search, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { kunFetchDelete, kunFetchGet, kunFetchPut } from '~/utils/kunFetch'
+import { errorReporter } from '~/utils/kunErrorHandler'
 import { kunShouldBackfillDeletedRow } from '~/utils/pagination'
 import { useEffect, useRef, useState, type Key } from 'react'
 import type { Selection } from '@heroui/table'
@@ -198,6 +199,11 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
       if (!silent) {
         setSelectedKeys(new Set<string | number>())
       }
+    } catch (error) {
+      if (silent || requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+      errorReporter(error)
     } finally {
       if (requestId === latestFetchRequestIdRef.current) {
         setLoading(false)
@@ -302,25 +308,30 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
         ? resources.map((r) => r.id)
         : Array.from(selectedKeys).map(Number)
 
-    const res = await kunFetchPut<KunResponse<{ count: number }>>(
-      '/admin/resource/hidden',
-      { resourceIds: ids.join(','), status }
-    )
+    try {
+      const res = await kunFetchPut<KunResponse<{ count: number }>>(
+        '/admin/resource/hidden',
+        { resourceIds: ids.join(','), status }
+      )
 
-    const actionLabel = status === 0 ? '恢复' : '隐藏'
-    if (typeof res === 'string') {
-      toast.error(res)
-    } else {
-      toast.success(`成功${actionLabel} ${res.count} 条资源`)
-    }
+      const actionLabel = status === 0 ? '恢复' : '隐藏'
+      if (typeof res === 'string') {
+        toast.error(res)
+      } else {
+        toast.success(`成功${actionLabel} ${res.count} 条资源`)
+      }
 
-    setBatchHiding(false)
-    setSelectedKeys(new Set<string | number>())
+      setSelectedKeys(new Set<string | number>())
 
-    // 批量操作已自行清空选中, 刷新走 silent 避免整表骨架屏闪烁; 期间有过
-    // 新请求 (翻页/筛选变更) 则参数已过期, 跳过让用户请求的响应落地
-    if (latestFetchRequestIdRef.current === renderFetchRequestId) {
-      await fetchData({ silent: true })
+      // 批量操作已自行清空选中, 刷新走 silent 避免整表骨架屏闪烁; 期间有过
+      // 新请求 (翻页/筛选变更) 则参数已过期, 跳过让用户请求的响应落地
+      if (latestFetchRequestIdRef.current === renderFetchRequestId) {
+        await fetchData({ silent: true })
+      }
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setBatchHiding(false)
     }
   }
 

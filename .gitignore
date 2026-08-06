@@ -66,3 +66,5 @@ prisma/generated
 /PRODUCT.md
 /DESIGN.md
 .impeccable/
+.claude/
+/.playwright-mcp/

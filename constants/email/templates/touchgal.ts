@@ -1,11 +1,11 @@
 import { kunMoyuMoe } from '~/config/moyu-moe'
 
-const iconImage = `${process.env.NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV}/logo.webp`
-
 const domain =
   process.env.NODE_ENV === 'development'
     ? process.env.NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV
     : process.env.NEXT_PUBLIC_KUN_PATCH_ADDRESS_PROD
+
+const iconImage = `${domain}/logo.webp`
 
 export const touchgalTemplate = (
   title: string,

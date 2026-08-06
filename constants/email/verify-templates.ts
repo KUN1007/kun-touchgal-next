@@ -76,7 +76,7 @@ export const createKunVerificationEmailTemplate = (
     reset: '您正在更改您的邮箱地址, 请使用下面的验证码以让我们确认您的新邮箱'
   }
 
-  const iconImage = `${process.env.NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV}/logo.webp`
+  const iconImage = `${getSiteAddress()}/logo.webp`
 
   return `
 <!doctype html>

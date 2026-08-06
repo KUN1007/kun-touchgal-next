@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { config } from 'dotenv'
 // 相对导入: 本文件被 next.config.ts 的加载器直接转译, 不解析 ~ 别名
-import { kunWebUrlSchema } from './env-url'
+import { kunOptionalWebUrlSchema, kunWebUrlSchema } from './env-url'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
 import * as fs from 'fs'
@@ -24,7 +24,9 @@ const rawEnvSchema = z.object({
   KUN_DATABASE_URL: z.string().url(),
   KUN_VISUAL_NOVEL_SITE_URL: z.string().url(),
 
-  NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV: kunWebUrlSchema,
+  // DEV 地址仅 dev 分支消费 (kunFetch / 登录重定向 / 邮件模板的 NODE_ENV 三元式),
+  // 生产允许缺失或留空; dev 下必填由下方 superRefine 兜住
+  NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV: kunOptionalWebUrlSchema,
   NEXT_PUBLIC_KUN_PATCH_ADDRESS_PROD: kunWebUrlSchema,
 
   REDIS_HOST: z.string(),
@@ -87,6 +89,19 @@ export const envSchema = rawEnvSchema.superRefine((value, ctx) => {
       path: ['OIDC_SECRET_ENC_KEY'],
       message:
         'OIDC 已启用（OIDC_JWKS 非空）时 OIDC_SECRET_ENC_KEY 必填，请运行 esno scripts/generateOidcJwks.ts 生成'
+    })
+  }
+
+  // dev 下 DEV 地址是承重值: 缺失会让 kunFetch 拼出 undefined/api/...,
+  // 登录重定向 new URL('/login', undefined) 直接 throw, 故启动即 fail-fast
+  if (
+    value.NODE_ENV === 'development' &&
+    !value.NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV'],
+      message: 'NODE_ENV=development 时 NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV 必填'
     })
   }
 })

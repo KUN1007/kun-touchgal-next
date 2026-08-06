@@ -22,12 +22,15 @@ export const CardContainer = ({ initialResources, initialTotal }: Props) => {
   const [resources, setResources] = useState<PatchResource[]>(initialResources)
   const [total, setTotal] = useState(initialTotal)
   const [loading, setLoading] = useState(false)
+  const latestFetchRequestIdRef = useRef(0)
   const [sortField, setSortField] = useState<SortOption>('created')
   const [sortOrder, setSortOrder] = useState<SortDirection>('desc')
   const searchParams = useSearchParams()
   const [page, setPage] = useState(Number(searchParams.get('page')) || 1)
 
   const fetchData = async () => {
+    const requestId = latestFetchRequestIdRef.current + 1
+    latestFetchRequestIdRef.current = requestId
     setLoading(true)
 
     try {
@@ -44,6 +47,10 @@ export const CardContainer = ({ initialResources, initialTotal }: Props) => {
         limit: 50
       })
 
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+
       if (typeof response === 'string') {
         kunErrorHandler(response, () => {})
         setResources([])
@@ -54,11 +61,16 @@ export const CardContainer = ({ initialResources, initialTotal }: Props) => {
       setResources(response.resources)
       setTotal(response.total)
     } catch (error) {
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
       setResources([])
       setTotal(0)
       errorReporter(error)
     } finally {
-      setLoading(false)
+      if (requestId === latestFetchRequestIdRef.current) {
+        setLoading(false)
+      }
     }
   }
 

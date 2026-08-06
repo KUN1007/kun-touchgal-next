@@ -26,6 +26,7 @@ export const CardContainer = ({
   const [galgames, setGalgames] = useState<GalgameCard[]>(initialGalgames)
   const [total, setTotal] = useState(initialTotal)
   const [loading, setLoading] = useState(false)
+  const latestFetchRequestIdRef = useRef(0)
   const [selectedType, setSelectedType] = useState<string>('all')
   const [selectedLanguage, setSelectedLanguage] = useState<string>('all')
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all')
@@ -45,6 +46,8 @@ export const CardContainer = ({
   }
 
   const fetchPatches = async () => {
+    const requestId = latestFetchRequestIdRef.current + 1
+    latestFetchRequestIdRef.current = requestId
     setLoading(true)
 
     try {
@@ -67,6 +70,10 @@ export const CardContainer = ({
         minRatingCount: sortField === 'rating' ? minRatingCount : 0
       })
 
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+
       if (typeof response === 'string') {
         kunErrorHandler(response, () => {})
         setGalgames([])
@@ -77,11 +84,16 @@ export const CardContainer = ({
       setGalgames(response.galgames)
       setTotal(response.total)
     } catch (error) {
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
       setGalgames([])
       setTotal(0)
       errorReporter(error)
     } finally {
-      setLoading(false)
+      if (requestId === latestFetchRequestIdRef.current) {
+        setLoading(false)
+      }
     }
   }
 

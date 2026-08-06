@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useEffect, useRef, useState } from 'react'
 import { NavbarContent, NavbarItem } from '@heroui/navbar'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Button } from '@heroui/button'
 import { Skeleton } from '@heroui/skeleton'
 import { useUserStore } from '~/store/userStore'
@@ -62,6 +63,8 @@ const fetchCurrentSession = async (): Promise<SessionCheckResult> => {
 
 export const KunTopBarUser = ({ initialSession, isSessionPending }: Props) => {
   const router = useRouter()
+  const pathname = usePathname()
+  const loginHref = `/login?from=${encodeURIComponent(pathname)}`
   const { user, setUser, logout } = useUserStore(
     useShallow((state) => ({
       user: state.user,
@@ -207,7 +210,7 @@ export const KunTopBarUser = ({ initialSession, isSessionPending }: Props) => {
       {isMounted && isSessionReady && !user.name && (
         <NavbarContent justify="end">
           <NavbarItem className="hidden lg:flex">
-            <Link href="/login">登录</Link>
+            <Link href={loginHref}>登录</Link>
           </NavbarItem>
           <NavbarItem>
             <Button
@@ -221,7 +224,7 @@ export const KunTopBarUser = ({ initialSession, isSessionPending }: Props) => {
             </Button>
           </NavbarItem>
           <NavbarItem className="flex lg:hidden">
-            <Button as={Link} color="primary" href="/login" variant="flat">
+            <Button as={Link} color="primary" href={loginHref} variant="flat">
               登录
             </Button>
           </NavbarItem>

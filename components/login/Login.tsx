@@ -9,6 +9,7 @@ import { kunFetchPost } from '~/utils/kunFetch'
 import { loginSchema } from '~/validations/auth'
 import { useUserStore } from '~/store/userStore'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
+import { resolveKunLoginRedirect } from '~/utils/loginRedirect'
 import { useRouter } from '@bprogress/next'
 import toast from 'react-hot-toast'
 import { KunCaptchaModal } from '~/components/kun/auth/CaptchaModal'
@@ -43,13 +44,13 @@ export const LoginForm = () => {
 
       kunErrorHandler(res, (value) => {
         if (value.require2FA) {
-          router.push('/login/2fa')
+          router.push(`/login/2fa${window.location.search}`)
         } else {
           const state = value as UserState
           setUser(state)
           reset()
           toast.success('登录成功!')
-          router.push(`/user/${state.uid}/comment`, { scroll: false })
+          router.push(resolveKunLoginRedirect(window.location.search))
         }
       })
     })

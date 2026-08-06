@@ -6,6 +6,7 @@ import { Button, Input } from '@heroui/react'
 import toast from 'react-hot-toast'
 import { useUserStore } from '~/store/userStore'
 import { kunFetchGet, kunFetchPost } from '~/utils/kunFetch'
+import { resolveKunLoginRedirect } from '~/utils/loginRedirect'
 import { UserState } from '~/store/userStore'
 import { KunTextDivider } from '~/components/kun/TextDivider'
 import type { KunGalgameStatelessPayload } from '~/app/api/utils/jwt'
@@ -23,7 +24,7 @@ export const TwoFactor = () => {
         '/auth/check-temp-token'
       )
       if (typeof res === 'string') {
-        router.push('/login')
+        router.push(`/login${window.location.search}`)
       }
     }
 
@@ -47,7 +48,7 @@ export const TwoFactor = () => {
       } else {
         setUser(response)
         toast.success('验证成功，欢迎回来！')
-        router.push('/')
+        router.push(resolveKunLoginRedirect(window.location.search))
       }
     })
   }

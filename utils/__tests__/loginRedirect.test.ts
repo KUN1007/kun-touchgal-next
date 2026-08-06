@@ -1,0 +1,34 @@
+import { describe, expect, it } from 'vitest'
+import { resolveKunLoginRedirect } from '~/utils/loginRedirect'
+
+describe('resolveKunLoginRedirect', () => {
+  it('返回合法的站内 from 路径', () => {
+    expect(resolveKunLoginRedirect('?from=%2Fgalgame')).toBe('/galgame')
+    expect(
+      resolveKunLoginRedirect('?from=%2Fuser%2F1%2Fsetting%3Ftab%3Dsecurity')
+    ).toBe('/user/1/setting?tab=security')
+  })
+
+  it('缺少 from 时回落首页', () => {
+    expect(resolveKunLoginRedirect('')).toBe('/')
+    expect(resolveKunLoginRedirect('?foo=bar')).toBe('/')
+  })
+
+  it('拒绝开放重定向载荷', () => {
+    expect(resolveKunLoginRedirect('?from=https%3A%2F%2Fevil.com')).toBe('/')
+    expect(resolveKunLoginRedirect('?from=%2F%2Fevil.com')).toBe('/')
+    expect(resolveKunLoginRedirect('?from=%2F%5Cevil.com')).toBe('/')
+    expect(resolveKunLoginRedirect('?from=evil.com')).toBe('/')
+    // URL 解析器剥离 \t \n \r 后 "/\t/evil.com" 变为协议相对的 "//evil.com"
+    expect(resolveKunLoginRedirect('?from=%2F%09%2Fevil.com')).toBe('/')
+    expect(resolveKunLoginRedirect('?from=%2F%0A%2Fevil.com')).toBe('/')
+    expect(resolveKunLoginRedirect('?from=%2F%0D%2Fevil.com')).toBe('/')
+  })
+
+  it('拒绝认证流程自身页面, 防止回跳循环', () => {
+    expect(resolveKunLoginRedirect('?from=%2Flogin')).toBe('/')
+    expect(resolveKunLoginRedirect('?from=%2Flogin%2F2fa')).toBe('/')
+    expect(resolveKunLoginRedirect('?from=%2Fregister')).toBe('/')
+    expect(resolveKunLoginRedirect('?from=%2Fauth%2Fforgot')).toBe('/')
+  })
+})

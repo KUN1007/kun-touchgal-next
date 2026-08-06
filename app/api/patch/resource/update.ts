@@ -186,7 +186,7 @@ export const updatePatchResource = async (
       : await preScreenText(moderationText, userRole)
 
   // update 覆写前的权威行状态, 由事务内行锁读取后回填; 提交后的失效闸门读它
-  // 而非事务外快照, 快照初值仅作兜底 (行已被并发删除时 update 抛错, 闸门不执行)
+  // 而非事务外快照 (锁下复检保证回填必然发生, 快照初值仅满足赋值定型)
   let previousStatus = resource.status
   let previousSection = resource.section
 
@@ -197,10 +197,22 @@ export const updatePatchResource = async (
     const [previous] = await prisma.$queryRaw<
       Array<{ status: number; section: string }>
     >`SELECT status, section FROM patch_resource WHERE id = ${resourceId} FOR UPDATE`
-    if (previous) {
-      previousStatus = previous.status
-      previousSection = previous.section
+    // 锁下复检事务外守卫: 快照与事务开始之间隔着 S3 绑定/预筛的秒级窗口, 并发的
+    // 管理员隐藏 (0→1) 若不复检, 预筛拦截会把隐藏行写回待审核 (3), AI 放行 (3→0)
+    // 即静默撤销管理员隐藏. 拦截型任务与 status=3 同事务写入, status 复检已覆盖
+    // 并发任务, 无需重查 hasPendingModeration. 此处尚无任何写入, return 业务错误
+    // 仅提交空事务, 零副作用
+    if (!previous || previous.status === 1) {
+      return '未找到该资源'
     }
+    if (userRole < 3 && previous.status === 2) {
+      return '您发布的资源正在等待管理员审核, 暂时无法修改'
+    }
+    if (userRole < 3 && previous.status === 3) {
+      return '您发布的资源正在审核中, 暂时无法修改'
+    }
+    previousStatus = previous.status
+    previousSection = previous.section
 
     const newResource = await prisma.patch_resource.update({
       where: { id: resourceId },
@@ -303,6 +315,9 @@ export const updatePatchResource = async (
 
     return resourceResponse
   })
+  if (typeof updatedResource === 'string') {
+    return updatedResource
+  }
 
   queueSearchSync(patchId)
   // 事务提交后失效: 事务内失效会被并发读回填旧值 (M-04), 且 Redis 故障不应回滚写入

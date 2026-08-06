@@ -190,8 +190,8 @@ beforeEach(() => {
   transactionResourceUpdateMock.mockResolvedValue(storedResource)
   transactionUserUpdateMock.mockResolvedValue({})
   transactionPatchUpdateMock.mockResolvedValue({})
-  // 行锁读返回空数组 → update.ts 回落事务外快照, 维持既有用例语义
-  transactionQueryRawMock.mockResolvedValue([])
+  // 行锁读回与快照一致的行以通过 update.ts 的锁下守卫复检, 维持既有用例语义
+  transactionQueryRawMock.mockResolvedValue([{ status: 0, section: 'patch' }])
 })
 
 describe('资源写入 patch 绑定', () => {

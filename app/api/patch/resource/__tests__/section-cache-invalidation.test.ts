@@ -204,8 +204,8 @@ beforeEach(() => {
   )
   transactionUserUpdateMock.mockResolvedValue({})
   transactionPatchUpdateMock.mockResolvedValue({})
-  // 行锁读返回空数组 → update.ts 回落事务外快照, 维持既有用例语义
-  transactionQueryRawMock.mockResolvedValue([])
+  // 行锁读回与快照一致的行以通过 update.ts 的锁下守卫复检, 维持既有用例语义
+  transactionQueryRawMock.mockResolvedValue([{ status: 0, section: 'galgame' }])
 })
 
 // 资源详情缓存装 status=0 的全部 section, 资源列表只列 section='patch':
@@ -256,6 +256,7 @@ describe('资源写入按 section 分派缓存失效', () => {
     resourceFindUniqueMock.mockResolvedValue(
       buildStoredResource({ section: 'patch' })
     )
+    transactionQueryRawMock.mockResolvedValue([{ status: 0, section: 'patch' }])
     transactionResourceUpdateMock.mockResolvedValue(buildStoredResource())
 
     await updatePatchResource({ ...resourceInput, resourceId: 1 }, 7, 2)

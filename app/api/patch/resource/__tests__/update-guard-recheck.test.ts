@@ -126,7 +126,7 @@ const buildInput = (overrides: Record<string, unknown> = {}) => ({
   ...overrides
 })
 
-// 事务外预取的快照, 权限判定与 S3 链接收集用它
+// 事务外预取的快照: 守卫初检与 S3 链接收集用它, 复检场景中恒为公开态
 const buildSnapshot = (overrides: Record<string, unknown> = {}) => ({
   id: 1,
   status: 0,
@@ -140,7 +140,6 @@ const buildSnapshot = (overrides: Record<string, unknown> = {}) => ({
   ...overrides
 })
 
-// 事务内 update 的返回值, 即该行被覆写后的真实状态
 const buildUpdated = (overrides: Record<string, unknown> = {}) => ({
   id: 1,
   status: 0,
@@ -170,108 +169,105 @@ const buildUpdated = (overrides: Record<string, unknown> = {}) => ({
 
 const INTERCEPT = { queue: true, intercept: true, dryRun: false }
 
+const expectNoWriteNoSideEffects = () => {
+  expect(transactionResourceUpdateMock).not.toHaveBeenCalled()
+  expect(createModerationTaskMock).not.toHaveBeenCalled()
+  expect(recalcPatchTypeMock).not.toHaveBeenCalled()
+  expect(enqueueSearchOutboxMock).not.toHaveBeenCalled()
+  expect(queueSearchSyncMock).not.toHaveBeenCalled()
+  expect(invalidatePatchContentCacheMock).not.toHaveBeenCalled()
+  expect(invalidatePatchResourceDetailCacheMock).not.toHaveBeenCalled()
+  expect(invalidateResourceListCacheMock).not.toHaveBeenCalled()
+  expect(invalidateUserPendingResourceCacheMock).not.toHaveBeenCalled()
+  expect(kickS3DeletionDrainMock).not.toHaveBeenCalled()
+}
+
 beforeEach(() => {
   vi.resetAllMocks()
   patchFindUniqueMock.mockResolvedValue({ id: 10 })
   hasPendingModerationMock.mockResolvedValue(false)
+  preScreenTextMock.mockResolvedValue(INTERCEPT)
   invalidatePatchContentCacheMock.mockResolvedValue(undefined)
   recalcPatchTypeMock.mockResolvedValue('patch-10')
   markdownToHtmlMock.mockResolvedValue('')
-  transactionQueryRawMock.mockResolvedValue([{ status: 0, section: 'galgame' }])
   transactionMock.mockImplementation(
     async (callback: (client: typeof transactionClient) => unknown) =>
       callback(transactionClient)
   )
 })
 
-// 闸门读事务内行锁读到的 update 前状态而非事务外快照:
-// 两者之间存在并发 approve (2→0) / AI 审核放行 (3→0) / 隐藏 (0→1) 的窗口
-describe('更新资源按 update 前的行锁状态分派缓存失效', () => {
-  // 快照 status=3, 并发 AI 审核放行后该行已是 0, 编辑的预筛拦截又写回 3:
-  // 用快照判定 wasPublic=false 且 isPublic=false, 三个失效全部漏掉
-  it('快照为待审核但 update 前已被放行, 编辑拦截后三个缓存全部失效', async () => {
-    resourceFindUniqueMock.mockResolvedValue(
-      buildSnapshot({ status: 3, section: 'patch' })
-    )
-    transactionQueryRawMock.mockResolvedValue([{ status: 0, section: 'patch' }])
-    preScreenTextMock.mockResolvedValue(INTERCEPT)
-    transactionResourceUpdateMock.mockResolvedValue(
-      buildUpdated({ status: 3, section: 'patch' })
-    )
-
-    await updatePatchResource(buildInput({ section: 'patch' }), 9, 3)
-
-    expect(invalidatePatchResourceDetailCacheMock).toHaveBeenCalledTimes(1)
-    expect(invalidateResourceListCacheMock).toHaveBeenCalledTimes(1)
-    expect(invalidateUserPendingResourceCacheMock).toHaveBeenCalledWith(7)
-  })
-
-  // 反向: 快照 status=0, 并发隐藏后该行已是 1, 锁下复检拒绝写入
-  it('快照为公开但 update 前已被隐藏, 拒绝写入且不失效', async () => {
+// 事务外守卫读的是快照, 与事务开始之间隔着 S3 绑定/预筛的秒级窗口;
+// 锁下复检封死该窗口, 否则并发的管理员隐藏 (0→1) 会被预筛拦截写回
+// 待审核 (3), AI 放行 (3→0) 即静默撤销管理员隐藏
+describe('更新资源在行锁下复检守卫', () => {
+  it('快照公开但锁下已被管理员隐藏, 拒绝写入', async () => {
     resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
     transactionQueryRawMock.mockResolvedValue([
       { status: 1, section: 'galgame' }
     ])
 
-    // name/note/model 均未变更 → 不送审, 不触发拦截
-    const result = await updatePatchResource(
-      buildInput({ name: 'Old name' }),
-      9,
-      3
-    )
+    const result = await updatePatchResource(buildInput(), 7, 1)
 
     expect(result).toBe('未找到该资源')
-    expect(preScreenTextMock).not.toHaveBeenCalled()
+    expectNoWriteNoSideEffects()
+  })
+
+  it('隐藏复检对管理员同样生效', async () => {
+    resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
+    transactionQueryRawMock.mockResolvedValue([
+      { status: 1, section: 'galgame' }
+    ])
+
+    const result = await updatePatchResource(buildInput(), 9, 3)
+
+    expect(result).toBe('未找到该资源')
     expect(transactionResourceUpdateMock).not.toHaveBeenCalled()
-    expect(invalidatePatchResourceDetailCacheMock).not.toHaveBeenCalled()
-    expect(invalidateResourceListCacheMock).not.toHaveBeenCalled()
   })
 
-  it('公开资源正常编辑保持失效行为', async () => {
-    resourceFindUniqueMock.mockResolvedValue(
-      buildSnapshot({ section: 'patch' })
-    )
-    transactionQueryRawMock.mockResolvedValue([{ status: 0, section: 'patch' }])
-    preScreenTextMock.mockResolvedValue({
-      queue: true,
-      intercept: false,
-      dryRun: true
-    })
-    transactionResourceUpdateMock.mockResolvedValue(
-      buildUpdated({ section: 'patch' })
-    )
-
-    await updatePatchResource(buildInput({ section: 'patch' }), 7, 1)
-
-    expect(invalidatePatchResourceDetailCacheMock).toHaveBeenCalledTimes(1)
-    expect(invalidateResourceListCacheMock).toHaveBeenCalledTimes(1)
-    expect(invalidateUserPendingResourceCacheMock).not.toHaveBeenCalled()
-  })
-
-  it('无并发时编辑待审资源被拦截, 不触发公开缓存与 pending 失效', async () => {
-    resourceFindUniqueMock.mockResolvedValue(buildSnapshot({ status: 3 }))
+  it('快照公开但锁下已转待审核, 非特权作者被拒', async () => {
+    resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
     transactionQueryRawMock.mockResolvedValue([
       { status: 3, section: 'galgame' }
     ])
-    preScreenTextMock.mockResolvedValue(INTERCEPT)
-    transactionResourceUpdateMock.mockResolvedValue(buildUpdated({ status: 3 }))
 
-    await updatePatchResource(buildInput(), 9, 3)
+    const result = await updatePatchResource(buildInput(), 7, 1)
 
-    expect(invalidatePatchResourceDetailCacheMock).not.toHaveBeenCalled()
-    expect(invalidateResourceListCacheMock).not.toHaveBeenCalled()
-    expect(invalidateUserPendingResourceCacheMock).not.toHaveBeenCalled()
+    expect(result).toBe('您发布的资源正在审核中, 暂时无法修改')
+    expectNoWriteNoSideEffects()
   })
 
-  it('公开资源被拦截转待审, 失效详情缓存与 pending 缓存', async () => {
+  it('锁下待审核不拦管理员, 保持事务外守卫语义', async () => {
     resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
-    preScreenTextMock.mockResolvedValue(INTERCEPT)
+    transactionQueryRawMock.mockResolvedValue([
+      { status: 3, section: 'galgame' }
+    ])
     transactionResourceUpdateMock.mockResolvedValue(buildUpdated({ status: 3 }))
 
-    await updatePatchResource(buildInput(), 7, 1)
+    const result = await updatePatchResource(buildInput(), 9, 3)
 
-    expect(invalidatePatchResourceDetailCacheMock).toHaveBeenCalledTimes(1)
-    expect(invalidateResourceListCacheMock).not.toHaveBeenCalled()
-    expect(invalidateUserPendingResourceCacheMock).toHaveBeenCalledWith(7)
+    expect(typeof result).not.toBe('string')
+    expect(transactionResourceUpdateMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('快照公开但锁下已转人工审批, 非特权作者被拒', async () => {
+    resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
+    transactionQueryRawMock.mockResolvedValue([
+      { status: 2, section: 'galgame' }
+    ])
+
+    const result = await updatePatchResource(buildInput(), 7, 1)
+
+    expect(result).toBe('您发布的资源正在等待管理员审核, 暂时无法修改')
+    expectNoWriteNoSideEffects()
+  })
+
+  it('行在窗口期被删除时返回业务错误而非抛 P2025', async () => {
+    resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
+    transactionQueryRawMock.mockResolvedValue([])
+
+    const result = await updatePatchResource(buildInput(), 7, 1)
+
+    expect(result).toBe('未找到该资源')
+    expectNoWriteNoSideEffects()
   })
 })

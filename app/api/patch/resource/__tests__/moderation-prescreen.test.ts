@@ -9,6 +9,7 @@ const {
   transactionResourceUpdateMock,
   transactionUserUpdateMock,
   transactionPatchUpdateMock,
+  transactionQueryRawMock,
   preScreenTextMock,
   hasPendingModerationMock,
   createModerationTaskMock,
@@ -22,6 +23,7 @@ const {
   transactionResourceUpdateMock: vi.fn(),
   transactionUserUpdateMock: vi.fn(),
   transactionPatchUpdateMock: vi.fn(),
+  transactionQueryRawMock: vi.fn(),
   preScreenTextMock: vi.fn(),
   hasPendingModerationMock: vi.fn(),
   createModerationTaskMock: vi.fn(),
@@ -34,7 +36,8 @@ const transactionClient = {
     update: transactionResourceUpdateMock
   },
   user: { update: transactionUserUpdateMock },
-  patch: { update: transactionPatchUpdateMock }
+  patch: { update: transactionPatchUpdateMock },
+  $queryRaw: transactionQueryRawMock
 }
 
 vi.mock('~/prisma/index', () => ({
@@ -166,6 +169,8 @@ beforeEach(() => {
   transactionResourceUpdateMock.mockResolvedValue(storedResource)
   transactionUserUpdateMock.mockResolvedValue({})
   transactionPatchUpdateMock.mockResolvedValue({})
+  // 行锁读返回空数组 → update.ts 回落事务外快照, 维持既有用例语义
+  transactionQueryRawMock.mockResolvedValue([])
 })
 
 describe('资源审核预筛选: 标题与介绍均为空时直接放行', () => {

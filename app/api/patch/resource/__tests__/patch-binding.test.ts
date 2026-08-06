@@ -9,6 +9,7 @@ const {
   transactionResourceUpdateMock,
   transactionUserUpdateMock,
   transactionPatchUpdateMock,
+  transactionQueryRawMock,
   bindUploadedResourceMock,
   enqueueResourceLinkDeletionsMock,
   recalcPatchTypeMock,
@@ -33,6 +34,7 @@ const {
   transactionResourceUpdateMock: vi.fn(),
   transactionUserUpdateMock: vi.fn(),
   transactionPatchUpdateMock: vi.fn(),
+  transactionQueryRawMock: vi.fn(),
   bindUploadedResourceMock: vi.fn(),
   enqueueResourceLinkDeletionsMock: vi.fn(),
   recalcPatchTypeMock: vi.fn(),
@@ -56,7 +58,8 @@ const transactionClient = {
     update: transactionResourceUpdateMock
   },
   user: { update: transactionUserUpdateMock },
-  patch: { update: transactionPatchUpdateMock }
+  patch: { update: transactionPatchUpdateMock },
+  $queryRaw: transactionQueryRawMock
 }
 
 vi.mock('~/prisma/index', () => ({
@@ -187,6 +190,8 @@ beforeEach(() => {
   transactionResourceUpdateMock.mockResolvedValue(storedResource)
   transactionUserUpdateMock.mockResolvedValue({})
   transactionPatchUpdateMock.mockResolvedValue({})
+  // 行锁读返回空数组 → update.ts 回落事务外快照, 维持既有用例语义
+  transactionQueryRawMock.mockResolvedValue([])
 })
 
 describe('资源写入 patch 绑定', () => {

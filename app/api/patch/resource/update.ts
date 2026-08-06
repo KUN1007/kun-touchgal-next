@@ -185,7 +185,23 @@ export const updatePatchResource = async (
       ? MODERATION_SKIP
       : await preScreenText(moderationText, userRole)
 
+  // update 覆写前的权威行状态, 由事务内行锁读取后回填; 提交后的失效闸门读它
+  // 而非事务外快照, 快照初值仅作兜底 (行已被并发删除时 update 抛错, 闸门不执行)
+  let previousStatus = resource.status
+  let previousSection = resource.section
+
   const updatedResource = await prisma.$transaction(async (prisma) => {
+    // 行锁读 update 覆写前的状态: 事务外快照与提交之间存在并发 approve (2→0) /
+    // AI 审核放行 (3→0) / 隐藏 (0→1) 窗口, 用快照判定会漏失效或多失效 (64fedb7f 同型);
+    // 与 moderation apply 的 FOR UPDATE 互斥, 加锁顺序 (先 patch_resource 后 patch) 与其一致
+    const [previous] = await prisma.$queryRaw<
+      Array<{ status: number; section: string }>
+    >`SELECT status, section FROM patch_resource WHERE id = ${resourceId} FOR UPDATE`
+    if (previous) {
+      previousStatus = previous.status
+      previousSection = previous.section
+    }
+
     const newResource = await prisma.patch_resource.update({
       where: { id: resourceId },
       data: {
@@ -294,20 +310,20 @@ export const updatePatchResource = async (
     () => undefined
   )
 
-  const wasPublic = resource.status === 0
+  const wasPublic = previousStatus === 0
   const isPublic = updatedResource.status === 0
   if (wasPublic || isPublic) {
     await invalidatePatchResourceDetailCache()
   }
 
-  const wasListed = wasPublic && resource.section === 'patch'
+  const wasListed = wasPublic && previousSection === 'patch'
   const isListed = isPublic && updatedResource.section === 'patch'
   if (wasListed || isListed) {
     await invalidateResourceListCache()
   }
 
   // 编辑触发审核拦截 (0→3): 作者的 hasPendingResource 由 false 翻真, 立即失效
-  if (resource.status !== 3 && updatedResource.status === 3) {
+  if (previousStatus !== 3 && updatedResource.status === 3) {
     await invalidateUserPendingResourceCache(resource.user_id)
   }
 

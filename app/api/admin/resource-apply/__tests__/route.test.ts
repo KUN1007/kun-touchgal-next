@@ -11,6 +11,7 @@ const {
   createLogMock,
   createMessageMock,
   cleanupDerivativesMock,
+  deleteReportsByIdsMock,
   enqueueLinkDelMock,
   recalcTypeMock,
   invalidateResourceListMock,
@@ -31,6 +32,7 @@ const {
   createLogMock: vi.fn(),
   createMessageMock: vi.fn(),
   cleanupDerivativesMock: vi.fn(),
+  deleteReportsByIdsMock: vi.fn(),
   enqueueLinkDelMock: vi.fn(),
   recalcTypeMock: vi.fn(),
   invalidateResourceListMock: vi.fn(),
@@ -84,6 +86,10 @@ vi.mock('~/app/api/patch/resource/_helper', () => ({
   cleanupResourceCommentDerivatives: cleanupDerivativesMock,
   enqueueResourceLinkDeletions: enqueueLinkDelMock,
   recalcPatchType: recalcTypeMock
+}))
+
+vi.mock('~/server/report/pending', () => ({
+  deleteReportsByIds: deleteReportsByIdsMock
 }))
 
 vi.mock('~/app/api/resource/cache', () => ({
@@ -144,7 +150,8 @@ beforeEach(() => {
   updateResourceMock.mockResolvedValue({ count: 1 })
   createLogMock.mockResolvedValue({})
   createMessageMock.mockResolvedValue({})
-  cleanupDerivativesMock.mockResolvedValue(undefined)
+  cleanupDerivativesMock.mockResolvedValue([])
+  deleteReportsByIdsMock.mockResolvedValue(undefined)
   enqueueLinkDelMock.mockResolvedValue(undefined)
   recalcTypeMock.mockResolvedValue('unique-x')
   invalidateResourceListMock.mockResolvedValue(undefined)
@@ -165,6 +172,8 @@ beforeEach(() => {
 
 describe('resource-apply decline', () => {
   it('deletes a pending resource under a status guard and drains the s3 outbox', async () => {
+    cleanupDerivativesMock.mockResolvedValue([51])
+
     const response = await declinePut(request)
 
     expect(await response.json()).toEqual({})
@@ -179,6 +188,11 @@ describe('resource-apply decline', () => {
     // 必须收到事务 client: 守卫在它之后, 未命中时靠回滚撤销它的写入. 回调形参名
     // 遮蔽了模块级 prisma, 改名重构漏改这里会静默落到 autocommit 连接上
     expect(cleanupDerivativesMock).toHaveBeenCalledWith(transactionClient, 3)
+    // 举报外键 SET NULL: 主键由 cleanup 在删除前收集, 资源行删除后按主键清理
+    expect(deleteReportsByIdsMock).toHaveBeenCalledWith([51], transactionClient)
+    expect(deleteResourceMock.mock.invocationCallOrder[0]).toBeLessThan(
+      deleteReportsByIdsMock.mock.invocationCallOrder[0]
+    )
     expect(enqueueLinkDelMock).toHaveBeenCalledWith(transactionClient, [
       { content: 'c', patchId: 10, hash: 'h', s3Key: 'patch/10/h.zip' }
     ])
@@ -199,6 +213,8 @@ describe('resource-apply decline', () => {
     expect(events).not.toContain('transaction-commit')
     // 守卫未命中必须在提交后副作用之前返回: S3 删除出箱不得被排空 (不可逆)
     expect(kickDrainMock).not.toHaveBeenCalled()
+    // 资源保留 → 其评论仍在, 收集到的举报不得清理
+    expect(deleteReportsByIdsMock).not.toHaveBeenCalled()
     expect(createMessageMock).not.toHaveBeenCalled()
     expect(createLogMock).not.toHaveBeenCalled()
     expect(queueSearchSyncMock).not.toHaveBeenCalled()

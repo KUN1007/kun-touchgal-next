@@ -12,6 +12,7 @@ import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
+import { deleteReportsByIds } from '~/server/report/pending'
 import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
 import { kickS3DeletionDrain } from '~/server/storage/s3Outbox'
 
@@ -49,7 +50,10 @@ export const deleteResource = async (
 
   let affectedUniqueId = ''
   const deletedResource = await prisma.$transaction(async (prisma) => {
-    await cleanupResourceCommentDerivatives(prisma, input.resourceId)
+    const reportIds = await cleanupResourceCommentDerivatives(
+      prisma,
+      input.resourceId
+    )
     // 提交后的失效闸门读这里的返回值而非事务外快照: 快照与删除之间的并发 approve
     // (2→0) 或隐藏 (0→1) 会让闸门误判该行删除时是否在 status=0 集合里
     const deleted = await prisma.patch_resource.delete({
@@ -57,6 +61,7 @@ export const deleteResource = async (
     })
     await deletePendingModerationTasks('resource', input.resourceId, prisma)
     await deletePendingAppeals('resource', input.resourceId, prisma)
+    await deleteReportsByIds(reportIds, prisma)
     affectedUniqueId = await recalcPatchType(patchResource.patch_id, prisma)
     // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
     await enqueueSearchOutbox(prisma, patchResource.patch_id)

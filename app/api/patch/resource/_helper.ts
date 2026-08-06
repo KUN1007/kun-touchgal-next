@@ -6,6 +6,7 @@ import type { Prisma } from '~/prisma/generated/prisma/client'
 import { enqueueS3Deletion } from '~/server/storage/s3Outbox'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
+import { collectPendingReportIds } from '~/server/report/pending'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateUserSession } from '~/app/api/user/session/cache'
 import {
@@ -139,11 +140,13 @@ export const resolveS3Key = (
 // 恢复路径；实际删除交由单一消费者 drainS3DeletionOutbox 幂等重试。
 // 删除资源前调用 (评论行尚存时): FK 级联只会删掉该资源评论的 patch_comment 行,
 // 评论区站内信 (评论/点赞/提及, link 均为资源页 ?commentId= 前缀)、
-// 待裁决审核任务与申诉不会随级联清理, 须在此显式删除
+// 待裁决审核任务与申诉不会随级联清理, 须在此显式删除。
+// 评论举报外键是 SET NULL: 此处仅无锁收集 pending 举报主键并返回, 调用方须在
+// 资源行删除后 deleteReportsByIds 清理 (保持全站「内容行→举报行」锁序)
 export const cleanupResourceCommentDerivatives = async (
   tx: Prisma.TransactionClient,
   resourceId: number
-) => {
+): Promise<number[]> => {
   const resource = await tx.patch_resource.findUnique({
     where: { id: resourceId },
     select: {
@@ -152,7 +155,7 @@ export const cleanupResourceCommentDerivatives = async (
     }
   })
   if (!resource || resource.comment.length === 0) {
-    return
+    return []
   }
 
   const commentIds = resource.comment.map((comment) => comment.id)
@@ -165,6 +168,7 @@ export const cleanupResourceCommentDerivatives = async (
   })
   await deletePendingModerationTasks('comment', commentIds, tx)
   await deletePendingAppeals('comment', commentIds, tx)
+  return collectPendingReportIds('comment', commentIds, tx)
 }
 
 export const enqueueResourceLinkDeletions = async (

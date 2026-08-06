@@ -13,6 +13,7 @@ import {
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateUserPendingResourceCache } from '~/app/api/utils/pendingResourceCache'
+import { deleteReportsByIds } from '~/server/report/pending'
 import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
 import { kickS3DeletionDrain } from '~/server/storage/s3Outbox'
 import { invalidateUnread } from '~/app/api/message/unread/cache'
@@ -47,7 +48,10 @@ const declinePatchResource = async (
   try {
     await prisma.$transaction(async (prisma) => {
       // 评论衍生物必须在删除前清理: 删除后 patch_comment 已随级联消失, 无从收集 id
-      await cleanupResourceCommentDerivatives(prisma, resourceId)
+      const reportIds = await cleanupResourceCommentDerivatives(
+        prisma,
+        resourceId
+      )
       // guarded delete 以 status 条件 + 行锁闭合"读状态→删除"窗口: 并发 approve (2→0)
       // 要么先提交使删除匹配 0 行而跳过, 要么被行锁阻塞后见新状态——不再误删已上线资源
       // (级联带走评论 + S3 出箱即时排空, 不可恢复). 零计数抛出回滚, 一并撤销上面的清理
@@ -57,6 +61,7 @@ const declinePatchResource = async (
       if (removed.count === 0) {
         throw new DeclineResourceError('当前资源状态无需审核')
       }
+      await deleteReportsByIds(reportIds, prisma)
       await recalcPatchType(resource.patch_id, prisma)
       // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
       await enqueueSearchOutbox(prisma, resource.patch_id)

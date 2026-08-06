@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MAX_GALGAME_FILTER_VALUES } from '~/utils/galgameFilter'
 
 export const searchSchema = z.object({
   queryString: z
@@ -27,7 +28,9 @@ export const searchSchema = z.object({
   sortOrder: z.union([z.literal('asc'), z.literal('desc')]),
   selectedYears: z
     .array(z.string().trim().min(1).max(50))
-    .max(107, { message: '您最多选择 107 组年份' }),
+    .max(MAX_GALGAME_FILTER_VALUES, {
+      message: `您最多选择 ${MAX_GALGAME_FILTER_VALUES} 组年份`
+    }),
   selectedMonths: z
     .array(z.string().trim().min(1).max(50))
     .max(13, { message: '您最多选择 13 组月份' }),

@@ -49,13 +49,13 @@ describe('searchSchema 年份 / 月份多选上限', () => {
     expect(result.success).toBe(true)
   })
 
-  it('年份超过 107 项时被拒且文案正确', () => {
+  it('年份超过 64 项时被拒且文案正确', () => {
     const result = searchSchema.safeParse({
       ...baseInput,
-      selectedYears: Array.from({ length: 108 }, (_, i) => String(1900 + i))
+      selectedYears: Array.from({ length: 65 }, (_, i) => String(1900 + i))
     })
     expect(result.success).toBe(false)
-    expect(firstMessage(result)).toBe('您最多选择 107 组年份')
+    expect(firstMessage(result)).toBe('您最多选择 64 组年份')
   })
 
   it('月份超过 13 项时被拒且文案正确', () => {

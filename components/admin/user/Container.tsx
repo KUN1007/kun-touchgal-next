@@ -22,6 +22,7 @@ import { useMounted } from '~/hooks/useMounted'
 import { useDebounce } from 'use-debounce'
 import { KunPagination } from '~/components/kun/Pagination'
 import type { AdminUser } from '~/types/api/admin'
+import toast from 'react-hot-toast'
 
 type AdminUserSearchType = 'name' | 'email' | 'id'
 
@@ -72,10 +73,12 @@ export const User = ({ initialUsers, initialTotal }: Props) => {
       setLoading(true)
     }
     try {
-      const { users, total } = await kunFetchGet<{
-        users: AdminUser[]
-        total: number
-      }>('/admin/user', {
+      const response = await kunFetchGet<
+        KunResponse<{
+          users: AdminUser[]
+          total: number
+        }>
+      >('/admin/user', {
         page,
         limit,
         search: debouncedQuery,
@@ -84,8 +87,15 @@ export const User = ({ initialUsers, initialTotal }: Props) => {
       if (requestId !== latestFetchRequestIdRef.current) {
         return
       }
-      setUsers(users)
-      setTotal(total)
+      if (typeof response === 'string') {
+        // 静默补齐失败不提示: 刚展示过操作成功的 toast, 紧跟报错只会误导
+        if (!silent) {
+          toast.error(response)
+        }
+        return
+      }
+      setUsers(response.users)
+      setTotal(response.total)
     } catch (error) {
       if (silent || requestId !== latestFetchRequestIdRef.current) {
         return

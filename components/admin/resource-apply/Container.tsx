@@ -13,6 +13,7 @@ import { AdminResourceApplyCard } from './Card'
 import { ResourceApprovalButton } from './ApprovalButton'
 import type { AdminResource } from '~/types/api/admin'
 import type { PatchResource } from '~/types/api/patch'
+import toast from 'react-hot-toast'
 
 interface Props {
   initialResources: AdminResource[]
@@ -42,10 +43,12 @@ export const ResourceApply = ({ initialResources, initialTotal }: Props) => {
       setLoading(true)
     }
     try {
-      const { resources, total } = await kunFetchGet<{
-        resources: AdminResource[]
-        total: number
-      }>('/admin/resource-apply', {
+      const response = await kunFetchGet<
+        KunResponse<{
+          resources: AdminResource[]
+          total: number
+        }>
+      >('/admin/resource-apply', {
         page,
         limit,
         search: debouncedQuery
@@ -53,8 +56,15 @@ export const ResourceApply = ({ initialResources, initialTotal }: Props) => {
       if (requestId !== latestFetchRequestIdRef.current) {
         return
       }
-      setResources(resources)
-      setTotal(total)
+      if (typeof response === 'string') {
+        // 静默补齐失败不提示: 刚展示过操作成功的 toast, 紧跟报错只会误导
+        if (!silent) {
+          toast.error(response)
+        }
+        return
+      }
+      setResources(response.resources)
+      setTotal(response.total)
     } finally {
       if (requestId === latestFetchRequestIdRef.current) {
         setLoading(false)

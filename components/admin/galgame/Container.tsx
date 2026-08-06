@@ -20,6 +20,7 @@ import { useMounted } from '~/hooks/useMounted'
 import { useDebounce } from 'use-debounce'
 import { KunPagination } from '~/components/kun/Pagination'
 import type { AdminGalgame } from '~/types/api/admin'
+import toast from 'react-hot-toast'
 
 const columns = [
   { name: '封面', uid: 'banner' },
@@ -46,18 +47,24 @@ export const Galgame = ({ initialGalgames, initialTotal }: Props) => {
   const fetchData = async () => {
     setLoading(true)
 
-    const { galgames, total } = await kunFetchGet<{
-      galgames: AdminGalgame[]
-      total: number
-    }>('/admin/galgame', {
+    const res = await kunFetchGet<
+      KunResponse<{
+        galgames: AdminGalgame[]
+        total: number
+      }>
+    >('/admin/galgame', {
       page,
       limit,
       search: debouncedQuery
     })
 
     setLoading(false)
-    setGalgames(galgames)
-    setTotal(total)
+    if (typeof res === 'string') {
+      toast.error(res)
+      return
+    }
+    setGalgames(res.galgames)
+    setTotal(res.total)
   }
 
   useEffect(() => {

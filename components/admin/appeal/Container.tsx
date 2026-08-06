@@ -10,6 +10,7 @@ import { useMounted } from '~/hooks/useMounted'
 import { AppealCard } from './Card'
 import { APPEAL_STATUS_MAP } from '~/constants/appeal'
 import type { AdminAppealItem } from '~/types/api/appeal'
+import toast from 'react-hot-toast'
 
 const statusFilterOptions = [
   { key: 'all', label: '全部' },
@@ -45,11 +46,20 @@ export const Appeal = ({ initialAppeals, initialTotal }: Props) => {
       setLoading(true)
     }
     try {
-      const response = await kunFetchGet<{
-        appeals: AdminAppealItem[]
-        total: number
-      }>('/admin/appeal', { page, limit, status })
+      const response = await kunFetchGet<
+        KunResponse<{
+          appeals: AdminAppealItem[]
+          total: number
+        }>
+      >('/admin/appeal', { page, limit, status })
       if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+      if (typeof response === 'string') {
+        // 静默补齐失败不提示: 刚展示过操作成功的 toast, 紧跟报错只会误导
+        if (!silent) {
+          toast.error(response)
+        }
         return
       }
       setAppeals(response.appeals)

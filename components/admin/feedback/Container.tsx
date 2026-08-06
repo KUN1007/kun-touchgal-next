@@ -8,6 +8,7 @@ import { useMounted } from '~/hooks/useMounted'
 import { FeedbackCard } from './FeedbackCard'
 import { KunPagination } from '~/components/kun/Pagination'
 import type { AdminFeedback } from '~/types/api/admin'
+import toast from 'react-hot-toast'
 
 interface Props {
   initialFeedbacks: AdminFeedback[]
@@ -25,15 +26,21 @@ export const Feedback = ({ initialFeedbacks, total: initialTotal }: Props) => {
   const fetchData = async () => {
     setLoading(true)
 
-    const res = await kunFetchGet<{
-      feedbacks: AdminFeedback[]
-      total: number
-    }>('/admin/feedback', {
+    const res = await kunFetchGet<
+      KunResponse<{
+        feedbacks: AdminFeedback[]
+        total: number
+      }>
+    >('/admin/feedback', {
       page,
       limit
     })
 
     setLoading(false)
+    if (typeof res === 'string') {
+      toast.error(res)
+      return
+    }
     setFeedbacks(res.feedbacks)
     setTotal(res.total)
   }

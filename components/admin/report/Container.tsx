@@ -69,7 +69,6 @@ export const Report = ({ initialReports, total, title, targetType }: Props) => {
       const totalPage = Math.max(1, Math.ceil(response.total / limit))
       if (targetPage > totalPage) {
         setPage(totalPage)
-        return
       }
       setReports(response.reports)
       setTotalCount(response.total)

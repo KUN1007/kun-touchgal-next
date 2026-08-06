@@ -168,7 +168,6 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
       const totalPage = Math.max(1, Math.ceil(response.total / limit))
       if (page > totalPage) {
         setPage(totalPage)
-        return
       }
 
       setRatings(response.ratings)

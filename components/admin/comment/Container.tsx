@@ -171,7 +171,6 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
       const totalPage = Math.max(1, Math.ceil(response.total / limit))
       if (page > totalPage) {
         setPage(totalPage)
-        return
       }
 
       setComments(response.comments)

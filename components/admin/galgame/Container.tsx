@@ -12,9 +12,10 @@ import {
   TableRow
 } from '@heroui/react'
 import { Search } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { RenderCell } from './RenderCell'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { errorReporter } from '~/utils/kunErrorHandler'
 import { KunTableSkeleton } from '~/components/kun/TableSkeleton'
 import { useMounted } from '~/hooks/useMounted'
 import { useDebounce } from 'use-debounce'
@@ -44,27 +45,41 @@ export const Galgame = ({ initialGalgames, initialTotal }: Props) => {
   const isMounted = useMounted()
 
   const [loading, setLoading] = useState(false)
+  const latestFetchRequestIdRef = useRef(0)
   const fetchData = async () => {
+    const requestId = latestFetchRequestIdRef.current + 1
+    latestFetchRequestIdRef.current = requestId
     setLoading(true)
-
-    const res = await kunFetchGet<
-      KunResponse<{
-        galgames: AdminGalgame[]
-        total: number
-      }>
-    >('/admin/galgame', {
-      page,
-      limit,
-      search: debouncedQuery
-    })
-
-    setLoading(false)
-    if (typeof res === 'string') {
-      toast.error(res)
-      return
+    try {
+      const res = await kunFetchGet<
+        KunResponse<{
+          galgames: AdminGalgame[]
+          total: number
+        }>
+      >('/admin/galgame', {
+        page,
+        limit,
+        search: debouncedQuery
+      })
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+      if (typeof res === 'string') {
+        toast.error(res)
+        return
+      }
+      setGalgames(res.galgames)
+      setTotal(res.total)
+    } catch (error) {
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+      errorReporter(error)
+    } finally {
+      if (requestId === latestFetchRequestIdRef.current) {
+        setLoading(false)
+      }
     }
-    setGalgames(res.galgames)
-    setTotal(res.total)
   }
 
   useEffect(() => {

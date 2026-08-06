@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Select, SelectItem } from '@heroui/react'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { errorReporter } from '~/utils/kunErrorHandler'
 import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { useMounted } from '~/hooks/useMounted'
 import { FeedbackCard } from './FeedbackCard'
@@ -23,26 +24,40 @@ export const Feedback = ({ initialFeedbacks, total: initialTotal }: Props) => {
   const isMounted = useMounted()
 
   const [loading, setLoading] = useState(false)
+  const latestFetchRequestIdRef = useRef(0)
   const fetchData = async () => {
+    const requestId = latestFetchRequestIdRef.current + 1
+    latestFetchRequestIdRef.current = requestId
     setLoading(true)
-
-    const res = await kunFetchGet<
-      KunResponse<{
-        feedbacks: AdminFeedback[]
-        total: number
-      }>
-    >('/admin/feedback', {
-      page,
-      limit
-    })
-
-    setLoading(false)
-    if (typeof res === 'string') {
-      toast.error(res)
-      return
+    try {
+      const res = await kunFetchGet<
+        KunResponse<{
+          feedbacks: AdminFeedback[]
+          total: number
+        }>
+      >('/admin/feedback', {
+        page,
+        limit
+      })
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+      if (typeof res === 'string') {
+        toast.error(res)
+        return
+      }
+      setFeedbacks(res.feedbacks)
+      setTotal(res.total)
+    } catch (error) {
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
+      errorReporter(error)
+    } finally {
+      if (requestId === latestFetchRequestIdRef.current) {
+        setLoading(false)
+      }
     }
-    setFeedbacks(res.feedbacks)
-    setTotal(res.total)
   }
 
   // 处理成功后就地把该条标记为已处理, 不整表刷新

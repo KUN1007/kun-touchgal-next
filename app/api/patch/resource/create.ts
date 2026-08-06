@@ -212,7 +212,7 @@ export const createPatchResource = async (
   await invalidateUserSession(uid)
 
   if (resource.status === 0) {
-    await invalidatePatchResourceDetailCache()
+    await invalidatePatchResourceDetailCache(patchId)
     if (resource.section === 'patch') {
       await invalidateResourceListCache()
     }

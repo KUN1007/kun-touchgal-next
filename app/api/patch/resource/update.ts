@@ -328,7 +328,7 @@ export const updatePatchResource = async (
   const wasPublic = previousStatus === 0
   const isPublic = updatedResource.status === 0
   if (wasPublic || isPublic) {
-    await invalidatePatchResourceDetailCache()
+    await invalidatePatchResourceDetailCache(patchId)
   }
 
   const wasListed = wasPublic && previousSection === 'patch'

@@ -217,6 +217,7 @@ describe('资源写入按 section 分派缓存失效', () => {
     await createPatchResource(resourceInput, 7, 2)
 
     expect(invalidatePatchResourceDetailCacheMock).toHaveBeenCalledTimes(1)
+    expect(invalidatePatchResourceDetailCacheMock).toHaveBeenCalledWith(10)
     expect(invalidateResourceListCacheMock).not.toHaveBeenCalled()
   })
 
@@ -228,6 +229,7 @@ describe('资源写入按 section 分派缓存失效', () => {
     await createPatchResource({ ...resourceInput, section: 'patch' }, 7, 2)
 
     expect(invalidatePatchResourceDetailCacheMock).toHaveBeenCalledTimes(1)
+    expect(invalidatePatchResourceDetailCacheMock).toHaveBeenCalledWith(10)
     expect(invalidateResourceListCacheMock).toHaveBeenCalledTimes(1)
   })
 
@@ -249,6 +251,7 @@ describe('资源写入按 section 分派缓存失效', () => {
     await updatePatchResource({ ...resourceInput, resourceId: 1 }, 7, 2)
 
     expect(invalidatePatchResourceDetailCacheMock).toHaveBeenCalledTimes(1)
+    expect(invalidatePatchResourceDetailCacheMock).toHaveBeenCalledWith(10)
     expect(invalidateResourceListCacheMock).not.toHaveBeenCalled()
   })
 
@@ -262,6 +265,7 @@ describe('资源写入按 section 分派缓存失效', () => {
     await updatePatchResource({ ...resourceInput, resourceId: 1 }, 7, 2)
 
     expect(invalidatePatchResourceDetailCacheMock).toHaveBeenCalledTimes(1)
+    expect(invalidatePatchResourceDetailCacheMock).toHaveBeenCalledWith(10)
     expect(invalidateResourceListCacheMock).toHaveBeenCalledTimes(1)
   })
 
@@ -280,6 +284,7 @@ describe('资源写入按 section 分派缓存失效', () => {
     )
 
     expect(invalidatePatchResourceDetailCacheMock).toHaveBeenCalledTimes(1)
+    expect(invalidatePatchResourceDetailCacheMock).toHaveBeenCalledWith(10)
     expect(invalidateResourceListCacheMock).not.toHaveBeenCalled()
   })
 })

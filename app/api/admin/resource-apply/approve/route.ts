@@ -87,7 +87,7 @@ const approvePatchResource = async (
   )
 
   // 2→0 使该资源进入公开集: 详情缓存装两个 section, 故不分 section 无条件失效
-  await invalidatePatchResourceDetailCache()
+  await invalidatePatchResourceDetailCache(resource.patch_id)
 
   if (resource.section === 'patch') {
     await invalidateResourceListCache()

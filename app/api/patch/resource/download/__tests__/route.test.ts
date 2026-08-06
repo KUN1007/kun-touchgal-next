@@ -11,7 +11,8 @@ const {
   resourceUpdateMock,
   linkUpdateMock,
   transactionMock,
-  invalidateStatsMock
+  invalidateStatsMock,
+  invalidateDetailMock
 } = vi.hoisted(() => ({
   parsePutBodyMock: vi.fn(),
   verifyHeaderCookieMock: vi.fn(),
@@ -23,7 +24,8 @@ const {
   resourceUpdateMock: vi.fn(),
   linkUpdateMock: vi.fn(),
   transactionMock: vi.fn(),
-  invalidateStatsMock: vi.fn()
+  invalidateStatsMock: vi.fn(),
+  invalidateDetailMock: vi.fn()
 }))
 
 const transactionClient = {
@@ -65,6 +67,10 @@ vi.mock('~/app/api/resource/cache', () => ({
   invalidateResourceStatsListCache: invalidateStatsMock
 }))
 
+vi.mock('~/app/api/patch/resource/cache', () => ({
+  invalidatePatchResourceDetailCache: invalidateDetailMock
+}))
+
 vi.mock('~/prisma/index', () => ({
   prisma: { $transaction: transactionMock }
 }))
@@ -90,6 +96,7 @@ beforeEach(() => {
   resourceUpdateMock.mockResolvedValue({})
   linkUpdateMock.mockResolvedValue({})
   invalidateStatsMock.mockResolvedValue(undefined)
+  invalidateDetailMock.mockResolvedValue(undefined)
   transactionMock.mockImplementation(
     async (callback: (tx: typeof transactionClient) => Promise<unknown>) =>
       callback(transactionClient)
@@ -114,6 +121,8 @@ describe('PUT /api/patch/resource/download', () => {
       data: { download: { increment: 1 } }
     })
     expect(invalidateStatsMock).toHaveBeenCalledTimes(1)
+    // 详情缓存按 patch 分片失效, 不再靠全站 stats 版本覆盖
+    expect(invalidateDetailMock).toHaveBeenCalledWith(10)
   })
 
   it('去重命中时短路: 不查库、不自增、不失效缓存', async () => {
@@ -125,6 +134,7 @@ describe('PUT /api/patch/resource/download', () => {
     expect(transactionMock).not.toHaveBeenCalled()
     expect(patchUpdateMock).not.toHaveBeenCalled()
     expect(invalidateStatsMock).not.toHaveBeenCalled()
+    expect(invalidateDetailMock).not.toHaveBeenCalled()
   })
 
   it('resource 不属于该 patch 时拒绝, 不自增并释放去重槽', async () => {
@@ -140,6 +150,7 @@ describe('PUT /api/patch/resource/download', () => {
     expect(resourceUpdateMock).not.toHaveBeenCalled()
     expect(linkUpdateMock).not.toHaveBeenCalled()
     expect(invalidateStatsMock).not.toHaveBeenCalled()
+    expect(invalidateDetailMock).not.toHaveBeenCalled()
     expect(delKvMock).toHaveBeenCalledWith('download:dedup:u:99:2')
   })
 

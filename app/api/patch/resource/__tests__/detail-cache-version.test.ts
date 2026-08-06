@@ -1,17 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { getKvMock, getKvsMock, setKvMock, setKvIfAbsentMock, delKvMock } =
-  vi.hoisted(() => ({
+const { getKvMock, setKvMock, setKvIfAbsentMock, delKvMock } = vi.hoisted(
+  () => ({
     getKvMock: vi.fn(),
-    getKvsMock: vi.fn(),
     setKvMock: vi.fn(),
     setKvIfAbsentMock: vi.fn(),
     delKvMock: vi.fn()
-  }))
+  })
+)
 
 vi.mock('~/lib/redis', () => ({
   getKv: getKvMock,
-  getKvs: getKvsMock,
   setKv: setKvMock,
   setKvIfAbsent: setKvIfAbsentMock,
   delKv: delKvMock
@@ -21,68 +20,68 @@ import {
   getPatchResourceDetailCacheKey,
   invalidatePatchResourceDetailCache
 } from '~/app/api/patch/resource/cache'
-import {
-  RESOURCE_LIST_CACHE_CONTENT_VERSION_KEY,
-  RESOURCE_LIST_CACHE_STATS_VERSION_KEY
-} from '~/app/api/resource/cache'
+import { PATCH_RESOURCE_DETAIL_VERSION_DURATION } from '~/config/cache'
 
-const DETAIL_CONTENT_VERSION_KEY = 'patch:resource:detail:version:content'
+const versionKey = (patchId: number) =>
+  `patch:resource:detail:version:${patchId}`
 
 beforeEach(() => {
   vi.resetAllMocks()
 })
 
 describe('patch 资源详情缓存版本号', () => {
-  it('内容版本号自持, 不再读资源列表的内容版本号', async () => {
-    getKvsMock.mockResolvedValue(['content', 'stats'])
+  it('版本键按 patch 分片, 不读任何全局版本键', async () => {
+    getKvMock.mockResolvedValue('v1')
 
     await getPatchResourceDetailCacheKey(10)
 
-    const readKeys = getKvsMock.mock.calls[0][0]
-    expect(readKeys).toContain(DETAIL_CONTENT_VERSION_KEY)
-    expect(readKeys).not.toContain(RESOURCE_LIST_CACHE_CONTENT_VERSION_KEY)
+    expect(getKvMock).toHaveBeenCalledTimes(1)
+    expect(getKvMock).toHaveBeenCalledWith(versionKey(10))
   })
 
-  // 点赞/下载两处写路径无 section 闸门, 统计维度继续复用列表的版本号
-  it('统计版本号仍复用资源列表的', async () => {
-    getKvsMock.mockResolvedValue(['content', 'stats'])
+  // 版本键无 TTL 会在 volatile-lfu 下无界积累; TTL 远大于缓存 TTL 故过期不脏读
+  it('失效只写该 patch 的分片版本键且带 TTL', async () => {
+    await invalidatePatchResourceDetailCache(10)
 
-    await getPatchResourceDetailCacheKey(10)
-
-    expect(getKvsMock.mock.calls[0][0]).toContain(
-      RESOURCE_LIST_CACHE_STATS_VERSION_KEY
+    expect(setKvMock).toHaveBeenCalledTimes(1)
+    expect(setKvMock).toHaveBeenCalledWith(
+      versionKey(10),
+      expect.any(String),
+      PATCH_RESOURCE_DETAIL_VERSION_DURATION
     )
   })
 
-  it('失效只写自持的内容版本键', async () => {
-    await invalidatePatchResourceDetailCache()
+  // 核心回归: 失效信号与缓存键同粒度, A 补丁的写入不冲掉 B 补丁的缓存
+  it('失效 A 补丁后 A 的键变而 B 的键不变', async () => {
+    const versions = new Map<string, string>()
+    getKvMock.mockImplementation(
+      async (key: string) => versions.get(key) ?? null
+    )
+    setKvMock.mockImplementation(async (key: string, value: string) => {
+      versions.set(key, value)
+    })
 
-    expect(setKvMock).toHaveBeenCalledTimes(1)
-    expect(setKvMock.mock.calls[0][0]).toBe(DETAIL_CONTENT_VERSION_KEY)
-    expect(setKvMock.mock.calls[0][1]).toEqual(expect.any(String))
+    const keyABefore = await getPatchResourceDetailCacheKey(10)
+    const keyBBefore = await getPatchResourceDetailCacheKey(11)
+
+    await invalidatePatchResourceDetailCache(10)
+
+    expect(await getPatchResourceDetailCacheKey(10)).not.toBe(keyABefore)
+    expect(await getPatchResourceDetailCacheKey(11)).toBe(keyBBefore)
   })
 
-  it('内容版本号一变缓存键即变', async () => {
-    getKvsMock.mockResolvedValueOnce(['v1', 'stats'])
+  it('版本号一变缓存键即变', async () => {
+    getKvMock.mockResolvedValueOnce('v1')
     const before = await getPatchResourceDetailCacheKey(10)
-    getKvsMock.mockResolvedValueOnce(['v2', 'stats'])
+    getKvMock.mockResolvedValueOnce('v2')
     const after = await getPatchResourceDetailCacheKey(10)
 
     expect(before).not.toBeNull()
     expect(after).not.toBe(before)
   })
 
-  it('统计版本号一变缓存键即变', async () => {
-    getKvsMock.mockResolvedValueOnce(['content', 's1'])
-    const before = await getPatchResourceDetailCacheKey(10)
-    getKvsMock.mockResolvedValueOnce(['content', 's2'])
-    const after = await getPatchResourceDetailCacheKey(10)
-
-    expect(after).not.toBe(before)
-  })
-
   it('同版本号下不同 patch 的键互不相同', async () => {
-    getKvsMock.mockResolvedValue(['content', 'stats'])
+    getKvMock.mockResolvedValue('v1')
 
     expect(await getPatchResourceDetailCacheKey(10)).not.toBe(
       await getPatchResourceDetailCacheKey(11)
@@ -90,7 +89,7 @@ describe('patch 资源详情缓存版本号', () => {
   })
 
   it('版本号读取失败返回 null 而非退回固定键', async () => {
-    getKvsMock.mockRejectedValue(new Error('redis down'))
+    getKvMock.mockRejectedValue(new Error('redis down'))
 
     expect(await getPatchResourceDetailCacheKey(10)).toBeNull()
   })
@@ -98,6 +97,8 @@ describe('patch 资源详情缓存版本号', () => {
   it('失效时 Redis 故障不上抛', async () => {
     setKvMock.mockRejectedValue(new Error('redis down'))
 
-    await expect(invalidatePatchResourceDetailCache()).resolves.toBeUndefined()
+    await expect(
+      invalidatePatchResourceDetailCache(10)
+    ).resolves.toBeUndefined()
   })
 })

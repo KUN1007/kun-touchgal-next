@@ -97,7 +97,9 @@ export const updateResourceHidden = async (
     )
   )
 
-  await invalidatePatchResourceDetailCache()
+  await Promise.all(
+    patchIds.map((patchId) => invalidatePatchResourceDetailCache(patchId))
+  )
   await invalidateResourceListCache()
 
   return { count: targetIds.length }

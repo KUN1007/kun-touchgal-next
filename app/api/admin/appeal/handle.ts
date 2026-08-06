@@ -178,7 +178,10 @@ const approveAppeal = async (
       await invalidatePatchContentCache(resourceUniqueId).catch(() => undefined)
     }
     // 恢复至 status 0 使该资源重回公开集: 详情缓存装两个 section, 不分 section 失效
-    await invalidatePatchResourceDetailCache()
+    // (事务内 updateMany 命中即资源行存在, 预取的 patchId 必非 null, 条件仅为类型收窄)
+    if (patchId !== null) {
+      await invalidatePatchResourceDetailCache(patchId)
+    }
     await invalidateResourceListCache()
   }
   // comment 恢复 (2→0) 改 _count.comment, rating 恢复改 ratingSummary, 失效详情缓存 (M-05)

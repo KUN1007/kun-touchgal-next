@@ -86,7 +86,7 @@ export const deleteResource = async (
   await invalidateUserSession(resourceUserUid)
 
   if (deletedResource.status === 0) {
-    await invalidatePatchResourceDetailCache()
+    await invalidatePatchResourceDetailCache(patchResource.patch_id)
     if (deletedResource.section === 'patch') {
       await invalidateResourceListCache()
     }

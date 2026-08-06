@@ -170,7 +170,13 @@ export const deleteUser = async (
   await Promise.all([invalidateTagListCache(), invalidateCompanyListCache()])
   await deleteKunToken(input.uid)
   if (publicAnySectionResourceCount > 0) {
-    await invalidatePatchResourceDetailCache()
+    // affectedPatchIds 覆盖需失效的 patch: S3 资源已由上方 deleteResource 各自失效,
+    // 自己的 patch 被级联删除后详情页不可达, 残留缓存条目 60s 内自然过期
+    await Promise.all(
+      affectedPatchIds.map((patchId) =>
+        invalidatePatchResourceDetailCache(patchId)
+      )
+    )
   }
   if (publicResourceCount > 0) {
     await invalidateResourceListCache()

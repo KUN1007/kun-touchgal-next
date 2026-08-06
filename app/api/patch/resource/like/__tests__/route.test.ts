@@ -16,7 +16,8 @@ const {
   transactionMock,
   createDedupMessageMock,
   invalidateUserSessionMock,
-  invalidateResourceStatsListCacheMock
+  invalidateResourceStatsListCacheMock,
+  invalidatePatchResourceDetailCacheMock
 } = vi.hoisted(() => ({
   parsePutBodyMock: vi.fn(),
   verifyHeaderCookieMock: vi.fn(),
@@ -32,7 +33,8 @@ const {
   transactionMock: vi.fn(),
   createDedupMessageMock: vi.fn(),
   invalidateUserSessionMock: vi.fn(),
-  invalidateResourceStatsListCacheMock: vi.fn()
+  invalidateResourceStatsListCacheMock: vi.fn(),
+  invalidatePatchResourceDetailCacheMock: vi.fn()
 }))
 
 const transactionClient = {
@@ -80,6 +82,10 @@ vi.mock('~/app/api/resource/cache', () => ({
   invalidateResourceStatsListCache: invalidateResourceStatsListCacheMock
 }))
 
+vi.mock('~/app/api/patch/resource/cache', () => ({
+  invalidatePatchResourceDetailCache: invalidatePatchResourceDetailCacheMock
+}))
+
 vi.mock('~/prisma/index', () => ({
   prisma: {
     patch_resource: { findUnique: resourceFindUniqueMock },
@@ -105,6 +111,7 @@ beforeEach(() => {
     user_id: 1,
     status: 0,
     section: 'patch',
+    patch_id: 10,
     patch: { unique_id: 'kun123', name: 'Test Galgame' }
   })
   executeRawMock.mockResolvedValue(1)
@@ -115,6 +122,7 @@ beforeEach(() => {
   createDedupMessageMock.mockResolvedValue(undefined)
   invalidateUserSessionMock.mockResolvedValue(undefined)
   invalidateResourceStatsListCacheMock.mockResolvedValue(undefined)
+  invalidatePatchResourceDetailCacheMock.mockResolvedValue(undefined)
   transactionMock.mockImplementation(
     async (callback: (tx: typeof transactionClient) => Promise<unknown>) =>
       callback(transactionClient)
@@ -165,6 +173,8 @@ describe('PUT /api/patch/resource/like', () => {
       },
       transactionClient
     )
+    // 详情缓存内嵌 likeCount 且按 patch 分片失效, 不再靠全站 stats 版本覆盖
+    expect(invalidatePatchResourceDetailCacheMock).toHaveBeenCalledWith(10)
   })
 
   it('unlikes via the deleteMany count without issuing a create', async () => {
@@ -201,6 +211,7 @@ describe('PUT /api/patch/resource/like', () => {
     await expect(res.json()).resolves.toBe('未找到资源')
     expect(invalidateUserSessionMock).not.toHaveBeenCalled()
     expect(invalidateResourceStatsListCacheMock).not.toHaveBeenCalled()
+    expect(invalidatePatchResourceDetailCacheMock).not.toHaveBeenCalled()
   })
 
   it('rethrows non-P2003 transaction failures', async () => {

@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import { config } from 'dotenv'
+// 相对导入: 本文件被 next.config.ts 的加载器直接转译, 不解析 ~ 别名
+import { kunWebUrlSchema } from './env-url'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
 import * as fs from 'fs'
@@ -22,8 +24,8 @@ const rawEnvSchema = z.object({
   KUN_DATABASE_URL: z.string().url(),
   KUN_VISUAL_NOVEL_SITE_URL: z.string().url(),
 
-  NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV: z.string().url(),
-  NEXT_PUBLIC_KUN_PATCH_ADDRESS_PROD: z.string().url(),
+  NEXT_PUBLIC_KUN_PATCH_ADDRESS_DEV: kunWebUrlSchema,
+  NEXT_PUBLIC_KUN_PATCH_ADDRESS_PROD: kunWebUrlSchema,
 
   REDIS_HOST: z.string(),
   REDIS_PORT: z.string(),

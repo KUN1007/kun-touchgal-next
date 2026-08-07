@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { errors } from 'oidc-provider'
 import { getOidcProvider } from '~/lib/oidc/provider'
 import { buildRequestBridge } from '~/lib/oidc/webToNode'
 import { verifyHeaderCookie } from '~/utils/actions/verifyHeaderCookie'
@@ -31,20 +32,45 @@ export const GET = async (
   const provider = getOidcProvider()
   const bridge = await buildRequestBridge(req, false, { skipBody: true })
   bridge.req.push(null)
-  await provider.interactionFinished(bridge.req, bridge.res, {
-    login: { accountId: String(payload.uid) }
-  })
+  try {
+    await provider.interactionFinished(bridge.req, bridge.res, {
+      login: { accountId: String(payload.uid) }
+    })
+  } catch (error) {
+    // interaction 已被消费或过期（如后台 fetch 跑完 303 链后的重放）：
+    // 回 interaction 页渲染「会话已失效」提示，而非 500。
+    if (error instanceof errors.SessionNotFound) {
+      return NextResponse.redirect(new URL(interactionPath, req.url), 303)
+    }
+    throw error
+  }
   return bridge.toResponse()
 }
 
 // 完成 consent 交互：构造 Grant 授予请求的 scope/claims，或按取消返回 access_denied。
-export const POST = async (req: NextRequest) => {
+export const POST = async (
+  req: NextRequest,
+  { params }: { params: Promise<{ uid: string }> }
+) => {
+  const { uid } = await params
   const provider = getOidcProvider()
   const denied = new URL(req.url).searchParams.get('error')
 
   const bridge = await buildRequestBridge(req, false, { skipBody: true })
   bridge.req.push(null)
-  const details = await provider.interactionDetails(bridge.req, bridge.res)
+  let details: Awaited<ReturnType<typeof provider.interactionDetails>>
+  try {
+    details = await provider.interactionDetails(bridge.req, bridge.res)
+  } catch (error) {
+    // 重复提交（如回退后再次点击同意）时 interaction 已不存在，同样回落友好提示。
+    if (error instanceof errors.SessionNotFound) {
+      return NextResponse.redirect(
+        new URL(`${OIDC_MOUNT_PATH}/interaction/${uid}`, req.url),
+        303
+      )
+    }
+    throw error
+  }
 
   if (denied) {
     await provider.interactionFinished(bridge.req, bridge.res, {

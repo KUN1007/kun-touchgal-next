@@ -5,6 +5,7 @@ import { buildHeadersBridge } from '~/lib/oidc/webToNode'
 import { verifyHeaderCookie } from '~/utils/actions/verifyHeaderCookie'
 import { OIDC_MOUNT_PATH } from '~/config/oidc'
 import { ConsentCard } from './ConsentCard'
+import { ConfirmRedirect } from './ConfirmRedirect'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -42,7 +43,7 @@ export default async function OidcInteractionPage({ params }: Props) {
     if (!payload) {
       redirect(`/login?from=${encodeURIComponent(interactionPath)}`)
     }
-    redirect(`${interactionPath}/confirm`)
+    return <ConfirmRedirect confirmPath={`${interactionPath}/confirm`} />
   }
 
   if (prompt === 'consent') {

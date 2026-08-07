@@ -16,7 +16,7 @@ import {
 import { Image } from '@heroui/image'
 import { Trash2 } from 'lucide-react'
 import Link from 'next/link'
-import { kunErrorHandler } from '~/utils/kunErrorHandler'
+import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import { kunFetchPut } from '~/utils/kunFetch'
 import toast from 'react-hot-toast'
 import { cn } from '~/utils/cn'
@@ -46,15 +46,19 @@ export const UserGalgameCard = ({
   } = useDisclosure()
   const handleRemoveFavorite = () => {
     startTransition(async () => {
-      const res = await kunFetchPut<KunResponse<{ added: boolean }>>(
-        `/patch/favorite`,
-        { patchId: galgame.id, folderId }
-      )
-      kunErrorHandler(res, () => {
-        onCloseDelete()
-        toast.success('取消收藏成功')
-        onRemoveFavorite(galgame.id)
-      })
+      try {
+        const res = await kunFetchPut<KunResponse<{ added: boolean }>>(
+          `/patch/favorite`,
+          { patchId: galgame.id, folderId }
+        )
+        kunErrorHandler(res, () => {
+          onCloseDelete()
+          toast.success('取消收藏成功')
+          onRemoveFavorite(galgame.id)
+        })
+      } catch (error) {
+        errorReporter(error)
+      }
     })
   }
 

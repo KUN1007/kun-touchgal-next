@@ -16,7 +16,7 @@ import {
 import { Pencil, Plus } from 'lucide-react'
 import { kunFetchPost, kunFetchPut } from '~/utils/kunFetch'
 import toast from 'react-hot-toast'
-import { kunErrorHandler } from '~/utils/kunErrorHandler'
+import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import type { UserFavoritePatchFolder } from '~/types/api/user'
 
 interface Props {
@@ -42,28 +42,32 @@ export const EditFolderModal = ({
 
   const handleCreateFolder = async () => {
     startTransition(async () => {
-      let res: KunResponse<UserFavoritePatchFolder> | null = null
+      try {
+        let res: KunResponse<UserFavoritePatchFolder> | null = null
 
-      if (action === 'create') {
-        res = await kunFetchPost<KunResponse<UserFavoritePatchFolder>>(
-          '/user/profile/favorite/folder',
-          newFolder
-        )
-      } else {
-        res = await kunFetchPut<KunResponse<UserFavoritePatchFolder>>(
-          '/user/profile/favorite/folder',
-          { folderId, ...newFolder }
-        )
+        if (action === 'create') {
+          res = await kunFetchPost<KunResponse<UserFavoritePatchFolder>>(
+            '/user/profile/favorite/folder',
+            newFolder
+          )
+        } else {
+          res = await kunFetchPut<KunResponse<UserFavoritePatchFolder>>(
+            '/user/profile/favorite/folder',
+            { folderId, ...newFolder }
+          )
+        }
+
+        kunErrorHandler(res, (value) => {
+          onActionSuccess(value)
+          toast.success(
+            action === 'create' ? '创建收藏文件夹成功' : '编辑收藏文件夹成功'
+          )
+          setNewFolder({ name: '', description: '', isPublic: false })
+          onClose()
+        })
+      } catch (error) {
+        errorReporter(error)
       }
-
-      kunErrorHandler(res, (value) => {
-        onActionSuccess(value)
-        toast.success(
-          action === 'create' ? '创建收藏文件夹成功' : '编辑收藏文件夹成功'
-        )
-        setNewFolder({ name: '', description: '', isPublic: false })
-        onClose()
-      })
     })
   }
 

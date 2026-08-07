@@ -15,7 +15,7 @@ import {
 } from '@heroui/react'
 import { Folder } from 'lucide-react'
 import { kunFetchDelete, kunFetchGet } from '~/utils/kunFetch'
-import { kunErrorHandler } from '~/utils/kunErrorHandler'
+import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import { EditFolderModal } from './EditFolderModal'
 import { UserGalgameCard } from './Card'
 import { KunLoading } from '~/components/kun/Loading'
@@ -40,6 +40,8 @@ export const UserFavorite = ({
   const [selectedFolder, setSelectedFolder] =
     useState<UserFavoritePatchFolder | null>(null)
   const [patches, setPatches] = useState<GalgameCard[]>([])
+  // 首次成功返回前不渲染空态: 失败路径只 toast, 不得断言「收藏夹为空」
+  const [hasFetched, setHasFetched] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
@@ -55,17 +57,23 @@ export const UserFavorite = ({
   const fetchPatchesInFolder = async (folderId: number) => {
     const requestId = latestFetchRequestIdRef.current + 1
     latestFetchRequestIdRef.current = requestId
+    setHasFetched(false)
     startTransition(async () => {
-      const res = await kunFetchGet<
-        KunResponse<{ patches: GalgameCard[]; total: number }>
-      >(`/user/profile/favorite/folder/patch`, { folderId, page, limit: 48 })
-      if (requestId !== latestFetchRequestIdRef.current) {
-        return
+      try {
+        const res = await kunFetchGet<
+          KunResponse<{ patches: GalgameCard[]; total: number }>
+        >(`/user/profile/favorite/folder/patch`, { folderId, page, limit: 48 })
+        if (requestId !== latestFetchRequestIdRef.current) {
+          return
+        }
+        kunErrorHandler(res, (value) => {
+          setPatches(value.patches)
+          setTotal(value.total)
+          setHasFetched(true)
+        })
+      } catch (error) {
+        errorReporter(error)
       }
-      kunErrorHandler(res, (value) => {
-        setPatches(value.patches)
-        setTotal(value.total)
-      })
     })
   }
 
@@ -82,16 +90,20 @@ export const UserFavorite = ({
   } = useDisclosure()
   const handleDeleteFolder = async () => {
     startTransition(async () => {
-      const res = await kunFetchDelete<KunResponse<{}>>(
-        `/user/profile/favorite/folder`,
-        { folderId: selectedFolder?.id ?? 0 }
-      )
-      kunErrorHandler(res, () => {
-        setFolders((prev) => prev.filter((p) => p.id !== selectedFolder?.id))
-        onCloseDelete()
-        onCloseFolder()
-        toast.success('删除收藏夹成功')
-      })
+      try {
+        const res = await kunFetchDelete<KunResponse<{}>>(
+          `/user/profile/favorite/folder`,
+          { folderId: selectedFolder?.id ?? 0 }
+        )
+        kunErrorHandler(res, () => {
+          setFolders((prev) => prev.filter((p) => p.id !== selectedFolder?.id))
+          onCloseDelete()
+          onCloseFolder()
+          toast.success('删除收藏夹成功')
+        })
+      } catch (error) {
+        errorReporter(error)
+      }
     })
   }
 
@@ -214,7 +226,7 @@ export const UserFavorite = ({
                   </div>
                 )}
 
-                {!isPending && !patches.length && (
+                {!isPending && hasFetched && !patches.length && (
                   <KunNull message="收藏夹为空" />
                 )}
 

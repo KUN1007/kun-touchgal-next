@@ -258,6 +258,27 @@ describe('更新资源阶段一早退时清理已重绑对象', () => {
     expect(transactionMock).not.toHaveBeenCalled()
   })
 
+  it('后续链接 bind 抛错时, 先清理已重绑对象再原样抛出', async () => {
+    // 抛错迭代自身在 _helper 内自清, 循环级 catch 只需清理历史条目
+    resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
+    bindUploadedResourceMock
+      .mockResolvedValueOnce(BOUND_A)
+      .mockRejectedValueOnce(new Error('copy timeout'))
+
+    const input = buildUpdateInput({
+      links: [s3Link('token-a'), s3Link('token-b')]
+    })
+    await expect(updatePatchResource(input, 7, 1)).rejects.toThrow(
+      'copy timeout'
+    )
+
+    expect(abandonBoundResourceObjectsMock).toHaveBeenCalledWith(
+      [{ content: 'c-a', s3Key: 'k-a' }],
+      10
+    )
+    expect(transactionMock).not.toHaveBeenCalled()
+  })
+
   it('保留型链接资格预检失败时, 同样清理已重绑对象', async () => {
     // 快照 links 为空: id=5 的保留型链接找不到对应行, 预检失败
     resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
@@ -331,6 +352,25 @@ describe('创建资源循环早退时清理已绑定对象', () => {
     const result = await createPatchResource(input, 7, 1)
 
     expect(result).toBe('上传 token 已过期或不存在, 请重新上传文件')
+    expect(abandonBoundResourceObjectsMock).toHaveBeenCalledWith(
+      [{ content: 'c-a', s3Key: 'k-a' }],
+      10
+    )
+    expect(transactionMock).not.toHaveBeenCalled()
+  })
+
+  it('后续链接 bind 抛错时, 先清理已绑定对象再原样抛出', async () => {
+    bindUploadedResourceMock
+      .mockResolvedValueOnce(BOUND_A)
+      .mockRejectedValueOnce(new Error('copy timeout'))
+
+    const input = buildCreateInput({
+      links: [s3Link('token-a'), s3Link('token-b')]
+    })
+    await expect(createPatchResource(input, 7, 1)).rejects.toThrow(
+      'copy timeout'
+    )
+
     expect(abandonBoundResourceObjectsMock).toHaveBeenCalledWith(
       [{ content: 'c-a', s3Key: 'k-a' }],
       10

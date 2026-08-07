@@ -109,29 +109,36 @@ export const updatePatchResource = async (
   )
   const boundLinks = new Map<number, { content: string; s3Key: string }>()
 
-  for (const [index, link] of links.entries()) {
-    if (link.storage !== 's3') {
-      continue
-    }
-    if (link.hash) {
-      const result = await bindUploadedResource(patchId, link.hash, uid)
-      if (typeof result === 'string') {
-        await abandonBoundResourceObjects([...boundLinks.values()], patchId)
-        return result
+  // bind 抛错 (Redis/配额 DB 故障、copy 超时 rethrow) 同样泄漏历史条目: 抛错的
+  // 迭代要么未创建 finalKey 要么已在 _helper 内自清, 循环级 catch 只清历史无双删
+  try {
+    for (const [index, link] of links.entries()) {
+      if (link.storage !== 's3') {
+        continue
       }
-      boundLinks.set(index, {
-        content: result.downloadLink,
-        s3Key: result.s3Key
-      })
-      continue
+      if (link.hash) {
+        const result = await bindUploadedResource(patchId, link.hash, uid)
+        if (typeof result === 'string') {
+          await abandonBoundResourceObjects([...boundLinks.values()], patchId)
+          return result
+        }
+        boundLinks.set(index, {
+          content: result.downloadLink,
+          s3Key: result.s3Key
+        })
+        continue
+      }
+      // 保留型 s3 链接仅做资格预检, content/s3_key 在锁下解析
+      const snapshotLink =
+        typeof link.id === 'number' ? snapshotLinksById.get(link.id) : null
+      if (!snapshotLink || snapshotLink.storage !== 's3') {
+        await abandonBoundResourceObjects([...boundLinks.values()], patchId)
+        return '请先上传资源文件'
+      }
     }
-    // 保留型 s3 链接仅做资格预检, content/s3_key 在锁下解析
-    const snapshotLink =
-      typeof link.id === 'number' ? snapshotLinksById.get(link.id) : null
-    if (!snapshotLink || snapshotLink.storage !== 's3') {
-      await abandonBoundResourceObjects([...boundLinks.values()], patchId)
-      return '请先上传资源文件'
-    }
+  } catch (error) {
+    await abandonBoundResourceObjects([...boundLinks.values()], patchId)
+    throw error
   }
 
   // update 覆写前的权威行状态, 由事务内行锁读取后回填; 提交后的失效闸门读它

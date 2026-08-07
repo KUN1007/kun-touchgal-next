@@ -80,35 +80,42 @@ export const createPatchResource = async (
   }> = []
   // 早退不清理即泄漏此前迭代已绑定的对象 (staging/token 已删, 无法复用)
   const boundObjects: Array<{ content: string; s3Key: string }> = []
-  for (const [index, link] of links.entries()) {
-    let content = link.content
-    let s3Key = ''
-    if (link.storage === 's3') {
-      if (!link.hash.trim()) {
-        await abandonBoundResourceObjects(boundObjects, patchId)
-        return '请先上传资源文件'
+  // bind 抛错 (Redis/配额 DB 故障、copy 超时 rethrow) 同样泄漏历史条目: 抛错的
+  // 迭代要么未创建 finalKey 要么已在 _helper 内自清, 循环级 catch 只清历史无双删
+  try {
+    for (const [index, link] of links.entries()) {
+      let content = link.content
+      let s3Key = ''
+      if (link.storage === 's3') {
+        if (!link.hash.trim()) {
+          await abandonBoundResourceObjects(boundObjects, patchId)
+          return '请先上传资源文件'
+        }
+        const result = await bindUploadedResource(patchId, link.hash, uid)
+        if (typeof result === 'string') {
+          await abandonBoundResourceObjects(boundObjects, patchId)
+          return result
+        }
+        content = result.downloadLink
+        s3Key = result.s3Key
+        boundObjects.push({ content, s3Key })
       }
-      const result = await bindUploadedResource(patchId, link.hash, uid)
-      if (typeof result === 'string') {
-        await abandonBoundResourceObjects(boundObjects, patchId)
-        return result
-      }
-      content = result.downloadLink
-      s3Key = result.s3Key
-      boundObjects.push({ content, s3Key })
-    }
 
-    preparedLinks.push({
-      storage: link.storage,
-      size: link.size,
-      code: link.code,
-      password: link.password,
-      hash: link.storage === 's3' ? '' : link.hash,
-      s3_key: s3Key,
-      content,
-      sort_order: index,
-      download: 0
-    })
+      preparedLinks.push({
+        storage: link.storage,
+        size: link.size,
+        code: link.code,
+        password: link.password,
+        hash: link.storage === 's3' ? '' : link.hash,
+        s3_key: s3Key,
+        content,
+        sort_order: index,
+        download: 0
+      })
+    }
+  } catch (error) {
+    await abandonBoundResourceObjects(boundObjects, patchId)
+    throw error
   }
 
   const resourcePromise = prisma.$transaction(async (prisma) => {

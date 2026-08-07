@@ -80,6 +80,8 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // 页码钳制帧列表已清空而 refetch 尚未发起, 渲染层以骨架屏遮住误导空态
+  const [clampRefetchPending, setClampRefetchPending] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteProgress, setDeleteProgress] = useState('')
 
@@ -137,6 +139,7 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
     if (!silent) {
       setLoading(true)
       setError('')
+      setClampRefetchPending(false)
     }
 
     try {
@@ -169,20 +172,25 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
       }
 
       const totalPage = Math.max(1, Math.ceil(response.total / limit))
-      if (page > totalPage) {
+      const clamped = page > totalPage
+      if (clamped) {
         setPage(totalPage)
+        setClampRefetchPending(true)
       }
 
       setComments(response.comments)
       setTotal(response.total)
-      setSelectedCommentIds((prev) => {
-        const currentCommentIds = new Set(
-          response.comments.map((comment) => comment.id)
-        )
-        return new Set(
-          [...prev].filter((commentId) => currentCommentIds.has(commentId))
-        )
-      })
+      // 钳制帧响应是空列表, 过滤会误清已前移行的选中态, 留给 refetch 落地帧
+      if (!clamped) {
+        setSelectedCommentIds((prev) => {
+          const currentCommentIds = new Set(
+            response.comments.map((comment) => comment.id)
+          )
+          return new Set(
+            [...prev].filter((commentId) => currentCommentIds.has(commentId))
+          )
+        })
+      }
     } catch {
       if (!silent && requestId === latestFetchRequestIdRef.current) {
         setError('网络错误, 请稍后重试')
@@ -455,7 +463,7 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
       </div>
 
       <div className="space-y-4">
-        {loading ? (
+        {loading || clampRefetchPending ? (
           <KunCardSkeleton count={3} />
         ) : error ? (
           <div className="space-y-3 py-12 text-center">

@@ -61,6 +61,8 @@ export const User = ({ initialUsers, initialTotal }: Props) => {
   const isMounted = useMounted()
 
   const [loading, setLoading] = useState(false)
+  // 页码钳制帧列表已清空而 refetch 尚未发起, 渲染层以骨架屏遮住误导空态
+  const [clampRefetchPending, setClampRefetchPending] = useState(false)
   const latestFetchRequestIdRef = useRef(0)
   // 本渲染时刻的请求序号; 删行后补齐前比对, 若期间有过新请求 (翻页/筛选变更)
   // 则闭包参数已过期, 跳过静默补齐让用户请求的响应落地
@@ -71,6 +73,7 @@ export const User = ({ initialUsers, initialTotal }: Props) => {
     latestFetchRequestIdRef.current = requestId
     if (!silent) {
       setLoading(true)
+      setClampRefetchPending(false)
     }
     try {
       const response = await kunFetchGet<
@@ -98,6 +101,7 @@ export const User = ({ initialUsers, initialTotal }: Props) => {
       const totalPage = Math.max(1, Math.ceil(response.total / limit))
       if (page > totalPage) {
         setPage(totalPage)
+        setClampRefetchPending(true)
       }
 
       setUsers(response.users)
@@ -195,7 +199,7 @@ export const User = ({ initialUsers, initialTotal }: Props) => {
         />
       </div>
 
-      {loading ? (
+      {loading || clampRefetchPending ? (
         <KunTableSkeleton />
       ) : (
         <Table

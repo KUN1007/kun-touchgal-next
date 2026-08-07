@@ -32,6 +32,8 @@ export const Appeal = ({ initialAppeals, initialTotal }: Props) => {
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('pending')
   const [loading, setLoading] = useState(false)
+  // 页码钳制帧列表已清空而 refetch 尚未发起, 渲染层以骨架屏遮住误导空态
+  const [clampRefetchPending, setClampRefetchPending] = useState(false)
   const limit = 30
   const isMounted = useMounted()
 
@@ -45,6 +47,7 @@ export const Appeal = ({ initialAppeals, initialTotal }: Props) => {
     latestFetchRequestIdRef.current = requestId
     if (!silent) {
       setLoading(true)
+      setClampRefetchPending(false)
     }
     try {
       const response = await kunFetchGet<
@@ -67,6 +70,7 @@ export const Appeal = ({ initialAppeals, initialTotal }: Props) => {
       const totalPage = Math.max(1, Math.ceil(response.total / limit))
       if (page > totalPage) {
         setPage(totalPage)
+        setClampRefetchPending(true)
       }
 
       setAppeals(response.appeals)
@@ -153,7 +157,7 @@ export const Appeal = ({ initialAppeals, initialTotal }: Props) => {
       </Select>
 
       <div className="space-y-4">
-        {loading ? (
+        {loading || clampRefetchPending ? (
           <KunCardSkeleton count={3} />
         ) : appeals.length ? (
           appeals.map((appeal) => (

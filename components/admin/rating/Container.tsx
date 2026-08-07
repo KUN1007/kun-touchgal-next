@@ -80,6 +80,8 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
   } = useDisclosure()
 
   const [loading, setLoading] = useState(false)
+  // 页码钳制帧列表已清空而 refetch 尚未发起, 渲染层以骨架屏遮住误导空态
+  const [clampRefetchPending, setClampRefetchPending] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
@@ -135,6 +137,7 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
     latestFetchRequestIdRef.current = requestId
     if (!silent) {
       setLoading(true)
+      setClampRefetchPending(false)
     }
 
     try {
@@ -167,20 +170,25 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
       }
 
       const totalPage = Math.max(1, Math.ceil(response.total / limit))
-      if (page > totalPage) {
+      const clamped = page > totalPage
+      if (clamped) {
         setPage(totalPage)
+        setClampRefetchPending(true)
       }
 
       setRatings(response.ratings)
       setTotal(response.total)
-      setSelectedRatingIds((prev) => {
-        const currentRatingIds = new Set(
-          response.ratings.map((rating) => rating.id)
-        )
-        return new Set(
-          [...prev].filter((ratingId) => currentRatingIds.has(ratingId))
-        )
-      })
+      // 钳制帧响应是空列表, 过滤会误清已前移行的选中态, 留给 refetch 落地帧
+      if (!clamped) {
+        setSelectedRatingIds((prev) => {
+          const currentRatingIds = new Set(
+            response.ratings.map((rating) => rating.id)
+          )
+          return new Set(
+            [...prev].filter((ratingId) => currentRatingIds.has(ratingId))
+          )
+        })
+      }
     } catch (error) {
       if (silent || requestId !== latestFetchRequestIdRef.current) {
         return
@@ -436,7 +444,7 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
       </div>
 
       <div className="space-y-4">
-        {loading ? (
+        {loading || clampRefetchPending ? (
           <KunCardSkeleton count={3} />
         ) : ratings.length ? (
           <>

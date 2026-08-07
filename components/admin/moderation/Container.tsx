@@ -70,6 +70,8 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
   const [status, setStatus] = useState('all')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // 页码钳制帧列表已清空而 refetch 尚未发起, 渲染层以骨架屏遮住误导空态
+  const [clampRefetchPending, setClampRefetchPending] = useState(false)
   const [stats, setStats] = useState<AdminModerationStats | null>(null)
   const limit = 30
   const isMounted = useMounted()
@@ -104,6 +106,7 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
     if (!silent) {
       setLoading(true)
       setError('')
+      setClampRefetchPending(false)
     }
     try {
       const response = await kunFetchGet<
@@ -123,20 +126,29 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
       }
 
       const totalPage = Math.max(1, Math.ceil(response.total / limit))
-      if (page > totalPage) {
+      const clamped = page > totalPage
+      if (clamped) {
         setPage(totalPage)
+        setClampRefetchPending(true)
       }
 
       setTasks(response.tasks)
       setTotal(response.total)
       // 按「仍可操作」而非「仍在本页」收敛选中集: 裁决后的任务仍留在列表里,
-      // 但已不可再改判, 留在选中集只会虚增计数
-      setSelectedTaskIds((prev) => {
-        const selectableIds = new Set(
-          response.tasks.filter(canReviewModerationTask).map((task) => task.id)
-        )
-        return new Set([...prev].filter((taskId) => selectableIds.has(taskId)))
-      })
+      // 但已不可再改判, 留在选中集只会虚增计数;
+      // 钳制帧响应是空列表, 过滤会误清已前移行的选中态, 留给 refetch 落地帧
+      if (!clamped) {
+        setSelectedTaskIds((prev) => {
+          const selectableIds = new Set(
+            response.tasks
+              .filter(canReviewModerationTask)
+              .map((task) => task.id)
+          )
+          return new Set(
+            [...prev].filter((taskId) => selectableIds.has(taskId))
+          )
+        })
+      }
     } catch {
       if (!silent && requestId === latestFetchRequestIdRef.current) {
         setError('网络错误, 请稍后重试')
@@ -465,7 +477,7 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
       </div>
 
       <div className="space-y-4">
-        {loading ? (
+        {loading || clampRefetchPending ? (
           <KunCardSkeleton count={3} />
         ) : error ? (
           <div className="space-y-3 py-12 text-center">

@@ -31,6 +31,8 @@ export const ResourceApply = ({ initialResources, initialTotal }: Props) => {
   const isMounted = useMounted()
 
   const [loading, setLoading] = useState(false)
+  // 页码钳制帧列表已清空而 refetch 尚未发起, 渲染层以骨架屏遮住误导空态
+  const [clampRefetchPending, setClampRefetchPending] = useState(false)
 
   const latestFetchRequestIdRef = useRef(0)
   // 本渲染时刻的请求序号; 删行后补齐前比对, 若期间有过新请求 (翻页/筛选变更)
@@ -42,6 +44,7 @@ export const ResourceApply = ({ initialResources, initialTotal }: Props) => {
     latestFetchRequestIdRef.current = requestId
     if (!silent) {
       setLoading(true)
+      setClampRefetchPending(false)
     }
     try {
       const response = await kunFetchGet<
@@ -68,6 +71,7 @@ export const ResourceApply = ({ initialResources, initialTotal }: Props) => {
       const totalPage = Math.max(1, Math.ceil(response.total / limit))
       if (page > totalPage) {
         setPage(totalPage)
+        setClampRefetchPending(true)
       }
 
       setResources(response.resources)
@@ -145,7 +149,7 @@ export const ResourceApply = ({ initialResources, initialTotal }: Props) => {
         onValueChange={handleSearch}
       />
 
-      {loading ? (
+      {loading || clampRefetchPending ? (
         <KunCardSkeleton count={3} />
       ) : (
         <div className="space-y-4">

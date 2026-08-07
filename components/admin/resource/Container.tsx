@@ -107,6 +107,8 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
 
   const isMounted = useMounted()
   const [loading, setLoading] = useState(false)
+  // 页码钳制帧列表已清空而 refetch 尚未发起, 渲染层以骨架屏遮住误导空态
+  const [clampRefetchPending, setClampRefetchPending] = useState(false)
 
   useEffect(() => {
     if (!debouncedUserInput.trim()) {
@@ -161,6 +163,7 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
     latestFetchRequestIdRef.current = requestId
     if (!silent) {
       setLoading(true)
+      setClampRefetchPending(false)
     }
     try {
       const params: Record<string, string | number> = { page, limit }
@@ -192,6 +195,7 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
       const totalPage = Math.max(1, Math.ceil(res.total / limit))
       if (page > totalPage) {
         setPage(totalPage)
+        setClampRefetchPending(true)
       }
 
       setResources(res.resources)
@@ -469,7 +473,7 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
         )}
       </div>
 
-      {loading ? (
+      {loading || clampRefetchPending ? (
         <KunTableSkeleton />
       ) : (
         <Table

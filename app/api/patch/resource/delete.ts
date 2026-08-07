@@ -22,8 +22,10 @@ const resourceIdSchema = z.object({
     .max(9999999)
 })
 
-// 预检与行锁之间被并发删除: 抛出以回滚先行的扣分写入 (对齐 decline 的哨兵模式)
+// 预检与行锁之间被并发删除/隐藏: 抛出以回滚先行的扣分写入 (对齐 decline 的哨兵模式)
 class ResourceGoneError extends Error {}
+// 预检与行锁之间被并发送审 (0→3): 同样必须 throw 回滚误扣
+class ResourceModerationPendingError extends Error {}
 
 export const deleteResource = async (
   input: z.infer<typeof resourceIdSchema>,
@@ -61,11 +63,18 @@ export const deleteResource = async (
       })
       // 行锁: 与 update / moderation apply 的 FOR UPDATE 互斥, 拿到锁即并发编辑
       // 要么已提交 (下面重读见新集合), 要么将阻塞至本事务提交后在锁下复检发现行已删
-      const [locked] = await prisma.$queryRaw<Array<{ id: number }>>`
-        SELECT id FROM patch_resource WHERE id = ${input.resourceId} FOR UPDATE`
+      const [locked] = await prisma.$queryRaw<
+        Array<{ id: number; status: number }>
+      >`SELECT id, status FROM patch_resource WHERE id = ${input.resourceId} FOR UPDATE`
+      // 锁下复检事务外守卫 (7ba41379 同型): 预检与行锁之间的并发隐藏 (0→1) /
+      // 送审 (0→3) 若不复检, 作者会物理删除管理员刚隐藏或已送审的行 —— 行锁的
+      // 阻塞恰恰保证本事务在并发提交之后才继续, 删除必然落在新状态上.
       // 上面已有扣分写入, return 字符串会提交误扣, 必须 throw 回滚
-      if (!locked) {
+      if (!locked || locked.status === 1) {
         throw new ResourceGoneError()
+      }
+      if (userRole < 3 && locked.status !== 0) {
+        throw new ResourceModerationPendingError()
       }
       // 锁下重读 links: 删除瞬间的真实集合, 并发重绑产生的新 s3 对象不再漏入队
       const lockedLinks = await prisma.patch_resource_link.findMany({
@@ -99,6 +108,9 @@ export const deleteResource = async (
   } catch (error) {
     if (error instanceof ResourceGoneError) {
       return '未找到对应的资源'
+    }
+    if (error instanceof ResourceModerationPendingError) {
+      return '该资源正在审核中, 暂时无法删除'
     }
     throw error
   }

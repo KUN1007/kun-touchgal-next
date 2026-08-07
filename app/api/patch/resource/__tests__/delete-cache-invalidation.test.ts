@@ -147,8 +147,8 @@ const buildDeleted = (overrides: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   vi.resetAllMocks()
   userFindUniqueMock.mockResolvedValue({ id: 9, name: 'Admin' })
-  // 事务内行锁命中 + 锁下重读: links 与 admin 审计快照的事实源
-  transactionQueryRawMock.mockResolvedValue([{ id: 1 }])
+  // 事务内行锁命中 (status 供守卫复检) + 锁下重读: links 与 admin 审计快照的事实源
+  transactionQueryRawMock.mockResolvedValue([{ id: 1, status: 0 }])
   transactionLinkFindManyMock.mockResolvedValue([])
   transactionResourceFindUniqueMock.mockImplementation(async () =>
     buildSnapshot()
@@ -201,12 +201,25 @@ describe('删除资源按删除瞬间状态分派缓存失效', () => {
     expect(invalidateUserPendingResourceCacheMock).not.toHaveBeenCalled()
   })
 
-  // 反向: 快照 status=0, 并发隐藏后该行已是 1, 不在公开集里
-  it('快照为公开但删除时已被隐藏, 不失效详情缓存', async () => {
+  // 反向: 快照 status=0, 并发隐藏后该行已是 1 —— 前台路径在锁下复检即拒, 不再删除
+  it('快照为公开但锁下已被隐藏, 拒绝删除且不失效缓存', async () => {
     resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
+    transactionQueryRawMock.mockResolvedValue([{ id: 1, status: 1 }])
+
+    const result = await deleteResource({ resourceId: 1 }, 7, 2)
+
+    expect(result).toBe('未找到对应的资源')
+    expect(transactionResourceDeleteMock).not.toHaveBeenCalled()
+    expect(invalidatePatchResourceDetailCacheMock).not.toHaveBeenCalled()
+    expect(invalidateResourceListCacheMock).not.toHaveBeenCalled()
+  })
+
+  // 隐藏行只有 admin 路径可删, delete 返回 status=1 时公开缓存无需失效
+  it('管理员删除隐藏资源不失效公开缓存', async () => {
+    resourceFindUniqueMock.mockResolvedValue(buildSnapshot({ status: 1 }))
     transactionResourceDeleteMock.mockResolvedValue(buildDeleted({ status: 1 }))
 
-    await deleteResource({ resourceId: 1 }, 7, 2)
+    await adminDeleteResource({ resourceId: 1 }, 9)
 
     expect(invalidatePatchResourceDetailCacheMock).not.toHaveBeenCalled()
     expect(invalidateResourceListCacheMock).not.toHaveBeenCalled()
@@ -214,6 +227,7 @@ describe('删除资源按删除瞬间状态分派缓存失效', () => {
 
   it('删除待审核资源失效作者的 pending 缓存而非详情缓存', async () => {
     resourceFindUniqueMock.mockResolvedValue(buildSnapshot({ status: 3 }))
+    transactionQueryRawMock.mockResolvedValue([{ id: 1, status: 3 }])
     transactionResourceDeleteMock.mockResolvedValue(buildDeleted({ status: 3 }))
 
     await deleteResource({ resourceId: 1 }, 7, 3)

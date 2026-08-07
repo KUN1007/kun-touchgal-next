@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
 import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import { KunPagination } from '~/components/kun/Pagination'
@@ -19,8 +19,12 @@ export const UserRating = ({ initRatings, total, uid }: Props) => {
   const [ratings, setRatings] = useState<UserRatingType[]>(initRatings)
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(1)
+  // 陈旧响应守卫: 分页输入框在 loading 期间仍可跳页, 慢响应不得覆盖新页数据
+  const latestFetchRequestIdRef = useRef(0)
 
   const fetchData = async () => {
+    const requestId = latestFetchRequestIdRef.current + 1
+    latestFetchRequestIdRef.current = requestId
     setLoading(true)
     try {
       const response = await kunFetchGet<
@@ -34,17 +38,25 @@ export const UserRating = ({ initRatings, total, uid }: Props) => {
         limit: 20
       })
 
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
       kunErrorHandler(response, (value) => setRatings(value.ratings))
     } catch (error) {
       errorReporter(error)
     } finally {
-      setLoading(false)
+      if (requestId === latestFetchRequestIdRef.current) {
+        setLoading(false)
+      }
     }
   }
 
   useEffect(() => {
     if (page === 1) {
+      // 作废在途请求, 防旧页响应覆盖 initRatings; 其 finally 被守卫跳过故须自清 loading
+      latestFetchRequestIdRef.current += 1
       setRatings(initRatings)
+      setLoading(false)
       return
     }
     fetchData()

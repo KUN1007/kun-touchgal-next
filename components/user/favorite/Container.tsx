@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import {
   Button,
   Card,
@@ -49,11 +49,19 @@ export const UserFavorite = ({
     onOpen: onOpenFolder,
     onClose: onCloseFolder
   } = useDisclosure()
+  // 陈旧响应守卫: 旧收藏夹请求挂起期间切换收藏夹/翻页, 慢响应不得覆盖新数据
+  const latestFetchRequestIdRef = useRef(0)
+
   const fetchPatchesInFolder = async (folderId: number) => {
+    const requestId = latestFetchRequestIdRef.current + 1
+    latestFetchRequestIdRef.current = requestId
     startTransition(async () => {
       const res = await kunFetchGet<
         KunResponse<{ patches: GalgameCard[]; total: number }>
       >(`/user/profile/favorite/folder/patch`, { folderId, page, limit: 48 })
+      if (requestId !== latestFetchRequestIdRef.current) {
+        return
+      }
       kunErrorHandler(res, (value) => {
         setPatches(value.patches)
         setTotal(value.total)
@@ -92,6 +100,8 @@ export const UserFavorite = ({
     if (page === 1) {
       fetchPatchesInFolder(folder.id)
     } else {
+      // 作废旧收藏夹在途请求, 防 setPage 触发 refetch 前的窗口期落地旧数据
+      latestFetchRequestIdRef.current += 1
       setPage(1)
     }
     onOpenFolder()

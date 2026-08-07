@@ -2,7 +2,7 @@
 
 import { Avatar, Card, CardBody } from '@heroui/react'
 import { Users } from 'lucide-react'
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
 import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import { useRouter } from '@bprogress/next'
@@ -24,8 +24,12 @@ export const UserList = ({ userId, type }: UserListProps) => {
   const [total, setTotal] = useState(100)
   const [users, setUsers] = useState<UserFollowType[]>([])
   const [loading, startTransition] = useTransition()
+  // 陈旧响应守卫: 分页输入框在 loading 期间仍可跳页, 慢响应不得覆盖新页数据
+  const latestFetchRequestIdRef = useRef(0)
 
   const getUsers = () => {
+    const requestId = latestFetchRequestIdRef.current + 1
+    latestFetchRequestIdRef.current = requestId
     startTransition(async () => {
       try {
         if (type === 'followers') {
@@ -39,6 +43,9 @@ export const UserList = ({ userId, type }: UserListProps) => {
             page,
             limit: 100
           })
+          if (requestId !== latestFetchRequestIdRef.current) {
+            return
+          }
           kunErrorHandler(res, (value) => {
             setUsers(value.followers)
             setTotal(value.total)
@@ -54,6 +61,9 @@ export const UserList = ({ userId, type }: UserListProps) => {
             page,
             limit: 100
           })
+          if (requestId !== latestFetchRequestIdRef.current) {
+            return
+          }
           kunErrorHandler(res, (value) => {
             setUsers(value.followings)
             setTotal(value.total)

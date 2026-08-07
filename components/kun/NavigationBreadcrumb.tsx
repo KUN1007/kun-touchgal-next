@@ -30,13 +30,21 @@ export const KunNavigationBreadcrumb = () => {
     '/edit/create',
     '/edit/rewrite',
     '/redirect',
-    '/friend-link'
+    '/friend-link',
+    '/apply',
+    '/apply/pending',
+    '/apply/success',
+    '/register'
   ]
 
   if (
     hideBreadcrumbRoutes.includes(pathname) ||
     pathname === '/admin' ||
-    pathname.startsWith('/admin/')
+    pathname.startsWith('/admin/') ||
+    pathname === '/login' ||
+    pathname.startsWith('/login/') ||
+    pathname.startsWith('/auth/') ||
+    pathname.startsWith('/oidc/')
   ) {
     return null
   }

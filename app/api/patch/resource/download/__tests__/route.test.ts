@@ -121,8 +121,9 @@ describe('PUT /api/patch/resource/download', () => {
       data: { download: { increment: 1 } }
     })
     expect(invalidateStatsMock).toHaveBeenCalledTimes(1)
-    // 详情缓存按 patch 分片失效, 不再靠全站 stats 版本覆盖
-    expect(invalidateDetailMock).toHaveBeenCalledWith(10)
+    // 锁定豁免: download 计数无 UI 消费方, 刻意不失效详情缓存;
+    // 若有人恢复失效调用 (mock 仍拦截 cache 模块), 此断言变红提醒复议
+    expect(invalidateDetailMock).not.toHaveBeenCalled()
   })
 
   it('去重命中时短路: 不查库、不自增、不失效缓存', async () => {

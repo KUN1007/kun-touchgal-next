@@ -8,7 +8,6 @@ import { delKv, setKvIfAbsent } from '~/lib/redis'
 import { DOWNLOAD_DEDUP_CACHE_DURATION } from '~/config/cache'
 import { updatePatchResourceStatsSchema } from '~/validations/patch'
 import { invalidateResourceStatsListCache } from '~/app/api/resource/cache'
-import { invalidatePatchResourceDetailCache } from '~/app/api/patch/resource/cache'
 
 const downloadStats = async (
   input: z.infer<typeof updatePatchResourceStatsSchema>,
@@ -55,8 +54,10 @@ const downloadStats = async (
   }
 
   await invalidateResourceStatsListCache()
-  // 详情缓存内嵌 download 计数且版本键按 patch 分片, 全站 stats 版本不再覆盖它
-  await invalidatePatchResourceDetailCache(input.patchId)
+  // 刻意不失效资源详情缓存: 缓存内嵌的 download 计数无 UI 消费方 (卡片只渲染
+  // likeCount, 列表按 sort_order 排序), 而下载是该缓存最高频的写路径, 失效会
+  // 白白压低命中率; 将来卡片若渲染 download, 须恢复
+  // invalidatePatchResourceDetailCache(input.patchId)
   return {}
 }
 

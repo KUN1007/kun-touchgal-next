@@ -274,6 +274,75 @@ describe('更新资源在行锁下复检守卫', () => {
     expect(result).toBe('未找到该资源')
     expectNoWriteNoSideEffects()
   })
+
+  // 复检拦截时 bind 已完成 (对象复制到 finalKey, staging 与 token 已删):
+  // return 字符串会提交事务且不走 .catch 的 abandon 兜底, 已重绑对象
+  // 必须随本事务入队清理, 否则成无 DB 引用的永久公开孤儿
+  it('复检拦截时已重绑的 s3 对象随本事务入队清理', async () => {
+    resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
+    transactionQueryRawMock.mockResolvedValue([
+      { status: 1, section: 'galgame' }
+    ])
+    bindUploadedResourceMock.mockResolvedValue({
+      downloadLink: 'new-c',
+      s3Key: 'new-k',
+      size: 1
+    })
+
+    const input = buildInput({
+      links: [
+        {
+          storage: 's3',
+          hash: 'upload-token',
+          content: '',
+          size: '100MB',
+          code: '',
+          password: ''
+        }
+      ]
+    })
+    const result = await updatePatchResource(input, 7, 1)
+
+    expect(result).toBe('未找到该资源')
+    expect(transactionResourceUpdateMock).not.toHaveBeenCalled()
+    expect(enqueueResourceLinkDeletionsMock).toHaveBeenCalledWith(
+      transactionClient,
+      [{ content: 'new-c', patchId: 10, hash: '', s3Key: 'new-k' }]
+    )
+  })
+
+  it('待审核复检拦截同样入队清理已重绑对象', async () => {
+    resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
+    transactionQueryRawMock.mockResolvedValue([
+      { status: 3, section: 'galgame' }
+    ])
+    bindUploadedResourceMock.mockResolvedValue({
+      downloadLink: 'new-c',
+      s3Key: 'new-k',
+      size: 1
+    })
+
+    const input = buildInput({
+      links: [
+        {
+          storage: 's3',
+          hash: 'upload-token',
+          content: '',
+          size: '100MB',
+          code: '',
+          password: ''
+        }
+      ]
+    })
+    const result = await updatePatchResource(input, 7, 1)
+
+    expect(result).toBe('您发布的资源正在审核中, 暂时无法修改')
+    expect(transactionResourceUpdateMock).not.toHaveBeenCalled()
+    expect(enqueueResourceLinkDeletionsMock).toHaveBeenCalledWith(
+      transactionClient,
+      [{ content: 'new-c', patchId: 10, hash: '', s3Key: 'new-k' }]
+    )
+  })
 })
 
 // links diff 的事实源是行锁下重读的集合: 事务外快照与行锁之间的并发编辑是

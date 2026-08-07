@@ -149,16 +149,28 @@ export const updatePatchResource = async (
     // 锁下复检事务外守卫: 快照与事务开始之间隔着 S3 绑定/预筛的秒级窗口, 并发的
     // 管理员隐藏 (0→1) 若不复检, 预筛拦截会把隐藏行写回待审核 (3), AI 放行 (3→0)
     // 即静默撤销管理员隐藏. 拦截型任务与 status=3 同事务写入, status 复检已覆盖
-    // 并发任务, 无需重查 hasPendingModeration. 此处尚无任何写入, return 业务错误
-    // 仅提交空事务, 零副作用
+    // 并发任务, 无需重查 hasPendingModeration. 被拦时已重绑的新对象随本事务入队
+    // 清理后再 return (return 字符串会提交事务, 与下方冲突分支同构): 此前无行
+    // 变更, 提交的只有这份清理入队; abandon 兜底只覆盖事务 reject, 不覆盖此处
+    let guardError: string | null = null
     if (!previous || previous.status === 1) {
-      return '未找到该资源'
+      guardError = '未找到该资源'
+    } else if (userRole < 3 && previous.status === 2) {
+      guardError = '您发布的资源正在等待管理员审核, 暂时无法修改'
+    } else if (userRole < 3 && previous.status === 3) {
+      guardError = '您发布的资源正在审核中, 暂时无法修改'
     }
-    if (userRole < 3 && previous.status === 2) {
-      return '您发布的资源正在等待管理员审核, 暂时无法修改'
-    }
-    if (userRole < 3 && previous.status === 3) {
-      return '您发布的资源正在审核中, 暂时无法修改'
+    if (guardError) {
+      await enqueueResourceLinkDeletions(
+        prisma,
+        [...boundLinks.values()].map((item) => ({
+          content: item.content,
+          patchId: resource.patch_id,
+          hash: '',
+          s3Key: item.s3Key
+        }))
+      )
+      return guardError
     }
     previousStatus = previous.status
     previousSection = previous.section

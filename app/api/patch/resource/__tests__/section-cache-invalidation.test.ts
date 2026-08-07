@@ -10,6 +10,7 @@ const {
   transactionUserUpdateMock,
   transactionPatchUpdateMock,
   transactionQueryRawMock,
+  transactionLinkFindManyMock,
   bindUploadedResourceMock,
   enqueueResourceLinkDeletionsMock,
   recalcPatchTypeMock,
@@ -36,6 +37,7 @@ const {
   transactionUserUpdateMock: vi.fn(),
   transactionPatchUpdateMock: vi.fn(),
   transactionQueryRawMock: vi.fn(),
+  transactionLinkFindManyMock: vi.fn(),
   bindUploadedResourceMock: vi.fn(),
   enqueueResourceLinkDeletionsMock: vi.fn(),
   recalcPatchTypeMock: vi.fn(),
@@ -59,6 +61,7 @@ const transactionClient = {
     create: transactionResourceCreateMock,
     update: transactionResourceUpdateMock
   },
+  patch_resource_link: { findMany: transactionLinkFindManyMock },
   user: { update: transactionUserUpdateMock },
   patch: { update: transactionPatchUpdateMock },
   $queryRaw: transactionQueryRawMock
@@ -187,6 +190,7 @@ const buildStoredResource = (overrides: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   vi.resetAllMocks()
+  transactionLinkFindManyMock.mockResolvedValue([])
   hasPendingModerationMock.mockResolvedValue(false)
   preScreenTextMock.mockResolvedValue(moderationSkip)
   invalidatePatchContentCacheMock.mockResolvedValue(undefined)

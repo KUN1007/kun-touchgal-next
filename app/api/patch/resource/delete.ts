@@ -22,16 +22,18 @@ const resourceIdSchema = z.object({
     .max(9999999)
 })
 
+// 预检与行锁之间被并发删除: 抛出以回滚先行的扣分写入 (对齐 decline 的哨兵模式)
+class ResourceGoneError extends Error {}
+
 export const deleteResource = async (
   input: z.infer<typeof resourceIdSchema>,
   uid: number,
   userRole: number
 ) => {
+  // 事务外预检仅做权限与状态快速失败; links 不从这里取 —— 快照与事务之间的并发
+  // 重绑会换 s3_key, 级联删除又绕过应用层, 入队事实源必须是锁下重读的集合
   const patchResource = await prisma.patch_resource.findUnique({
-    where: { id: input.resourceId },
-    include: {
-      links: true
-    }
+    where: { id: input.resourceId }
   })
   // 隐藏 (status=1) 的资源仅后台可管理, 前端与不存在等同
   if (!patchResource || patchResource.status === 1) {
@@ -47,38 +49,59 @@ export const deleteResource = async (
     return '该资源正在审核中, 暂时无法删除'
   }
 
-  const s3Links = patchResource.links.filter((link) => link.storage === 's3')
-
   let affectedUniqueId = ''
-  const deletedResource = await prisma.$transaction(async (prisma) => {
-    await prisma.user.update({
-      where: { id: resourceUserUid },
-      data: { moemoepoint: { increment: -3 } }
-    })
+  let deletedResource
+  try {
+    deletedResource = await prisma.$transaction(async (prisma) => {
+      // 扣分先行: 锁序 (user → patch_resource) 与 moderation apply 一致,
+      // resource 锁在前会与 apply 的 user 先行锁构成 AB-BA 死锁
+      await prisma.user.update({
+        where: { id: resourceUserUid },
+        data: { moemoepoint: { increment: -3 } }
+      })
+      // 行锁: 与 update / moderation apply 的 FOR UPDATE 互斥, 拿到锁即并发编辑
+      // 要么已提交 (下面重读见新集合), 要么将阻塞至本事务提交后在锁下复检发现行已删
+      const [locked] = await prisma.$queryRaw<Array<{ id: number }>>`
+        SELECT id FROM patch_resource WHERE id = ${input.resourceId} FOR UPDATE`
+      // 上面已有扣分写入, return 字符串会提交误扣, 必须 throw 回滚
+      if (!locked) {
+        throw new ResourceGoneError()
+      }
+      // 锁下重读 links: 删除瞬间的真实集合, 并发重绑产生的新 s3 对象不再漏入队
+      const lockedLinks = await prisma.patch_resource_link.findMany({
+        where: { resource_id: input.resourceId }
+      })
+      const s3Links = lockedLinks.filter((link) => link.storage === 's3')
 
-    await cleanupResourceCommentDerivatives(prisma, input.resourceId)
-    // 提交后的失效闸门读这里的返回值而非事务外快照: 快照与删除之间的并发 approve
-    // (2→0) 或隐藏 (0→1) 会让闸门误判该行删除时是否在 status=0 集合里
-    const deleted = await prisma.patch_resource.delete({
-      where: { id: input.resourceId }
+      await cleanupResourceCommentDerivatives(prisma, input.resourceId)
+      // 提交后的失效闸门读这里的返回值而非事务外快照: 快照与删除之间的并发 approve
+      // (2→0) 或隐藏 (0→1) 会让闸门误判该行删除时是否在 status=0 集合里
+      const deleted = await prisma.patch_resource.delete({
+        where: { id: input.resourceId }
+      })
+      await deletePendingModerationTasks('resource', input.resourceId, prisma)
+      await deleteOrphanReports('comment', prisma)
+      affectedUniqueId = await recalcPatchType(patchResource.patch_id, prisma)
+      // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
+      await enqueueSearchOutbox(prisma, patchResource.patch_id)
+      // 事务性入队 S3 删除：与行删除原子提交，取代提交后 Promise.all 的不可恢复删除
+      await enqueueResourceLinkDeletions(
+        prisma,
+        s3Links.map((link) => ({
+          content: link.content,
+          patchId: patchResource.patch_id,
+          hash: link.hash,
+          s3Key: link.s3_key
+        }))
+      )
+      return deleted
     })
-    await deletePendingModerationTasks('resource', input.resourceId, prisma)
-    await deleteOrphanReports('comment', prisma)
-    affectedUniqueId = await recalcPatchType(patchResource.patch_id, prisma)
-    // 事务性入队：与补丁变更原子提交，关闭崩溃丢失窗口
-    await enqueueSearchOutbox(prisma, patchResource.patch_id)
-    // 事务性入队 S3 删除：与行删除原子提交，取代提交后 Promise.all 的不可恢复删除
-    await enqueueResourceLinkDeletions(
-      prisma,
-      s3Links.map((link) => ({
-        content: link.content,
-        patchId: patchResource.patch_id,
-        hash: link.hash,
-        s3Key: link.s3_key
-      }))
-    )
-    return deleted
-  })
+  } catch (error) {
+    if (error instanceof ResourceGoneError) {
+      return '未找到对应的资源'
+    }
+    throw error
+  }
 
   queueSearchSync(patchResource.patch_id)
   // 事务提交后失效: 事务内失效会被并发读回填旧值 (M-04), 且 Redis 故障不应回滚写入

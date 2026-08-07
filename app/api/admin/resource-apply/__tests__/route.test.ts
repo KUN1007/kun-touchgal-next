@@ -6,6 +6,8 @@ const {
   findResourceMock,
   findAdminMock,
   transactionMock,
+  txQueryRawMock,
+  txLinkFindManyMock,
   deleteResourceMock,
   updateResourceMock,
   createLogMock,
@@ -27,6 +29,8 @@ const {
   findResourceMock: vi.fn(),
   findAdminMock: vi.fn(),
   transactionMock: vi.fn(),
+  txQueryRawMock: vi.fn(),
+  txLinkFindManyMock: vi.fn(),
   deleteResourceMock: vi.fn(),
   updateResourceMock: vi.fn(),
   createLogMock: vi.fn(),
@@ -50,7 +54,9 @@ const transactionClient = {
     deleteMany: deleteResourceMock,
     updateMany: updateResourceMock
   },
-  admin_log: { create: createLogMock }
+  patch_resource_link: { findMany: txLinkFindManyMock },
+  admin_log: { create: createLogMock },
+  $queryRaw: txQueryRawMock
 }
 
 vi.mock('next/server', () => ({
@@ -146,6 +152,9 @@ beforeEach(() => {
   verifyHeaderCookieMock.mockResolvedValue({ uid: 99, role: 4 })
   findResourceMock.mockResolvedValue(pendingResource)
   findAdminMock.mockResolvedValue({ id: 99, name: 'admin' })
+  // 事务首条 FOR UPDATE 命中行; S3 入队的事实源是锁下重读的 links
+  txQueryRawMock.mockResolvedValue([{ id: 3 }])
+  txLinkFindManyMock.mockResolvedValue(pendingResource.links)
   deleteResourceMock.mockResolvedValue({ count: 1 })
   updateResourceMock.mockResolvedValue({ count: 1 })
   createLogMock.mockResolvedValue({})

@@ -207,15 +207,9 @@ const rejectAppeal = async (
   const contentId = appeal.content_id
   const hiddenStatus = type === 'resource' ? 1 : 2
 
-  // 事务外预取: patch_id 供提交后缓存失效; resource 另取 links/name 供 S3 出箱与审计快照
-  // (对齐 adminDeleteResource 的事务外预取; 事务内 guarded delete 会挡住并发改状态的资源)
+  // 事务外预取仅取 patch_id 供提交后缓存失效; links 在事务内锁下重读 —— 快照与
+  // 守卫删除之间的「恢复→重绑→再隐藏」会换 s3 对象, 快照入队漏删新对象
   let patchId: number | null = null
-  let resourceLinksForS3: {
-    content: string
-    patchId: number
-    hash: string
-    s3Key: string
-  }[] = []
   if (type === 'comment') {
     const comment = await prisma.patch_comment.findUnique({
       where: { id: contentId },
@@ -231,19 +225,9 @@ const rejectAppeal = async (
   } else {
     const resource = await prisma.patch_resource.findUnique({
       where: { id: contentId },
-      include: { patch: { select: { name: true } }, links: true }
+      select: { patch_id: true }
     })
     patchId = resource?.patch_id ?? null
-    if (resource) {
-      resourceLinksForS3 = resource.links
-        .filter((link) => link.storage === 's3')
-        .map((link) => ({
-          content: link.content,
-          patchId: resource.patch_id,
-          hash: link.hash,
-          s3Key: link.s3_key
-        }))
-    }
   }
 
   // claim + guarded delete + 通知 + 审计同事务原子提交:
@@ -305,26 +289,41 @@ const rejectAppeal = async (
               contentDeleted = locked.length === 0
             }
           } else {
+            // FOR UPDATE 锁定资源行并读事务内当前状态, 与并发恢复串行化 (对齐
+            // rating 分支); links 锁下重读, 以删除瞬间的集合入队 S3 出箱.
             // 资源删除会级联删其评论 (resource_id Cascade), 评论举报外键是
             // SET NULL: 确认删除后清理级联置空的孤儿举报
-            const deleted = await tx.patch_resource.deleteMany({
-              where: { id: contentId, status: hiddenStatus }
-            })
-            if (deleted.count > 0 && patchId !== null) {
+            const locked = await tx.$queryRaw<{ status: number }[]>`
+              SELECT status FROM patch_resource WHERE id = ${contentId} FOR UPDATE
+            `
+            if (
+              locked.length > 0 &&
+              locked[0].status === hiddenStatus &&
+              patchId !== null
+            ) {
+              const resourcePatchId = patchId
+              const lockedLinks = await tx.patch_resource_link.findMany({
+                where: { resource_id: contentId }
+              })
+              const resourceLinksForS3 = lockedLinks
+                .filter((link) => link.storage === 's3')
+                .map((link) => ({
+                  content: link.content,
+                  patchId: resourcePatchId,
+                  hash: link.hash,
+                  s3Key: link.s3_key
+                }))
+              await tx.patch_resource.deleteMany({ where: { id: contentId } })
               await deletePendingModerationTasks('resource', contentId, tx)
               await deletePendingAppeals('resource', contentId, tx)
               await deleteOrphanReports('comment', tx)
-              affectedUniqueId = await recalcPatchType(patchId, tx)
-              await enqueueSearchOutbox(tx, patchId)
+              affectedUniqueId = await recalcPatchType(resourcePatchId, tx)
+              await enqueueSearchOutbox(tx, resourcePatchId)
               await enqueueResourceLinkDeletions(tx, resourceLinksForS3)
               didDelete = true
               contentDeleted = true
             } else {
-              const still = await tx.patch_resource.findUnique({
-                where: { id: contentId },
-                select: { id: true }
-              })
-              contentDeleted = !still
+              contentDeleted = locked.length === 0
             }
           }
 

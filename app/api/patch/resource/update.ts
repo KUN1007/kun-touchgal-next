@@ -79,7 +79,11 @@ export const updatePatchResource = async (
     return '未找到该资源对应的 Galgame 信息, 请确认 Galgame 存在'
   }
 
-  const existingLinksById = new Map(
+  // 阶段一 (事务外): 只完成 S3 重绑 —— copy 不进事务; 链接 diff 与删除入队推迟到
+  // 行锁之下, 以锁下集合为事实源. 事务外快照与行锁之间的并发编辑是 deleteMany +
+  // create 整体换行: 基于快照的 diff 会漏删并发重绑的新 s3 对象 (孤儿且公开可达),
+  // 并把已入队删除的旧 key 复制回新行成悬空链接
+  const snapshotLinksById = new Map(
     resource.links.map((link) => [link.id, link])
   )
   const nextLinkIds = new Set(
@@ -87,88 +91,29 @@ export const updatePatchResource = async (
       .map((link) => link.id)
       .filter((id): id is number => typeof id === 'number')
   )
-  const linksToDelete = resource.links.filter(
-    (link) => !nextLinkIds.has(link.id)
-  )
-
-  const preparedLinks: Array<{
-    storage: string
-    size: string
-    code: string
-    password: string
-    hash: string
-    s3_key: string
-    content: string
-    sort_order: number
-    download: number
-  }> = []
-  const s3LinksToDelete: Array<{
-    content: string
-    patchId: number
-    hash: string
-    s3Key: string
-  }> = []
-
-  for (const removedLink of linksToDelete) {
-    if (removedLink.storage === 's3') {
-      s3LinksToDelete.push({
-        content: removedLink.content,
-        patchId: resource.patch_id,
-        hash: removedLink.hash,
-        s3Key: removedLink.s3_key
-      })
-    }
-  }
+  const boundLinks = new Map<number, { content: string; s3Key: string }>()
 
   for (const [index, link] of links.entries()) {
-    const existingLink =
-      typeof link.id === 'number' ? existingLinksById.get(link.id) : null
-
-    let content = link.content
-    let s3Key = ''
-    let rebound = false
-
-    if (link.storage === 's3') {
-      if (link.hash) {
-        const result = await bindUploadedResource(patchId, link.hash, uid)
-        if (typeof result === 'string') {
-          return result
-        }
-        content = result.downloadLink
-        s3Key = result.s3Key
-        rebound = true
-      } else if (existingLink && existingLink.storage === 's3') {
-        content = existingLink.content
-        s3Key = existingLink.s3_key
-      } else {
-        return '请先上传资源文件'
+    if (link.storage !== 's3') {
+      continue
+    }
+    if (link.hash) {
+      const result = await bindUploadedResource(patchId, link.hash, uid)
+      if (typeof result === 'string') {
+        return result
       }
-    }
-
-    if (
-      existingLink &&
-      existingLink.storage === 's3' &&
-      (link.storage !== 's3' || rebound)
-    ) {
-      s3LinksToDelete.push({
-        content: existingLink.content,
-        patchId: resource.patch_id,
-        hash: existingLink.hash,
-        s3Key: existingLink.s3_key
+      boundLinks.set(index, {
+        content: result.downloadLink,
+        s3Key: result.s3Key
       })
+      continue
     }
-
-    preparedLinks.push({
-      storage: link.storage,
-      size: link.size,
-      code: link.code,
-      password: link.password,
-      hash: link.storage === 's3' ? '' : link.hash,
-      s3_key: s3Key,
-      content,
-      sort_order: index,
-      download: existingLink?.download ?? 0
-    })
+    // 保留型 s3 链接仅做资格预检, content/s3_key 在锁下解析
+    const snapshotLink =
+      typeof link.id === 'number' ? snapshotLinksById.get(link.id) : null
+    if (!snapshotLink || snapshotLink.storage !== 's3') {
+      return '请先上传资源文件'
+    }
   }
 
   // 编辑标题/介绍/模型型号后必须重新送审; 待人工审批 (status=2) 的资源不送 AI;
@@ -213,6 +158,101 @@ export const updatePatchResource = async (
     }
     previousStatus = previous.status
     previousSection = previous.section
+
+    // 阶段二 (锁下): 重读 links 并重算 diff, 删除入队与保留型链接的 content/s3_key
+    // 都以行锁下的当前集合为准 (deleteMany 即将带走的正是这个集合)
+    const currentLinks = await prisma.patch_resource_link.findMany({
+      where: { resource_id: resourceId }
+    })
+    const currentLinksById = new Map(
+      currentLinks.map((link) => [link.id, link])
+    )
+
+    const s3LinksToDelete: Array<{
+      content: string
+      patchId: number
+      hash: string
+      s3Key: string
+    }> = []
+    // 未被保留的行 (含并发编辑产生的新行): 其 s3 对象随 deleteMany 一并入队
+    for (const removedLink of currentLinks) {
+      if (!nextLinkIds.has(removedLink.id) && removedLink.storage === 's3') {
+        s3LinksToDelete.push({
+          content: removedLink.content,
+          patchId: resource.patch_id,
+          hash: removedLink.hash,
+          s3Key: removedLink.s3_key
+        })
+      }
+    }
+
+    const preparedLinks: Array<{
+      storage: string
+      size: string
+      code: string
+      password: string
+      hash: string
+      s3_key: string
+      content: string
+      sort_order: number
+      download: number
+    }> = []
+    for (const [index, link] of links.entries()) {
+      const existingLink =
+        typeof link.id === 'number' ? currentLinksById.get(link.id) : null
+      const bound = boundLinks.get(index)
+
+      let content = link.content
+      let s3Key = ''
+      if (link.storage === 's3') {
+        if (bound) {
+          content = bound.content
+          s3Key = bound.s3Key
+        } else if (existingLink && existingLink.storage === 's3') {
+          content = existingLink.content
+          s3Key = existingLink.s3_key
+        } else {
+          // 资格预检通过但锁下行已被并发编辑重建: 本次编辑的语义基础已失效.
+          // 已重绑的新对象随本事务入队清理 —— return 字符串会提交事务, 此前
+          // 无任何行变更, 提交的只有这份清理入队; 上传暂存仍在, 重试可再次绑定
+          await enqueueResourceLinkDeletions(
+            prisma,
+            [...boundLinks.values()].map((item) => ({
+              content: item.content,
+              patchId: resource.patch_id,
+              hash: '',
+              s3Key: item.s3Key
+            }))
+          )
+          return '该资源的链接已被修改, 请刷新后重试'
+        }
+      }
+
+      if (
+        existingLink &&
+        existingLink.storage === 's3' &&
+        (link.storage !== 's3' || bound)
+      ) {
+        s3LinksToDelete.push({
+          content: existingLink.content,
+          patchId: resource.patch_id,
+          hash: existingLink.hash,
+          s3Key: existingLink.s3_key
+        })
+      }
+
+      preparedLinks.push({
+        storage: link.storage,
+        size: link.size,
+        code: link.code,
+        password: link.password,
+        hash: link.storage === 's3' ? '' : link.hash,
+        s3_key: s3Key,
+        content,
+        sort_order: index,
+        download: existingLink?.download ?? 0
+      })
+    }
 
     const newResource = await prisma.patch_resource.update({
       where: { id: resourceId },

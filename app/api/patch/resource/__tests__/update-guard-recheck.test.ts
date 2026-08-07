@@ -5,6 +5,7 @@ const {
   patchFindUniqueMock,
   transactionMock,
   transactionQueryRawMock,
+  transactionLinkFindManyMock,
   transactionResourceUpdateMock,
   transactionPatchUpdateMock,
   bindUploadedResourceMock,
@@ -26,6 +27,7 @@ const {
   patchFindUniqueMock: vi.fn(),
   transactionMock: vi.fn(),
   transactionQueryRawMock: vi.fn(),
+  transactionLinkFindManyMock: vi.fn(),
   transactionResourceUpdateMock: vi.fn(),
   transactionPatchUpdateMock: vi.fn(),
   bindUploadedResourceMock: vi.fn(),
@@ -46,6 +48,7 @@ const {
 
 const transactionClient = {
   patch_resource: { update: transactionResourceUpdateMock },
+  patch_resource_link: { findMany: transactionLinkFindManyMock },
   patch: { update: transactionPatchUpdateMock },
   $queryRaw: transactionQueryRawMock
 }
@@ -185,6 +188,7 @@ const expectNoWriteNoSideEffects = () => {
 beforeEach(() => {
   vi.resetAllMocks()
   patchFindUniqueMock.mockResolvedValue({ id: 10 })
+  transactionLinkFindManyMock.mockResolvedValue([])
   hasPendingModerationMock.mockResolvedValue(false)
   preScreenTextMock.mockResolvedValue(INTERCEPT)
   invalidatePatchContentCacheMock.mockResolvedValue(undefined)
@@ -269,5 +273,81 @@ describe('更新资源在行锁下复检守卫', () => {
 
     expect(result).toBe('未找到该资源')
     expectNoWriteNoSideEffects()
+  })
+})
+
+// links diff 的事实源是行锁下重读的集合: 事务外快照与行锁之间的并发编辑是
+// deleteMany + create 整体换行, 基于快照的 diff 会漏删并发重绑的新 s3 对象、
+// 并把已入队删除的旧 key 复制回新行成悬空链接
+describe('更新资源在行锁下重算 links diff', () => {
+  it('S3 删除入队取锁下集合, 并发换行也被入队', async () => {
+    resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
+    transactionQueryRawMock.mockResolvedValue([
+      { status: 0, section: 'galgame' }
+    ])
+    // 并发编辑在快照后创建的行: 不在保留集合里, 即将随 deleteMany 一并消失
+    transactionLinkFindManyMock.mockResolvedValue([
+      { id: 91, storage: 's3', content: 'cc', hash: 'hh', s3_key: 'kk' }
+    ])
+    transactionResourceUpdateMock.mockResolvedValue(buildUpdated())
+
+    const result = await updatePatchResource(buildInput(), 7, 1)
+
+    expect(typeof result).not.toBe('string')
+    expect(enqueueResourceLinkDeletionsMock).toHaveBeenCalledWith(
+      transactionClient,
+      [{ content: 'cc', patchId: 10, hash: 'hh', s3Key: 'kk' }]
+    )
+  })
+
+  it('保留型 s3 链接锁下已被并发重建, 返回冲突并清理本次重绑对象', async () => {
+    resourceFindUniqueMock.mockResolvedValue(
+      buildSnapshot({
+        links: [
+          { id: 5, storage: 's3', content: 'old-c', hash: '', s3_key: 'old-k' }
+        ]
+      })
+    )
+    transactionQueryRawMock.mockResolvedValue([
+      { status: 0, section: 'galgame' }
+    ])
+    // 锁下集合已无 id=5: 并发编辑已 deleteMany + create 整体换行
+    transactionLinkFindManyMock.mockResolvedValue([])
+    bindUploadedResourceMock.mockResolvedValue({
+      downloadLink: 'new-c',
+      s3Key: 'new-k',
+      size: 1
+    })
+
+    const input = buildInput({
+      links: [
+        {
+          storage: 's3',
+          hash: 'upload-token',
+          content: '',
+          size: '100MB',
+          code: '',
+          password: ''
+        },
+        {
+          id: 5,
+          storage: 's3',
+          hash: '',
+          content: 'old-c',
+          size: '100MB',
+          code: '',
+          password: ''
+        }
+      ]
+    })
+    const result = await updatePatchResource(input, 7, 1)
+
+    expect(result).toBe('该资源的链接已被修改, 请刷新后重试')
+    expect(transactionResourceUpdateMock).not.toHaveBeenCalled()
+    // 本次已重绑的新对象随本事务入队清理, 不留公开可达的孤儿
+    expect(enqueueResourceLinkDeletionsMock).toHaveBeenCalledWith(
+      transactionClient,
+      [{ content: 'new-c', patchId: 10, hash: '', s3Key: 'new-k' }]
+    )
   })
 })

@@ -23,25 +23,37 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
     return '未找到该游戏'
   }
 
-  const patchResources = await prisma.patch_resource.findMany({
-    where: { patch_id: patchId },
-    include: {
-      links: true
-    }
-  })
-
-  const s3Links = patchResources.flatMap((resource) =>
-    resource.links
-      .filter((link) => link.storage === 's3')
-      .map((link) => ({
-        content: link.content,
-        patchId: resource.patch_id,
-        hash: link.hash,
-        s3Key: link.s3_key
-      }))
-  )
-
+  let shouldInvalidateResourceList = false
   const response = await prisma.$transaction(async (prisma) => {
+    // 升序锁全部资源行: 与 update 的 FOR UPDATE 互斥, 锁序 (先 patch_resource 后
+    // patch) 与 update 的「锁资源行 → patch.update」一致 —— 不可先锁 patch 行,
+    // 会与 update 构成 AB-BA 死锁. links 必须锁下重读: 事务外快照与级联删除之间的
+    // 并发重绑会换 s3 对象, 快照入队漏删新对象 (级联删除绕过应用层, 永无二次机会).
+    // 已知残留: 锁不住尚不存在的行, 此后并发 createResource 的新资源仍会随级联
+    // 删除孤儿化其 s3 对象 (须 patch 删除与资源新建同刻并发, 发生率极低)
+    await prisma.$queryRaw`
+      SELECT id FROM patch_resource WHERE patch_id = ${patchId} ORDER BY id FOR UPDATE`
+    const patchResources = await prisma.patch_resource.findMany({
+      where: { patch_id: patchId },
+      include: {
+        links: true
+      }
+    })
+
+    const s3Links = patchResources.flatMap((resource) =>
+      resource.links
+        .filter((link) => link.storage === 's3')
+        .map((link) => ({
+          content: link.content,
+          patchId: resource.patch_id,
+          hash: link.hash,
+          s3Key: link.s3_key
+        }))
+    )
+    shouldInvalidateResourceList = patchResources.some(
+      (resource) => resource.status === 0 && resource.section === 'patch'
+    )
+
     // 级联删除会带走该游戏的全部资源/评论/评价, 先收集 id 供删除后清理未决审核任务与申诉
     const [comments, ratings] = await Promise.all([
       prisma.patch_comment.findMany({
@@ -105,11 +117,7 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
 
   // 不失效 patch 资源详情缓存: 该缓存按 patch_id 分键, 补丁连同详情页一并消失后其键
   // 不再可达, 而版本号是全站共享的, 递增只会白清其他补丁的缓存
-  if (
-    patchResources.some(
-      (resource) => resource.status === 0 && resource.section === 'patch'
-    )
-  ) {
+  if (shouldInvalidateResourceList) {
     await invalidateResourceListCache()
   }
 

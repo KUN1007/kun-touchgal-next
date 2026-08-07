@@ -5,6 +5,7 @@ const {
   patchFindUniqueMock,
   transactionMock,
   transactionQueryRawMock,
+  transactionLinkFindManyMock,
   transactionResourceUpdateMock,
   transactionPatchUpdateMock,
   bindUploadedResourceMock,
@@ -26,6 +27,7 @@ const {
   patchFindUniqueMock: vi.fn(),
   transactionMock: vi.fn(),
   transactionQueryRawMock: vi.fn(),
+  transactionLinkFindManyMock: vi.fn(),
   transactionResourceUpdateMock: vi.fn(),
   transactionPatchUpdateMock: vi.fn(),
   bindUploadedResourceMock: vi.fn(),
@@ -46,6 +48,7 @@ const {
 
 const transactionClient = {
   patch_resource: { update: transactionResourceUpdateMock },
+  patch_resource_link: { findMany: transactionLinkFindManyMock },
   patch: { update: transactionPatchUpdateMock },
   $queryRaw: transactionQueryRawMock
 }
@@ -172,6 +175,7 @@ const INTERCEPT = { queue: true, intercept: true, dryRun: false }
 
 beforeEach(() => {
   vi.resetAllMocks()
+  transactionLinkFindManyMock.mockResolvedValue([])
   patchFindUniqueMock.mockResolvedValue({ id: 10 })
   hasPendingModerationMock.mockResolvedValue(false)
   invalidatePatchContentCacheMock.mockResolvedValue(undefined)

@@ -43,10 +43,20 @@ const declinePatchResource = async (
     return '管理员不存在'
   }
 
-  const s3Links = resource.links.filter((link) => link.storage === 's3')
-
   try {
     await prisma.$transaction(async (prisma) => {
+      // 行锁先行 + 锁下重读 links: 管理员可编辑 status=2 的资源, 事务外快照与守卫
+      // 删除之间的并发重绑会换 s3 对象, 用快照入队会漏删新对象 (级联删除绕过应用层)
+      const [locked] = await prisma.$queryRaw<Array<{ id: number }>>`
+        SELECT id FROM patch_resource WHERE id = ${resourceId} FOR UPDATE`
+      if (!locked) {
+        throw new DeclineResourceError('当前资源状态无需审核')
+      }
+      const lockedLinks = await prisma.patch_resource_link.findMany({
+        where: { resource_id: resourceId }
+      })
+      const s3Links = lockedLinks.filter((link) => link.storage === 's3')
+
       // 评论衍生物必须在删除前清理: 删除后 patch_comment 已随级联消失, 无从收集 id
       await cleanupResourceCommentDerivatives(prisma, resourceId)
       // guarded delete 以 status 条件 + 行锁闭合"读状态→删除"窗口: 并发 approve (2→0)

@@ -4,6 +4,9 @@ const {
   userFindUniqueMock,
   resourceFindUniqueMock,
   transactionMock,
+  transactionQueryRawMock,
+  transactionLinkFindManyMock,
+  transactionResourceFindUniqueMock,
   transactionUserUpdateMock,
   transactionResourceDeleteMock,
   transactionAdminLogCreateMock,
@@ -26,6 +29,9 @@ const {
   userFindUniqueMock: vi.fn(),
   resourceFindUniqueMock: vi.fn(),
   transactionMock: vi.fn(),
+  transactionQueryRawMock: vi.fn(),
+  transactionLinkFindManyMock: vi.fn(),
+  transactionResourceFindUniqueMock: vi.fn(),
   transactionUserUpdateMock: vi.fn(),
   transactionResourceDeleteMock: vi.fn(),
   transactionAdminLogCreateMock: vi.fn(),
@@ -48,8 +54,13 @@ const {
 
 const transactionClient = {
   user: { update: transactionUserUpdateMock },
-  patch_resource: { delete: transactionResourceDeleteMock },
-  admin_log: { create: transactionAdminLogCreateMock }
+  patch_resource: {
+    delete: transactionResourceDeleteMock,
+    findUnique: transactionResourceFindUniqueMock
+  },
+  patch_resource_link: { findMany: transactionLinkFindManyMock },
+  admin_log: { create: transactionAdminLogCreateMock },
+  $queryRaw: transactionQueryRawMock
 }
 
 vi.mock('~/prisma/index', () => ({
@@ -136,6 +147,12 @@ const buildDeleted = (overrides: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   vi.resetAllMocks()
   userFindUniqueMock.mockResolvedValue({ id: 9, name: 'Admin' })
+  // 事务内行锁命中 + 锁下重读: links 与 admin 审计快照的事实源
+  transactionQueryRawMock.mockResolvedValue([{ id: 1 }])
+  transactionLinkFindManyMock.mockResolvedValue([])
+  transactionResourceFindUniqueMock.mockImplementation(async () =>
+    buildSnapshot()
+  )
   cleanupResourceCommentDerivativesMock.mockResolvedValue(undefined)
   invalidatePatchContentCacheMock.mockResolvedValue(undefined)
   recalcPatchTypeMock.mockResolvedValue('patch-10')
@@ -213,6 +230,77 @@ describe('删除资源按删除瞬间状态分派缓存失效', () => {
 
     expect(invalidatePatchResourceDetailCacheMock).toHaveBeenCalledTimes(1)
     expect(invalidateUserPendingResourceCacheMock).not.toHaveBeenCalled()
+  })
+})
+
+// S3 入队与审计的事实源是行锁下重读的集合: 事务外快照与行锁之间的并发重绑会
+// 换 s3_key, 级联删除绕过应用层, 用快照入队会让新对象永不进删除出箱
+describe('资源删除以锁下重读的 links 入队 S3 删除', () => {
+  it('入队集合来自锁下 findMany 而非事务外快照', async () => {
+    resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
+    transactionLinkFindManyMock.mockResolvedValue([
+      { storage: 's3', content: 'new-c', hash: 'new-h', s3_key: 'new-k' },
+      { storage: 'user', content: 'u', hash: '', s3_key: '' }
+    ])
+    transactionResourceDeleteMock.mockResolvedValue(buildDeleted())
+
+    await deleteResource({ resourceId: 1 }, 7, 2)
+
+    expect(enqueueResourceLinkDeletionsMock).toHaveBeenCalledWith(
+      transactionClient,
+      [{ content: 'new-c', patchId: 10, hash: 'new-h', s3Key: 'new-k' }]
+    )
+  })
+
+  // 扣分先于行锁 (锁序 user → patch_resource 与 moderation apply 一致), 锁下行
+  // 消失走 throw 回滚而非 return: 提交型返回会落下误扣
+  it('锁下行已被并发删除, 返回业务错误且不提交删除副作用', async () => {
+    resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
+    transactionQueryRawMock.mockResolvedValue([])
+
+    const result = await deleteResource({ resourceId: 1 }, 7, 2)
+
+    expect(result).toBe('未找到对应的资源')
+    expect(transactionResourceDeleteMock).not.toHaveBeenCalled()
+    expect(enqueueResourceLinkDeletionsMock).not.toHaveBeenCalled()
+    expect(invalidatePatchResourceDetailCacheMock).not.toHaveBeenCalled()
+    expect(kickS3DeletionDrainMock).not.toHaveBeenCalled()
+  })
+
+  it('管理员删除的入队与审计都取锁下重读的行', async () => {
+    resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
+    const lockedLinks = [
+      { storage: 's3', content: 'cur-c', hash: 'cur-h', s3_key: 'cur-k' }
+    ]
+    transactionResourceFindUniqueMock.mockResolvedValue(
+      buildSnapshot({ name: 'renamed', links: lockedLinks })
+    )
+    transactionResourceDeleteMock.mockResolvedValue(buildDeleted())
+
+    await adminDeleteResource({ resourceId: 1 }, 9)
+
+    expect(enqueueResourceLinkDeletionsMock).toHaveBeenCalledWith(
+      transactionClient,
+      [{ content: 'cur-c', patchId: 10, hash: 'cur-h', s3Key: 'cur-k' }]
+    )
+    expect(sanitizeResourceLinksForAuditLogMock).toHaveBeenCalledWith(
+      lockedLinks
+    )
+    expect(
+      transactionAdminLogCreateMock.mock.calls[0][0].data.content
+    ).toContain('renamed')
+  })
+
+  it('管理员删除在锁下行消失时同样零写入', async () => {
+    resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
+    transactionQueryRawMock.mockResolvedValue([])
+
+    const result = await adminDeleteResource({ resourceId: 1 }, 9)
+
+    expect(result).toBe('未找到对应的资源')
+    expect(transactionResourceDeleteMock).not.toHaveBeenCalled()
+    expect(transactionAdminLogCreateMock).not.toHaveBeenCalled()
+    expect(kickS3DeletionDrainMock).not.toHaveBeenCalled()
   })
 })
 

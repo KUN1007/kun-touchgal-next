@@ -11,7 +11,7 @@ const {
   updateRatingMock,
   deleteRatingMock,
   deleteResourceMock,
-  txFindResourceMock,
+  txLinkFindManyMock,
   deleteCommentMock,
   txFindCommentMock,
   txQueryRawMock,
@@ -42,7 +42,7 @@ const {
   updateRatingMock: vi.fn(),
   deleteRatingMock: vi.fn(),
   deleteResourceMock: vi.fn(),
-  txFindResourceMock: vi.fn(),
+  txLinkFindManyMock: vi.fn(),
   deleteCommentMock: vi.fn(),
   txFindCommentMock: vi.fn(),
   txQueryRawMock: vi.fn(),
@@ -71,9 +71,9 @@ const transactionClient = {
   moderation_appeal: { updateMany: claimAppealMock },
   patch_rating: { updateMany: updateRatingMock, deleteMany: deleteRatingMock },
   patch_resource: {
-    deleteMany: deleteResourceMock,
-    findUnique: txFindResourceMock
+    deleteMany: deleteResourceMock
   },
+  patch_resource_link: { findMany: txLinkFindManyMock },
   patch_comment: {
     deleteMany: deleteCommentMock,
     findUnique: txFindCommentMock
@@ -175,7 +175,7 @@ beforeEach(() => {
   deleteRatingMock.mockResolvedValue({ count: 1 })
   deleteResourceMock.mockResolvedValue({ count: 1 })
   deleteCommentMock.mockResolvedValue({ count: 1 })
-  txFindResourceMock.mockResolvedValue(null)
+  txLinkFindManyMock.mockResolvedValue([])
   txFindCommentMock.mockResolvedValue(null)
   txQueryRawMock.mockResolvedValue([{ status: 2 }])
   createMessageMock.mockResolvedValue({})
@@ -309,14 +309,24 @@ describe('handleAppeal reject', () => {
       ...ratingAppeal,
       content_type: 'resource'
     })
+    // FOR UPDATE 锁下读到隐藏态 (resource 为 1) 才删, 闭合并发取消隐藏窗口 (R1)
+    txQueryRawMock.mockResolvedValue([{ status: 1 }])
+    // S3 入队以锁下重读的 links 为事实源, 而非事务外快照 (并发重绑会换 s3 对象)
+    txLinkFindManyMock.mockResolvedValue([
+      { storage: 's3', content: 'c-1', hash: 'h-1', s3_key: 'k-1' },
+      { storage: 'user', content: 'u-1', hash: '', s3_key: '' }
+    ])
 
     const result = await handleAppeal({ appealId: 1, approve: false }, 99)
 
     expect(result).toEqual({})
-    // 守卫删除条件必须含 status: 1 (resource 隐藏态), 闭合并发取消隐藏窗口 (R1)
+    // 锁下已确认状态, 删除本身不再需要 status 条件 (对齐 rating 分支)
     expect(deleteResourceMock).toHaveBeenCalledWith({
-      where: { id: 5, status: 1 }
+      where: { id: 5 }
     })
+    expect(enqueueLinkDelMock).toHaveBeenCalledWith(transactionClient, [
+      { content: 'c-1', patchId: 10, hash: 'h-1', s3Key: 'k-1' }
+    ])
     expect(createMessageMock.mock.calls[0][1]).toBe(transactionClient)
     // 删除成功的提交后副作用
     expect(queueSearchSyncMock).toHaveBeenCalledWith(10)
@@ -329,11 +339,12 @@ describe('handleAppeal reject', () => {
       ...ratingAppeal,
       content_type: 'resource'
     })
-    // 守卫删除匹配 0 行 (已被恢复为 status 0), 且内容仍存在 → 保留
-    deleteResourceMock.mockResolvedValue({ count: 0 })
-    txFindResourceMock.mockResolvedValue({ id: 5 })
+    // FOR UPDATE 读到已恢复 (status 0): 并发恢复赢得竞态, 内容保留
+    txQueryRawMock.mockResolvedValue([{ status: 0 }])
 
     const result = await handleAppeal({ appealId: 1, approve: false }, 99)
+
+    expect(deleteResourceMock).not.toHaveBeenCalled()
 
     expect(result).toEqual({})
     expect(createMessageMock.mock.calls[0][0].content).toBe(
@@ -350,6 +361,7 @@ describe('handleAppeal reject', () => {
       ...ratingAppeal,
       content_type: 'resource'
     })
+    txQueryRawMock.mockResolvedValue([{ status: 1 }])
 
     const result = await handleAppeal({ appealId: 1, approve: false }, 99)
 

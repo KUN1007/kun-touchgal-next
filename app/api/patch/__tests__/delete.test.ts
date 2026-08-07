@@ -4,6 +4,7 @@ const {
   findPatchMock,
   findResourcesMock,
   transactionMock,
+  txQueryRawMock,
   findCommentsMock,
   findRatingsMock,
   resourceDeleteMock,
@@ -18,6 +19,7 @@ const {
   findPatchMock: vi.fn(),
   findResourcesMock: vi.fn(),
   transactionMock: vi.fn(),
+  txQueryRawMock: vi.fn(),
   findCommentsMock: vi.fn(),
   findRatingsMock: vi.fn(),
   resourceDeleteMock: vi.fn(),
@@ -33,14 +35,15 @@ const {
 const transactionClient = {
   patch_comment: { findMany: findCommentsMock },
   patch_rating: { findMany: findRatingsMock },
-  patch_resource: { delete: resourceDeleteMock },
-  patch: { delete: patchDeleteMock }
+  // findMany 挂在事务客户端上: links 与清理 id 集在行锁下重读, 不再用事务外快照
+  patch_resource: { delete: resourceDeleteMock, findMany: findResourcesMock },
+  patch: { delete: patchDeleteMock },
+  $queryRaw: txQueryRawMock
 }
 
 vi.mock('~/prisma/index', () => ({
   prisma: {
     patch: { findUnique: findPatchMock },
-    patch_resource: { findMany: findResourcesMock },
     $transaction: transactionMock
   }
 }))
@@ -95,6 +98,7 @@ const resource = (id: number, status: number, section: string) => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  txQueryRawMock.mockResolvedValue([])
   findPatchMock.mockResolvedValue({ id: 7 })
   findResourcesMock.mockResolvedValue([
     resource(1, 0, 'patch'),

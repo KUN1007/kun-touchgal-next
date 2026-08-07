@@ -10,6 +10,7 @@ const {
   transactionUserUpdateMock,
   transactionPatchUpdateMock,
   transactionQueryRawMock,
+  transactionLinkFindManyMock,
   preScreenTextMock,
   hasPendingModerationMock,
   createModerationTaskMock,
@@ -24,6 +25,7 @@ const {
   transactionUserUpdateMock: vi.fn(),
   transactionPatchUpdateMock: vi.fn(),
   transactionQueryRawMock: vi.fn(),
+  transactionLinkFindManyMock: vi.fn(),
   preScreenTextMock: vi.fn(),
   hasPendingModerationMock: vi.fn(),
   createModerationTaskMock: vi.fn(),
@@ -35,6 +37,7 @@ const transactionClient = {
     create: transactionResourceCreateMock,
     update: transactionResourceUpdateMock
   },
+  patch_resource_link: { findMany: transactionLinkFindManyMock },
   user: { update: transactionUserUpdateMock },
   patch: { update: transactionPatchUpdateMock },
   $queryRaw: transactionQueryRawMock
@@ -149,6 +152,7 @@ const storedResource = {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  transactionLinkFindManyMock.mockResolvedValue([])
   hasPendingModerationMock.mockResolvedValue(false)
   preScreenTextMock.mockResolvedValue({
     intercept: true,

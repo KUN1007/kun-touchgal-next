@@ -9,10 +9,8 @@ import type { ResourceListResponse } from '~/types/api/resource'
 
 const RESOURCE_LIST_CACHE_KEY_PREFIX = 'resource:list'
 // 仅列表缓存自用: patch 详情缓存的版本键已按 patch 分片, 不再复用这两个全局键
-const RESOURCE_LIST_CACHE_CONTENT_VERSION_KEY =
-  'resource:list:version:content'
-const RESOURCE_LIST_CACHE_STATS_VERSION_KEY =
-  'resource:list:version:stats'
+const RESOURCE_LIST_CACHE_CONTENT_VERSION_KEY = 'resource:list:version:content'
+const RESOURCE_LIST_CACHE_STATS_VERSION_KEY = 'resource:list:version:stats'
 
 const logResourceListCacheError = (message: string, error: unknown) => {
   // eslint-disable-next-line no-console

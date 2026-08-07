@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-// 注意: dotenv-check 是副作用模块, import 即读取根目录 .env 并 safeParse(process.env),
-// 本地与 CI (cp .env.example) 均保证其合法, 校验失败会在此处直接 throw (刻意 fail-loud)
-import { envSchema } from '~/validations/dotenv-check'
+// 从无副作用的 env-schema import: dotenv-check 顶层缺 .env 即 process.exit(1),
+// 会把无 .env 环境 (如 worktree 直跑 vitest) 的纯逻辑测试拖挂
+import { envSchema } from '~/validations/env-schema'
 
 const validEnv = {
   KUN_DATABASE_URL: 'postgresql://user:pass@127.0.0.1:5432/kun',

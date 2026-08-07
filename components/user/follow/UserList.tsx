@@ -4,6 +4,7 @@ import { Avatar, Card, CardBody } from '@heroui/react'
 import { Users } from 'lucide-react'
 import { useEffect, useState, useTransition } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import { useRouter } from '@bprogress/next'
 import { KunLoading } from '~/components/kun/Loading'
 import { KunNull } from '~/components/kun/Null'
@@ -26,35 +27,41 @@ export const UserList = ({ userId, type }: UserListProps) => {
 
   const getUsers = () => {
     startTransition(async () => {
-      let results: UserFollowType[] = []
-      let tt = 0
-
-      if (type === 'followers') {
-        const res = await kunFetchGet<{
-          followers: UserFollowType[]
-          total: number
-        }>('/user/follow/follower', {
-          uid: userId,
-          page,
-          limit: 100
-        })
-        results = res.followers
-        tt = res.total
-      } else {
-        const res = await kunFetchGet<{
-          followings: UserFollowType[]
-          total: number
-        }>('/user/follow/following', {
-          uid: userId,
-          page,
-          limit: 100
-        })
-        results = res.followings
-        tt = res.total
+      try {
+        if (type === 'followers') {
+          const res = await kunFetchGet<
+            KunResponse<{
+              followers: UserFollowType[]
+              total: number
+            }>
+          >('/user/follow/follower', {
+            uid: userId,
+            page,
+            limit: 100
+          })
+          kunErrorHandler(res, (value) => {
+            setUsers(value.followers)
+            setTotal(value.total)
+          })
+        } else {
+          const res = await kunFetchGet<
+            KunResponse<{
+              followings: UserFollowType[]
+              total: number
+            }>
+          >('/user/follow/following', {
+            uid: userId,
+            page,
+            limit: 100
+          })
+          kunErrorHandler(res, (value) => {
+            setUsers(value.followings)
+            setTotal(value.total)
+          })
+        }
+      } catch (error) {
+        errorReporter(error)
       }
-
-      setUsers(results)
-      setTotal(tt)
     })
   }
 

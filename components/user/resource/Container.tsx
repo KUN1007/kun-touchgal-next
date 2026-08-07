@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import { KunPagination } from '~/components/kun/Pagination'
 import { KunLoading } from '~/components/kun/Loading'
 import { KunNull } from '~/components/kun/Null'
@@ -21,18 +22,24 @@ export const UserResource = ({ resources, total, uid }: Props) => {
 
   const fetchPatches = async () => {
     setLoading(true)
+    try {
+      const response = await kunFetchGet<
+        KunResponse<{
+          resources: UserResourceType[]
+          total: number
+        }>
+      >('/user/profile/resource', {
+        uid,
+        page,
+        limit: 20
+      })
 
-    const { resources } = await kunFetchGet<{
-      resources: UserResourceType[]
-      total: number
-    }>('/user/profile/resource', {
-      uid,
-      page,
-      limit: 20
-    })
-
-    setPatches(resources)
-    setLoading(false)
+      kunErrorHandler(response, (value) => setPatches(value.resources))
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {

@@ -337,8 +337,13 @@ describe('deleteUser', () => {
   it('失效被删用户点赞过的他人 patch 资源详情缓存, 不受资源计数闸门约束', async () => {
     countResourcesMock.mockResolvedValue(0)
     findResourcesMock.mockImplementation(
-      async (query?: { where?: { like_by?: unknown } }) =>
-        query?.where?.like_by ? [{ patch_id: 60 }, { patch_id: 61 }] : []
+      async (query?: { where?: { like_by?: unknown } }) => {
+        if (query?.where?.like_by) {
+          events.push('collect-liked')
+          return [{ patch_id: 60 }, { patch_id: 61 }]
+        }
+        return []
+      }
     )
 
     await expect(deleteUser({ uid: 7 }, 99)).resolves.toEqual({})
@@ -355,6 +360,10 @@ describe('deleteUser', () => {
     // 零公开资源时列表失效闸门关闭, 但点赞侧详情失效仍须执行
     expect(invalidateCacheMock).not.toHaveBeenCalled()
     expect(invalidateResourceDetailMock.mock.calls).toEqual([[60], [61]])
+    // 点赞收集必须先于删除事务: like_by 随 user.delete() 级联消失, 挪到事务后恒空
+    const likedIdx = events.indexOf('collect-liked')
+    expect(likedIdx).toBeGreaterThanOrEqual(0)
+    expect(likedIdx).toBeLessThan(events.indexOf('transaction-start'))
   })
 
   it('点赞 patch 与资源受影响集重叠时只失效一次', async () => {

@@ -8,7 +8,9 @@ import {
   DEFAULT_GALGAME_FILTER_VALUE,
   DEFAULT_GALGAME_MIN_RATING_COUNT,
   DEFAULT_GALGAME_MONTH_STRING,
-  DEFAULT_GALGAME_YEAR_STRING
+  DEFAULT_GALGAME_YEAR_STRING,
+  MAX_GALGAME_FILTER_VALUES,
+  exceedsGalgameFilterLimit
 } from '~/utils/galgameFilter'
 
 const getSupportedValueSchema = (values: string[], message: string) =>
@@ -17,6 +19,12 @@ const getSupportedValueSchema = (values: string[], message: string) =>
     .min(1)
     .max(107)
     .refine((value) => values.includes(value), { message })
+
+const getBoundedFilterStringSchema = (message: string) =>
+  z
+    .string()
+    .max(1007)
+    .refine((value) => !exceedsGalgameFilterLimit(value), { message })
 
 export const galgameSchema = z.object({
   selectedType: getSupportedValueSchema(
@@ -42,8 +50,12 @@ export const galgameSchema = z.object({
   sortOrder: z.union([z.literal('asc'), z.literal('desc')]),
   page: z.coerce.number().min(1).max(9999999),
   limit: z.coerce.number().min(1).max(24),
-  yearString: z.string().max(1007).default(DEFAULT_GALGAME_YEAR_STRING),
-  monthString: z.string().max(1007).default(DEFAULT_GALGAME_MONTH_STRING),
+  yearString: getBoundedFilterStringSchema(
+    `您最多选择 ${MAX_GALGAME_FILTER_VALUES} 组年份`
+  ).default(DEFAULT_GALGAME_YEAR_STRING),
+  monthString: getBoundedFilterStringSchema(
+    `您最多选择 ${MAX_GALGAME_FILTER_VALUES} 组月份`
+  ).default(DEFAULT_GALGAME_MONTH_STRING),
   minRatingCount: z.coerce
     .number()
     .min(0)

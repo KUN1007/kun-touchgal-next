@@ -32,6 +32,17 @@ const isStringArray = (value: unknown): value is string[] => {
   )
 }
 
+// 服务端 schema 用它对「合法字符串数组但元素数越界」硬拒, 对齐 /api/search
+// 的 z.array().max; 畸形载荷返回 false, 仍由 parseGalgameFilterArray 回落容错
+export const exceedsGalgameFilterLimit = (value: string) => {
+  try {
+    const parsed = JSON.parse(value)
+    return isStringArray(parsed) && parsed.length > MAX_GALGAME_FILTER_VALUES
+  } catch {
+    return false
+  }
+}
+
 export const parseGalgameFilterArray = (value: string | null | undefined) => {
   if (!value) {
     return [...DEFAULT_GALGAME_FILTER_SELECTION]

@@ -35,6 +35,7 @@ import { kunFetchPost } from '~/utils/kunFetch'
 import toast from 'react-hot-toast'
 import { showKunSooner } from '~/components/kun/Sooner'
 import { kunErrorHandler } from '~/utils/kunErrorHandler'
+import { buildKunLoginHref } from '~/utils/loginRedirect'
 import { NSFWSwitcher } from './NSFWSwitcher'
 import { useMessageStore } from '~/store/messageStore'
 
@@ -254,7 +255,9 @@ export const UserDropdown = () => {
     logout()
     resetUnreadMessageStatus()
     resetSettings()
-    router.push('/login')
+    router.push(
+      buildKunLoginHref(window.location.pathname, window.location.search)
+    )
     toast.success('您已经成功登出!')
   }
 

@@ -5,7 +5,7 @@ export default async function Kun() {
   const payload = await verifyHeaderCookie()
 
   if (!payload) {
-    redirect('/login')
+    redirect(`/login?from=${encodeURIComponent('/edit')}`)
   }
 
   if (payload.role >= 4) {

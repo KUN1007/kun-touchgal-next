@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { kunFetchGet } from '~/utils/kunFetch'
+import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import { KunPagination } from '~/components/kun/Pagination'
 import { KunNull } from '~/components/kun/Null'
 import { KunLoading } from '~/components/kun/Loading'
@@ -21,21 +22,24 @@ export const UserRating = ({ initRatings, total, uid }: Props) => {
 
   const fetchData = async () => {
     setLoading(true)
-    const response = await kunFetchGet<
-      KunResponse<{
-        ratings: UserRatingType[]
-        total: number
-      }>
-    >('/user/profile/rating', {
-      uid,
-      page,
-      limit: 20
-    })
+    try {
+      const response = await kunFetchGet<
+        KunResponse<{
+          ratings: UserRatingType[]
+          total: number
+        }>
+      >('/user/profile/rating', {
+        uid,
+        page,
+        limit: 20
+      })
 
-    if (typeof response !== 'string') {
-      setRatings(response.ratings)
+      kunErrorHandler(response, (value) => setRatings(value.ratings))
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   useEffect(() => {

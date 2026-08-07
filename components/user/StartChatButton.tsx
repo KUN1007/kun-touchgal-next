@@ -12,6 +12,7 @@ import {
 } from '@heroui/react'
 import { MessageSquare } from 'lucide-react'
 import { kunFetchGet, kunFetchPost } from '~/utils/kunFetch'
+import { errorReporter } from '~/utils/kunErrorHandler'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 
@@ -37,55 +38,64 @@ export const StartChatButton = ({ targetUserId }: Props) => {
 
   const handleStartChat = async () => {
     setLoading(true)
+    try {
+      const checkResponse = await kunFetchGet<CheckResponse>(
+        '/message/conversation/check',
+        { targetUserId }
+      )
 
-    const checkResponse = await kunFetchGet<CheckResponse>(
-      '/message/conversation/check',
-      { targetUserId }
-    )
+      if (typeof checkResponse === 'string') {
+        toast.error(checkResponse)
+        setLoading(false)
+        return
+      }
 
-    if (typeof checkResponse === 'string') {
-      toast.error(checkResponse)
+      if (checkResponse.error) {
+        toast.error(checkResponse.error)
+        setLoading(false)
+        return
+      }
+
+      if (checkResponse.exists) {
+        router.push(`/message/chat/${checkResponse.conversationId}`)
+        return
+      }
+
+      setCheckResult(checkResponse)
       setLoading(false)
-      return
-    }
-
-    if (checkResponse.error) {
-      toast.error(checkResponse.error)
+      onOpen()
+    } catch (error) {
+      errorReporter(error)
       setLoading(false)
-      return
     }
-
-    if (checkResponse.exists) {
-      router.push(`/message/chat/${checkResponse.conversationId}`)
-      return
-    }
-
-    setCheckResult(checkResponse)
-    setLoading(false)
-    onOpen()
   }
 
   const handleConfirmCreate = async () => {
     setLoading(true)
     onClose()
 
-    const response = await kunFetchPost<
-      KunResponse<{ conversationId: number; isNew: boolean }>
-    >('/message/conversation', { targetUserId })
+    try {
+      const response = await kunFetchPost<
+        KunResponse<{ conversationId: number; isNew: boolean }>
+      >('/message/conversation', { targetUserId })
 
-    if (typeof response === 'string') {
-      toast.error(response)
+      if (typeof response === 'string') {
+        toast.error(response)
+        setLoading(false)
+        return
+      }
+
+      if (response.isNew && checkResult?.needsPayment) {
+        toast.success(`已创建新会话，消耗 ${checkResult.cost} 萌萌点`)
+      } else if (response.isNew) {
+        toast.success('已创建新会话')
+      }
+
+      router.push(`/message/chat/${response.conversationId}`)
+    } catch (error) {
+      errorReporter(error)
       setLoading(false)
-      return
     }
-
-    if (response.isNew && checkResult?.needsPayment) {
-      toast.success(`已创建新会话，消耗 ${checkResult.cost} 萌萌点`)
-    } else if (response.isNew) {
-      toast.success('已创建新会话')
-    }
-
-    router.push(`/message/chat/${response.conversationId}`)
   }
 
   return (

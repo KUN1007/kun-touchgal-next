@@ -49,10 +49,25 @@ export const invalidatePatchResourceDetailCache = async (patchId: number) => {
 }
 
 export const getPatchResourceDetailCacheKey = async (patchId: number) => {
-  let version = '0'
+  let version: string
 
   try {
-    version = (await getKv(patchResourceDetailVersionKey(patchId))) ?? version
+    const key = patchResourceDetailVersionKey(patchId)
+    const stored = await getKv(key)
+    if (stored) {
+      version = stored
+    } else {
+      // miss 不回落固定哨兵: 版本键带 TTL 后属 volatile-lfu 可驱逐集合, 失效后
+      // 60s 内被驱逐会让固定回落值撞回失效前仍存活的旧命名空间条目 (已隐藏资源
+      // 复活); 铸造随机新命名空间保证与历史命名空间零碰撞, NX 落败重读采信胜者
+      const fresh = randomUUID()
+      const claimed = await setKvIfAbsent(
+        key,
+        fresh,
+        PATCH_RESOURCE_DETAIL_VERSION_DURATION
+      )
+      version = claimed ? fresh : ((await getKv(key)) ?? fresh)
+    }
   } catch (error) {
     logPatchResourceDetailCacheError(
       'Failed to read patch resource detail cache version:',

@@ -6,8 +6,9 @@ export const GALGAME_LIST_CACHE_DURATION = 60
 export const RESOURCE_LIST_CACHE_DURATION = 60
 export const PATCH_RESOURCE_DETAIL_CACHE_DURATION = 60
 // 详情缓存按 patch 分片的版本键 TTL: 生产 Redis 为 volatile-lfu, 无 TTL 键永不被
-// 驱逐, 分片键会随 patch 数无界积累; 须远大于缓存 TTL, 过期回落 '0' 时旧版本号
-// 对应的缓存条目早已过期, 不会脏读
+// 驱逐, 分片键会随 patch 数无界积累; 带 TTL 即进入可驱逐集合, 过期与驱逐的安全性
+// 均靠读侧 miss 时铸造随机新命名空间 (见 getPatchResourceDetailCacheKey), 不靠
+// TTL 大小关系
 export const PATCH_RESOURCE_DETAIL_VERSION_DURATION = 24 * 60 * 60
 export const USER_PENDING_RESOURCE_CACHE_DURATION = 60
 export const TAG_LIST_CACHE_DURATION = 300

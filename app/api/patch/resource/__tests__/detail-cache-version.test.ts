@@ -39,7 +39,7 @@ describe('patch 资源详情缓存版本号', () => {
     expect(getKvMock).toHaveBeenCalledWith(versionKey(10))
   })
 
-  // 版本键无 TTL 会在 volatile-lfu 下无界积累; TTL 远大于缓存 TTL 故过期不脏读
+  // 版本键无 TTL 会在 volatile-lfu 下无界积累; 过期/驱逐的安全性由读侧铸造承担
   it('失效只写该 patch 的分片版本键且带 TTL', async () => {
     await invalidatePatchResourceDetailCache(10)
 
@@ -60,6 +60,13 @@ describe('patch 资源详情缓存版本号', () => {
     setKvMock.mockImplementation(async (key: string, value: string) => {
       versions.set(key, value)
     })
+    setKvIfAbsentMock.mockImplementation(async (key: string, value: string) => {
+      if (versions.has(key)) {
+        return false
+      }
+      versions.set(key, value)
+      return true
+    })
 
     const keyABefore = await getPatchResourceDetailCacheKey(10)
     const keyBBefore = await getPatchResourceDetailCacheKey(11)
@@ -68,6 +75,54 @@ describe('patch 资源详情缓存版本号', () => {
 
     expect(await getPatchResourceDetailCacheKey(10)).not.toBe(keyABefore)
     expect(await getPatchResourceDetailCacheKey(11)).toBe(keyBBefore)
+  })
+
+  // 核心回归: 版本键属 volatile-lfu 可驱逐集合, 失效后被驱逐时读者不得映射回
+  // 失效前仍存活的旧命名空间 (已隐藏/已删资源复活)
+  it('失效后版本键被驱逐, 新键不复用驱逐前的任何键', async () => {
+    const versions = new Map<string, string>()
+    getKvMock.mockImplementation(
+      async (key: string) => versions.get(key) ?? null
+    )
+    setKvMock.mockImplementation(async (key: string, value: string) => {
+      versions.set(key, value)
+    })
+    setKvIfAbsentMock.mockImplementation(async (key: string, value: string) => {
+      if (versions.has(key)) {
+        return false
+      }
+      versions.set(key, value)
+      return true
+    })
+
+    const keyBefore = await getPatchResourceDetailCacheKey(10)
+    await invalidatePatchResourceDetailCache(10)
+    versions.delete(versionKey(10))
+
+    expect(await getPatchResourceDetailCacheKey(10)).not.toBe(keyBefore)
+  })
+
+  it('版本键 miss 时以 NX 铸造带 TTL 的新版本', async () => {
+    getKvMock.mockResolvedValue(null)
+    setKvIfAbsentMock.mockResolvedValue(true)
+
+    expect(await getPatchResourceDetailCacheKey(10)).not.toBeNull()
+    expect(setKvIfAbsentMock).toHaveBeenCalledWith(
+      versionKey(10),
+      expect.any(String),
+      PATCH_RESOURCE_DETAIL_VERSION_DURATION
+    )
+  })
+
+  it('并发铸造落败时重读采信胜者版本', async () => {
+    getKvMock.mockResolvedValue('winner')
+    getKvMock.mockResolvedValueOnce(null)
+    setKvIfAbsentMock.mockResolvedValue(false)
+
+    const contended = await getPatchResourceDetailCacheKey(10)
+    const settled = await getPatchResourceDetailCacheKey(10)
+
+    expect(contended).toBe(settled)
   })
 
   it('版本号一变缓存键即变', async () => {

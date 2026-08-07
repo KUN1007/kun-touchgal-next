@@ -79,3 +79,32 @@ describe('getPatchByTagSchema / getPatchByCompanySchema 继承越界硬拒', () 
     expect(firstMessage(result)).toBe('您最多选择 64 组年份')
   })
 })
+
+// SSR 入口不再回落坏参数 (toNumberParam 原样透传), schema 是唯一裁决点:
+// 小数页码若放行会以非整数 skip 打到 Prisma 抛 500, 必须在此硬拒
+describe('galgameSchema 数字参数硬拒', () => {
+  it('小数 / NaN / 越界页码硬拒', () => {
+    expect(galgameSchema.safeParse({ ...baseInput, page: 5.3 }).success).toBe(
+      false
+    )
+    expect(galgameSchema.safeParse({ ...baseInput, page: NaN }).success).toBe(
+      false
+    )
+    expect(galgameSchema.safeParse({ ...baseInput, page: 1e30 }).success).toBe(
+      false
+    )
+  })
+
+  it('小数 minRatingCount 硬拒', () => {
+    expect(
+      galgameSchema.safeParse({ ...baseInput, minRatingCount: 5.5 }).success
+    ).toBe(false)
+    expect(
+      getPatchByTagSchema.safeParse({
+        ...baseInput,
+        tagId: 1,
+        minRatingCount: 5.5
+      }).success
+    ).toBe(false)
+  })
+})

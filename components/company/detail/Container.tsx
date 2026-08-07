@@ -32,8 +32,7 @@ import {
   DEFAULT_TAG_COMPANY_MIN_RATING_COUNT,
   kunShouldResetOverflowPage,
   parseGalgameFilterArray,
-  parseNonNegativeIntParam,
-  parsePositiveIntParam
+  toNumberParam
 } from '~/utils/galgameFilter'
 import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 
@@ -56,9 +55,7 @@ export const CompanyDetailContainer: FC<Props> = ({
   const user = useUserStore((state) => state.user)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [page, setPage] = useState(
-    parsePositiveIntParam(searchParams.get('page'), 1)
-  )
+  const [page, setPage] = useState(toNumberParam(searchParams.get('page'), 1))
   const [selectedType, setSelectedType] = useState(
     searchParams.get('selectedType') || DEFAULT_GALGAME_FILTER_VALUE
   )
@@ -81,7 +78,7 @@ export const CompanyDetailContainer: FC<Props> = ({
     parseGalgameFilterArray(searchParams.get('monthString'))
   )
   const [minRatingCount, setMinRatingCount] = useState(
-    parseNonNegativeIntParam(
+    toNumberParam(
       searchParams.get('minRatingCount'),
       DEFAULT_TAG_COMPANY_MIN_RATING_COUNT
     )

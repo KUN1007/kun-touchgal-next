@@ -12,7 +12,7 @@ import { KunPagination } from '~/components/kun/Pagination'
 import { KunNull } from '~/components/kun/Null'
 import {
   kunShouldResetOverflowPage,
-  parsePositiveIntParam
+  toNumberParam
 } from '~/utils/galgameFilter'
 import type { SortDirection, SortOption } from './_sort'
 import type { PatchResource } from '~/types/api/resource'
@@ -31,9 +31,7 @@ export const CardContainer = ({ initialResources, initialTotal }: Props) => {
   const [sortField, setSortField] = useState<SortOption>('created')
   const [sortOrder, setSortOrder] = useState<SortDirection>('desc')
   const searchParams = useSearchParams()
-  const [page, setPage] = useState(
-    parsePositiveIntParam(searchParams.get('page'), 1)
-  )
+  const [page, setPage] = useState(toNumberParam(searchParams.get('page'), 1))
   const withPageReset = <T,>(setter: (value: T) => void) => {
     return (value: T) => {
       setPage(1)

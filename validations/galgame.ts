@@ -48,7 +48,7 @@ export const galgameSchema = z.object({
     z.literal('rating')
   ]),
   sortOrder: z.union([z.literal('asc'), z.literal('desc')]),
-  page: z.coerce.number().min(1).max(9999999),
+  page: z.coerce.number().int().min(1).max(9999999),
   limit: z.coerce.number().min(1).max(24),
   yearString: getBoundedFilterStringSchema(
     `您最多选择 ${MAX_GALGAME_FILTER_VALUES} 组年份`
@@ -58,6 +58,7 @@ export const galgameSchema = z.object({
   ).default(DEFAULT_GALGAME_MONTH_STRING),
   minRatingCount: z.coerce
     .number()
+    .int()
     .min(0)
     .max(999999)
     .default(DEFAULT_GALGAME_MIN_RATING_COUNT)

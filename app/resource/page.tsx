@@ -2,10 +2,7 @@ import { CardContainer } from '~/components/resource/Container'
 import { kunMetadata } from './metadata'
 import { Suspense } from 'react'
 import { kunGetActions } from './actions'
-import {
-  getSearchParamValue,
-  parsePositiveIntParam
-} from '~/utils/galgameFilter'
+import { getSearchParamValue, toNumberParam } from '~/utils/galgameFilter'
 import { ErrorComponent } from '~/components/error/ErrorComponent'
 import type { Metadata } from 'next'
 
@@ -17,7 +14,7 @@ interface Props {
 
 export default async function Kun({ searchParams }: Props) {
   const res = await searchParams
-  const currentPage = parsePositiveIntParam(getSearchParamValue(res?.page), 1)
+  const currentPage = toNumberParam(getSearchParamValue(res?.page), 1)
 
   const response = await kunGetActions({
     sortField: 'created',

@@ -15,8 +15,7 @@ import {
   DEFAULT_TAG_COMPANY_MIN_RATING_COUNT,
   DEFAULT_GALGAME_YEAR_STRING,
   getSearchParamValue,
-  parseNonNegativeIntParam,
-  parsePositiveIntParam
+  toNumberParam
 } from '~/utils/galgameFilter'
 import { getCurrentSiteYear } from '~/utils/time'
 
@@ -58,7 +57,7 @@ export default async function Kun({ params, searchParams }: Props) {
   const sortOrder =
     (getSearchParamValue(res?.sortOrder) as SortOrder | undefined) ||
     DEFAULT_GALGAME_SORT_ORDER
-  const currentPage = parsePositiveIntParam(getSearchParamValue(res?.page), 1)
+  const currentPage = toNumberParam(getSearchParamValue(res?.page), 1)
   const selectedType =
     getSearchParamValue(res?.selectedType) || DEFAULT_GALGAME_FILTER_VALUE
   const selectedLanguage =
@@ -71,7 +70,7 @@ export default async function Kun({ params, searchParams }: Props) {
     getSearchParamValue(res?.monthString) || DEFAULT_GALGAME_MONTH_STRING
   const minRatingCount =
     sortField === 'rating'
-      ? parseNonNegativeIntParam(
+      ? toNumberParam(
           getSearchParamValue(res?.minRatingCount),
           DEFAULT_TAG_COMPANY_MIN_RATING_COUNT
         )

@@ -59,38 +59,13 @@ export const parseGalgameFilterArray = (value: string | null | undefined) => {
   }
 }
 
-// 上界与 validations 各 schema 对齐 (page: max(9999999),
-// minRatingCount: max(999999)); 越界回落而非透传, 否则 SSR 入口
-// 会被 schema 硬拒, 渲染整页错误而非回落默认值
-export const MAX_PAGE_PARAM = 9999999
-export const MAX_MIN_RATING_COUNT_PARAM = 999999
-
-export const parsePositiveIntParam = (
+// 只处理缺省, 不做回落: 参数存在即原样透传 (含 NaN / 越界 / 小数),
+// 由 validations schema 硬拒渲染整页错误 —— 坏参数不静默修正
+export const toNumberParam = (
   value: string | null | undefined,
   fallback: number
 ) => {
-  const parsed = Number(value)
-  if (!Number.isFinite(parsed) || parsed < 1 || parsed > MAX_PAGE_PARAM) {
-    return fallback
-  }
-
-  return Math.floor(parsed)
-}
-
-export const parseNonNegativeIntParam = (
-  value: string | null | undefined,
-  fallback: number
-) => {
-  const parsed = Number(value)
-  if (
-    !Number.isFinite(parsed) ||
-    parsed < 0 ||
-    parsed > MAX_MIN_RATING_COUNT_PARAM
-  ) {
-    return fallback
-  }
-
-  return Math.floor(parsed)
+  return value === null || value === undefined ? fallback : Number(value)
 }
 
 // debounced 筛选 (评分人数阈值) 不重置页码, 收紧后页码可能越界;

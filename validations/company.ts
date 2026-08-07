@@ -76,6 +76,7 @@ const galgameListQuerySchema = galgameSchema
   .extend({
     minRatingCount: z.coerce
       .number()
+      .int()
       .min(0)
       .max(999999)
       .default(DEFAULT_TAG_COMPANY_MIN_RATING_COUNT)

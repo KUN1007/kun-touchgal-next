@@ -138,12 +138,20 @@ const pendingResource = {
   user_id: 7,
   patch_id: 10,
   user: { name: 'author' },
-  patch: { name: 'p', unique_id: 'unique-x' },
-  links: [
-    { storage: 's3', content: 'c', hash: 'h', s3_key: 'patch/10/h.zip' },
-    { storage: 'user', content: 'https://example.com', hash: '', s3_key: '' }
-  ]
+  patch: { name: 'p', unique_id: 'unique-x' }
 }
+
+// 与事务外快照刻意不同源: 快照不含 links, 锁下重读见到的是并发重绑后的新 s3
+// 对象. 实现若退回快照入队, 要么编译失败 (include 已删), 要么下面的断言收不到新 key
+const lockedResourceLinks = [
+  {
+    storage: 's3',
+    content: 'c2',
+    hash: 'h2',
+    s3_key: 'patch/10/h2-rebound.zip'
+  },
+  { storage: 'user', content: 'https://example.com', hash: '', s3_key: '' }
+]
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -154,7 +162,7 @@ beforeEach(() => {
   findAdminMock.mockResolvedValue({ id: 99, name: 'admin' })
   // 事务首条 FOR UPDATE 命中行; S3 入队的事实源是锁下重读的 links
   txQueryRawMock.mockResolvedValue([{ id: 3 }])
-  txLinkFindManyMock.mockResolvedValue(pendingResource.links)
+  txLinkFindManyMock.mockResolvedValue(lockedResourceLinks)
   deleteResourceMock.mockResolvedValue({ count: 1 })
   updateResourceMock.mockResolvedValue({ count: 1 })
   createLogMock.mockResolvedValue({})
@@ -203,8 +211,20 @@ describe('resource-apply decline', () => {
     expect(deleteResourceMock.mock.invocationCallOrder[0]).toBeLessThan(
       deleteOrphanReportsMock.mock.invocationCallOrder[0]
     )
+    // 入队事实源必须是锁下重读: 行锁之后 findMany, 收到的是重绑后的新 s3 对象
+    expect(txLinkFindManyMock).toHaveBeenCalledWith({
+      where: { resource_id: 3 }
+    })
+    expect(txQueryRawMock.mock.invocationCallOrder[0]).toBeLessThan(
+      txLinkFindManyMock.mock.invocationCallOrder[0]
+    )
     expect(enqueueLinkDelMock).toHaveBeenCalledWith(transactionClient, [
-      { content: 'c', patchId: 10, hash: 'h', s3Key: 'patch/10/h.zip' }
+      {
+        content: 'c2',
+        patchId: 10,
+        hash: 'h2',
+        s3Key: 'patch/10/h2-rebound.zip'
+      }
     ])
     expect(createMessageMock).toHaveBeenCalledTimes(1)
     expect(kickDrainMock).toHaveBeenCalledTimes(1)
@@ -229,6 +249,23 @@ describe('resource-apply decline', () => {
     expect(createLogMock).not.toHaveBeenCalled()
     expect(queueSearchSyncMock).not.toHaveBeenCalled()
     expect(invalidateResourceListMock).not.toHaveBeenCalled()
+  })
+
+  it('bails out before cleanup when the locked row no longer exists', async () => {
+    // 并发 decline 已删除行: FOR UPDATE 空命中, 须在 cleanup 之前提前退出.
+    // 区分于 count===0 分支——那边 cleanup 已执行靠回滚撤销, 这里根本不该执行
+    txQueryRawMock.mockResolvedValue([])
+
+    const response = await declinePut(request)
+
+    expect(await response.json()).toBe('当前资源状态无需审核')
+    expect(events).not.toContain('transaction-commit')
+    // 抛点在锁下重读之前: findMany 也不该执行
+    expect(txLinkFindManyMock).not.toHaveBeenCalled()
+    expect(cleanupDerivativesMock).not.toHaveBeenCalled()
+    expect(deleteResourceMock).not.toHaveBeenCalled()
+    expect(createMessageMock).not.toHaveBeenCalled()
+    expect(kickDrainMock).not.toHaveBeenCalled()
   })
 
   it('propagates non-sentinel transaction failures', async () => {

@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import { useEffect, useRef, useState } from 'react'
 import { NavbarContent, NavbarItem } from '@heroui/navbar'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { Button } from '@heroui/button'
 import { Skeleton } from '@heroui/skeleton'
 import { useUserStore } from '~/store/userStore'
@@ -19,6 +19,7 @@ import { KunSearch } from './Search'
 import { UserMessageBell } from './UserMessageBell'
 import { Tooltip } from '@heroui/tooltip'
 import { RandomGalgameButton } from '~/components/home/carousel/RandomGalgameButton'
+import { buildKunLoginHref } from '~/utils/loginRedirect'
 import type { UserSession } from '~/types/api/session'
 
 interface Props {
@@ -61,10 +62,41 @@ const fetchCurrentSession = async (): Promise<SessionCheckResult> => {
   }
 }
 
+// 登录链接须携带完整 pathname+search 才能在登录后回跳; useSearchParams 在静态
+// 预渲染会触发 CSR bailout (顶栏位于根 layout 的 Suspense fallback 内, 不受边界
+// 保护), 故隔离在仅 isMounted 后渲染的子组件里, 服务端不会执行到
+const KunTopBarGuestEntry = () => {
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const loginHref = buildKunLoginHref(pathname, searchParams.toString())
+
+  return (
+    <NavbarContent justify="end">
+      <NavbarItem className="hidden lg:flex">
+        <Link href={loginHref}>登录</Link>
+      </NavbarItem>
+      <NavbarItem>
+        <Button
+          as={Link}
+          color="primary"
+          href="/register"
+          variant="flat"
+          className="hidden lg:flex"
+        >
+          注册
+        </Button>
+      </NavbarItem>
+      <NavbarItem className="flex lg:hidden">
+        <Button as={Link} color="primary" href={loginHref} variant="flat">
+          登录
+        </Button>
+      </NavbarItem>
+    </NavbarContent>
+  )
+}
+
 export const KunTopBarUser = ({ initialSession, isSessionPending }: Props) => {
   const router = useRouter()
-  const pathname = usePathname()
-  const loginHref = `/login?from=${encodeURIComponent(pathname)}`
   const { user, setUser, logout } = useUserStore(
     useShallow((state) => ({
       user: state.user,
@@ -163,7 +195,9 @@ export const KunTopBarUser = ({ initialSession, isSessionPending }: Props) => {
         logout()
         resetUnreadMessageStatus()
         resetSettings()
-        router.push('/login')
+        router.push(
+          buildKunLoginHref(window.location.pathname, window.location.search)
+        )
         return
       }
       setIsMissingSessionChecked(true)
@@ -207,29 +241,7 @@ export const KunTopBarUser = ({ initialSession, isSessionPending }: Props) => {
         </>
       )}
 
-      {isMounted && isSessionReady && !user.name && (
-        <NavbarContent justify="end">
-          <NavbarItem className="hidden lg:flex">
-            <Link href={loginHref}>登录</Link>
-          </NavbarItem>
-          <NavbarItem>
-            <Button
-              as={Link}
-              color="primary"
-              href="/register"
-              variant="flat"
-              className="hidden lg:flex"
-            >
-              注册
-            </Button>
-          </NavbarItem>
-          <NavbarItem className="flex lg:hidden">
-            <Button as={Link} color="primary" href={loginHref} variant="flat">
-              登录
-            </Button>
-          </NavbarItem>
-        </NavbarContent>
-      )}
+      {isMounted && isSessionReady && !user.name && <KunTopBarGuestEntry />}
 
       <KunSearch />
 

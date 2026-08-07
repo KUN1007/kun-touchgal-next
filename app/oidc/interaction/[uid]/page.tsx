@@ -40,7 +40,7 @@ export default async function OidcInteractionPage({ params }: Props) {
   if (prompt === 'login') {
     const payload = await verifyHeaderCookie()
     if (!payload) {
-      redirect(`/login?callbackUrl=${encodeURIComponent(interactionPath)}`)
+      redirect(`/login?from=${encodeURIComponent(interactionPath)}`)
     }
     redirect(`${interactionPath}/confirm`)
   }

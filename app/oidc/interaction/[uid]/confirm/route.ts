@@ -24,10 +24,7 @@ export const GET = async (
   const payload = await verifyHeaderCookie()
   if (!payload) {
     return NextResponse.redirect(
-      new URL(
-        `/login?callbackUrl=${encodeURIComponent(interactionPath)}`,
-        req.url
-      )
+      new URL(`/login?from=${encodeURIComponent(interactionPath)}`, req.url)
     )
   }
 

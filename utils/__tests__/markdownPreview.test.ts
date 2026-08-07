@@ -106,6 +106,30 @@ describe('markdownToPreviewHtml', () => {
     )
   })
 
+  it('行末多敲 | 产生的空 cell 按表头列数裁断', () => {
+    expect(markdownToPreviewHtml('| a | b |\n|---|---|\n| 1 | 2 ||')).toBe(
+      '<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody>\n' +
+        '<tr><td>1</td><td>2</td></tr>\n' +
+        '</tbody></table>'
+    )
+  })
+
+  it('body 行非空 cell 多于表头时同样裁断', () => {
+    expect(markdownToPreviewHtml('| a | b |\n|---|---|\n| 1 | 2 | 3 |')).toBe(
+      '<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody>\n' +
+        '<tr><td>1</td><td>2</td></tr>\n' +
+        '</tbody></table>'
+    )
+  })
+
+  it('body 行 cell 少于表头时补空 td', () => {
+    expect(markdownToPreviewHtml('| a | b |\n|---|---|\n| 1 |')).toBe(
+      '<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody>\n' +
+        '<tr><td>1</td><td></td></tr>\n' +
+        '</tbody></table>'
+    )
+  })
+
   it('带对齐语法的分隔符可被识别', () => {
     const html = markdownToPreviewHtml('| a | b |\n| :--- | ---: |\n| 1 | 2 |')
     expect(html).toContain('<th>a</th><th>b</th>')

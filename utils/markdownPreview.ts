@@ -94,6 +94,7 @@ export const markdownToPreviewHtml = (markdown: string): string => {
   let codeLanguage = ''
   let inList: 'ul' | 'ol' | null = null
   let inTable = false
+  let tableColumnCount = 0
 
   const flushList = () => {
     if (inList) {
@@ -252,14 +253,20 @@ export const markdownToPreviewHtml = (markdown: string): string => {
             '</tr></thead><tbody>'
         )
         inTable = true
+        tableColumnCount = cells.length
         i++
         continue
       }
 
       if (inTable) {
+        // GFM 把 body 行按表头列数对齐: 多余 cell 裁掉, 缺失补空
+        const row = Array.from(
+          { length: tableColumnCount },
+          (_, idx) => cells[idx] ?? ''
+        )
         result.push(
           '<tr>' +
-            cells.map((c) => `<td>${renderInlineMarkdown(c)}</td>`).join('') +
+            row.map((c) => `<td>${renderInlineMarkdown(c)}</td>`).join('') +
             '</tr>'
         )
         continue

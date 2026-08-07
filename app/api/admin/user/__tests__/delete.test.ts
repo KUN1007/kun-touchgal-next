@@ -21,6 +21,7 @@ const {
   invalidateCompanyCacheMock,
   findCommentedPatchesMock,
   invalidateCommentCacheMock,
+  invalidateResourceDetailMock,
   findResourcesInTransactionMock,
   recalcPatchTypeMock,
   enqueueSearchOutboxMock,
@@ -49,6 +50,7 @@ const {
   invalidateCompanyCacheMock: vi.fn(),
   findCommentedPatchesMock: vi.fn(),
   invalidateCommentCacheMock: vi.fn(),
+  invalidateResourceDetailMock: vi.fn(),
   findResourcesInTransactionMock: vi.fn(),
   recalcPatchTypeMock: vi.fn(),
   enqueueSearchOutboxMock: vi.fn(),
@@ -104,6 +106,10 @@ vi.mock('~/app/api/company/cache', () => ({
 
 vi.mock('~/app/api/patch/comment/cache', () => ({
   invalidatePatchCommentCache: invalidateCommentCacheMock
+}))
+
+vi.mock('~/app/api/patch/resource/cache', () => ({
+  invalidatePatchResourceDetailCache: invalidateResourceDetailMock
 }))
 
 vi.mock('~/app/api/patch/rating/stat', () => ({
@@ -328,8 +334,51 @@ describe('deleteUser', () => {
     expect(invalidateContentByPatchIdMock).toHaveBeenCalledWith([40, 41, 50])
   })
 
+  it('失效被删用户点赞过的他人 patch 资源详情缓存, 不受资源计数闸门约束', async () => {
+    countResourcesMock.mockResolvedValue(0)
+    findResourcesMock.mockImplementation(
+      async (query?: { where?: { like_by?: unknown } }) =>
+        query?.where?.like_by ? [{ patch_id: 60 }, { patch_id: 61 }] : []
+    )
+
+    await expect(deleteUser({ uid: 7 }, 99)).resolves.toEqual({})
+
+    expect(findResourcesMock).toHaveBeenCalledWith({
+      where: {
+        like_by: { some: { user_id: 7 } },
+        status: 0,
+        patch: { user_id: { not: 7 } }
+      },
+      select: { patch_id: true },
+      distinct: ['patch_id']
+    })
+    // 零公开资源时列表失效闸门关闭, 但点赞侧详情失效仍须执行
+    expect(invalidateCacheMock).not.toHaveBeenCalled()
+    expect(invalidateResourceDetailMock.mock.calls).toEqual([[60], [61]])
+  })
+
+  it('点赞 patch 与资源受影响集重叠时只失效一次', async () => {
+    findResourcesInTransactionMock.mockResolvedValue([
+      { patch_id: 32 },
+      { patch_id: 30 }
+    ])
+    findResourcesMock.mockImplementation(
+      async (query?: { where?: { like_by?: unknown } }) =>
+        query?.where?.like_by ? [{ patch_id: 32 }, { patch_id: 70 }] : []
+    )
+
+    await expect(deleteUser({ uid: 7 }, 99)).resolves.toEqual({})
+
+    // 32 已由 affectedPatchIds 闸门内失效, 点赞侧仅补 70
+    expect(invalidateResourceDetailMock.mock.calls).toEqual([[30], [32], [70]])
+  })
+
   it('retries serializable conflicts without repeating resource cleanup', async () => {
-    findResourcesMock.mockResolvedValue([{ id: 55 }])
+    // S3 收集返回 55; 点赞收集共用同一 findMany mock, 按 where 形状区分返回空
+    findResourcesMock.mockImplementation(
+      async (query?: { where?: { links?: unknown } }) =>
+        query?.where?.links ? [{ id: 55 }] : []
+    )
     // 首次尝试(将因冲突回滚)与重试各收集到不同的受影响 patch
     findResourcesInTransactionMock
       .mockResolvedValueOnce([{ patch_id: 91 }])

@@ -79,6 +79,18 @@ export const deleteUser = async (
     select: { patch_id: true },
     distinct: ['patch_id']
   })
+  // 删除前收集该用户点赞过的他人公开资源所在 patch: 点赞随 user.delete() 级联消失,
+  // 详情缓存内嵌 likeCount 且版本键按 patch 分片, 不失效会陈旧至 TTL。
+  // status=0 缓存才装; 自己的 patch 级联删后不可达, 残留缓存自然过期故排除
+  const likedResourcePatches = await prisma.patch_resource.findMany({
+    where: {
+      like_by: { some: { user_id: input.uid } },
+      status: 0,
+      patch: { user_id: { not: input.uid } }
+    },
+    select: { patch_id: true },
+    distinct: ['patch_id']
+  })
 
   if (resourceIds.length) {
     for (const res of resourceIds) {
@@ -189,6 +201,16 @@ export const deleteUser = async (
   if (publicResourceCount > 0) {
     await invalidateResourceListCache()
   }
+  // 点赞级联删除改他人 patch 的资源 likeCount, 不进上方闸门 (零资源用户也可能有点赞)
+  const invalidatedDetailIds = new Set(
+    publicAnySectionResourceCount > 0 ? affectedPatchIds : []
+  )
+  await Promise.all(
+    likedResourcePatches
+      .map((r) => r.patch_id)
+      .filter((patchId) => !invalidatedDetailIds.has(patchId))
+      .map((patchId) => invalidatePatchResourceDetailCache(patchId))
+  )
   await Promise.all(
     commentedPatches.map((c) => invalidatePatchCommentCache(c.patch_id))
   )

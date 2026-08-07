@@ -130,6 +130,33 @@ describe('markdownToPreviewHtml', () => {
     )
   })
 
+  it('cell 内 \\| 转义管道不分隔且解码为 |', () => {
+    // 修复前: 裸 split 把 a\|b 劈成两 cell, 钳制把末列 c 静默裁掉
+    expect(markdownToPreviewHtml('| a | b |\n|---|---|\n| a\\|b | c |')).toBe(
+      '<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody>\n' +
+        '<tr><td>a|b</td><td>c</td></tr>\n' +
+        '</tbody></table>'
+    )
+  })
+
+  it('表头 cell 内 \\| 不放大列数', () => {
+    // 修复前: 表头被劈成 3 列, 所有 body 行都被补一空列
+    expect(markdownToPreviewHtml('| a\\|b | c |\n|---|---|\n| 1 | 2 |')).toBe(
+      '<table><thead><tr><th>a|b</th><th>c</th></tr></thead><tbody>\n' +
+        '<tr><td>1</td><td>2</td></tr>\n' +
+        '</tbody></table>'
+    )
+  })
+
+  it('转义反斜杠 \\\\ 后的 | 仍是分隔符', () => {
+    // \\ 是转义反斜杠, 其后的 | 分隔; \\ 本身不解码 (预览器整体不做反斜杠转义)
+    expect(markdownToPreviewHtml('| a | b |\n|---|---|\n| a\\\\| c |')).toBe(
+      '<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody>\n' +
+        '<tr><td>a\\\\</td><td>c</td></tr>\n' +
+        '</tbody></table>'
+    )
+  })
+
   it('带对齐语法的分隔符可被识别', () => {
     const html = markdownToPreviewHtml('| a | b |\n| :--- | ---: |\n| 1 | 2 |')
     expect(html).toContain('<th>a</th><th>b</th>')

@@ -82,6 +82,29 @@ const renderInlineMarkdown = (text: string): string => {
   return html
 }
 
+// GFM 表格里 \| 是转义管道不分隔 cell, \\ 是转义反斜杠 (其后的 | 仍分隔),
+// 与 micromark-extension-gfm-table 同规。\| 解码为 | 对齐服务端; \\ 保持原样 —
+// 预览器整体不做反斜杠转义, 段落里 \\ 同样显示原样, 只在表格上下文对齐 \|
+const splitTableCells = (content: string): string[] => {
+  const cells: string[] = []
+  let current = ''
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i]
+    const next = content[i + 1]
+    if (char === '\\' && (next === '|' || next === '\\')) {
+      current += next === '|' ? '|' : '\\\\'
+      i++
+    } else if (char === '|') {
+      cells.push(current)
+      current = ''
+    } else {
+      current += char
+    }
+  }
+  cells.push(current)
+  return cells
+}
+
 export const markdownToPreviewHtml = (markdown: string): string => {
   if (!markdown.trim()) {
     return '<p class="text-default-400 italic">暂无内容</p>'
@@ -241,7 +264,7 @@ export const markdownToPreviewHtml = (markdown: string): string => {
     }
 
     if (tableMatch) {
-      const cells = tableMatch[1].split('|').map((c) => c.trim())
+      const cells = splitTableCells(tableMatch[1]).map((c) => c.trim())
       const nextLine = lines[i + 1]
       const isHeader = nextLine && /^\|(?:\s*:?-+:?\s*\|)+$/.test(nextLine)
 

@@ -168,6 +168,10 @@ export const CompanyDetailContainer: FC<Props> = ({
 
   useEffect(() => {
     if (!isMounted) {
+      // 首屏用 SSR 数据不 fetch, 直达 overflow URL 时借 setPage 触发本 effect 重跑
+      if (kunShouldResetOverflowPage(totalCount, patches.length, page)) {
+        setPage(1)
+      }
       return
     }
     fetchPatches()

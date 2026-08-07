@@ -9,6 +9,11 @@ import { KunLoading } from '~/components/kun/Loading'
 import { KunHeader } from '../kun/Header'
 import { useSearchParams } from 'next/navigation'
 import { KunPagination } from '~/components/kun/Pagination'
+import { KunNull } from '~/components/kun/Null'
+import {
+  kunShouldResetOverflowPage,
+  parsePositiveIntParam
+} from '~/utils/galgameFilter'
 import type { SortDirection, SortOption } from './_sort'
 import type { PatchResource } from '~/types/api/resource'
 
@@ -26,7 +31,15 @@ export const CardContainer = ({ initialResources, initialTotal }: Props) => {
   const [sortField, setSortField] = useState<SortOption>('created')
   const [sortOrder, setSortOrder] = useState<SortDirection>('desc')
   const searchParams = useSearchParams()
-  const [page, setPage] = useState(Number(searchParams.get('page')) || 1)
+  const [page, setPage] = useState(
+    parsePositiveIntParam(searchParams.get('page'), 1)
+  )
+  const withPageReset = <T,>(setter: (value: T) => void) => {
+    return (value: T) => {
+      setPage(1)
+      setter(value)
+    }
+  }
 
   const fetchData = async () => {
     const requestId = latestFetchRequestIdRef.current + 1
@@ -58,6 +71,17 @@ export const CardContainer = ({ initialResources, initialTotal }: Props) => {
         return
       }
 
+      if (
+        kunShouldResetOverflowPage(
+          response.total,
+          response.resources.length,
+          page
+        )
+      ) {
+        setPage(1)
+        return
+      }
+
       setResources(response.resources)
       setTotal(response.total)
     } catch (error) {
@@ -77,6 +101,10 @@ export const CardContainer = ({ initialResources, initialTotal }: Props) => {
   useEffect(() => {
     if (!didSkipInitialFetch.current) {
       didSkipInitialFetch.current = true
+      // 首屏用 SSR 数据不 fetch, 直达 overflow URL 时借 setPage 触发本 effect 重跑
+      if (kunShouldResetOverflowPage(total, resources.length, page)) {
+        setPage(1)
+      }
       return
     }
 
@@ -92,9 +120,9 @@ export const CardContainer = ({ initialResources, initialTotal }: Props) => {
 
       <FilterBar
         sortField={sortField}
-        setSortField={setSortField}
+        setSortField={withPageReset(setSortField)}
         sortOrder={sortOrder}
-        setSortOrder={setSortOrder}
+        setSortOrder={withPageReset(setSortOrder)}
       />
       {loading ? (
         <KunLoading hint="正在获取补丁资源数据..." />
@@ -115,6 +143,10 @@ export const CardContainer = ({ initialResources, initialTotal }: Props) => {
             isLoading={loading}
           />
         </div>
+      )}
+
+      {!loading && !total && (
+        <KunNull message="暂无补丁资源, 或您未开启网站 NSFW" />
       )}
     </div>
   )

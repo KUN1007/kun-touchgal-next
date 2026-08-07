@@ -13,6 +13,7 @@ import { invalidateTagListCache } from '~/app/api/tag/cache'
 import { invalidateCompanyListCache } from '~/app/api/company/cache'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 import { recalcPatchType } from '~/app/api/patch/resource/_helper'
+import { deleteOrphanReports } from '~/server/report/pending'
 import {
   enqueueSearchOutbox,
   kickSearchOutboxDrain
@@ -124,6 +125,13 @@ export const deleteUser = async (
           await prisma.user.delete({
             where: { id: input.uid }
           })
+
+          // 第三方内容被间接级联 (他人对该用户评论的回复经 parent_id、
+          // 他人在该用户非 S3 资源下的评论经 resource_id) 会把针对它们的
+          // 举报 comment_id 置空, 删除后按 NULL 目标清理孤儿 (锁序要求见
+          // pending.ts)。rating 无此间接链: 他人评分只能随 patch 级联删,
+          // 届时举报已因 patch_id Cascade 同删, 故不清 'rating'
+          await deleteOrphanReports('comment', prisma)
 
           // 覆盖式赋值: Serializable 重试时不累加 (与 affectedUniqueIds 同理)
           const ratingPatchIds = ratedPatches

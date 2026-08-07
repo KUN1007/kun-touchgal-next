@@ -26,7 +26,8 @@ const {
   enqueueSearchOutboxMock,
   kickDrainMock,
   invalidatePatchContentCacheMock,
-  invalidateContentByPatchIdMock
+  invalidateContentByPatchIdMock,
+  deleteOrphanReportsMock
 } = vi.hoisted(() => ({
   findUserMock: vi.fn(),
   findResourcesMock: vi.fn(),
@@ -53,7 +54,8 @@ const {
   enqueueSearchOutboxMock: vi.fn(),
   kickDrainMock: vi.fn(),
   invalidatePatchContentCacheMock: vi.fn(),
-  invalidateContentByPatchIdMock: vi.fn()
+  invalidateContentByPatchIdMock: vi.fn(),
+  deleteOrphanReportsMock: vi.fn()
 }))
 
 const events: string[] = []
@@ -123,6 +125,10 @@ vi.mock('~/server/search/sync', () => ({
   kickSearchOutboxDrain: kickDrainMock
 }))
 
+vi.mock('~/server/report/pending', () => ({
+  deleteOrphanReports: deleteOrphanReportsMock
+}))
+
 import { deleteUser } from '~/app/api/admin/user/delete'
 
 beforeEach(() => {
@@ -172,6 +178,9 @@ beforeEach(() => {
   deleteUserMock.mockImplementation(async () => {
     events.push('delete-user')
     return {}
+  })
+  deleteOrphanReportsMock.mockImplementation(async () => {
+    events.push('delete-orphan-reports')
   })
   createLogMock.mockResolvedValue({})
   deleteResourceMock.mockResolvedValue({})
@@ -231,9 +240,15 @@ describe('deleteUser', () => {
 
     expect(recomputeManyMock).toHaveBeenCalledWith([10], transactionClient)
     expect(recomputeOneMock).not.toHaveBeenCalled()
+    // 孤儿举报清理在事务内、级联删除之后 (删除前清理与级联 SET NULL 锁序相反会死锁)
+    expect(deleteOrphanReportsMock).toHaveBeenCalledWith(
+      'comment',
+      transactionClient
+    )
     expect(events).toEqual([
       'transaction-start',
       'delete-user',
+      'delete-orphan-reports',
       'recompute-many',
       'transaction-end',
       'invalidate-tag-cache',
@@ -280,6 +295,7 @@ describe('deleteUser', () => {
     expect(events).toEqual([
       'transaction-start',
       'delete-user',
+      'delete-orphan-reports',
       'recompute-many',
       'recalc-30',
       'enqueue-30',
@@ -335,6 +351,8 @@ describe('deleteUser', () => {
     expect(deleteResourceMock).toHaveBeenCalledTimes(1)
     expect(transactionMock).toHaveBeenCalledTimes(2)
     expect(deleteUserMock).toHaveBeenCalledTimes(2)
+    // 清理随每次 attempt 在事务内执行 (deleteMany 幂等, 重试安全)
+    expect(deleteOrphanReportsMock).toHaveBeenCalledTimes(2)
     expect(deleteTokenMock).toHaveBeenCalledTimes(1)
     // recalcPatchType 与 enqueueSearchOutbox 事务内两次尝试各跑一次; 首次尝试(91)
     // 的入队在回滚事务内、随事务一并丢弃(与 recalc 同), 不泄漏靠事务原子性

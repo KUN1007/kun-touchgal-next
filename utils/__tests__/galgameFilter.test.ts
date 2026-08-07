@@ -2,8 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_GALGAME_FILTER_SELECTION,
   MAX_GALGAME_FILTER_VALUES,
+  MAX_MIN_RATING_COUNT_PARAM,
+  MAX_PAGE_PARAM,
   kunShouldResetOverflowPage,
-  parseGalgameFilterArray
+  parseGalgameFilterArray,
+  parseNonNegativeIntParam,
+  parsePositiveIntParam
 } from '~/utils/galgameFilter'
 import { buildGalgameDateFilter } from '~/app/api/utils/galgameQuery'
 
@@ -45,6 +49,47 @@ describe('buildGalgameDateFilter', () => {
     // 未设上限时会展开出 63001 个 LIKE 谓词
     expect(JSON.stringify(makeValues(251)).length).toBeLessThanOrEqual(1007)
     expect(countConditions(JSON.stringify(makeValues(251)))).toBe(0)
+  })
+})
+
+describe('parsePositiveIntParam', () => {
+  it('合法页码取整放行', () => {
+    expect(parsePositiveIntParam('3', 1)).toBe(3)
+    expect(parsePositiveIntParam('2.9', 1)).toBe(2)
+    expect(parsePositiveIntParam(String(MAX_PAGE_PARAM), 1)).toBe(
+      MAX_PAGE_PARAM
+    )
+  })
+
+  it('NaN / 空值 / 0 / 负数回落', () => {
+    expect(parsePositiveIntParam('abc', 1)).toBe(1)
+    expect(parsePositiveIntParam(undefined, 1)).toBe(1)
+    expect(parsePositiveIntParam('0', 1)).toBe(1)
+    expect(parsePositiveIntParam('-5', 1)).toBe(1)
+  })
+
+  it('超 schema 上界回落第 1 页而非透传硬拒', () => {
+    expect(parsePositiveIntParam(String(MAX_PAGE_PARAM + 1), 1)).toBe(1)
+    expect(parsePositiveIntParam('1e30', 1)).toBe(1)
+    expect(parsePositiveIntParam('Infinity', 1)).toBe(1)
+  })
+})
+
+describe('parseNonNegativeIntParam', () => {
+  it('合法值取整放行, 0 是合法下界', () => {
+    expect(parseNonNegativeIntParam('0', 10)).toBe(0)
+    expect(parseNonNegativeIntParam('10.5', 0)).toBe(10)
+    expect(
+      parseNonNegativeIntParam(String(MAX_MIN_RATING_COUNT_PARAM), 0)
+    ).toBe(MAX_MIN_RATING_COUNT_PARAM)
+  })
+
+  it('NaN / 负数 / 超 schema 上界回落', () => {
+    expect(parseNonNegativeIntParam('abc', 10)).toBe(10)
+    expect(parseNonNegativeIntParam('-1', 10)).toBe(10)
+    expect(
+      parseNonNegativeIntParam(String(MAX_MIN_RATING_COUNT_PARAM + 1), 0)
+    ).toBe(0)
   })
 })
 

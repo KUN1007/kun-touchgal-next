@@ -3,7 +3,11 @@ import { prisma } from '~/prisma/index'
 import { patchResourceCreateSchema } from '~/validations/patch'
 import { createMessage } from '~/app/api/utils/message'
 import { markdownToHtml } from '~/app/api/utils/render/markdownToHtml'
-import { bindUploadedResource, recalcPatchType } from './_helper'
+import {
+  abandonBoundResourceObjects,
+  bindUploadedResource,
+  recalcPatchType
+} from './_helper'
 import { invalidatePatchResourceDetailCache } from './cache'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
@@ -74,19 +78,24 @@ export const createPatchResource = async (
     sort_order: number
     download: number
   }> = []
+  // 早退不清理即泄漏此前迭代已绑定的对象 (staging/token 已删, 无法复用)
+  const boundObjects: Array<{ content: string; s3Key: string }> = []
   for (const [index, link] of links.entries()) {
     let content = link.content
     let s3Key = ''
     if (link.storage === 's3') {
       if (!link.hash.trim()) {
+        await abandonBoundResourceObjects(boundObjects, patchId)
         return '请先上传资源文件'
       }
       const result = await bindUploadedResource(patchId, link.hash, uid)
       if (typeof result === 'string') {
+        await abandonBoundResourceObjects(boundObjects, patchId)
         return result
       }
       content = result.downloadLink
       s3Key = result.s3Key
+      boundObjects.push({ content, s3Key })
     }
 
     preparedLinks.push({
@@ -102,7 +111,7 @@ export const createPatchResource = async (
     })
   }
 
-  const resource = await prisma.$transaction(async (prisma) => {
+  const resourcePromise = prisma.$transaction(async (prisma) => {
     const newResource = await prisma.patch_resource.create({
       data: {
         patch_id: patchId,
@@ -202,6 +211,11 @@ export const createPatchResource = async (
     }
 
     return resource
+  })
+  // 事务抛错回滚使行未落库: 已绑定对象无 DB 引用, 兜底清理
+  const resource = await resourcePromise.catch(async (error: unknown) => {
+    await abandonBoundResourceObjects(boundObjects, patchId)
+    throw error
   })
 
   queueSearchSync(patchId)

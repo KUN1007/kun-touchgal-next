@@ -3,6 +3,7 @@ import { prisma } from '~/prisma/index'
 import { patchResourceUpdateSchema } from '~/validations/patch'
 import { markdownToHtml } from '~/app/api/utils/render/markdownToHtml'
 import {
+  abandonBoundResourceObjects,
   bindUploadedResource,
   enqueueResourceLinkDeletions,
   recalcPatchType
@@ -79,6 +80,21 @@ export const updatePatchResource = async (
     return '未找到该资源对应的 Galgame 信息, 请确认 Galgame 存在'
   }
 
+  // 编辑标题/介绍/模型型号后必须重新送审; 待人工审批 (status=2) 的资源不送 AI;
+  // 标题与介绍均为空的资源无文本可审, 直接放行. 预筛必须先于 S3 重绑: 预筛
+  // (读审核配置) 可能因 Redis 故障抛错, 在绑定之后抛会泄漏已复制的对象
+  const textChanged =
+    resource.name !== input.name ||
+    resource.note !== input.note ||
+    resource.model_name !== model_name
+  const moderationText = `标题: ${input.name}\n介绍: ${input.note}${model_name ? `\n模型型号: ${model_name}` : ''}`
+  const moderation =
+    resource.status === 2 ||
+    !textChanged ||
+    !`${input.name}${input.note}${model_name}`.trim()
+      ? MODERATION_SKIP
+      : await preScreenText(moderationText, userRole)
+
   // 阶段一 (事务外): 只完成 S3 重绑 —— copy 不进事务; 链接 diff 与删除入队推迟到
   // 行锁之下, 以锁下集合为事实源. 事务外快照与行锁之间的并发编辑是 deleteMany +
   // create 整体换行: 基于快照的 diff 会漏删并发重绑的新 s3 对象 (孤儿且公开可达),
@@ -100,6 +116,7 @@ export const updatePatchResource = async (
     if (link.hash) {
       const result = await bindUploadedResource(patchId, link.hash, uid)
       if (typeof result === 'string') {
+        await abandonBoundResourceObjects([...boundLinks.values()], patchId)
         return result
       }
       boundLinks.set(index, {
@@ -112,30 +129,17 @@ export const updatePatchResource = async (
     const snapshotLink =
       typeof link.id === 'number' ? snapshotLinksById.get(link.id) : null
     if (!snapshotLink || snapshotLink.storage !== 's3') {
+      await abandonBoundResourceObjects([...boundLinks.values()], patchId)
       return '请先上传资源文件'
     }
   }
-
-  // 编辑标题/介绍/模型型号后必须重新送审; 待人工审批 (status=2) 的资源不送 AI;
-  // 标题与介绍均为空的资源无文本可审, 直接放行
-  const textChanged =
-    resource.name !== input.name ||
-    resource.note !== input.note ||
-    resource.model_name !== model_name
-  const moderationText = `标题: ${input.name}\n介绍: ${input.note}${model_name ? `\n模型型号: ${model_name}` : ''}`
-  const moderation =
-    resource.status === 2 ||
-    !textChanged ||
-    !`${input.name}${input.note}${model_name}`.trim()
-      ? MODERATION_SKIP
-      : await preScreenText(moderationText, userRole)
 
   // update 覆写前的权威行状态, 由事务内行锁读取后回填; 提交后的失效闸门读它
   // 而非事务外快照 (锁下复检保证回填必然发生, 快照初值仅满足赋值定型)
   let previousStatus = resource.status
   let previousSection = resource.section
 
-  const updatedResource = await prisma.$transaction(async (prisma) => {
+  const updatedResourcePromise = prisma.$transaction(async (prisma) => {
     // 行锁读 update 覆写前的状态: 事务外快照与提交之间存在并发 approve (2→0) /
     // AI 审核放行 (3→0) / 隐藏 (0→1) 窗口, 用快照判定会漏失效或多失效 (64fedb7f 同型);
     // 与 moderation apply 的 FOR UPDATE 互斥, 加锁顺序 (先 patch_resource 后 patch) 与其一致
@@ -355,6 +359,13 @@ export const updatePatchResource = async (
 
     return resourceResponse
   })
+  // 事务抛错回滚会连带撤销冲突分支的事务内清理入队: 已重绑对象在此兜底清理
+  const updatedResource = await updatedResourcePromise.catch(
+    async (error: unknown) => {
+      await abandonBoundResourceObjects([...boundLinks.values()], patchId)
+      throw error
+    }
+  )
   if (typeof updatedResource === 'string') {
     return updatedResource
   }

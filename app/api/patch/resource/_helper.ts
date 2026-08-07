@@ -3,7 +3,10 @@ import { copyObject, deleteFileFromS3, headObject } from '~/lib/s3'
 import { acquireKvLock, delKv, getKv, releaseKvLock } from '~/lib/redis'
 import { prisma } from '~/prisma/index'
 import type { Prisma } from '~/prisma/generated/prisma/client'
-import { enqueueS3Deletion } from '~/server/storage/s3Outbox'
+import {
+  enqueueS3Deletion,
+  kickS3DeletionDrain
+} from '~/server/storage/s3Outbox'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
 import { deletePendingAppeals } from '~/server/moderation/appeal'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
@@ -184,6 +187,33 @@ export const enqueueResourceLinkDeletions = async (
     )
     .filter((key): key is string => key !== null)
   await enqueueS3Deletion(client, keys)
+}
+
+// bind 成功后未落库即失败 (阶段一早退 / 事务回滚): 已复制的 finalKey 无 DB 引用,
+// staging 与 token 已删使重试无法复用, 随机段无法重建, 不清理即成永久孤儿
+// (正式资源同前缀, 不能靠 lifecycle 兜底). 用顶层 prisma 入删除出箱后即时踢 drain,
+// 与 update 事务内冲突分支的清理对称; 入队失败自吞, 不遮蔽调用方正在返回的业务错误
+export const abandonBoundResourceObjects = async (
+  bound: Array<{ content: string; s3Key: string }>,
+  patchId: number
+) => {
+  if (bound.length === 0) {
+    return
+  }
+  try {
+    await enqueueResourceLinkDeletions(
+      prisma,
+      bound.map((item) => ({
+        content: item.content,
+        patchId,
+        hash: '',
+        s3Key: item.s3Key
+      }))
+    )
+  } catch {
+    return
+  }
+  kickS3DeletionDrain()
 }
 
 export const sanitizeResourceLinksForAuditLog = <

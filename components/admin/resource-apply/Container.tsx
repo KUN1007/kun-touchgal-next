@@ -64,6 +64,12 @@ export const ResourceApply = ({ initialResources, initialTotal }: Props) => {
         }
         return
       }
+
+      const totalPage = Math.max(1, Math.ceil(response.total / limit))
+      if (page > totalPage) {
+        setPage(totalPage)
+      }
+
       setResources(response.resources)
       setTotal(response.total)
     } catch (error) {

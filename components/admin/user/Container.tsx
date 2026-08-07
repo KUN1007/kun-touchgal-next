@@ -94,6 +94,12 @@ export const User = ({ initialUsers, initialTotal }: Props) => {
         }
         return
       }
+
+      const totalPage = Math.max(1, Math.ceil(response.total / limit))
+      if (page > totalPage) {
+        setPage(totalPage)
+      }
+
       setUsers(response.users)
       setTotal(response.total)
     } catch (error) {

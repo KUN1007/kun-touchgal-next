@@ -121,6 +121,12 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
         }
         return
       }
+
+      const totalPage = Math.max(1, Math.ceil(response.total / limit))
+      if (page > totalPage) {
+        setPage(totalPage)
+      }
+
       setTasks(response.tasks)
       setTotal(response.total)
       // 按「仍可操作」而非「仍在本页」收敛选中集: 裁决后的任务仍留在列表里,

@@ -63,6 +63,12 @@ export const Appeal = ({ initialAppeals, initialTotal }: Props) => {
         }
         return
       }
+
+      const totalPage = Math.max(1, Math.ceil(response.total / limit))
+      if (page > totalPage) {
+        setPage(totalPage)
+      }
+
       setAppeals(response.appeals)
       setTotal(response.total)
     } catch (error) {

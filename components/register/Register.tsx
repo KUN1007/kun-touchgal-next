@@ -190,14 +190,14 @@ export const RegisterForm = () => {
         color="primary"
         variant="bordered"
         className="w-full mb-4"
-        onPress={() => router.push('/auth/forgot')}
+        onPress={() => router.push('/login')}
       >
-        忘记密码
+        登录
       </Button>
 
       <div className="flex items-center">
-        <span className="mr-2">已经有账号了?</span>
-        <Link href="/login">登录账号</Link>
+        <span className="mr-2">忘记密码?</span>
+        <Link href="/auth/forgot">重置密码</Link>
       </div>
     </form>
   )

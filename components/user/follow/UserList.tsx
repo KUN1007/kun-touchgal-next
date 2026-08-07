@@ -23,6 +23,8 @@ export const UserList = ({ userId, type }: UserListProps) => {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(100)
   const [users, setUsers] = useState<UserFollowType[]>([])
+  // 首次成功返回前不渲染空态: 失败路径只 toast, 不得断言「还没有人关注」
+  const [hasFetched, setHasFetched] = useState(false)
   const [loading, startTransition] = useTransition()
   // 陈旧响应守卫: 分页输入框在 loading 期间仍可跳页, 慢响应不得覆盖新页数据
   const latestFetchRequestIdRef = useRef(0)
@@ -49,6 +51,7 @@ export const UserList = ({ userId, type }: UserListProps) => {
           kunErrorHandler(res, (value) => {
             setUsers(value.followers)
             setTotal(value.total)
+            setHasFetched(true)
           })
         } else {
           const res = await kunFetchGet<
@@ -67,6 +70,7 @@ export const UserList = ({ userId, type }: UserListProps) => {
           kunErrorHandler(res, (value) => {
             setUsers(value.followings)
             setTotal(value.total)
+            setHasFetched(true)
           })
         }
       } catch (error) {
@@ -114,7 +118,7 @@ export const UserList = ({ userId, type }: UserListProps) => {
             </Card>
           ))}
 
-          {!users.length && (
+          {hasFetched && !users.length && (
             <KunNull
               message={
                 type === 'followers'

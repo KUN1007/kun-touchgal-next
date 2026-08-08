@@ -13,7 +13,7 @@ export const PatchIntroduction = ({ errors }: Props) => {
 
   return (
     <div className="space-y-2">
-      <h2 className="text-xl">游戏介绍 (可选)</h2>
+      <h2 className="text-xl">游戏介绍 (必须)</h2>
       <p className="text-small text-default-500">
         游戏介绍涉及页面的 SEO, 建议填写 100 字以上
       </p>

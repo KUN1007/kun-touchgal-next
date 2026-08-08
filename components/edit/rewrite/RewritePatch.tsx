@@ -115,7 +115,7 @@ export const RewritePatch = () => {
           />
 
           <div className="space-y-2">
-            <h2 className="text-xl">游戏介绍 (可选)</h2>
+            <h2 className="text-xl">游戏介绍 (必须)</h2>
             {errors.introduction && (
               <p className="text-xs text-danger-500">{errors.introduction}</p>
             )}

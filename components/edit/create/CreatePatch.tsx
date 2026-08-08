@@ -107,7 +107,7 @@ export const CreatePatch = () => {
 
           <BannerImage errors={errors.banner} />
 
-          <PatchIntroduction errors={errors.banner} />
+          <PatchIntroduction errors={errors.introduction} />
 
           <AliasInput errors={errors.alias} />
 

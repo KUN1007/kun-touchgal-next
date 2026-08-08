@@ -68,10 +68,7 @@ export const getHttpUrlHostname = (url: string) => {
   }
 }
 
-export const isRedirectableUrl = (url: string) => {
-  const protocol = getExplicitProtocol(url)
-  return protocol === 'http:' || protocol === 'https:' || url.startsWith('//')
-}
+export const isRedirectableUrl = isHttpLikeUrl
 
 export const normalizeDomain = (domain: string) =>
   domain

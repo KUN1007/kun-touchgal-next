@@ -205,6 +205,19 @@ describe('updateGalgame', () => {
     )
   })
 
+  it('alias 去重后写入: patch_alias 无唯一约束, skipDuplicates 挡不住批内重复', async () => {
+    const res = await updateGalgame(
+      { ...makeInput(), alias: ['LOOPERS', 'LOOPERS', ' LOOPERS '] },
+      1
+    )
+
+    expect(res).toEqual({})
+    expect(aliasCreateManyMock).toHaveBeenCalledWith({
+      data: [{ name: 'LOOPERS', patch_id: 5 }],
+      skipDuplicates: true
+    })
+  })
+
   it('无外部 ID 冲突时走完整条更新链路', async () => {
     const res = await updateGalgame(makeInput(), 1)
 

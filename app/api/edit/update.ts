@@ -5,6 +5,7 @@ import { patchUpdateSchema } from '~/validations/edit'
 import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { processSubmittedExternalData } from './processExternalData'
 import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
+import { normalizeStringArray } from '~/utils/normalizeStringArray'
 
 export const updateGalgame = async (
   input: z.infer<typeof patchUpdateSchema>,
@@ -134,7 +135,9 @@ export const updateGalgame = async (
       where: { patch_id: id }
     })
 
-    const aliasData = alias.map((name) => ({
+    // patch_alias 无 (patch_id, name) 唯一约束, skipDuplicates 挡不住批内重复,
+    // 与 POST 路径(route.ts 的 checkStringArrayValid)对齐在应用层去重
+    const aliasData = normalizeStringArray(alias).map((name) => ({
       name,
       patch_id: id
     }))

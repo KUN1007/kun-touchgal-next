@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { kunParsePostBody } from '~/app/api/utils/parseQuery'
+import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { fetchVndbRelease } from '~/lib/arnebiae/vndb'
 
 const relationSchema = z.object({
@@ -11,6 +12,10 @@ export const POST = async (req: NextRequest) => {
   const input = await kunParsePostBody(req, relationSchema)
   if (typeof input === 'string') {
     return NextResponse.json(input)
+  }
+  const payload = await verifyHeaderCookie(req)
+  if (!payload) {
+    return NextResponse.json('用户未登录')
   }
 
   const relationId = input.relationId.toLowerCase()

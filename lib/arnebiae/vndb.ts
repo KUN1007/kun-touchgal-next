@@ -1,5 +1,7 @@
 export const VNDB_API_BASE = 'https://vndbapi.arnebiae.com/kana'
 
+const EXTERNAL_API_TIMEOUT_MS = 10 * 1000
+
 const VNDB_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 
@@ -80,7 +82,8 @@ export const fetchVndbVn = async <T>(
   const res = await fetch(`${VNDB_API_BASE}/vn`, {
     method: 'POST',
     headers: VNDB_API_HEADERS,
-    body: JSON.stringify({ filters, fields, results })
+    body: JSON.stringify({ filters, fields, results }),
+    signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS)
   })
 
   if (!res.ok) {
@@ -98,7 +101,8 @@ export const fetchVndbRelease = async (
   const res = await fetch(`${VNDB_API_BASE}/release`, {
     method: 'POST',
     headers: VNDB_API_HEADERS,
-    body: JSON.stringify({ filters, fields, results })
+    body: JSON.stringify({ filters, fields, results }),
+    signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS)
   })
 
   if (!res.ok) {

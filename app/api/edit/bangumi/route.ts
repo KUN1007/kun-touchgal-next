@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { kunParsePostBody } from '~/app/api/utils/parseQuery'
+import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { BANGUMI_API_BASE, BANGUMI_HEADERS } from '~/constants/bangumi'
 import { lowQualityTags } from '~/lib/bgmDirtyTag'
 import { extractDevelopers, type BangumiInfoboxItem } from './_developers'
+
+const EXTERNAL_API_TIMEOUT_MS = 10 * 1000
 
 const bangumiSchema = z.object({
   bangumiId: z.string().regex(/^\d+$/, 'Bangumi ID 必须为纯数字')
@@ -29,11 +32,18 @@ export const POST = async (req: NextRequest) => {
   if (typeof input === 'string') {
     return NextResponse.json(input)
   }
+  const payload = await verifyHeaderCookie(req)
+  if (!payload) {
+    return NextResponse.json('用户未登录')
+  }
 
   try {
     const res = await fetch(
       `${BANGUMI_API_BASE}/v0/subjects/${input.bangumiId}`,
-      { headers: BANGUMI_HEADERS }
+      {
+        headers: BANGUMI_HEADERS,
+        signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS)
+      }
     )
     if (!res.ok) {
       return NextResponse.json('未找到对应的 Bangumi 条目')

@@ -1,5 +1,7 @@
 export const STEAM_API_BASE = 'https://steamapi.arnebiae.com/api'
 
+const EXTERNAL_API_TIMEOUT_MS = 10 * 1000
+
 export interface SteamDeveloper {
   name: string
   link: string
@@ -29,7 +31,10 @@ export interface SteamApiResponse {
 export const fetchSteamAppData = async (
   steamId: number
 ): Promise<SteamAppData> => {
-  const res = await fetch(`${STEAM_API_BASE}/app/${steamId}/tags?lang=schinese`)
+  const res = await fetch(
+    `${STEAM_API_BASE}/app/${steamId}/tags?lang=schinese`,
+    { signal: AbortSignal.timeout(EXTERNAL_API_TIMEOUT_MS) }
+  )
 
   if (!res.ok) {
     throw new Error('STEAM_FETCH_FAILED')

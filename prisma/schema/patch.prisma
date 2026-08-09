@@ -46,6 +46,7 @@ model patch {
   @@index([created])
   @@index([resource_update_time])
   @@index([content_limit])
+  @@index([content_limit, id])
   @@index([released(ops: raw("text_pattern_ops"))])
   @@index([favorite_count])
   @@index([type], type: Gin)

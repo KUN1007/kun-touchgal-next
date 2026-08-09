@@ -10,15 +10,23 @@ const getRandomUniqueId = async (visibilityWhere: Prisma.patchWhereInput) => {
     return '未查询到文章'
   }
 
+  // 只取 id 使 OFFSET 走 (content_limit, id) 索引的 Index Only Scan;
+  // 直接取 unique_id 会对被跳过的行逐行回表, 退化为全表扫描 + 排序
   const [randomPatch] = await prisma.patch.findMany({
     where: visibilityWhere,
     orderBy: { id: 'asc' },
     skip: Math.floor(Math.random() * count),
     take: 1,
-    select: { unique_id: true }
+    select: { id: true }
   })
+  const found = randomPatch
+    ? await prisma.patch.findUnique({
+        where: { id: randomPatch.id },
+        select: { unique_id: true }
+      })
+    : null
   const patch =
-    randomPatch ??
+    found ??
     (await prisma.patch.findFirst({
       where: visibilityWhere,
       orderBy: { id: 'asc' },

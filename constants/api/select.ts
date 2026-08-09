@@ -30,13 +30,6 @@ export const GalgameCardSelectField = {
     select: {
       avg_overall: true
     }
-  },
-  tag: {
-    select: {
-      tag: {
-        select: { name: true }
-      }
-    }
   }
 }
 

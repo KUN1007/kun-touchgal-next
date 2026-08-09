@@ -51,7 +51,6 @@ const resourceRow = {
     resource_count: 2,
     comment_count: 6,
     rating_stat: { avg_overall: 8.55 },
-    tag: [{ tag: { name: '恋爱' } }],
     content_limit: 'sfw'
   },
   user: {
@@ -116,7 +115,6 @@ describe('getPatchResourceDetail', () => {
           id: 10,
           uniqueId: 'patch-10',
           banner: 'https://img/banner.avif',
-          tags: ['恋爱'],
           averageRating: 8.6,
           _count: { favorite_folder: 4, resource: 2, comment: 6 }
         })

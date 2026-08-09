@@ -151,7 +151,6 @@ const queryHomeData = async (
     const { favorite_count, resource_count, comment_count, ...rest } = gal
     return {
       ...rest,
-      tags: gal.tag.map((t) => t.tag.name).slice(0, 3),
       uniqueId: gal.unique_id,
       _count: toGalgameCardCount({
         favorite_count,

@@ -48,19 +48,10 @@ describe('searchDocToGalgameCard', () => {
       type: ['pc'],
       language: ['zh-Hans', 'ja'],
       platform: ['windows'],
-      tags: ['恋爱', '魔女', '校园'],
       created: '2023-11-15T00:00:00.000Z',
       _count: { favorite_folder: 500, resource: 8, comment: 15 },
       averageRating: 8.6
     })
-  })
-
-  it('tags 仅取前三', () => {
-    expect(searchDocToGalgameCard(baseDoc).tags).toEqual([
-      '恋爱',
-      '魔女',
-      '校园'
-    ])
   })
 
   it('created 从 Unix 秒还原为 ISO 字符串', () => {
@@ -79,16 +70,14 @@ describe('searchDocToGalgameCard', () => {
   })
 
   it('旧索引 / 骨架文档缺失字段时走兜底，不抛异常', () => {
-    // 计数刷新的 updateDocuments 对尚未建索引的 id 会 upsert 出仅含计数、
-    // 无 tag 的骨架文档；映射时必须容忍缺失字段而非抛错拖垮整个查询。
+    // 计数刷新的 updateDocuments 对尚未建索引的 id 会 upsert 出仅含计数
+    // 的骨架文档；映射时必须容忍缺失字段而非抛错拖垮整个查询。
     const stale: Partial<GalgameSearchDoc> = { ...baseDoc }
     delete stale.banner
     delete stale.resourceCount
     delete stale.commentCount
-    delete stale.tag
     const card = searchDocToGalgameCard(stale as GalgameSearchDoc)
     expect(card.banner).toBe('')
-    expect(card.tags).toEqual([])
     expect(card._count.resource).toBe(0)
     expect(card._count.comment).toBe(0)
   })

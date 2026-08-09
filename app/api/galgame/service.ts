@@ -117,7 +117,6 @@ const getGalgameFromPrisma = async (
     type: gal.type,
     language: gal.language,
     platform: gal.platform,
-    tags: gal.tag.map((t) => t.tag.name).slice(0, 3),
     created: gal.created,
     _count: toGalgameCardCount(gal),
     averageRating: gal.rating_stat?.avg_overall

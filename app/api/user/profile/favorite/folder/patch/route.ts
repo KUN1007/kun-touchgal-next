@@ -63,7 +63,6 @@ const getPatchByFolder = async (
     type: relation.patch.type,
     language: relation.patch.language,
     platform: relation.patch.platform,
-    tags: relation.patch.tag.map((t) => t.tag.name),
     created: relation.patch.created,
     _count: toGalgameCardCount(relation.patch),
     averageRating: relation.patch.rating_stat?.avg_overall

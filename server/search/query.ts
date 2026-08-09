@@ -32,7 +32,6 @@ const GALGAME_CARD_DOC_FIELDS = [
   'type',
   'language',
   'platform',
-  'tag',
   'created',
   'favoriteCount',
   'resourceCount',
@@ -55,7 +54,6 @@ export const searchDocToGalgameCard = (doc: GalgameSearchDoc): GalgameCard => ({
   type: doc.type,
   language: doc.language,
   platform: doc.platform,
-  tags: doc.tag?.slice(0, 3) ?? [],
   created: new Date(doc.created * 1000).toISOString(),
   _count: {
     favorite_folder: doc.favoriteCount,

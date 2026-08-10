@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Card, CardBody } from '@heroui/card'
 import { Button } from '@heroui/button'
@@ -43,6 +43,7 @@ export const Comments = ({ id, resourceId }: Props) => {
   >(null)
   const [targetCommentResolved, setTargetCommentResolved] = useState(false)
   const user = useUserStore((state) => state.user)
+  const requestIdRef = useRef(0)
   const targetCommentId = useMemo(() => {
     const rawCommentId = searchParams.get('commentId')
     if (!rawCommentId) {
@@ -59,6 +60,7 @@ export const Comments = ({ id, resourceId }: Props) => {
     pageNum: number,
     locateCommentId?: number | null
   ) => {
+    const requestId = ++requestIdRef.current
     setLoading(true)
     const res = await kunFetchGet<PatchCommentResponse>('/patch/comment', {
       patchId: Number(id),
@@ -67,6 +69,9 @@ export const Comments = ({ id, resourceId }: Props) => {
       limit: COMMENTS_PER_PAGE,
       ...(locateCommentId ? { commentId: locateCommentId } : {})
     })
+    if (requestId !== requestIdRef.current) {
+      return
+    }
     if (res && typeof res !== 'string') {
       setComments(res.comments)
       setTotal(res.total)
@@ -375,6 +380,7 @@ export const Comments = ({ id, resourceId }: Props) => {
             page={page}
             onChange={handlePageChange}
             showControls
+            isDisabled={loading}
           />
         </div>
       )}

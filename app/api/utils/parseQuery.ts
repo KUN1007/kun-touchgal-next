@@ -26,7 +26,7 @@ export const kunParsePostBody = async <T extends ZodSchema>(
   req: NextRequest,
   schema: T
 ): Promise<z.infer<T> | string> => {
-  const body = await req.json()
+  const body = await req.json().catch(() => null)
 
   const result = schema.safeParse(body)
   if (!result.success) {
@@ -40,7 +40,7 @@ export const kunParsePutBody = async <T extends ZodSchema>(
   req: NextRequest,
   schema: T
 ): Promise<z.infer<T> | string> => {
-  const body = await req.json()
+  const body = await req.json().catch(() => null)
 
   const result = schema.safeParse(body)
   if (!result.success) {

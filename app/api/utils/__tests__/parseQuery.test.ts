@@ -66,4 +66,14 @@ describe('kunParsePostBody', () => {
     )
     expect(result).toBe('搜索关键词不能超过 10 个字符')
   })
+
+  it('body 不是合法 JSON 时返回字符串错误而非 reject', async () => {
+    const req = new Request('http://localhost/api/test', {
+      method: 'POST',
+      body: 'not json'
+    }) as unknown as Parameters<typeof kunParsePostBody>[0]
+
+    const result = await kunParsePostBody(req, schema)
+    expect(typeof result).toBe('string')
+  })
 })

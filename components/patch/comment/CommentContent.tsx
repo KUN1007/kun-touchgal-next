@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from '@heroui/button'
 import { ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react'
-import { createRoot } from 'react-dom/client'
+import { createRoot, type Root } from 'react-dom/client'
 import { useMounted } from '~/hooks/useMounted'
 import { KunExternalLink } from '~/components/kun/external-link/ExternalLink'
 import { sanitizeUserHref } from '~/utils/safeUrl'
@@ -49,6 +49,7 @@ export const CommentContent = ({ comment }: Props) => {
       return
     }
 
+    const linkRoots: Root[] = []
     const externalLinkElements = contentRef.current.querySelectorAll(
       '[data-kun-external-link]'
     )
@@ -63,8 +64,15 @@ export const CommentContent = ({ comment }: Props) => {
       root.className = element.className
       element.replaceWith(root)
       const linkRoot = createRoot(root)
+      linkRoots.push(linkRoot)
       linkRoot.render(<KunExternalLink link={safeHref}>{text}</KunExternalLink>)
     })
+
+    return () => {
+      window.setTimeout(() => {
+        linkRoots.forEach((linkRoot) => linkRoot.unmount())
+      }, 0)
+    }
   }, [sanitizedContent, isMounted, isSpoilerRevealed])
 
   useLayoutEffect(() => {

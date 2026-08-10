@@ -22,7 +22,8 @@ const generateKunSitemap = async () => {
       '!app/**/edit/**',
       '!app/**/message/**',
       '!app/**/user/**',
-      '!app/**/doc/**/**'
+      '!app/**/doc/**/**',
+      '!app/tag/**'
     ])
 
     const dynamicPatches = await getKunDynamicPatches()

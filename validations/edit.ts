@@ -74,7 +74,12 @@ const optionalStringArray = z
 export const patchCreateSchema = z.object({
   banner: nonEmptyFileSchema,
   bannerOriginal: nonEmptyFileSchema.optional(),
-  name: z.string().trim().min(1, { message: '游戏名称是必填项' }),
+  name: z
+    .string()
+    .trim()
+    .min(1, { message: '游戏名称是必填项' })
+    // patch.name 是 VarChar(1007), 放行更长会在 patch.create/update 抛 22001 变 500
+    .max(1007, { message: '游戏名称最多 1007 个字符' }),
   vndbId: optionalVndbId,
   vndbRelationId: optionalVndbRelationId,
   bangumiId: optionalBangumiId,
@@ -103,13 +108,19 @@ export const patchCreateSchema = z.object({
   tag: z
     .string()
     .max(2333, { message: '别名字符串总长度不可超过 3000 个字符' }),
-  released: z.string(),
+  // patch.released 是 VarChar(107)
+  released: z.string().max(107, { message: '发售日期最多 107 个字符' }),
   contentLimit: z.string().max(10)
 })
 
 export const patchUpdateSchema = z.object({
   id: z.coerce.number().min(1).max(9999999),
-  name: z.string().trim().min(1, { message: '游戏名称是必填项' }),
+  name: z
+    .string()
+    .trim()
+    .min(1, { message: '游戏名称是必填项' })
+    // patch.name 是 VarChar(1007), 放行更长会在 patch.create/update 抛 22001 变 500
+    .max(1007, { message: '游戏名称最多 1007 个字符' }),
   vndbId: optionalVndbId,
   vndbRelationId: optionalVndbRelationId,
   bangumiId: optionalBangumiId,
@@ -148,7 +159,10 @@ export const patchUpdateSchema = z.object({
       .max(500, { message: '单个别名至多 500 个字符' })
   ),
   contentLimit: z.string().max(10),
-  released: z.string().optional()
+  released: z
+    .string()
+    .max(107, { message: '发售日期最多 107 个字符' })
+    .optional()
 })
 
 export const duplicateSchema = z

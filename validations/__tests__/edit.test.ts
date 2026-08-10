@@ -58,3 +58,34 @@ describe('update 标签与别名的长度上限', () => {
     ).toBe(false)
   })
 })
+
+// patch.name 是 VarChar(1007)、patch.released 是 VarChar(107)。schema 若不设上限,
+// 超长值会在 patch.create/update 抛 22001 冒泡成 500 而非本地化错误消息
+describe('name 与 released 的长度上限', () => {
+  const cases = [
+    { schema: patchCreateSchema, schemaName: 'create' },
+    { schema: patchUpdateSchema, schemaName: 'update' }
+  ] as const
+
+  cases.forEach(({ schema, schemaName }) => {
+    it(`${schemaName}.name 接受 1007 字符边界值并拒绝 1008`, () => {
+      expect(schema.shape.name.safeParse('x'.repeat(1007)).success).toBe(true)
+      expect(schema.shape.name.safeParse('x'.repeat(1008)).success).toBe(false)
+    })
+
+    it(`${schemaName}.released 接受 107 字符边界值并拒绝 108`, () => {
+      expect(schema.shape.released.safeParse('x'.repeat(107)).success).toBe(
+        true
+      )
+      expect(schema.shape.released.safeParse('x'.repeat(108)).success).toBe(
+        false
+      )
+    })
+  })
+
+  it('update.released 保持可选', () => {
+    expect(patchUpdateSchema.shape.released.safeParse(undefined).success).toBe(
+      true
+    )
+  })
+})

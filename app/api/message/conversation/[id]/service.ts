@@ -90,25 +90,32 @@ export const sendMessage = async (
 
   const { content } = input
 
-  const message = await prisma.user_private_message.create({
-    data: {
-      conversation_id: conversationId,
-      sender_id: uid,
-      content
-    }
-  })
-
   const isUserA = conversation.user_a_id === uid
   const recipientId = isUserA ? conversation.user_b_id : conversation.user_a_id
-  await prisma.user_conversation.update({
-    where: { id: conversationId },
-    data: {
-      last_message_id: message.id,
-      last_message_time: message.created,
-      ...(isUserA
-        ? { user_b_unread_count: { increment: 1 } }
-        : { user_a_unread_count: { increment: 1 } })
-    }
+
+  // create 与递增必须同事务: 消息在提交前对读方不可见, 末尾的 update 持会话行锁
+  // 到提交, 配合已读路由的锁前置封死「消息被标已读后递增才落地」的幻影角标交错
+  const message = await prisma.$transaction(async (tx) => {
+    const created = await tx.user_private_message.create({
+      data: {
+        conversation_id: conversationId,
+        sender_id: uid,
+        content
+      }
+    })
+
+    await tx.user_conversation.update({
+      where: { id: conversationId },
+      data: {
+        last_message_id: created.id,
+        last_message_time: created.created,
+        ...(isUserA
+          ? { user_b_unread_count: { increment: 1 } }
+          : { user_a_unread_count: { increment: 1 } })
+      }
+    })
+
+    return created
   })
 
   await invalidateUnread(recipientId).catch(() => undefined)

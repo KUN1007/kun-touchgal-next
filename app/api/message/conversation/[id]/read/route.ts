@@ -19,19 +19,40 @@ const markConversationAsRead = async (conversationId: number, uid: number) => {
 
   const isUserA = conversation.user_a_id === uid
 
-  await prisma.user_private_message.updateMany({
-    where: {
-      conversation_id: conversationId,
-      sender_id: isUserA ? conversation.user_b_id : conversation.user_a_id,
-      status: 0
-    },
-    data: { status: 1 }
+  // 锁必须是首条: 发送方的插入+递增会排到本事务提交之后, 封死「updateMany 扑空,
+  // 发送方在间隙里插入并递增, 清零把在途消息的角标抹掉」的交错. 只包事务不前置锁
+  // 无效 —— READ COMMITTED 逐语句取快照, 清零照样盲写.
+  // 锁行落空只能返回 false 由外层转错误字符串: 回调 return 字符串也会提交
+  const locked = await prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<{ id: number }[]>`
+      SELECT id FROM user_conversation
+      WHERE id = ${conversationId}
+      FOR UPDATE
+    `
+    if (!rows.length) {
+      return false
+    }
+
+    await tx.user_private_message.updateMany({
+      where: {
+        conversation_id: conversationId,
+        sender_id: isUserA ? conversation.user_b_id : conversation.user_a_id,
+        status: 0
+      },
+      data: { status: 1 }
+    })
+
+    await tx.user_conversation.update({
+      where: { id: conversationId },
+      data: isUserA ? { user_a_unread_count: 0 } : { user_b_unread_count: 0 }
+    })
+
+    return true
   })
 
-  await prisma.user_conversation.update({
-    where: { id: conversationId },
-    data: isUserA ? { user_a_unread_count: 0 } : { user_b_unread_count: 0 }
-  })
+  if (!locked) {
+    return '会话不存在'
+  }
 
   return {}
 }

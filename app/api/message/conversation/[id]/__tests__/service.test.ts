@@ -1,25 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
+  txState,
   invalidateUnreadMock,
   conversationFindUniqueMock,
   conversationUpdateMock,
   privateMessageCreateMock
 } = vi.hoisted(() => ({
+  txState: { committed: false },
   invalidateUnreadMock: vi.fn(),
   conversationFindUniqueMock: vi.fn(),
   conversationUpdateMock: vi.fn(),
   privateMessageCreateMock: vi.fn()
 }))
 
+// 写入 mock 只挂在 tx 客户端上: create 或递增退回顶层 prisma 直调 (非事务) 时
+// 用例会因 undefined 直接崩. 回调正常返回即提交, 只有抛出才回滚
 vi.mock('~/prisma/index', () => ({
   prisma: {
     user_conversation: {
-      findUnique: conversationFindUniqueMock,
-      update: conversationUpdateMock
+      findUnique: conversationFindUniqueMock
     },
-    user_private_message: {
-      create: privateMessageCreateMock
+    $transaction: async (callback: (tx: unknown) => unknown) => {
+      const result = await callback({
+        user_conversation: { update: conversationUpdateMock },
+        user_private_message: { create: privateMessageCreateMock }
+      })
+      txState.committed = true
+      return result
     }
   }
 }))
@@ -33,6 +41,7 @@ import { sendMessage } from '~/app/api/message/conversation/[id]/service'
 describe('sendMessage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    txState.committed = false
     invalidateUnreadMock.mockResolvedValue(undefined)
   })
 
@@ -147,5 +156,26 @@ describe('sendMessage', () => {
     })
 
     expect(invalidateUnreadMock).toHaveBeenCalledWith(recipientId)
+  })
+
+  it('create 失败时整个事务回滚, 计数不递增也不失效缓存', async () => {
+    conversationFindUniqueMock.mockResolvedValue({
+      id: 4,
+      user_a_id: 500,
+      user_b_id: 600,
+      user_a: { id: 500, name: 'sender', avatar: '' },
+      user_b: { id: 600, name: 'recipient', avatar: '' }
+    })
+
+    privateMessageCreateMock.mockRejectedValue(new Error('insert failed'))
+
+    await expect(sendMessage(4, { content: 'x' }, 500)).rejects.toThrow(
+      'insert failed'
+    )
+
+    // create 与递增拆成两条自动提交语句时, 这里会出现「消息没落库但计数 +1」
+    expect(conversationUpdateMock).not.toHaveBeenCalled()
+    expect(txState.committed).toBe(false)
+    expect(invalidateUnreadMock).not.toHaveBeenCalled()
   })
 })

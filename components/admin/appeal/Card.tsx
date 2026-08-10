@@ -10,8 +10,11 @@ import {
   useDisclosure
 } from '@heroui/modal'
 import { useState } from 'react'
+import Link from 'next/link'
+import { ExternalLink } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { kunFetchPut } from '~/utils/kunFetch'
+import { buildCommentLink } from '~/utils/patch/buildCommentLink'
 import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { APPEAL_STATUS_MAP } from '~/constants/appeal'
 import { MODERATION_CONTENT_TYPE_MAP } from '~/constants/moderation'
@@ -21,6 +24,18 @@ const statusColorMap: Record<string, 'warning' | 'success' | 'danger'> = {
   pending: 'warning',
   approved: 'success',
   rejected: 'danger'
+}
+
+// 与站内消息通知的深链格式一致 (createMentionMessage / rating like 等)
+const contentLinkMap: Partial<
+  Record<string, (uniqueId: string, contentId: number) => string>
+> = {
+  comment: (uniqueId, contentId) =>
+    `/${uniqueId}?tab=comments&commentId=${contentId}`,
+  rating: (uniqueId, contentId) =>
+    `/${uniqueId}?tab=rating&ratingId=${contentId}`,
+  resource: (uniqueId, contentId) =>
+    `/${uniqueId}?tab=resources&resourceId=${contentId}`
 }
 
 const formatPayload = (contentType: string, payload: AppealPayload) =>
@@ -58,6 +73,19 @@ export const AppealCard = ({ appeal, onHandled }: Props) => {
     }
   }
 
+  const buildContentLink = contentLinkMap[appeal.contentType]
+  const contentLink =
+    buildContentLink && appeal.patch
+      ? // 评论深链与站内信同源 (资源评论指向资源详情页)
+        appeal.contentType === 'comment'
+        ? buildCommentLink(
+            appeal.patch.uniqueId,
+            appeal.contentId,
+            appeal.commentResourceId
+          )
+        : buildContentLink(appeal.patch.uniqueId, appeal.contentId)
+      : null
+
   return (
     <Card>
       <CardBody className="space-y-3">
@@ -81,6 +109,20 @@ export const AppealCard = ({ appeal, onHandled }: Props) => {
           <span className="text-sm text-default-500">
             #{appeal.id} · <KunTimeAgo date={appeal.updated} />
           </span>
+          {contentLink && (
+            <Button
+              as={Link}
+              href={contentLink}
+              target="_blank"
+              size="sm"
+              color="primary"
+              variant="flat"
+              className="ml-auto"
+              startContent={<ExternalLink className="size-4" />}
+            >
+              查看内容
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">

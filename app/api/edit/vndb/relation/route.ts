@@ -52,8 +52,8 @@ export const POST = async (req: NextRequest) => {
       released: release.released ?? ''
     })
   } catch (error) {
-    return NextResponse.json(
-      `VNDB Release API 请求失败 - ${JSON.stringify(error)}`
-    )
+    // eslint-disable-next-line no-console
+    console.error('VNDB release fetch failed', { relationId, error })
+    return NextResponse.json('VNDB Release API 请求失败')
   }
 }

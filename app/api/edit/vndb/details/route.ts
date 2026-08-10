@@ -83,6 +83,8 @@ export const POST = async (req: NextRequest) => {
 
     return NextResponse.json({ titles, released, tags, developers })
   } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('VNDB vn fetch failed', { vndbId, error })
     return NextResponse.json('VNDB API 请求失败')
   }
 }

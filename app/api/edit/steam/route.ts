@@ -28,6 +28,8 @@ export const POST = async (req: NextRequest) => {
       developers: data.developers
     })
   } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Steam fetch failed', { steamId: input.steamId, error })
     return NextResponse.json('Steam API 请求失败')
   }
 }

@@ -65,6 +65,8 @@ export const POST = async (req: NextRequest) => {
       developers
     })
   } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Bangumi fetch failed', { bangumiId: input.bangumiId, error })
     return NextResponse.json('Bangumi API 请求失败')
   }
 }

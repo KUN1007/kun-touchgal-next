@@ -33,3 +33,28 @@ describe('外部 ID 的 int4 范围校验', () => {
     })
   })
 })
+
+// patch_tag.name 是 VarChar(107) 而 patch_alias.name 是 VarChar(1007)。标签上限
+// 若放行 108+ 字符, 会在 patch 主事务提交后的 batchTag 才抛 22001 冒泡成 500
+describe('update 标签与别名的长度上限', () => {
+  it('tag 拒绝超过 107 字符的元素', () => {
+    expect(
+      patchUpdateSchema.shape.tag.safeParse(['x'.repeat(108)]).success
+    ).toBe(false)
+  })
+
+  it('tag 接受 107 字符边界值', () => {
+    expect(
+      patchUpdateSchema.shape.tag.safeParse(['x'.repeat(107)]).success
+    ).toBe(true)
+  })
+
+  it('alias 保持 500 上限不随标签一并收紧', () => {
+    expect(
+      patchUpdateSchema.shape.alias.safeParse(['x'.repeat(500)]).success
+    ).toBe(true)
+    expect(
+      patchUpdateSchema.shape.alias.safeParse(['x'.repeat(501)]).success
+    ).toBe(false)
+  })
+})

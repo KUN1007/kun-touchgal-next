@@ -137,7 +137,8 @@ export const patchUpdateSchema = z.object({
       .string()
       .trim()
       .min(1, { message: '单个标签至少一个字符' })
-      .max(500, { message: '单个标签至多 500 个字符' })
+      // patch_tag.name 是 VarChar(107), 放行更长会在事务提交后的 batchTag 才抛 22001
+      .max(107, { message: '单个标签至多 107 个字符' })
   ),
   alias: z.array(
     z

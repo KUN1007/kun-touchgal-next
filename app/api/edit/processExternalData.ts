@@ -35,7 +35,9 @@ const ensureTagsWithSources = async (
     }
   }
 
-  const validTags = [...tagSourceByName.keys()]
+  // 超出 name VarChar(107) 的标签单独丢弃,避免一条坏名使整批 createMany
+  // 失败进而丢掉其余来源的全部关联
+  const validTags = [...tagSourceByName.keys()].filter((n) => n.length <= 107)
   if (!validTags.length) return false
 
   const existingTags = await prisma.patch_tag.findMany({

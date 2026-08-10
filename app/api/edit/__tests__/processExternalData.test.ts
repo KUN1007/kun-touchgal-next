@@ -246,3 +246,31 @@ describe('processSubmittedExternalData company dedup', () => {
     expect(invalidateCompanyCacheMock).not.toHaveBeenCalled()
   })
 })
+
+describe('processSubmittedExternalData tag length guard', () => {
+  it('drops tags exceeding the 107-char column limit instead of failing the batch', async () => {
+    await processSubmittedExternalData(
+      1,
+      { ...EMPTY_DATA, vndbTags: ['x'.repeat(108), 'ADV'] },
+      [],
+      7
+    )
+
+    expect(tagCreateManyMock).toHaveBeenCalledTimes(1)
+    const createArgs = tagCreateManyMock.mock.calls[0][0]
+    expect(createArgs.data).toHaveLength(1)
+    expect(createArgs.data[0].name).toBe('ADV')
+  })
+
+  it('skips the tag batch entirely when all names exceed the limit', async () => {
+    await processSubmittedExternalData(
+      1,
+      { ...EMPTY_DATA, bangumiTags: ['x'.repeat(108)] },
+      [],
+      7
+    )
+
+    expect(tagFindManyMock).not.toHaveBeenCalled()
+    expect(tagCreateManyMock).not.toHaveBeenCalled()
+  })
+})

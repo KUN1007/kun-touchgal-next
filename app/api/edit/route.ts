@@ -26,9 +26,12 @@ const checkStringArrayValid = (type: 'alias' | 'tag', aliasString: string) => {
   if (normalizedArray.length > 100) {
     return `您最多使用 100 个${label}`
   }
-  const maxLength = normalizedArray.some((alias) => alias.length > 500)
+  // patch_tag.name 是 VarChar(107) 而 patch_alias.name 是 VarChar(1007),
+  // 标签超长若放行会在 patch 事务提交后的 batchTag 才抛 22001
+  const limit = type === 'alias' ? 500 : 107
+  const maxLength = normalizedArray.some((alias) => alias.length > limit)
   if (maxLength) {
-    return `单个${label}的长度不可超过 500 个字符`
+    return `单个${label}的长度不可超过 ${limit} 个字符`
   }
 
   return normalizedArray

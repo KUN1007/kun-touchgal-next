@@ -8,23 +8,17 @@ const WEBSITE_URL = process.env.NEXT_PUBLIC_KUN_PATCH_ADDRESS_PROD
 
 const generateKunSitemap = async () => {
   try {
-    const pages = await globby([
-      'app/**/*.tsx',
-      '!app/**/_*.tsx',
-      '!app/**/layout.tsx',
-      '!app/**/providers.tsx',
-      '!app/**/loading.tsx',
-      '!app/**/error.tsx',
-      '!app/**/*.test.tsx',
-      '!app/**/components/**',
-      '!app/**/[id]/**',
-      '!app/**/admin/**',
-      '!app/**/edit/**',
-      '!app/**/message/**',
-      '!app/**/user/**',
-      '!app/**/doc/**/**',
-      '!app/tag/**'
-    ])
+    const pages = (
+      await globby([
+        'app/**/page.tsx',
+        '!app/**/admin/**',
+        '!app/**/edit/**',
+        '!app/**/message/**',
+        '!app/**/user/**',
+        '!app/**/doc/**/**',
+        '!app/tag/**'
+      ])
+    ).filter((page) => !page.includes('['))
 
     const dynamicPatches = await getKunDynamicPatches()
     const dynamicBlogs = getKunDynamicBlog()
@@ -38,7 +32,6 @@ const generateKunSitemap = async () => {
             const path = page
               .replace('app', '')
               .replace('/page.tsx', '')
-              .replace('.tsx', '')
             const route = path === '/index' ? '' : path
 
             return `

@@ -29,9 +29,7 @@ const generateKunSitemap = async () => {
         ${pages
           .concat(['app/doc/page.tsx'])
           .map((page) => {
-            const path = page
-              .replace('app', '')
-              .replace('/page.tsx', '')
+            const path = page.replace('app', '').replace('/page.tsx', '')
             const route = path === '/index' ? '' : path
 
             return `

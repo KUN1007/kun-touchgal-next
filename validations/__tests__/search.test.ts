@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { searchSchema } from '~/validations/search'
+import { parseSearchSuggestions, searchSchema } from '~/validations/search'
 
 const baseInput = {
   queryString: JSON.stringify(['测试']),
@@ -65,5 +65,46 @@ describe('searchSchema 年份 / 月份多选上限', () => {
     })
     expect(result.success).toBe(false)
     expect(firstMessage(result)).toBe('您最多选择 13 组月份')
+  })
+})
+
+describe('parseSearchSuggestions 建议项解析', () => {
+  it('畸形 JSON 返回错误字符串而非抛错', () => {
+    expect(parseSearchSuggestions('abc')).toBe('搜索条件格式错误')
+  })
+
+  it('合法 JSON 但非数组被拒', () => {
+    expect(parseSearchSuggestions('{}')).toBe('搜索条件格式错误')
+  })
+
+  it('元素缺少 name 字段被拒', () => {
+    expect(parseSearchSuggestions('[{"type":"keyword"}]')).toBe(
+      '搜索条件格式错误'
+    )
+  })
+
+  it('type 不在词表内被拒', () => {
+    expect(parseSearchSuggestions('[{"type":"evil","name":"测试"}]')).toBe(
+      '搜索条件格式错误'
+    )
+  })
+
+  it('id 超出 int4 上限被拒', () => {
+    expect(
+      parseSearchSuggestions('[{"type":"tag","id":2147483648,"name":"测试"}]')
+    ).toBe('搜索条件格式错误')
+  })
+
+  it('合法输入返回类型化数组，省略 mode 归一化为 include', () => {
+    const result = parseSearchSuggestions(
+      JSON.stringify([
+        { type: 'keyword', name: '测试' },
+        { type: 'tag', mode: 'exclude', id: 1, name: '悬疑' }
+      ])
+    )
+    expect(result).toEqual([
+      { type: 'keyword', mode: 'include', name: '测试' },
+      { type: 'tag', mode: 'exclude', id: 1, name: '悬疑' }
+    ])
   })
 })

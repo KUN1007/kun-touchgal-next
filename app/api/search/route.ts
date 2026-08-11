@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { NextRequest, NextResponse } from 'next/server'
 import { kunParsePostBody } from '~/app/api/utils/parseQuery'
 import { prisma } from '~/prisma/index'
-import { searchSchema } from '~/validations/search'
+import { parseSearchSuggestions, searchSchema } from '~/validations/search'
 import {
   GalgameCardSelectField,
   toGalgameCardCount
@@ -31,15 +31,12 @@ import {
   buildGalgameWhere
 } from '../utils/galgameQuery'
 
-const normalizeMode = (mode: SearchSuggestionType['mode'] | undefined) =>
-  mode === 'exclude' ? 'exclude' : 'include'
-
 const searchGalgameWithMeili = async (
   input: z.infer<typeof searchSchema>,
-  visibility: PatchVisibilityContext
+  visibility: PatchVisibilityContext,
+  query: SearchSuggestionType[]
 ) => {
   const {
-    queryString,
     limit,
     searchOption,
     page,
@@ -53,13 +50,9 @@ const searchGalgameWithMeili = async (
     minRatingCount
   } = input
 
-  const query = JSON.parse(queryString) as SearchSuggestionType[]
-
   const keywords = (mode: 'include' | 'exclude') =>
     query
-      .filter(
-        (item) => item.type === 'keyword' && normalizeMode(item.mode) === mode
-      )
+      .filter((item) => item.type === 'keyword' && item.mode === mode)
       .map((item) => item.name.trim())
       .filter(Boolean)
 
@@ -69,9 +62,7 @@ const searchGalgameWithMeili = async (
   const exactIdMatch = matchExactIdQuery(includeKeywords, excludeKeywords)
 
   const suggestions = (type: 'tag' | 'company', mode: 'include' | 'exclude') =>
-    query.filter(
-      (item) => item.type === type && normalizeMode(item.mode) === mode
-    )
+    query.filter((item) => item.type === type && item.mode === mode)
 
   const includeTags = suggestions('tag', 'include')
   const excludeTags = suggestions('tag', 'exclude')
@@ -150,10 +141,10 @@ const searchGalgameWithMeili = async (
 // 旧 Prisma 实现：Meilisearch 不可用时的运行时降级路径，勿删
 const legacySearchGalgame = async (
   input: z.infer<typeof searchSchema>,
-  visibilityWhere: Prisma.patchWhereInput
+  visibilityWhere: Prisma.patchWhereInput,
+  query: SearchSuggestionType[]
 ) => {
   const {
-    queryString,
     limit,
     searchOption,
     page,
@@ -168,8 +159,6 @@ const legacySearchGalgame = async (
   } = input
   const offset = (page - 1) * limit
   const insensitive = Prisma.QueryMode.insensitive
-
-  const query = JSON.parse(queryString) as SearchSuggestionType[]
 
   const buildKeywordCondition = (keyword: string): Prisma.patchWhereInput => ({
     OR: [
@@ -272,31 +261,25 @@ const legacySearchGalgame = async (
   })
 
   const includedKeywords = query
-    .filter(
-      (item) =>
-        item.type === 'keyword' && normalizeMode(item.mode) === 'include'
-    )
+    .filter((item) => item.type === 'keyword' && item.mode === 'include')
     .map((item) => item.name.trim())
     .filter(Boolean)
   const includedTags = query.filter(
-    (item) => item.type === 'tag' && normalizeMode(item.mode) === 'include'
+    (item) => item.type === 'tag' && item.mode === 'include'
   )
   const includedCompanies = query.filter(
-    (item) => item.type === 'company' && normalizeMode(item.mode) === 'include'
+    (item) => item.type === 'company' && item.mode === 'include'
   )
   const excludedKeywords = query
-    .filter(
-      (item) =>
-        item.type === 'keyword' && normalizeMode(item.mode) === 'exclude'
-    )
+    .filter((item) => item.type === 'keyword' && item.mode === 'exclude')
     .map((item) => item.name)
     .map((item) => item.trim())
     .filter(Boolean)
   const excludedTags = query.filter(
-    (item) => item.type === 'tag' && normalizeMode(item.mode) === 'exclude'
+    (item) => item.type === 'tag' && item.mode === 'exclude'
   )
   const excludedCompanies = query.filter(
-    (item) => item.type === 'company' && normalizeMode(item.mode) === 'exclude'
+    (item) => item.type === 'company' && item.mode === 'exclude'
   )
 
   const dateFilter = buildGalgameDateFilter(selectedYears, selectedMonths)
@@ -418,12 +401,16 @@ export const POST = async (req: NextRequest) => {
   if (typeof input === 'string') {
     return NextResponse.json(input)
   }
+  const query = parseSearchSuggestions(input.queryString)
+  if (typeof query === 'string') {
+    return NextResponse.json(query)
+  }
   const loadAuth = createAuthLoader(req)
   const visibility = await getPatchVisibilityContext(req, loadAuth)
 
   if (isMeiliEnabled()) {
     try {
-      const response = await searchGalgameWithMeili(input, visibility)
+      const response = await searchGalgameWithMeili(input, visibility, query)
       return NextResponse.json(response)
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -431,6 +418,10 @@ export const POST = async (req: NextRequest) => {
     }
   }
 
-  const response = await legacySearchGalgame(input, visibility.visibilityWhere)
+  const response = await legacySearchGalgame(
+    input,
+    visibility.visibilityWhere,
+    query
+  )
   return NextResponse.json(response)
 }

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { MAX_GALGAME_FILTER_VALUES } from '~/utils/galgameFilter'
+import type { SearchSuggestionType } from '~/types/api/search'
 
 export const searchSchema = z.object({
   queryString: z
@@ -36,6 +37,32 @@ export const searchSchema = z.object({
     .max(13, { message: '您最多选择 13 组月份' }),
   minRatingCount: z.coerce.number().min(0).max(999999).default(10)
 })
+
+// mode 带 default：历史 payload 可不带 mode，缺省归一化为 include
+export const searchSuggestionArraySchema = z.array(
+  z.object({
+    type: z.enum(['keyword', 'tag', 'company']),
+    mode: z.enum(['include', 'exclude']).default('include'),
+    id: z.number().int().min(1).max(2147483647).optional(),
+    name: z.string()
+  })
+)
+
+export const parseSearchSuggestions = (
+  queryString: string
+): SearchSuggestionType[] | string => {
+  let raw: unknown
+  try {
+    raw = JSON.parse(queryString)
+  } catch {
+    return '搜索条件格式错误'
+  }
+  const result = searchSuggestionArraySchema.safeParse(raw)
+  if (!result.success) {
+    return '搜索条件格式错误'
+  }
+  return result.data
+}
 
 export const searchTagSchema = z.object({
   query: z

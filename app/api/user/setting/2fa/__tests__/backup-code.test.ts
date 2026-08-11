@@ -55,6 +55,9 @@ import {
 } from '~/app/api/utils/twoFactorBackupCode'
 import { POST as enableTwoFactor } from '~/app/api/user/setting/2fa/enable/route'
 
+const joinSql = (call: unknown[]) =>
+  (call[0] as TemplateStringsArray).join('?').replace(/\s+/g, ' ').trim()
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.stubEnv(
@@ -87,6 +90,16 @@ describe('2FA backup code storage', () => {
       '123456',
       hashed
     ])
+
+    const sql = joinSql(executeRawMock.mock.calls[0])
+    expect(sql).toContain('AND enable_2fa = true')
+    expect(sql).toContain('= ANY(two_factor_backup)')
+  })
+
+  it('returns false when no backup code matches', async () => {
+    executeRawMock.mockResolvedValue(0)
+
+    await expect(consumeTwoFactorBackupCode(7, '123456')).resolves.toBe(false)
   })
 
   it('returns the same six-digit codes while only storing hashes', async () => {

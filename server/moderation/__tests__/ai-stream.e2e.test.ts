@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { moderateText } from '~/server/moderation/ai'
 
 let server: Server
+let lastRequestBody: Record<string, unknown>
 
 beforeAll(async () => {
   server = createServer((req, res) => {
@@ -11,6 +12,7 @@ beforeAll(async () => {
     req.on('data', (c) => (body += c))
     req.on('end', () => {
       const parsed = JSON.parse(body)
+      lastRequestBody = parsed
       if (parsed.stream !== true) {
         res.writeHead(400)
         res.end('expected stream:true')
@@ -78,10 +80,22 @@ afterAll(async () => {
 
 describe('AI 审核流式请求 (stream:true 对抗 Cloudflare 超时)', () => {
   it('reasoning_content 忽略 / 心跳与 event 行跳过 / 中文 verdict 与 usage 正确累积', async () => {
+    delete process.env.MODERATION_AI_TEXT_REASONING_EFFORT
     const result = await moderateText('comment', '测试内容')
     expect(result.verdict).toEqual({ pass: true, code: 'SEX', reason: '露点' })
     expect(result.tokensIn).toBe(320)
     expect(result.tokensOut).toBe(640)
     expect(result.model).toBe('test-r1')
+    expect('reasoning_effort' in lastRequestBody).toBe(false)
+  })
+
+  it('配置思考强度 env 时透传 reasoning_effort', async () => {
+    process.env.MODERATION_AI_TEXT_REASONING_EFFORT = 'high'
+    try {
+      await moderateText('comment', '测试内容')
+      expect(lastRequestBody.reasoning_effort).toBe('high')
+    } finally {
+      delete process.env.MODERATION_AI_TEXT_REASONING_EFFORT
+    }
   })
 })

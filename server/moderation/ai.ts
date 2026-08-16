@@ -88,7 +88,8 @@ type ChatMessageContent =
 
 const requestChatCompletion = async (
   model: string,
-  messages: Array<{ role: 'system' | 'user'; content: ChatMessageContent }>
+  messages: Array<{ role: 'system' | 'user'; content: ChatMessageContent }>,
+  reasoningEffort?: string
 ): Promise<ModerationAiResult> => {
   const baseUrl = process.env.MODERATION_AI_BASE_URL
   const apiKey = process.env.MODERATION_AI_API_KEY
@@ -115,7 +116,10 @@ const requestChatCompletion = async (
       // 流式响应持续推 delta (网关注入的心跳同理), 只要流不断就不会触发该超时
       stream: true,
       // 见 MODERATION_AI_MAX_TOKENS: 这是上限而非实际消耗, 非推理模型仍只输出几个 token
-      max_tokens: MODERATION_AI_MAX_TOKENS
+      max_tokens: MODERATION_AI_MAX_TOKENS,
+      // 思考强度: 仅在配置时透传 OpenAI 兼容的 reasoning_effort, 合法取值由
+      // provider 决定故不做枚举校验; 未配置则不带该字段, 交给 provider 默认
+      ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {})
     })
   })
   if (!res.ok) {
@@ -227,10 +231,14 @@ export const moderateText = async (
       'MODERATION_AI_TEXT_MODEL is not configured'
     )
   }
-  return requestChatCompletion(model, [
-    { role: 'system', content: MODERATION_TEXT_SYSTEM_PROMPT[contentType] },
-    { role: 'user', content: `<content>${text}</content>` }
-  ])
+  return requestChatCompletion(
+    model,
+    [
+      { role: 'system', content: MODERATION_TEXT_SYSTEM_PROMPT[contentType] },
+      { role: 'user', content: `<content>${text}</content>` }
+    ],
+    process.env.MODERATION_AI_TEXT_REASONING_EFFORT
+  )
 }
 
 export const moderateImage = async (jpegBase64: string) => {
@@ -240,17 +248,21 @@ export const moderateImage = async (jpegBase64: string) => {
       'MODERATION_AI_VISION_MODEL is not configured'
     )
   }
-  return requestChatCompletion(model, [
-    { role: 'system', content: MODERATION_AVATAR_SYSTEM_PROMPT },
-    {
-      role: 'user',
-      content: [
-        { type: 'text', text: '请审核这张用户头像' },
-        {
-          type: 'image_url',
-          image_url: { url: `data:image/jpeg;base64,${jpegBase64}` }
-        }
-      ]
-    }
-  ])
+  return requestChatCompletion(
+    model,
+    [
+      { role: 'system', content: MODERATION_AVATAR_SYSTEM_PROMPT },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: '请审核这张用户头像' },
+          {
+            type: 'image_url',
+            image_url: { url: `data:image/jpeg;base64,${jpegBase64}` }
+          }
+        ]
+      }
+    ],
+    process.env.MODERATION_AI_VISION_REASONING_EFFORT
+  )
 }

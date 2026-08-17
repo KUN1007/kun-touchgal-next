@@ -1,4 +1,8 @@
 import { z } from 'zod'
+import {
+  ADMIN_COMMENT_DELETE_LIMIT,
+  ADMIN_RATING_DELETE_LIMIT
+} from '~/constants/admin'
 import { MODERATION_TEXT_CONTENT_TYPE } from '~/constants/moderation'
 import { kunPasswordRegex } from '~/utils/validate'
 
@@ -21,7 +25,6 @@ export const adminUserPaginationSchema = adminPaginationSchema.extend({
 })
 
 export const adminCommentSearchTypeSchema = z.enum(['content', 'user'])
-const adminCommentDeleteLimit = 30
 
 export const adminCommentPaginationSchema = adminPaginationSchema.extend({
   limit: z.coerce.number().min(1).max(500),
@@ -54,8 +57,8 @@ const adminCommentIdsSchema = z
         .filter((commentId) => commentId >= 1 && commentId <= 9999999)
     )
   ])
-  .refine((commentIds) => commentIds.length <= adminCommentDeleteLimit, {
-    message: `单次最多删除 ${adminCommentDeleteLimit} 条评论`
+  .refine((commentIds) => commentIds.length <= ADMIN_COMMENT_DELETE_LIMIT, {
+    message: `单次最多删除 ${ADMIN_COMMENT_DELETE_LIMIT} 条评论`
   })
 
 export const adminDeleteCommentSchema = z.union([
@@ -209,7 +212,6 @@ export const adminHandleFeedbackSchema = z.object({
 })
 
 export const adminRatingSearchTypeSchema = z.enum(['content', 'user'])
-const adminRatingDeleteLimit = 30
 
 export const adminRatingPaginationSchema = adminPaginationSchema.extend({
   limit: z.coerce.number().min(1).max(500),
@@ -242,8 +244,8 @@ const adminRatingIdsSchema = z
         .filter((ratingId) => ratingId >= 1 && ratingId <= 9999999)
     )
   ])
-  .refine((ratingIds) => ratingIds.length <= adminRatingDeleteLimit, {
-    message: `单次最多删除 ${adminRatingDeleteLimit} 条评价`
+  .refine((ratingIds) => ratingIds.length <= ADMIN_RATING_DELETE_LIMIT, {
+    message: `单次最多删除 ${ADMIN_RATING_DELETE_LIMIT} 条评价`
   })
 
 export const adminDeleteRatingSchema = z.union([

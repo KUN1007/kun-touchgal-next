@@ -21,6 +21,7 @@ import {
 import { Search } from 'lucide-react'
 import { useEffect, useRef, useState, type Key } from 'react'
 import { kunFetchDelete, kunFetchGet } from '~/utils/kunFetch'
+import { ADMIN_COMMENT_DELETE_LIMIT } from '~/constants/admin'
 import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { useMounted } from '~/hooks/useMounted'
 import { CommentCard } from './Card'
@@ -319,7 +320,8 @@ export const Comment = ({ initialComments, initialTotal }: Props) => {
     }
 
     const ids = Array.from(selectedCommentIds)
-    const chunkSize = 100
+    // 分块大小必须不超过后端单次删除上限, 否则整块被校验拒绝
+    const chunkSize = ADMIN_COMMENT_DELETE_LIMIT
     setDeleting(true)
     try {
       let deletedCount = 0

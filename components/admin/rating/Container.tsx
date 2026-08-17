@@ -21,6 +21,7 @@ import {
 import { Search } from 'lucide-react'
 import { useEffect, useRef, useState, type Key } from 'react'
 import { kunFetchDelete, kunFetchGet } from '~/utils/kunFetch'
+import { ADMIN_RATING_DELETE_LIMIT } from '~/constants/admin'
 import { errorReporter } from '~/utils/kunErrorHandler'
 import { kunShouldBackfillDeletedRow } from '~/utils/pagination'
 import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
@@ -83,6 +84,7 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
   // 页码钳制帧列表已清空而 refetch 尚未发起, 渲染层以骨架屏遮住误导空态
   const [clampRefetchPending, setClampRefetchPending] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deleteProgress, setDeleteProgress] = useState('')
 
   useEffect(() => {
     if (!debouncedUserInput.trim()) {
@@ -318,26 +320,46 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
       return
     }
 
-    const deleteCount = selectedRatingIds.size
+    const ids = Array.from(selectedRatingIds)
+    // 分块大小必须不超过后端单次删除上限, 否则整块被校验拒绝
+    const chunkSize = ADMIN_RATING_DELETE_LIMIT
     setDeleting(true)
     try {
-      const res = await kunFetchDelete<KunResponse<{}>>('/admin/rating', {
-        ratingIds: Array.from(selectedRatingIds).join(',')
-      })
-
-      if (typeof res === 'string') {
-        toast.error(res)
-        return
+      let deletedCount = 0
+      const failedIds: number[] = []
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize)
+        setDeleteProgress(
+          `${Math.min(i + chunkSize, ids.length)} / ${ids.length}`
+        )
+        try {
+          const res = await kunFetchDelete<KunResponse<{}>>('/admin/rating', {
+            ratingIds: chunk.join(',')
+          })
+          if (typeof res === 'string') {
+            failedIds.push(...chunk)
+          } else {
+            deletedCount += chunk.length
+          }
+        } catch {
+          failedIds.push(...chunk)
+        }
       }
 
-      onCloseDelete()
-      setSelectedRatingIds(new Set())
-      toast.success(`已删除 ${deleteCount} 条评价`)
+      if (failedIds.length) {
+        setSelectedRatingIds(new Set(failedIds))
+        toast.error(
+          `已删除 ${deletedCount} 条, ${failedIds.length} 条删除失败, 已保留选中可重试`
+        )
+      } else {
+        onCloseDelete()
+        setSelectedRatingIds(new Set())
+        toast.success(`已删除 ${deletedCount} 条评价`)
+      }
       await fetchData()
-    } catch (error) {
-      errorReporter(error)
     } finally {
       setDeleting(false)
+      setDeleteProgress('')
     }
   }
 
@@ -523,9 +545,9 @@ export const Rating = ({ initialRatings, initialTotal }: Props) => {
               color="danger"
               onPress={handleBatchDelete}
               isLoading={deleting}
-              disabled={deleting}
+              isDisabled={deleting}
             >
-              删除
+              {deleteProgress ? `删除中 ${deleteProgress}` : '删除'}
             </Button>
           </ModalFooter>
         </ModalContent>

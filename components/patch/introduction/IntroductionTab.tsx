@@ -7,15 +7,8 @@ import dynamic from 'next/dynamic'
 import { Info } from './Info'
 import { PatchTag } from './Tag'
 import { PatchCompany } from './Company'
-import {
-  SAFE_MEDIA_PROTOCOLS,
-  getHttpUrlHostname,
-  isHostnameExcluded,
-  isRedirectableUrl,
-  sanitizeUserHref,
-  sanitizeUserUrl
-} from '~/utils/safeUrl'
-import { useUserStore } from '~/store/userStore'
+import { SAFE_MEDIA_PROTOCOLS, sanitizeUserUrl } from '~/utils/safeUrl'
+import { useKunExternalLinkNavigation } from '~/components/kun/external-link/useKunExternalLinkNavigation'
 import type { PatchIntroduction } from '~/types/api/patch'
 
 import './_adjust.scss'
@@ -28,35 +21,6 @@ const KunPlyr = dynamic(
   { ssr: false }
 )
 
-type ExternalLinkNavigation = {
-  href: string
-  shouldOpenExternal: boolean
-}
-
-const getExternalLinkNavigation = (
-  href: string
-): ExternalLinkNavigation | null => {
-  const safeHref = sanitizeUserHref(href)
-  if (!safeHref) {
-    return null
-  }
-
-  const { enableRedirect, excludedDomains } = useUserStore.getState().user
-  const hostname = getHttpUrlHostname(safeHref)
-  const isExcludedDomain = hostname
-    ? isHostnameExcluded(hostname, excludedDomains)
-    : false
-  const shouldRedirect =
-    !isExcludedDomain && enableRedirect && isRedirectableUrl(safeHref)
-
-  return {
-    href: shouldRedirect
-      ? `/redirect?url=${encodeURIComponent(safeHref)}`
-      : safeHref,
-    shouldOpenExternal: !enableRedirect && isRedirectableUrl(safeHref)
-  }
-}
-
 const getClosestVideoPlayer = (target: EventTarget | null) => {
   if (!(target instanceof Element)) {
     return null
@@ -64,20 +28,6 @@ const getClosestVideoPlayer = (target: EventTarget | null) => {
 
   const element = target.closest('[data-video-player]')
   return element instanceof HTMLElement ? element : null
-}
-
-const getClosestExternalLink = (
-  target: EventTarget | null,
-  content: HTMLElement
-) => {
-  if (!(target instanceof Element)) {
-    return null
-  }
-
-  const anchor = target.closest('a[data-kun-external-link]')
-  return anchor instanceof HTMLAnchorElement && content.contains(anchor)
-    ? anchor
-    : null
 }
 
 const scheduleRootUnmount = (root: Root) => {
@@ -128,6 +78,8 @@ interface Props {
 export const IntroductionTab = ({ intro, patchId, uid }: Props) => {
   const contentRef = useRef<HTMLDivElement>(null)
 
+  useKunExternalLinkNavigation(contentRef, intro.introduction)
+
   useEffect(() => {
     const content = contentRef.current
     if (!content) {
@@ -162,43 +114,6 @@ export const IntroductionTab = ({ intro, patchId, uid }: Props) => {
       root.render(<LazyKunPlyr src={safeSrc} autoPlay />)
     }
 
-    const applyExternalLinkNavigation = (anchor: HTMLAnchorElement) => {
-      const href =
-        anchor.getAttribute('data-href') || anchor.getAttribute('href')
-      const navigation = href ? getExternalLinkNavigation(href) : null
-      if (!navigation) {
-        anchor.removeAttribute('href')
-        anchor.removeAttribute('target')
-        anchor.removeAttribute('rel')
-        return false
-      }
-
-      anchor.setAttribute('href', navigation.href)
-      if (navigation.shouldOpenExternal) {
-        anchor.setAttribute('target', '_blank')
-        anchor.setAttribute('rel', 'noopener noreferrer')
-      } else {
-        anchor.removeAttribute('target')
-        anchor.removeAttribute('rel')
-      }
-
-      return true
-    }
-
-    const handleExternalLinkPrepare = (event: Event) => {
-      const anchor = getClosestExternalLink(event.target, content)
-      if (anchor) {
-        applyExternalLinkNavigation(anchor)
-      }
-    }
-
-    const handleExternalLinkClick = (event: MouseEvent) => {
-      const anchor = getClosestExternalLink(event.target, content)
-      if (anchor && !applyExternalLinkNavigation(anchor)) {
-        event.preventDefault()
-      }
-    }
-
     const handleVideoClick = (event: MouseEvent) => {
       const element = getClosestVideoPlayer(event.target)
       if (element) {
@@ -220,18 +135,10 @@ export const IntroductionTab = ({ intro, patchId, uid }: Props) => {
       mountVideoPlayer(element)
     }
 
-    content.addEventListener('pointerdown', handleExternalLinkPrepare)
-    content.addEventListener('contextmenu', handleExternalLinkPrepare)
-    content.addEventListener('focusin', handleExternalLinkPrepare)
-    content.addEventListener('click', handleExternalLinkClick)
     content.addEventListener('click', handleVideoClick)
     content.addEventListener('keydown', handleVideoKeyDown)
 
     return () => {
-      content.removeEventListener('pointerdown', handleExternalLinkPrepare)
-      content.removeEventListener('contextmenu', handleExternalLinkPrepare)
-      content.removeEventListener('focusin', handleExternalLinkPrepare)
-      content.removeEventListener('click', handleExternalLinkClick)
       content.removeEventListener('click', handleVideoClick)
       content.removeEventListener('keydown', handleVideoKeyDown)
       videoRoots.forEach(scheduleRootUnmount)

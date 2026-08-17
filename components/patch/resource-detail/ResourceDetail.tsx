@@ -11,6 +11,7 @@ import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { ResourceLikeButton } from '~/components/patch/resource/ResourceLike'
 import { UserFollow } from '~/components/user/follow/Follow'
 import { ResourceDownloadCard } from '~/components/patch/resource/DownloadCard'
+import { useKunExternalLinkNavigation } from '~/components/kun/external-link/useKunExternalLinkNavigation'
 import { Comments } from '~/components/patch/comment/Comments'
 import { GalgameSummaryCard } from './GalgameSummaryCard'
 import { OtherResources } from './OtherResources'
@@ -29,6 +30,9 @@ export const ResourceDetail = ({ detail }: Props) => {
   const isPending = resource.status === 2 || resource.status === 3
   const pageTitle = getResourcePageTitle(resource)
   const mainColumnRef = useRef<HTMLDivElement>(null)
+  const noteRef = useRef<HTMLDivElement>(null)
+
+  useKunExternalLinkNavigation(noteRef, resource.noteHtml)
 
   return (
     <div className="w-full mx-auto max-w-7xl space-y-6">
@@ -91,6 +95,7 @@ export const ResourceDetail = ({ detail }: Props) => {
                 <Card shadow="none" className="border border-default-200">
                   <CardBody>
                     <div
+                      ref={noteRef}
                       className="kun-prose max-w-none"
                       dangerouslySetInnerHTML={{ __html: resource.noteHtml }}
                     />

@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   CardBody,
+  Checkbox,
   Chip,
   Divider,
   Modal,
@@ -28,6 +29,9 @@ import type { AdminReport } from '~/types/api/admin'
 
 interface Props {
   report: AdminReport
+  isSelected: boolean
+  isSelectionDisabled: boolean
+  onSelectionChange: (isSelected: boolean) => void
   onHandled: (report: AdminReport) => void
 }
 
@@ -45,7 +49,13 @@ const buildTargetPreview = (report: AdminReport) => {
   return '被举报内容已删除或不存在'
 }
 
-export const ReportCard = ({ report, onHandled }: Props) => {
+export const ReportCard = ({
+  report,
+  isSelected,
+  isSelectionDisabled,
+  onSelectionChange,
+  onHandled
+}: Props) => {
   const [reportStatus, setReportStatus] = useState(report.status)
   const [handleContent, setHandleContent] = useState('')
   const [actionType, setActionType] = useState<'delete' | 'reject'>('delete')
@@ -88,10 +98,18 @@ export const ReportCard = ({ report, onHandled }: Props) => {
 
   return (
     <>
-      <Card>
+      <Card className={isSelected ? 'ring-2 ring-primary-300' : undefined}>
         <CardBody className="space-y-3">
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-1 gap-3">
+              {reportStatus === 0 && (
+                <Checkbox
+                  aria-label={`选择举报 ${report.id}`}
+                  isDisabled={isSelectionDisabled}
+                  isSelected={isSelected}
+                  onValueChange={onSelectionChange}
+                />
+              )}
               <KunAvatar
                 uid={report.sender.id}
                 avatarProps={{

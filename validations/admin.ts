@@ -284,6 +284,16 @@ export const adminHandleReportSchema = z.object({
     .max(5000, { message: '处理结果不能超过 5000 个字符' })
 })
 
+// 上限与列表每页最大条数一致 (100): 全选当前页即为单次批量的最大规模
+export const adminBatchHandleReportSchema = z.object({
+  reportIds: z.array(z.coerce.number().min(1).max(9999999)).min(1).max(100),
+  action: z.enum(['delete', 'reject']),
+  content: z
+    .string()
+    .trim()
+    .max(5000, { message: '处理结果不能超过 5000 个字符' })
+})
+
 export const approvePatchResourceSchema = z.object({
   resourceId: z.coerce.number().min(1).max(9999999)
 })

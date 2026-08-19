@@ -42,6 +42,9 @@ model patch {
   created DateTime @default(now())
   updated DateTime @updatedAt
 
+  // 单独 vndb_id / 单独 relation_id (另一半为 NULL) 的唯一性由两个 Prisma 无法
+  // 声明的部分唯一索引兜底, 见 prisma/sql/patch_vndb_solo_unique.sql
+  // (schema engine 的 diff 会忽略部分索引, db push 不会误删)
   @@unique([vndb_id, vndb_relation_id])
   @@index([created])
   @@index([resource_update_time])

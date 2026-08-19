@@ -25,16 +25,27 @@ export const updateGalgame = async (
   const normalizedVndbRelationId = input.vndbRelationId?.trim()
     ? input.vndbRelationId.trim().toLowerCase()
     : ''
-  if (normalizedVndbId && normalizedVndbRelationId) {
+  // 查询与即将写入的 (vndb_id, vndb_relation_id) 形态完全一致的行(空值按 null
+  // 匹配): 单独 vndb_id / 单独 relation_id 也不允许重复, 但同 vndb_id 不同
+  // relation 的共存不受影响. 并发兜底除组合唯一索引外还有两个 schema 无法声明的
+  // 部分唯一索引, 见 prisma/sql/patch_vndb_solo_unique.sql
+  if (normalizedVndbId || normalizedVndbRelationId) {
     const galgame = await prisma.patch.findFirst({
       where: {
-        vndb_id: normalizedVndbId,
+        vndb_id: normalizedVndbId ? normalizedVndbId : null,
         vndb_relation_id: normalizedVndbRelationId
+          ? normalizedVndbRelationId
+          : null
       },
       select: { id: true, unique_id: true }
     })
     if (galgame && galgame.id !== input.id) {
-      return `Galgame VNDB ID 与 Relation ID 的组合与游戏 ID 为 ${galgame.unique_id} 的游戏重复`
+      if (normalizedVndbId && normalizedVndbRelationId) {
+        return `Galgame VNDB ID 与 Relation ID 的组合与游戏 ID 为 ${galgame.unique_id} 的游戏重复`
+      }
+      return normalizedVndbId
+        ? `Galgame VNDB ID 与游戏 ID 为 ${galgame.unique_id} 的游戏重复`
+        : `Galgame VNDB Relation ID 与游戏 ID 为 ${galgame.unique_id} 的游戏重复`
     }
   }
 
@@ -113,8 +124,9 @@ export const updateGalgame = async (
       await enqueueSearchOutbox(tx, id)
     })
     .catch((error) => {
-      // bangumi_id / steam_id / dlsite_code / (vndb_id, vndb_relation_id) 的唯一索引
-      // 兜底并发编辑: 预检与 patch.update 之间两个填同一外部 ID 的请求会双双通过预检.
+      // bangumi_id / steam_id / dlsite_code / (vndb_id, vndb_relation_id) 组合及其
+      // 单独形态部分唯一索引 (prisma/sql/patch_vndb_solo_unique.sql) 兜底并发编辑:
+      // 预检与 patch.update 之间两个填同一外部 ID 的请求会双双通过预检.
       // 字符串在此处返回是安全的(事务已回滚), 但切勿把它挪进事务回调 —— 那会被当作
       // 正常结束而提交
       if (

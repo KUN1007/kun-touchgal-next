@@ -191,6 +191,44 @@ describe('createGalgame', () => {
     expect(transactionMock).not.toHaveBeenCalled()
   }, 30000)
 
+  it('单独 vndb_id (relation 为空) 预检命中时返回重复提示, 查询须按 null 精确匹配形态', async () => {
+    const image = await createPng(400, 300)
+    patchFindFirstMock.mockResolvedValue({ unique_id: 'deadbeef' })
+
+    const res = await createGalgame(
+      { ...makeInput(image), vndbId: 'V19658' },
+      1
+    )
+
+    expect(res).toBe('Galgame VNDB ID 与游戏 ID 为 deadbeef 的游戏重复')
+    // vndb_relation_id 必须显式为 null: 裸单字段查询会把 (v, r) 形态的行也判为
+    // 重复, 错误拦截"同 vndb_id 不同 relation"的合法共存
+    expect(patchFindFirstMock).toHaveBeenCalledWith({
+      where: { vndb_id: 'v19658', vndb_relation_id: null },
+      select: { unique_id: true }
+    })
+    expect(transactionMock).not.toHaveBeenCalled()
+  }, 30000)
+
+  it('单独 relation_id (vndb_id 为空) 预检命中时返回重复提示, 不开启事务', async () => {
+    const image = await createPng(400, 300)
+    patchFindFirstMock.mockResolvedValue({ unique_id: 'deadbeef' })
+
+    const res = await createGalgame(
+      { ...makeInput(image), vndbRelationId: 'R57171' },
+      1
+    )
+
+    expect(res).toBe(
+      'Galgame VNDB Relation ID 与游戏 ID 为 deadbeef 的游戏重复'
+    )
+    expect(patchFindFirstMock).toHaveBeenCalledWith({
+      where: { vndb_id: null, vndb_relation_id: 'r57171' },
+      select: { unique_id: true }
+    })
+    expect(transactionMock).not.toHaveBeenCalled()
+  }, 30000)
+
   it('预检与 create 之间的并发窗口撞唯一索引时翻成字符串而非 500', async () => {
     const image = await createPng(400, 300)
     patchCreateMock.mockRejectedValue(

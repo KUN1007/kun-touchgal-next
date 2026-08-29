@@ -3,15 +3,12 @@
 import { getRedirectConfig } from '~/app/api/admin/setting/redirect/getRedirectConfig'
 import { getDisableRegisterStatus } from '~/app/api/admin/setting/register/service'
 import { getModerationSetting } from '~/app/api/admin/setting/moderation/service'
-import { verifyHeaderCookie } from '~/utils/actions/verifyHeaderCookie'
+import { verifySuperAdmin } from '~/utils/actions/parseSuperAdminAction'
 
 export const kunGetRedirectConfigActions = async () => {
-  const payload = await verifyHeaderCookie()
-  if (!payload) {
-    return '用户登录失效'
-  }
-  if (payload.role < 4) {
-    return '本页面仅超级管理员可访问'
+  const error = await verifySuperAdmin()
+  if (error) {
+    return error
   }
 
   const response = await getRedirectConfig()
@@ -19,12 +16,9 @@ export const kunGetRedirectConfigActions = async () => {
 }
 
 export const kunGetDisableRegisterStatusActions = async () => {
-  const payload = await verifyHeaderCookie()
-  if (!payload) {
-    return '用户登录失效'
-  }
-  if (payload.role < 4) {
-    return '本页面仅超级管理员可访问'
+  const error = await verifySuperAdmin()
+  if (error) {
+    return error
   }
 
   const response = await getDisableRegisterStatus()
@@ -32,12 +26,9 @@ export const kunGetDisableRegisterStatusActions = async () => {
 }
 
 export const kunGetModerationSettingActions = async () => {
-  const payload = await verifyHeaderCookie()
-  if (!payload) {
-    return '用户登录失效'
-  }
-  if (payload.role < 4) {
-    return '本页面仅超级管理员可访问'
+  const error = await verifySuperAdmin()
+  if (error) {
+    return error
   }
 
   const response = await getModerationSetting()

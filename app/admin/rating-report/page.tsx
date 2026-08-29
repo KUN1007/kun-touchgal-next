@@ -1,6 +1,6 @@
 import { Report } from '~/components/admin/report/Container'
 import { kunMetadata } from './metadata'
-import { kunGetActions } from './actions'
+import { kunGetActions } from '~/app/admin/report/actions'
 import { ErrorComponent } from '~/components/error/ErrorComponent'
 import { Suspense } from 'react'
 import type { Metadata } from 'next'

@@ -17,5 +17,10 @@ export default async function Kun() {
     return <ErrorComponent error={response} />
   }
 
-  return <Creator initialCreators={response.creators} total={response.total} />
+  return (
+    <Creator
+      initialCreators={response.creators}
+      initialTotal={response.total}
+    />
+  )
 }

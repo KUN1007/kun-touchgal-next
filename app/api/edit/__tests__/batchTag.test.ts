@@ -80,7 +80,8 @@ describe('handleBatchPatchTags', () => {
     )
 
     expect(txRelationCreateManyMock).toHaveBeenCalledWith({
-      data: [{ patch_id: 1, tag_id: 50 }]
+      data: [{ patch_id: 1, tag_id: 50 }],
+      skipDuplicates: true
     })
     expect(txRelationDeleteManyMock).toHaveBeenCalledWith({
       where: { patch_id: 1, tag_id: { in: [10] } }
@@ -98,10 +99,79 @@ describe('handleBatchPatchTags', () => {
       data: [{ user_id: 7, name: 'brand-new', source: 'self' }]
     })
     expect(txRelationCreateManyMock).toHaveBeenCalledWith({
-      data: [{ patch_id: 1, tag_id: 99 }]
+      data: [{ patch_id: 1, tag_id: 99 }],
+      skipDuplicates: true
     })
     expect(txRelationDeleteManyMock).not.toHaveBeenCalled()
     expect(result).toEqual({ success: true, changed: true })
+  })
+
+  it('输入命中已关联标签的别名时不新建重复标签也不删关联', async () => {
+    relationFindManyMock.mockResolvedValue([
+      { tag_id: 10, tag: { name: '寝取られ' } }
+    ])
+    tagFindManyMock.mockResolvedValue([
+      { id: 10, name: '寝取られ', alias: ['NTR'] }
+    ])
+
+    const result = await handleBatchPatchTags(1, ['寝取られ', 'NTR'], 7)
+
+    expect(txTagCreateManyMock).not.toHaveBeenCalled()
+    expect(txRelationCreateManyMock).toHaveBeenCalledWith({
+      data: [{ patch_id: 1, tag_id: 10 }],
+      skipDuplicates: true
+    })
+    expect(txRelationDeleteManyMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ success: true, changed: true })
+  })
+
+  it('用别名替换名字提交时规范标签不进删除集', async () => {
+    relationFindManyMock.mockResolvedValue([
+      { tag_id: 10, tag: { name: '寝取られ' } }
+    ])
+    tagFindManyMock.mockResolvedValue([
+      { id: 10, name: '寝取られ', alias: ['NTR'] }
+    ])
+
+    const result = await handleBatchPatchTags(1, ['NTR'], 7)
+
+    expect(txTagCreateManyMock).not.toHaveBeenCalled()
+    expect(txRelationCreateManyMock).toHaveBeenCalledWith({
+      data: [{ patch_id: 1, tag_id: 10 }],
+      skipDuplicates: true
+    })
+    expect(txRelationDeleteManyMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ success: true, changed: true })
+  })
+
+  it('输入未关联标签的别名时只关联规范标签', async () => {
+    tagFindManyMock.mockResolvedValue([
+      { id: 20, name: '寝取られ', alias: ['NTR'] }
+    ])
+
+    const result = await handleBatchPatchTags(1, ['NTR'], 7)
+
+    expect(txTagCreateManyMock).not.toHaveBeenCalled()
+    expect(txRelationCreateManyMock).toHaveBeenCalledWith({
+      data: [{ patch_id: 1, tag_id: 20 }],
+      skipDuplicates: true
+    })
+    expect(result).toEqual({ success: true, changed: true })
+  })
+
+  it('输入同时是 A 的别名与 B 的名字时按名字优先解析', async () => {
+    tagFindManyMock.mockResolvedValue([
+      { id: 30, name: 'other', alias: ['X'] },
+      { id: 31, name: 'X', alias: [] }
+    ])
+
+    await handleBatchPatchTags(1, ['X'], 7)
+
+    expect(txTagCreateManyMock).not.toHaveBeenCalled()
+    expect(txRelationCreateManyMock).toHaveBeenCalledWith({
+      data: [{ patch_id: 1, tag_id: 31 }],
+      skipDuplicates: true
+    })
   })
 
   it('标签无变化时不加锁不写库', async () => {

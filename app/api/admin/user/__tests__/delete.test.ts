@@ -28,7 +28,13 @@ const {
   kickDrainMock,
   invalidatePatchContentCacheMock,
   invalidateContentByPatchIdMock,
-  deleteOrphanReportsMock
+  deleteOrphanReportsMock,
+  findOwnPatchesMock,
+  findCommentsInTransactionMock,
+  enqueueLinkDeletionsMock,
+  deletePendingTasksMock,
+  deletePendingAppealsMock,
+  kickS3DrainMock
 } = vi.hoisted(() => ({
   findUserMock: vi.fn(),
   findResourcesMock: vi.fn(),
@@ -57,15 +63,23 @@ const {
   kickDrainMock: vi.fn(),
   invalidatePatchContentCacheMock: vi.fn(),
   invalidateContentByPatchIdMock: vi.fn(),
-  deleteOrphanReportsMock: vi.fn()
+  deleteOrphanReportsMock: vi.fn(),
+  findOwnPatchesMock: vi.fn(),
+  findCommentsInTransactionMock: vi.fn(),
+  enqueueLinkDeletionsMock: vi.fn(),
+  deletePendingTasksMock: vi.fn(),
+  deletePendingAppealsMock: vi.fn(),
+  kickS3DrainMock: vi.fn()
 }))
 
 const events: string[] = []
 const transactionClient = {
   $executeRaw: executeRawMock,
   $queryRaw: queryRawMock,
+  patch: { findMany: findOwnPatchesMock },
   patch_rating: { findMany: findRatingsInTransactionMock },
   patch_resource: { findMany: findResourcesInTransactionMock },
+  patch_comment: { findMany: findCommentsInTransactionMock },
   user: { delete: deleteUserMock },
   admin_log: { create: createLogMock }
 }
@@ -118,7 +132,20 @@ vi.mock('~/app/api/patch/rating/stat', () => ({
 }))
 
 vi.mock('~/app/api/patch/resource/_helper', () => ({
-  recalcPatchType: recalcPatchTypeMock
+  recalcPatchType: recalcPatchTypeMock,
+  enqueueResourceLinkDeletions: enqueueLinkDeletionsMock
+}))
+
+vi.mock('~/server/moderation/submit', () => ({
+  deletePendingModerationTasks: deletePendingTasksMock
+}))
+
+vi.mock('~/server/moderation/appeal', () => ({
+  deletePendingAppeals: deletePendingAppealsMock
+}))
+
+vi.mock('~/server/storage/s3Outbox', () => ({
+  kickS3DeletionDrain: kickS3DrainMock
 }))
 
 vi.mock('~/app/api/patch/cache', () => ({
@@ -163,6 +190,20 @@ beforeEach(() => {
     { patch_id: 12, status: 2, patch: { user_id: 100 } }
   ])
   findResourcesInTransactionMock.mockResolvedValue([])
+  findOwnPatchesMock.mockResolvedValue([])
+  findCommentsInTransactionMock.mockResolvedValue([])
+  enqueueLinkDeletionsMock.mockImplementation(async () => {
+    events.push('enqueue-s3-links')
+  })
+  deletePendingTasksMock.mockImplementation(async (type: string) => {
+    events.push(`delete-tasks-${type}`)
+  })
+  deletePendingAppealsMock.mockImplementation(async (type: string) => {
+    events.push(`delete-appeals-${type}`)
+  })
+  kickS3DrainMock.mockImplementation(() => {
+    events.push('kick-s3-drain')
+  })
   recalcPatchTypeMock.mockImplementation(async (patchId: number) => {
     events.push(`recalc-${patchId}`)
     return `uid-${patchId}`
@@ -456,5 +497,115 @@ describe('deleteUser', () => {
     expect(invalidateTagCacheMock).not.toHaveBeenCalled()
     expect(invalidateCompanyCacheMock).not.toHaveBeenCalled()
     expect(invalidatePatchContentCacheMock).not.toHaveBeenCalled()
+  })
+
+  it('级联删除自有 patch 前锁下收集他人资源, 复用 deletePatchById 清理序列', async () => {
+    // 自有 patch 乱序返回, 验证锁语句与搜索入箱按升序 (确定性锁序)
+    findOwnPatchesMock.mockResolvedValue([
+      { id: 81, unique_id: 'own-81' },
+      { id: 80, unique_id: 'own-80' }
+    ])
+    // 锁下重读 (patch_id in) 与他人 patch 上本人资源 (user_id) 两种形状区分
+    findResourcesInTransactionMock.mockImplementation(
+      async (query?: { where?: { patch_id?: unknown } }) => {
+        if (query?.where?.patch_id) {
+          events.push('read-own-resources')
+          return [
+            {
+              id: 301,
+              patch_id: 80,
+              status: 0,
+              section: 'patch',
+              links: [
+                { storage: 's3', content: 'c1', hash: 'h1', s3_key: 'k1' },
+                { storage: 'user', content: 'c2', hash: 'h2', s3_key: '' }
+              ]
+            },
+            { id: 302, patch_id: 81, status: 1, section: 'patch', links: [] }
+          ]
+        }
+        return []
+      }
+    )
+    findRatingsInTransactionMock.mockImplementation(
+      async (query?: { where?: { patch_id?: unknown } }) =>
+        query?.where?.patch_id ? [{ id: 501 }] : []
+    )
+    findCommentsInTransactionMock.mockResolvedValue([{ id: 401 }])
+    queryRawMock.mockImplementation(async () => {
+      events.push('lock-own-resources')
+      return []
+    })
+
+    await expect(deleteUser({ uid: 7 }, 99)).resolves.toEqual({})
+
+    // 单语句升序取锁, 先于锁下重读、重读先于级联删除
+    expect(queryRawMock).toHaveBeenCalledTimes(1)
+    const [template, boundIds] = queryRawMock.mock.calls[0]
+    expect(template.join('?')).toContain('FOR UPDATE')
+    expect(boundIds).toEqual([80, 81])
+    expect(events.indexOf('lock-own-resources')).toBeLessThan(
+      events.indexOf('read-own-resources')
+    )
+    expect(events.indexOf('read-own-resources')).toBeLessThan(
+      events.indexOf('delete-user')
+    )
+    // 评论/评分 id 也须在级联删除前收集 (content_id 无外键, 删除后无从得知)
+    expect(findCommentsInTransactionMock).toHaveBeenCalledWith({
+      where: { patch_id: { in: [80, 81] } },
+      select: { id: true }
+    })
+    // 只入队 storage='s3' 的 link, 保留 hash/s3Key
+    expect(enqueueLinkDeletionsMock).toHaveBeenCalledWith(transactionClient, [
+      { content: 'c1', patchId: 80, hash: 'h1', s3Key: 'k1' }
+    ])
+    // 他人 pending 审核任务/申诉按三类 content id 清理, 均在级联删除之后
+    expect(deletePendingTasksMock.mock.calls).toEqual([
+      ['comment', [401], transactionClient],
+      ['rating', [501], transactionClient],
+      ['resource', [301, 302], transactionClient]
+    ])
+    expect(deletePendingAppealsMock.mock.calls).toEqual([
+      ['comment', [401], transactionClient],
+      ['rating', [501], transactionClient],
+      ['resource', [301, 302], transactionClient]
+    ])
+    expect(events.indexOf('delete-user')).toBeLessThan(
+      events.indexOf('delete-tasks-comment')
+    )
+    // 自有 patch 升序入搜索出箱
+    expect(enqueueSearchOutboxMock.mock.calls).toEqual([
+      [transactionClient, 80],
+      [transactionClient, 81]
+    ])
+    // 提交后: 自有 patch content 缓存失效 + S3 出箱 kick
+    expect(invalidatePatchContentCacheMock.mock.calls).toEqual([
+      ['own-81'],
+      ['own-80']
+    ])
+    expect(kickS3DrainMock).toHaveBeenCalledTimes(1)
+    expect(events.indexOf('kick-s3-drain')).toBeGreaterThan(
+      events.indexOf('transaction-end')
+    )
+  })
+
+  it('本人零公开资源但自有 patch 有他人公开资源时仍失效资源列表缓存', async () => {
+    countResourcesMock.mockResolvedValue(0)
+    findOwnPatchesMock.mockResolvedValue([{ id: 80, unique_id: 'own-80' }])
+    findResourcesInTransactionMock.mockImplementation(
+      async (query?: { where?: { patch_id?: unknown } }) =>
+        query?.where?.patch_id
+          ? [{ id: 301, patch_id: 80, status: 0, section: 'patch', links: [] }]
+          : []
+    )
+    findRatingsInTransactionMock.mockResolvedValue([])
+
+    await expect(deleteUser({ uid: 7 }, 99)).resolves.toEqual({})
+
+    // publicResourceCount=0 闸门关闭, 他人公开资源旗标独立驱动列表失效
+    expect(invalidateCacheMock).toHaveBeenCalledTimes(1)
+    // 无 S3 link 时入箱空集 (enqueueS3Deletion 内部早退), 不 kick S3 drain
+    expect(enqueueLinkDeletionsMock).toHaveBeenCalledWith(transactionClient, [])
+    expect(kickS3DrainMock).not.toHaveBeenCalled()
   })
 })

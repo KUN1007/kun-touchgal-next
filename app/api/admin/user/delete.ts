@@ -12,12 +12,18 @@ import { recomputePatchRatingStats } from '~/app/api/patch/rating/stat'
 import { invalidateTagListCache } from '~/app/api/tag/cache'
 import { invalidateCompanyListCache } from '~/app/api/company/cache'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
-import { recalcPatchType } from '~/app/api/patch/resource/_helper'
+import {
+  enqueueResourceLinkDeletions,
+  recalcPatchType
+} from '~/app/api/patch/resource/_helper'
 import { deleteOrphanReports } from '~/server/report/pending'
+import { deletePendingModerationTasks } from '~/server/moderation/submit'
+import { deletePendingAppeals } from '~/server/moderation/appeal'
 import {
   enqueueSearchOutbox,
   kickSearchOutboxDrain
 } from '~/server/search/sync'
+import { kickS3DeletionDrain } from '~/server/storage/s3Outbox'
 
 const userIdSchema = z.object({
   uid: z.coerce.number({ message: '用户 ID 必须为数字' }).min(1).max(9999999)
@@ -102,6 +108,9 @@ export const deleteUser = async (
   let affectedPatchIds: number[] = []
   let affectedUniqueIds: string[] = []
   let ratingAffectedPatchIds: number[] = []
+  let ownPatchUniqueIds: string[] = []
+  let ownPatchHasPublicResource = false
+  let ownS3Links: Parameters<typeof enqueueResourceLinkDeletions>[1] = []
   let retryCount = 0
   while (true) {
     try {
@@ -134,6 +143,62 @@ export const deleteUser = async (
             .map((resource) => resource.patch_id)
             .sort((a, b) => a - b)
 
+          // 自有 patch 随 user.delete() 级联消失, 连同其下所有人的资源/评论/评分,
+          // 而级联绕过应用层 (S3 出箱/审核任务/申诉/搜索索引均无人清理), 故复用
+          // deletePatchById 的清理序列。锁序与其一致 (先 patch_resource 后
+          // patch/user), 单语句全局升序取锁; links 必须锁下重读: 快照与级联删除
+          // 之间的并发重绑会换 s3 对象, 快照入队漏删新对象 (永无二次机会)
+          const ownPatches = await prisma.patch.findMany({
+            where: { user_id: input.uid },
+            select: { id: true, unique_id: true }
+          })
+          const ownPatchIds = ownPatches
+            .map((patch) => patch.id)
+            .sort((a, b) => a - b)
+          // 覆盖式赋值: Serializable 重试时不累加 (与 affectedUniqueIds 同理)
+          ownPatchUniqueIds = ownPatches.map((patch) => patch.unique_id)
+          ownPatchHasPublicResource = false
+          ownS3Links = []
+          let ownResourceIds: number[] = []
+          let ownCommentIds: number[] = []
+          let ownRatingIds: number[] = []
+          if (ownPatchIds.length) {
+            await prisma.$queryRaw`
+              SELECT id FROM patch_resource WHERE patch_id = ANY(${ownPatchIds}::int[]) ORDER BY id FOR UPDATE`
+            const ownResources = await prisma.patch_resource.findMany({
+              where: { patch_id: { in: ownPatchIds } },
+              include: { links: true }
+            })
+            ownS3Links = ownResources.flatMap((resource) =>
+              resource.links
+                .filter((link) => link.storage === 's3')
+                .map((link) => ({
+                  content: link.content,
+                  patchId: resource.patch_id,
+                  hash: link.hash,
+                  s3Key: link.s3_key
+                }))
+            )
+            ownResourceIds = ownResources.map((resource) => resource.id)
+            // 他人在自有 patch 下的公开资源不计入本人计数闸门, 单独驱动列表失效
+            ownPatchHasPublicResource = ownResources.some(
+              (resource) =>
+                resource.status === 0 && resource.section === 'patch'
+            )
+            const [ownComments, ownRatings] = await Promise.all([
+              prisma.patch_comment.findMany({
+                where: { patch_id: { in: ownPatchIds } },
+                select: { id: true }
+              }),
+              prisma.patch_rating.findMany({
+                where: { patch_id: { in: ownPatchIds } },
+                select: { id: true }
+              })
+            ])
+            ownCommentIds = ownComments.map((comment) => comment.id)
+            ownRatingIds = ownRatings.map((rating) => rating.id)
+          }
+
           await prisma.user.delete({
             where: { id: input.uid }
           })
@@ -144,6 +209,27 @@ export const deleteUser = async (
           // pending.ts)。rating 无此间接链: 他人评分只能随 patch 级联删,
           // 届时举报已因 patch_id Cascade 同删, 故不清 'rating'
           await deleteOrphanReports('comment', prisma)
+
+          // 与 deletePatchById 对齐: 清理置于删除后, 与 submitAppeal 的内容行锁
+          // 配合, 杜绝并发申诉提交造成的 TOCTOU 孤儿; 本人内容的任务/申诉已随
+          // user_id 级联删除, 此处 deleteMany 幂等, 只兜他人内容的孤儿
+          if (ownPatchIds.length) {
+            await enqueueResourceLinkDeletions(prisma, ownS3Links)
+            await deletePendingModerationTasks('comment', ownCommentIds, prisma)
+            await deletePendingModerationTasks('rating', ownRatingIds, prisma)
+            await deletePendingModerationTasks(
+              'resource',
+              ownResourceIds,
+              prisma
+            )
+            await deletePendingAppeals('comment', ownCommentIds, prisma)
+            await deletePendingAppeals('rating', ownRatingIds, prisma)
+            await deletePendingAppeals('resource', ownResourceIds, prisma)
+            // 自有 patch 的索引文档须入箱移除, 否则只能等次日 reconcile 兜底
+            for (const patchId of ownPatchIds) {
+              await enqueueSearchOutbox(prisma, patchId)
+            }
+          }
 
           // 覆盖式赋值: Serializable 重试时不累加 (与 affectedUniqueIds 同理)
           const ratingPatchIds = ratedPatches
@@ -198,7 +284,8 @@ export const deleteUser = async (
       )
     )
   }
-  if (publicResourceCount > 0) {
+  // 他人在自有 patch 下的公开资源随级联消失但不计入本人计数, 由独立旗标驱动
+  if (publicResourceCount > 0 || ownPatchHasPublicResource) {
     await invalidateResourceListCache()
   }
   // 点赞级联删除改他人 patch 的资源 likeCount, 不进上方闸门 (零资源用户也可能有点赞)
@@ -214,9 +301,10 @@ export const deleteUser = async (
   await Promise.all(
     commentedPatches.map((c) => invalidatePatchCommentCache(c.patch_id))
   )
-  // 事务提交后失效: 事务内失效会被并发读回填旧值 (M-04), 且 Redis 故障不应回滚写入
+  // 事务提交后失效: 事务内失效会被并发读回填旧值 (M-04), 且 Redis 故障不应回滚写入。
+  // 自有 patch 删除后 URL 仍可达而缓存键按 unique_id 构成, 不失效会陈旧展示至 TTL
   await Promise.all(
-    affectedUniqueIds.map((uniqueId) =>
+    [...affectedUniqueIds, ...ownPatchUniqueIds].map((uniqueId) =>
       invalidatePatchContentCache(uniqueId).catch(() => undefined)
     )
   )
@@ -225,6 +313,10 @@ export const deleteUser = async (
     ...commentedPatches.map((c) => c.patch_id),
     ...ratingAffectedPatchIds
   ]).catch(() => undefined)
+  // 事务内已入 S3 删除出箱, 提交后即时消费; 抢不到锁由定时任务兜底
+  if (ownS3Links.length > 0) {
+    kickS3DeletionDrain()
+  }
   // 事务内已逐 id 入队，此处一次 kick 触发 drain 处理整箱（避免逐 id 各 kick）
   kickSearchOutboxDrain()
 

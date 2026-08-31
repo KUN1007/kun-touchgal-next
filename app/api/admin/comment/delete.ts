@@ -7,18 +7,10 @@ import { deletePendingAppeals } from '~/server/moderation/appeal'
 import { deleteOrphanReports } from '~/server/report/pending'
 import { invalidatePatchCommentCache } from '~/app/api/patch/comment/cache'
 import { invalidatePatchContentCacheByPatchId } from '~/app/api/patch/cache'
+import { truncateLogContent } from '~/app/api/admin/_log'
 
-const adminLogContentLimit = 10007
 const adminDeleteCommentSummaryLimit = 10
 const adminDeleteCommentPreviewLimit = 100
-
-const truncateLogContent = (content: string) => {
-  if (content.length <= adminLogContentLimit) {
-    return content
-  }
-
-  return `${content.slice(0, adminLogContentLimit - 15)}...(truncated)`
-}
 
 const buildDeleteLogContent = (
   adminName: string,

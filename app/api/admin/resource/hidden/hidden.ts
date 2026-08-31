@@ -10,20 +10,11 @@ import {
 } from '~/server/search/sync'
 import { adminUpdateResourceHiddenSchema } from '~/validations/admin'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
+import { truncateLogContent } from '~/app/api/admin/_log'
 
 const statusLabel: Record<number, string> = {
   0: '正常',
   1: '隐藏'
-}
-
-const adminLogContentLimit = 10007
-
-const truncateLogContent = (content: string) => {
-  if (content.length <= adminLogContentLimit) {
-    return content
-  }
-
-  return `${content.slice(0, adminLogContentLimit - 15)}...(truncated)`
 }
 
 export const updateResourceHidden = async (

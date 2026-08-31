@@ -15,6 +15,7 @@ import { deletePendingAppeals } from '~/server/moderation/appeal'
 import { deleteOrphanReports } from '~/server/report/pending'
 import { queueSearchSync, enqueueSearchOutbox } from '~/server/search/sync'
 import { kickS3DeletionDrain } from '~/server/storage/s3Outbox'
+import { truncateLogContent } from '~/app/api/admin/_log'
 
 const resourceIdSchema = z.object({
   resourceId: z.coerce
@@ -99,7 +100,10 @@ export const deleteResource = async (
       data: {
         type: 'delete',
         user_id: uid,
-        content: `管理员 ${admin.name} 删除了一个资源\n\nGalgame 名:\n${current.patch.name}\n\n资源信息:\n${JSON.stringify(sanitizedResource)}`
+        // note 上限即 10007, 不截断会 22001 回滚整个删除事务
+        content: truncateLogContent(
+          `管理员 ${admin.name} 删除了一个资源\n\nGalgame 名:\n${current.patch.name}\n\n资源信息:\n${JSON.stringify(sanitizedResource)}`
+        )
       }
     })
 

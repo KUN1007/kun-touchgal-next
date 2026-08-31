@@ -5,6 +5,7 @@ import { prisma } from '~/prisma/index'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { adminSendEmailSchema } from '~/validations/admin'
 import { sendEmailHTML } from './_send'
+import { truncateLogContent } from '~/app/api/admin/_log'
 
 const sendBulkEmail = async (
   input: z.infer<typeof adminSendEmailSchema>,
@@ -39,7 +40,10 @@ const sendBulkEmail = async (
     data: {
       type: 'create',
       user_id: uid,
-      content: `管理员 ${admin.name} 向全体用户发送了邮件 (共 ${emailList.length} 封, 失败 ${failed} 封)\n\n${JSON.stringify(variables)}`
+      // variables 值长度无上限, 截断避免 22001; 此时邮件已群发, 500 会诱导重试
+      content: truncateLogContent(
+        `管理员 ${admin.name} 向全体用户发送了邮件 (共 ${emailList.length} 封, 失败 ${failed} 封)\n\n${JSON.stringify(variables)}`
+      )
     }
   })
 

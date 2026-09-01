@@ -66,6 +66,27 @@ export const enqueueSearchOutbox = async (
   })
 }
 
+// 批量入队：标签/会社改名或删除会波及其下全部关联 patch（热门标签可达数百上千），
+// 逐条 upsert 的往返次数会打满交互事务超时，故单条 SQL 完成整批。updated 是
+// @updatedAt（应用层维护，原生 SQL 必须显式赋值），时间写 UTC 墙钟与 Prisma 一致
+export const enqueueSearchOutboxBatch = async (
+  client: Prisma.TransactionClient,
+  patchIds: number[]
+) => {
+  if (patchIds.length === 0) {
+    return
+  }
+  // 去重防同语句二次命中同行（21000 直接炸事务）；升序统一锁序，与并发的
+  // 批量/循环入队互不死锁（项目惯例：批内加锁一律升序）
+  const ids = [...new Set(patchIds)].sort((a, b) => a - b)
+  await client.$executeRaw`
+    INSERT INTO search_outbox (patch_id, created, updated)
+    SELECT unnest(${ids}::int[]),
+      now() AT TIME ZONE 'UTC', now() AT TIME ZONE 'UTC'
+    ON CONFLICT (patch_id) DO UPDATE
+      SET seq = search_outbox.seq + 1, updated = now() AT TIME ZONE 'UTC'`
+}
+
 // 单一消费者：加锁保证任意时刻只有一个 drain 在跑（即时 kick 与定时任务共用同锁），
 // 杜绝两个应用器并发写同一索引。逐行读取最新状态后应用，成功才按 (patch_id, seq)
 // 条件删除——若处理期间有并发入队使 seq 变化，则条件不命中、该行滞留等待下一轮，

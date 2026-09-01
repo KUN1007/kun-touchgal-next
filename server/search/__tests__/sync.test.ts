@@ -54,7 +54,8 @@ import {
   drainSearchOutbox,
   queueSearchSync,
   queueSearchRemove,
-  enqueueSearchOutbox
+  enqueueSearchOutbox,
+  enqueueSearchOutboxBatch
 } from '~/server/search/sync'
 
 // setImmediate 在微任务队列排空后才触发，足以让 queue* 的 fire-and-forget 链
@@ -228,5 +229,32 @@ describe('enqueueSearchOutbox 事务性入队（C-full）', () => {
     })
     // 未落到顶层 prisma：证明入队参与调用方事务、与补丁变更原子提交
     expect(outboxUpsertMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('enqueueSearchOutboxBatch 批量事务性入队', () => {
+  it('对传入的 client 以单条 SQL 批量 upsert，冲突累加 seq', async () => {
+    const txExecuteRaw = vi.fn().mockResolvedValue(2)
+    const tx = { $executeRaw: txExecuteRaw } as never
+
+    await enqueueSearchOutboxBatch(tx, [7, 3, 7])
+
+    expect(txExecuteRaw).toHaveBeenCalledTimes(1)
+    const [strings, ids] = txExecuteRaw.mock.calls[0]
+    const sql = (strings as readonly string[]).join('?')
+    expect(sql).toContain('INSERT INTO search_outbox')
+    expect(sql).toContain('ON CONFLICT (patch_id)')
+    expect(sql).toContain('seq = search_outbox.seq + 1')
+    // 去重（重复 id 同语句二次命中同行报 21000）且升序（统一锁序防死锁）
+    expect(ids).toEqual([3, 7])
+  })
+
+  it('空数组直接返回、不触库', async () => {
+    const txExecuteRaw = vi.fn()
+    const tx = { $executeRaw: txExecuteRaw } as never
+
+    await enqueueSearchOutboxBatch(tx, [])
+
+    expect(txExecuteRaw).not.toHaveBeenCalled()
   })
 })

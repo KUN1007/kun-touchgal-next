@@ -16,6 +16,10 @@ import {
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { getCompanyById } from './service'
 import { invalidateCompanyListCache } from './cache'
+import {
+  enqueueSearchOutboxBatch,
+  kickSearchOutboxDrain
+} from '~/server/search/sync'
 export const GET = async (req: NextRequest) => {
   const input = kunParseGetQuery(req, getCompanyByIdSchema)
   if (typeof input === 'string') {
@@ -46,28 +50,52 @@ const rewriteCompany = async (input: z.infer<typeof updateCompanySchema>) => {
     return '这个会社已经存在了'
   }
 
+  // 索引文档内嵌会社名，改名须重建全部关联 patch 的文档；仅改简介/别名不入文档
+  //（别名解析在查询期实时读库），无需入队
+  const currentCompany = await prisma.patch_company.findUnique({
+    where: { id: companyId },
+    select: { name: true }
+  })
+  const shouldSyncSearch = !!currentCompany && currentCompany.name !== name
+
   try {
-    const newCompany = await prisma.patch_company.update({
-      where: { id: companyId },
-      data: {
-        name,
-        introduction,
-        alias,
-        primary_language,
-        official_website,
-        parent_brand
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true
+    // 事务性入队：会社变更与写出箱入队原子提交，关闭崩溃丢失窗口
+    const { newCompany, patchIds } = await prisma.$transaction(async (tx) => {
+      const newCompany = await tx.patch_company.update({
+        where: { id: companyId },
+        data: {
+          name,
+          introduction,
+          alias,
+          primary_language,
+          official_website,
+          parent_brand
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true
+            }
           }
         }
-      }
+      })
+      const patchIds = shouldSyncSearch
+        ? (
+            await tx.patch_company_relation.findMany({
+              where: { company_id: companyId },
+              select: { patch_id: true }
+            })
+          ).map((relation) => relation.patch_id)
+        : []
+      await enqueueSearchOutboxBatch(tx, patchIds)
+      return { newCompany, patchIds }
     })
     await invalidateCompanyListCache()
+    if (patchIds.length > 0) {
+      kickSearchOutboxDrain()
+    }
 
     return newCompany
   } catch (error) {
@@ -187,12 +215,27 @@ export const DELETE = async (req: NextRequest) => {
     return NextResponse.json('本页面仅管理员可访问')
   }
 
+  // 索引文档内嵌会社名与 companyIds，FK Cascade 会随删除清掉关系行，因此关联
+  // patch 必须在删除前读取；删除与入队原子提交，消费者按 DB 最新状态重建文档
+  let patchIds: number[]
   try {
-    await prisma.patch_company.delete({ where: { id: input.companyId } })
+    patchIds = await prisma.$transaction(async (tx) => {
+      const relations = await tx.patch_company_relation.findMany({
+        where: { company_id: input.companyId },
+        select: { patch_id: true }
+      })
+      await tx.patch_company.delete({ where: { id: input.companyId } })
+      const ids = relations.map((relation) => relation.patch_id)
+      await enqueueSearchOutboxBatch(tx, ids)
+      return ids
+    })
   } catch {
     return NextResponse.json('未找到对应的会社')
   }
   await invalidateCompanyListCache()
+  if (patchIds.length > 0) {
+    kickSearchOutboxDrain()
+  }
 
   return NextResponse.json({})
 }

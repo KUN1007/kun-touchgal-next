@@ -18,22 +18,45 @@ export const createMentionMessage = async (
   text: string,
   resourceId: number | null = null
 ) => {
-  const mentionedUserIds = extractMentionUserIds(text)
-  if (mentionedUserIds.length) {
-    const mentionMessageData: CreateMessageType[] = mentionedUserIds.map(
-      (mentionUid) => {
-        return {
-          type: 'mention',
-          content: `${senderUsername} 在「${patchName}」的评论区提到了您\n${markdownToText(text).slice(0, 50)}`,
-          sender_id: senderUid,
-          recipient_id: mentionUid,
-          link: buildCommentLink(uniqueId, commentId, resourceId)
-        }
+  // 批内去重, 并与其他评论通知一致不通知自己
+  const mentionedUserIds = [...new Set(extractMentionUserIds(text))].filter(
+    (mentionUid) => mentionUid !== senderUid
+  )
+  if (!mentionedUserIds.length) {
+    return
+  }
+
+  const link = buildCommentLink(uniqueId, commentId, resourceId)
+  // 以 (type, sender, recipient, link) 为去重键, 不含 content (同 createLinkDedupMessage):
+  // 评论编辑被拦截后重审通过时 apply.ts 会整批补发, content 含正文截断会变
+  const notifiedMessages = await prisma.user_message.findMany({
+    where: {
+      type: 'mention',
+      sender_id: senderUid,
+      recipient_id: { in: mentionedUserIds },
+      link
+    },
+    select: { recipient_id: true }
+  })
+  const notifiedUserIds = new Set(
+    notifiedMessages.map((message) => message.recipient_id)
+  )
+
+  const content = `${senderUsername} 在「${patchName}」的评论区提到了您\n${markdownToText(text).slice(0, 50)}`
+  const mentionMessageData: CreateMessageType[] = mentionedUserIds
+    .filter((mentionUid) => !notifiedUserIds.has(mentionUid))
+    .map((mentionUid) => {
+      return {
+        type: 'mention',
+        content,
+        sender_id: senderUid,
+        recipient_id: mentionUid,
+        link
       }
-    )
+    })
+  if (mentionMessageData.length) {
     await prisma.user_message.createMany({
-      data: mentionMessageData,
-      skipDuplicates: true
+      data: mentionMessageData
     })
   }
 }

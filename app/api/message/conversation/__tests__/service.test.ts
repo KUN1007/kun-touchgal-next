@@ -7,6 +7,8 @@ const {
   userUpdateMock,
   userUpdateManyMock,
   conversationFindUniqueMock,
+  conversationFindManyMock,
+  conversationCountMock,
   conversationCreateMock,
   invalidateUserSessionMock
 } = vi.hoisted(() => ({
@@ -15,6 +17,8 @@ const {
   userUpdateMock: vi.fn(),
   userUpdateManyMock: vi.fn(),
   conversationFindUniqueMock: vi.fn(),
+  conversationFindManyMock: vi.fn(),
+  conversationCountMock: vi.fn(),
   conversationCreateMock: vi.fn(),
   invalidateUserSessionMock: vi.fn()
 }))
@@ -28,6 +32,8 @@ vi.mock('~/prisma/index', () => ({
     },
     user_conversation: {
       findUnique: conversationFindUniqueMock,
+      findMany: conversationFindManyMock,
+      count: conversationCountMock,
       create: conversationCreateMock
     },
     // 回调正常返回即提交, 只有抛出才回滚. committed 必须记录, 否则测不出
@@ -47,7 +53,10 @@ vi.mock('~/app/api/user/session/cache', () => ({
   invalidateUserSession: invalidateUserSessionMock
 }))
 
-import { getOrCreateConversation } from '~/app/api/message/conversation/service'
+import {
+  getConversations,
+  getOrCreateConversation
+} from '~/app/api/message/conversation/service'
 
 const UID = 1
 const TARGET_UID = 2
@@ -173,5 +182,46 @@ describe('getOrCreateConversation', () => {
     await expect(
       getOrCreateConversation({ targetUserId: TARGET_UID }, UID, NORMAL_ROLE)
     ).rejects.toThrow('boom')
+  })
+})
+
+describe('getConversations', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  it('lastMessage 预览在查询谓词里过滤已删除消息', async () => {
+    conversationFindManyMock.mockResolvedValue([
+      {
+        id: 1,
+        user_a_id: UID,
+        user_b_id: TARGET_UID,
+        user_a: { id: UID, name: 'a', avatar: '' },
+        user_b: { id: TARGET_UID, name: 'b', avatar: '' },
+        messages: [{ content: 'visible' }],
+        last_message_time: new Date(),
+        user_a_unread_count: 0,
+        user_b_unread_count: 3
+      }
+    ])
+    conversationCountMock.mockResolvedValue(1)
+
+    const result = await getConversations({ page: 1, limit: 10 }, UID)
+
+    expect(result).toMatchObject({
+      total: 1,
+      conversations: [{ id: 1, lastMessage: 'visible' }]
+    })
+    // 遮蔽必须落在 include 的 where 里: 被删消息恰是最后一条时, 其原文
+    // 不能进对方的会话列表预览, 预览应回退到最近一条未删消息
+    expect(conversationFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          messages: expect.objectContaining({
+            where: { is_deleted: false }
+          })
+        })
+      })
+    )
   })
 })

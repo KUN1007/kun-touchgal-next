@@ -64,7 +64,7 @@ export const getConversationMessages = async (
 
   const messages: PrivateMessage[] = data.map((msg) => ({
     id: msg.id,
-    content: msg.content,
+    content: msg.is_deleted ? '' : msg.content,
     status: msg.status,
     isDeleted: msg.is_deleted,
     editedAt: msg.edited_at,

@@ -5,13 +5,17 @@ const {
   invalidateUnreadMock,
   conversationFindUniqueMock,
   conversationUpdateMock,
-  privateMessageCreateMock
+  privateMessageCreateMock,
+  privateMessageFindManyMock,
+  privateMessageCountMock
 } = vi.hoisted(() => ({
   txState: { committed: false },
   invalidateUnreadMock: vi.fn(),
   conversationFindUniqueMock: vi.fn(),
   conversationUpdateMock: vi.fn(),
-  privateMessageCreateMock: vi.fn()
+  privateMessageCreateMock: vi.fn(),
+  privateMessageFindManyMock: vi.fn(),
+  privateMessageCountMock: vi.fn()
 }))
 
 // 写入 mock 只挂在 tx 客户端上: create 或递增退回顶层 prisma 直调 (非事务) 时
@@ -20,6 +24,10 @@ vi.mock('~/prisma/index', () => ({
   prisma: {
     user_conversation: {
       findUnique: conversationFindUniqueMock
+    },
+    user_private_message: {
+      findMany: privateMessageFindManyMock,
+      count: privateMessageCountMock
     },
     $transaction: async (callback: (tx: unknown) => unknown) => {
       const result = await callback({
@@ -36,7 +44,10 @@ vi.mock('~/app/api/message/unread/cache', () => ({
   invalidateUnread: invalidateUnreadMock
 }))
 
-import { sendMessage } from '~/app/api/message/conversation/[id]/service'
+import {
+  getConversationMessages,
+  sendMessage
+} from '~/app/api/message/conversation/[id]/service'
 
 describe('sendMessage', () => {
   beforeEach(() => {
@@ -177,5 +188,55 @@ describe('sendMessage', () => {
     expect(conversationUpdateMock).not.toHaveBeenCalled()
     expect(txState.committed).toBe(false)
     expect(invalidateUnreadMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('getConversationMessages', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    conversationFindUniqueMock.mockResolvedValue({
+      id: 1,
+      user_a_id: 100,
+      user_b_id: 200,
+      user_a: { id: 100, name: 'sender', avatar: '' },
+      user_b: { id: 200, name: 'recipient', avatar: '' }
+    })
+  })
+
+  it('已删除消息的原文不下发, content 在 API 边界置空', async () => {
+    const created = new Date()
+    privateMessageFindManyMock.mockResolvedValue([
+      {
+        id: 2,
+        content: 'secret',
+        status: 0,
+        is_deleted: true,
+        edited_at: null,
+        created,
+        sender: { id: 100, name: 'sender', avatar: '' }
+      },
+      {
+        id: 1,
+        content: 'hello',
+        status: 0,
+        is_deleted: false,
+        edited_at: null,
+        created,
+        sender: { id: 200, name: 'recipient', avatar: '' }
+      }
+    ])
+    privateMessageCountMock.mockResolvedValue(2)
+
+    const result = await getConversationMessages(1, { page: 1, limit: 30 }, 100)
+
+    // 客户端只按 isDeleted 换占位渲染, 遮蔽必须发生在服务端: 原文一旦进响应体,
+    // 对端从 DevTools 就能读到被撤回的内容
+    expect(result).toMatchObject({
+      total: 2,
+      messages: [
+        { id: 2, content: '', isDeleted: true },
+        { id: 1, content: 'hello', isDeleted: false }
+      ]
+    })
   })
 })

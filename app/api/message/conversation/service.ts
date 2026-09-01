@@ -28,6 +28,7 @@ export const getConversations = async (
           select: { id: true, name: true, avatar: true }
         },
         messages: {
+          where: { is_deleted: false },
           orderBy: [{ created: 'desc' }, { id: 'desc' }],
           take: 1,
           select: { content: true }

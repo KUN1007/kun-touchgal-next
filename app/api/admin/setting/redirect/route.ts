@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { kunParsePutBody } from '~/app/api/utils/parseQuery'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { adminUpdateRedirectSchema } from '~/validations/admin'
+import { ADMIN_REDIRECT_CONFIG_CACHE_DURATION } from '~/config/cache'
 import { setKv } from '~/lib/redis'
-import { getRedirectConfig } from './getRedirectConfig'
+import { prisma } from '~/prisma/index'
+import {
+  ADMIN_REDIRECT_REDIS_KEY,
+  ADMIN_REDIRECT_SETTING_KEY,
+  getRedirectConfig
+} from './getRedirectConfig'
 import { invalidateAllUserSessions } from '~/app/api/user/session/cache'
-import type { AdminRedirectConfig } from '~/types/api/admin'
-
-const REDIS_KEY = 'admin:config:redirect'
 
 export const GET = async (req: NextRequest) => {
   const payload = await verifyHeaderCookie(req)
@@ -36,10 +39,16 @@ export const PUT = async (req: NextRequest) => {
     return NextResponse.json('本页面仅超级管理员可访问')
   }
 
+  // 事实源写穿 admin_setting 表, Redis 仅作缓存 (volatile-lfu 下带 TTL 的键会被驱逐)
+  await prisma.admin_setting.upsert({
+    where: { key: ADMIN_REDIRECT_SETTING_KEY },
+    create: { key: ADMIN_REDIRECT_SETTING_KEY, value: input },
+    update: { value: input }
+  })
   await setKv(
-    REDIS_KEY,
-    JSON.stringify(input as AdminRedirectConfig),
-    365 * 24 * 60 * 60
+    ADMIN_REDIRECT_REDIS_KEY,
+    JSON.stringify(input),
+    ADMIN_REDIRECT_CONFIG_CACHE_DURATION
   )
   await invalidateAllUserSessions()
   return NextResponse.json({})

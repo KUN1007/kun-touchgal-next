@@ -1,3 +1,11 @@
+model admin_setting {
+  key   String @id
+  value Json
+
+  created DateTime @default(now())
+  updated DateTime @updatedAt
+}
+
 model admin_log {
   id      Int    @id @default(autoincrement())
   type    String

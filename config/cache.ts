@@ -11,6 +11,8 @@ export const PATCH_RESOURCE_DETAIL_CACHE_DURATION = 60
 // TTL 大小关系
 export const PATCH_RESOURCE_DETAIL_VERSION_DURATION = 24 * 60 * 60
 export const USER_PENDING_RESOURCE_CACHE_DURATION = 60
+// 跳转配置缓存 (写侧与两级读回填共用): 事实源在 admin_setting 表, 驱逐后回源 DB
+export const ADMIN_REDIRECT_CONFIG_CACHE_DURATION = 24 * 60 * 60
 export const TAG_LIST_CACHE_DURATION = 300
 export const COMPANY_LIST_CACHE_DURATION = 300
 // 关键词搜索的精确 totalHits：与页码无关，翻页/热词重复查询共享，短 TTL 兜住索引更新

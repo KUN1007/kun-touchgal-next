@@ -314,7 +314,10 @@ export const adminUpdateRedirectSchema = z.object({
   excludedDomains: z.array(
     z.string().max(500, { message: '单个域名不能超过 500 个字符' })
   ),
-  delaySeconds: z.coerce.number()
+  delaySeconds: z.coerce
+    .number()
+    .min(0, { message: '跳转延时不能为负数' })
+    .max(60, { message: '跳转延时不能超过 60 秒' })
 })
 
 export const adminUpdateDisableRegisterSchema = z.object({

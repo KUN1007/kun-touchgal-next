@@ -25,6 +25,7 @@ import {
   kunFetchPost,
   kunFetchPut
 } from '~/utils/kunFetch'
+import { errorReporter } from '~/utils/kunErrorHandler'
 import { kunShouldBackfillDeletedRow } from '~/utils/pagination'
 import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { KunPagination } from '~/components/kun/Pagination'
@@ -360,6 +361,8 @@ export const Moderation = ({ initialTasks, initialTotal }: Props) => {
       }
       await fetchData()
       await fetchStats()
+    } catch (error) {
+      errorReporter(error)
     } finally {
       setBatching(false)
     }

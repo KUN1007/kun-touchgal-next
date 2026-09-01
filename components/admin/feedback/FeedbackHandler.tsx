@@ -20,6 +20,7 @@ import { Textarea } from '@heroui/input'
 import { MoreVertical } from 'lucide-react'
 import { useUserStore } from '~/store/userStore'
 import { kunFetchPost } from '~/utils/kunFetch'
+import { errorReporter } from '~/utils/kunErrorHandler'
 import type { AdminFeedback } from '~/types/api/admin'
 import toast from 'react-hot-toast'
 
@@ -40,22 +41,27 @@ export const FeedbackHandler = ({ initialFeedback, onHandled }: Props) => {
   const [updating, setUpdating] = useState(false)
   const handleUpdateFeedback = async () => {
     setUpdating(true)
-    const res = await kunFetchPost<KunResponse<AdminFeedback>>(
-      '/admin/feedback/handle',
-      {
-        messageId: initialFeedback.id,
-        content: handleContent.trim()
+    try {
+      const res = await kunFetchPost<KunResponse<AdminFeedback>>(
+        '/admin/feedback/handle',
+        {
+          messageId: initialFeedback.id,
+          content: handleContent.trim()
+        }
+      )
+      if (typeof res === 'string') {
+        toast.error(res)
+      } else {
+        onCloseHandle()
+        setHandleContent('')
+        toast.success('处理反馈成功!')
+        onHandled?.(initialFeedback.id)
       }
-    )
-    if (typeof res === 'string') {
-      toast.error(res)
-    } else {
-      onCloseHandle()
-      setHandleContent('')
-      toast.success('处理反馈成功!')
-      onHandled?.(initialFeedback.id)
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setUpdating(false)
     }
-    setUpdating(false)
   }
 
   return (

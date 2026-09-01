@@ -18,6 +18,7 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { kunFetchGet, kunFetchPost } from '~/utils/kunFetch'
+import { errorReporter } from '~/utils/kunErrorHandler'
 import { KunCardSkeleton } from '~/components/kun/CardSkeleton'
 import { useMounted } from '~/hooks/useMounted'
 import { ReportCard } from './ReportCard'
@@ -248,6 +249,8 @@ export const Report = ({ initialReports, total, title, targetType }: Props) => {
         toast.success(`已${verb} ${res.success} 条举报${skippedNote}`)
       }
       await fetchData()
+    } catch (error) {
+      errorReporter(error)
     } finally {
       setBatching(false)
     }

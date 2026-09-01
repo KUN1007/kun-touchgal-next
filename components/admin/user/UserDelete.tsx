@@ -13,7 +13,7 @@ import {
 } from '@heroui/react'
 import { Trash2 } from 'lucide-react'
 import { kunFetchDelete } from '~/utils/kunFetch'
-import { kunErrorHandler } from '~/utils/kunErrorHandler'
+import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import { useUserStore } from '~/store/userStore'
 import type { AdminUser } from '~/types/api/admin'
 
@@ -29,15 +29,20 @@ export const UserDelete = ({ user, onDeleted }: Props) => {
   const [deleting, setDeleting] = useState(false)
   const handleUpdateUserInfo = async () => {
     setDeleting(true)
-    const res = await kunFetchDelete<KunResponse<{}>>('/admin/user', {
-      uid: user.id
-    })
-    kunErrorHandler(res, () => {
-      toast.success('永久删除用户成功')
-      onDeleted?.(user.id)
-    })
-    setDeleting(false)
-    onClose()
+    try {
+      const res = await kunFetchDelete<KunResponse<{}>>('/admin/user', {
+        uid: user.id
+      })
+      kunErrorHandler(res, () => {
+        toast.success('永久删除用户成功')
+        onDeleted?.(user.id)
+      })
+      onClose()
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (

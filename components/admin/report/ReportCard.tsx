@@ -24,6 +24,7 @@ import {
   KUN_GALGAME_RATING_RECOMMEND_MAP
 } from '~/constants/galgame'
 import { kunFetchPost } from '~/utils/kunFetch'
+import { errorReporter } from '~/utils/kunErrorHandler'
 import toast from 'react-hot-toast'
 import type { AdminReport } from '~/types/api/admin'
 
@@ -70,21 +71,28 @@ export const ReportCard = ({
 
   const handleUpdateReport = async () => {
     setUpdating(true)
-    const res = await kunFetchPost<KunResponse<{}>>('/admin/report/handle', {
-      reportId: report.id,
-      action: actionType,
-      content: handleContent.trim()
-    })
-    if (typeof res === 'string') {
-      toast.error(res)
-    } else {
-      setReportStatus(actionType === 'reject' ? 3 : 2)
-      onClose()
-      setHandleContent('')
-      toast.success(actionType === 'reject' ? '驳回举报成功!' : '处理举报成功!')
-      onHandled(report)
+    try {
+      const res = await kunFetchPost<KunResponse<{}>>('/admin/report/handle', {
+        reportId: report.id,
+        action: actionType,
+        content: handleContent.trim()
+      })
+      if (typeof res === 'string') {
+        toast.error(res)
+      } else {
+        setReportStatus(actionType === 'reject' ? 3 : 2)
+        onClose()
+        setHandleContent('')
+        toast.success(
+          actionType === 'reject' ? '驳回举报成功!' : '处理举报成功!'
+        )
+        onHandled(report)
+      }
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setUpdating(false)
     }
-    setUpdating(false)
   }
 
   const statusColor: 'success' | 'danger' | 'warning' =

@@ -23,6 +23,7 @@ import { Mail } from 'lucide-react'
 import { emailTemplates } from '~/constants/email/group-templates'
 import { EmailPreview } from './EmailPreview'
 import { kunFetchPost } from '~/utils/kunFetch'
+import { errorReporter } from '~/utils/kunErrorHandler'
 import toast from 'react-hot-toast'
 
 export const EmailTemplate = () => {
@@ -56,23 +57,30 @@ export const EmailTemplate = () => {
     }
 
     setIsSending(true)
-    const response = await kunFetchPost<
-      KunResponse<{ count: number; failed: number }>
-    >('/admin/mail', { templateId: selectedTemplate, variables: templateVars })
-    if (typeof response === 'string') {
-      toast.error(response)
-    } else if (response.failed > 0) {
-      toast.error(
-        `向网站的 ${response.count} 位用户发送邮件, 其中 ${response.failed} 封发送失败`
-      )
-    } else {
-      toast.success(`已经向网站的 ${response.count} 位用户发送了邮件`)
+    try {
+      const response = await kunFetchPost<
+        KunResponse<{ count: number; failed: number }>
+      >('/admin/mail', {
+        templateId: selectedTemplate,
+        variables: templateVars
+      })
+      if (typeof response === 'string') {
+        toast.error(response)
+      } else if (response.failed > 0) {
+        toast.error(
+          `向网站的 ${response.count} 位用户发送邮件, 其中 ${response.failed} 封发送失败`
+        )
+      } else {
+        toast.success(`已经向网站的 ${response.count} 位用户发送了邮件`)
+      }
+      setSelectedTemplate('')
+      setTemplateVars({})
+      onClose()
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setIsSending(false)
     }
-    setIsSending(false)
-
-    setSelectedTemplate('')
-    setTemplateVars({})
-    onClose()
   }
 
   return (

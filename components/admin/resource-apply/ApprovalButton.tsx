@@ -15,7 +15,7 @@ import {
 import toast from 'react-hot-toast'
 import { EditResourceDialog } from '~/components/patch/resource/edit/EditResourceDialog'
 import { kunFetchPut } from '~/utils/kunFetch'
-import { kunErrorHandler } from '~/utils/kunErrorHandler'
+import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import type { AdminResource } from '~/types/api/admin'
 import type { PatchResource } from '~/types/api/patch'
 
@@ -44,19 +44,23 @@ export const ResourceApprovalButton = ({
 
   const handleApprove = async () => {
     setApproving(true)
-
-    const res = await kunFetchPut<KunResponse<{}>>(
-      '/admin/resource-apply/approve',
-      {
-        resourceId: resource.id
-      }
-    )
-    kunErrorHandler(res, () => {
-      toast.success('已通过该资源的发布申请')
-      onCloseApprove()
-      onResourceResolved?.(resource.id)
-    })
-    setApproving(false)
+    try {
+      const res = await kunFetchPut<KunResponse<{}>>(
+        '/admin/resource-apply/approve',
+        {
+          resourceId: resource.id
+        }
+      )
+      kunErrorHandler(res, () => {
+        toast.success('已通过该资源的发布申请')
+        onCloseApprove()
+        onResourceResolved?.(resource.id)
+      })
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setApproving(false)
+    }
   }
 
   const [reason, setReason] = useState('')
@@ -69,20 +73,24 @@ export const ResourceApprovalButton = ({
 
   const handleDecline = async () => {
     setDeclining(true)
-
-    const res = await kunFetchPut<KunResponse<{}>>(
-      '/admin/resource-apply/decline',
-      {
-        resourceId: resource.id,
-        reason
-      }
-    )
-    kunErrorHandler(res, () => {
-      toast.success('已拒绝该资源的发布申请')
-      onCloseDecline()
-      onResourceResolved?.(resource.id)
-    })
-    setDeclining(false)
+    try {
+      const res = await kunFetchPut<KunResponse<{}>>(
+        '/admin/resource-apply/decline',
+        {
+          resourceId: resource.id,
+          reason
+        }
+      )
+      kunErrorHandler(res, () => {
+        toast.success('已拒绝该资源的发布申请')
+        onCloseDecline()
+        onResourceResolved?.(resource.id)
+      })
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setDeclining(false)
+    }
   }
 
   return (

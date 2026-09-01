@@ -32,7 +32,7 @@ import {
   kunFetchPost,
   kunFetchPut
 } from '~/utils/kunFetch'
-import { kunErrorHandler } from '~/utils/kunErrorHandler'
+import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import type {
   AdminOidcClient,
   AdminOidcClientWithSecret
@@ -130,38 +130,43 @@ export const OidcClientContainer = ({ initialClients }: Props) => {
       token_endpoint_auth_method: form.authMethod,
       is_first_party: form.isFirstParty
     }
-    if (editingId === null) {
-      const res = await kunFetchPost<KunResponse<AdminOidcClientWithSecret>>(
-        '/admin/oidc',
-        body
-      )
-      kunErrorHandler(res, (value) => {
-        toast.success('创建成功')
-        formModal.onClose()
-        setClients((prev) => [
-          value,
-          ...prev.filter((item) => item.id !== value.id)
-        ])
-        showCredential({
-          client_id: value.client_id,
-          client_secret: value.client_secret
+    try {
+      if (editingId === null) {
+        const res = await kunFetchPost<KunResponse<AdminOidcClientWithSecret>>(
+          '/admin/oidc',
+          body
+        )
+        kunErrorHandler(res, (value) => {
+          toast.success('创建成功')
+          formModal.onClose()
+          setClients((prev) => [
+            value,
+            ...prev.filter((item) => item.id !== value.id)
+          ])
+          showCredential({
+            client_id: value.client_id,
+            client_secret: value.client_secret
+          })
         })
-      })
-    } else {
-      const res = await kunFetchPut<KunResponse<AdminOidcClient>>(
-        '/admin/oidc',
-        { ...body, id: editingId, disabled: form.disabled }
-      )
-      kunErrorHandler(res, (value) => {
-        toast.success('保存成功')
-        formModal.onClose()
-        setClients((prev) => [
-          value,
-          ...prev.filter((item) => item.id !== value.id)
-        ])
-      })
+      } else {
+        const res = await kunFetchPut<KunResponse<AdminOidcClient>>(
+          '/admin/oidc',
+          { ...body, id: editingId, disabled: form.disabled }
+        )
+        kunErrorHandler(res, (value) => {
+          toast.success('保存成功')
+          formModal.onClose()
+          setClients((prev) => [
+            value,
+            ...prev.filter((item) => item.id !== value.id)
+          ])
+        })
+      }
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   const openDelete = (client: AdminOidcClient) => {
@@ -174,15 +179,20 @@ export const OidcClientContainer = ({ initialClients }: Props) => {
       return
     }
     setDeleting(true)
-    const res = await kunFetchDelete<KunResponse<{}>>('/admin/oidc', {
-      id: deleteTarget.id
-    })
-    kunErrorHandler(res, () => {
-      toast.success('已删除')
-      setClients((prev) => prev.filter((item) => item.id !== deleteTarget.id))
-      deleteModal.onClose()
-    })
-    setDeleting(false)
+    try {
+      const res = await kunFetchDelete<KunResponse<{}>>('/admin/oidc', {
+        id: deleteTarget.id
+      })
+      kunErrorHandler(res, () => {
+        toast.success('已删除')
+        setClients((prev) => prev.filter((item) => item.id !== deleteTarget.id))
+        deleteModal.onClose()
+      })
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (

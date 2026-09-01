@@ -4,6 +4,7 @@ import { Button, Card, CardBody, Chip, Input, Switch } from '@heroui/react'
 import { useState } from 'react'
 import { ExternalLink, Plus } from 'lucide-react'
 import { kunFetchPut } from '~/utils/kunFetch'
+import { errorReporter } from '~/utils/kunErrorHandler'
 import toast from 'react-hot-toast'
 import type { AdminRedirectConfig } from '~/types/api/admin'
 
@@ -33,18 +34,26 @@ export const RedirectSetting = ({ setting }: Props) => {
   const [isSetting, setIsSetting] = useState(false)
   const handleApplyRedirect = async () => {
     setIsSetting(true)
-    const res = await kunFetchPut<KunResponse<{}>>('/admin/setting/redirect', {
-      enableRedirect: isEnabled,
-      excludedDomains,
-      delaySeconds: delay
-    })
-    if (typeof res === 'string') {
-      toast.error(res)
-    } else {
-      setNewDomain('')
-      toast.success('应用设置成功')
+    try {
+      const res = await kunFetchPut<KunResponse<{}>>(
+        '/admin/setting/redirect',
+        {
+          enableRedirect: isEnabled,
+          excludedDomains,
+          delaySeconds: delay
+        }
+      )
+      if (typeof res === 'string') {
+        toast.error(res)
+      } else {
+        setNewDomain('')
+        toast.success('应用设置成功')
+      }
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setIsSetting(false)
     }
-    setIsSetting(false)
   }
 
   return (

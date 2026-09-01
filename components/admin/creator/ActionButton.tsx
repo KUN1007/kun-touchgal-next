@@ -13,7 +13,7 @@ import {
 } from '@heroui/react'
 import { kunFetchPut } from '~/utils/kunFetch'
 import type { AdminCreator } from '~/types/api/admin'
-import { kunErrorHandler } from '~/utils/kunErrorHandler'
+import { errorReporter, kunErrorHandler } from '~/utils/kunErrorHandler'
 import toast from 'react-hot-toast'
 
 interface Props {
@@ -30,17 +30,21 @@ export const ActionButton = ({ creator, onUpdate }: Props) => {
   } = useDisclosure()
   const handleApprove = async () => {
     setApproving(true)
-
-    const res = await kunFetchPut<KunResponse<{}>>('/admin/creator/approve', {
-      messageId: creator.id,
-      uid: creator.sender?.id
-    })
-    kunErrorHandler(res, () => {
-      toast.success('同意申请成功!')
-      onCloseApprove()
-      onUpdate(creator.id, 2)
-    })
-    setApproving(false)
+    try {
+      const res = await kunFetchPut<KunResponse<{}>>('/admin/creator/approve', {
+        messageId: creator.id,
+        uid: creator.sender?.id
+      })
+      kunErrorHandler(res, () => {
+        toast.success('同意申请成功!')
+        onCloseApprove()
+        onUpdate(creator.id, 2)
+      })
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setApproving(false)
+    }
   }
 
   const [reason, setReason] = useState('')
@@ -52,17 +56,21 @@ export const ActionButton = ({ creator, onUpdate }: Props) => {
   } = useDisclosure()
   const handleDecline = async () => {
     serDeclining(true)
-
-    const res = await kunFetchPut<KunResponse<{}>>('/admin/creator/decline', {
-      messageId: creator.id,
-      reason
-    })
-    kunErrorHandler(res, () => {
-      toast.success('拒绝申请成功!')
-      onCloseDecline()
-      onUpdate(creator.id, 3)
-    })
-    serDeclining(false)
+    try {
+      const res = await kunFetchPut<KunResponse<{}>>('/admin/creator/decline', {
+        messageId: creator.id,
+        reason
+      })
+      kunErrorHandler(res, () => {
+        toast.success('拒绝申请成功!')
+        onCloseDecline()
+        onUpdate(creator.id, 3)
+      })
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      serDeclining(false)
+    }
   }
 
   return (

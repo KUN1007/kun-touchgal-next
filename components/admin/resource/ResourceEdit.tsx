@@ -14,6 +14,7 @@ import {
 import { Edit2, Trash2 } from 'lucide-react'
 import { useUserStore } from '~/store/userStore'
 import { kunFetchDelete } from '~/utils/kunFetch'
+import { errorReporter } from '~/utils/kunErrorHandler'
 import { EditResourceDialog } from '~/components/patch/resource/edit/EditResourceDialog'
 import type { AdminResource } from '~/types/api/admin'
 import type { PatchResource } from '~/types/api/patch'
@@ -48,19 +49,22 @@ export const ResourceEdit = ({
   const [deleting, setDeleting] = useState(false)
   const handleDeleteResource = async () => {
     setDeleting(true)
-
-    const res = await kunFetchDelete<KunResponse<{}>>('/admin/resource', {
-      resourceId: initialResource.id
-    })
-    if (typeof res === 'string') {
-      toast.error(res)
-    } else {
-      toast.success('删除资源链接成功')
-      onDeleted?.(initialResource.id)
+    try {
+      const res = await kunFetchDelete<KunResponse<{}>>('/admin/resource', {
+        resourceId: initialResource.id
+      })
+      if (typeof res === 'string') {
+        toast.error(res)
+      } else {
+        toast.success('删除资源链接成功')
+        onDeleted?.(initialResource.id)
+      }
+      onCloseDelete()
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setDeleting(false)
     }
-
-    setDeleting(false)
-    onCloseDelete()
   }
 
   return (

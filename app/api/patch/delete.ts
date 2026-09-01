@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { prisma } from '~/prisma/index'
 import { enqueueResourceLinkDeletions } from './resource/_helper'
 import { invalidateResourceListCache } from '~/app/api/resource/cache'
+import { invalidatePatchContentCache } from '~/app/api/patch/cache'
 import { invalidateTagListCache } from '~/app/api/tag/cache'
 import { invalidateCompanyListCache } from '~/app/api/company/cache'
 import { deletePendingModerationTasks } from '~/server/moderation/submit'
@@ -112,8 +113,14 @@ export const deletePatchById = async (input: z.infer<typeof patchIdSchema>) => {
 
   queueSearchRemove(patchId)
 
-  // 级联删除经 DB 触发器递减 tag/company 计数, 故需失效列表缓存
-  await Promise.all([invalidateTagListCache(), invalidateCompanyListCache()])
+  // 级联删除经 DB 触发器递减 tag/company 计数, 故需失效列表缓存;
+  // content/introduction 缓存键由 URL 中的 unique_id 构成, 删除后仍可达,
+  // 不失效则幽灵详情页存活至 TTL 过期
+  await Promise.all([
+    invalidateTagListCache(),
+    invalidateCompanyListCache(),
+    invalidatePatchContentCache(patch.unique_id).catch(() => undefined)
+  ])
 
   // 不失效 patch 资源详情缓存: 该缓存按 patch_id 分键, 补丁连同详情页一并消失后其键
   // 不再可达, 而版本号是全站共享的, 递增只会白清其他补丁的缓存

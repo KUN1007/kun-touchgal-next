@@ -14,6 +14,7 @@ const {
   enqueueDeletionsMock,
   kickDrainMock,
   invalidateCacheMock,
+  invalidateContentMock,
   queueSearchRemoveMock
 } = vi.hoisted(() => ({
   findPatchMock: vi.fn(),
@@ -29,6 +30,7 @@ const {
   enqueueDeletionsMock: vi.fn(),
   kickDrainMock: vi.fn(),
   invalidateCacheMock: vi.fn(),
+  invalidateContentMock: vi.fn(),
   queueSearchRemoveMock: vi.fn()
 }))
 
@@ -58,6 +60,10 @@ vi.mock('~/server/storage/s3Outbox', () => ({
 
 vi.mock('~/app/api/resource/cache', () => ({
   invalidateResourceListCache: invalidateCacheMock
+}))
+
+vi.mock('~/app/api/patch/cache', () => ({
+  invalidatePatchContentCache: invalidateContentMock
 }))
 
 vi.mock('~/server/moderation/submit', () => ({
@@ -99,7 +105,7 @@ const resource = (id: number, status: number, section: string) => ({
 beforeEach(() => {
   vi.clearAllMocks()
   txQueryRawMock.mockResolvedValue([])
-  findPatchMock.mockResolvedValue({ id: 7 })
+  findPatchMock.mockResolvedValue({ id: 7, unique_id: 'abcd1234' })
   findResourcesMock.mockResolvedValue([
     resource(1, 0, 'patch'),
     resource(2, 1, 'game')
@@ -111,6 +117,7 @@ beforeEach(() => {
   deleteAppealsMock.mockResolvedValue(undefined)
   enqueueDeletionsMock.mockResolvedValue(undefined)
   invalidateCacheMock.mockResolvedValue(undefined)
+  invalidateContentMock.mockResolvedValue(undefined)
   transactionMock.mockImplementation(
     async (callback: (tx: typeof transactionClient) => Promise<unknown>) =>
       callback(transactionClient)
@@ -146,7 +153,16 @@ describe('deletePatchById', () => {
     expect(kickDrainMock).toHaveBeenCalledTimes(1)
 
     expect(invalidateCacheMock).toHaveBeenCalledTimes(1)
+    // content/introduction 缓存键按 unique_id 删除后仍可达, 必须提交后失效
+    expect(invalidateContentMock).toHaveBeenCalledTimes(1)
+    expect(invalidateContentMock).toHaveBeenCalledWith('abcd1234')
     expect(queueSearchRemoveMock).toHaveBeenCalledWith(7)
+  })
+
+  it('still resolves when patch content cache invalidation fails', async () => {
+    invalidateContentMock.mockRejectedValue(new Error('redis down'))
+
+    await expect(deletePatchById({ patchId: 7 })).resolves.toEqual({})
   })
 
   it('skips resource list cache invalidation when no visible patch resource exists', async () => {
@@ -165,5 +181,6 @@ describe('deletePatchById', () => {
 
     await expect(deletePatchById({ patchId: 7 })).resolves.toBe('未找到该游戏')
     expect(transactionMock).not.toHaveBeenCalled()
+    expect(invalidateContentMock).not.toHaveBeenCalled()
   })
 })

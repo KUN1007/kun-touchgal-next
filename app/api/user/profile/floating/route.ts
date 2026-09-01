@@ -18,10 +18,16 @@ const getUserFloatingProfile = async (
   const [data, followRelation] = await Promise.all([
     prisma.user.findUnique({
       where: { id: input.uid },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        avatar: true,
+        bio: true,
+        moemoepoint: true,
+        role: true,
         _count: {
           select: {
-            follower: true,
+            following: true,
             patch: true,
             patch_resource: true
           }
@@ -52,7 +58,12 @@ const getUserFloatingProfile = async (
     moemoepoint: data.moemoepoint,
     role: data.role,
     isFollow: Boolean(followRelation),
-    _count: data._count
+    // 关系命名与语义相反: user.following 是关注此用户的关系行, 即粉丝数
+    _count: {
+      follower: data._count.following,
+      patch: data._count.patch,
+      patch_resource: data._count.patch_resource
+    }
   }
 
   return user

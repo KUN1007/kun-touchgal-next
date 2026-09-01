@@ -151,6 +151,13 @@ export const delKv = async (key: string) => {
   await runRedisCommand(() => redis.del(keyString))
 }
 
+// 原子消费一次性 KV: 以 DEL 返回值判定, 并发携同一 key 只有一个调用方拿到 true
+export const takeKv = async (key: string) => {
+  const keyString = `${KUN_PATCH_REDIS_PREFIX}:${key}`
+  const deleted = await runRedisCommand(() => redis.del(keyString))
+  return deleted === 1
+}
+
 export const delKvs = async (keys: string[]) => {
   if (keys.length === 0) {
     return

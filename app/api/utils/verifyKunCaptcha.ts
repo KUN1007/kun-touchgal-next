@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto'
-import { delKv, getKv } from '~/lib/redis'
+import { takeKv } from '~/lib/redis'
 import {
   KUN_CAPTCHA_VERIFY_TOKEN_BYTES,
   kunCaptchaVerifyTokenRegex
@@ -9,15 +9,12 @@ export const generateCaptchaVerifyToken = () => {
   return randomBytes(KUN_CAPTCHA_VERIFY_TOKEN_BYTES).toString('hex')
 }
 
+// 令牌是"一次解题=一次尝试"的闸门, 必须原子消费, 否则同一令牌可并发重放
 export const checkKunCaptchaExist = async (sessionId: string) => {
   const captchaToken = sessionId.trim()
   if (!kunCaptchaVerifyTokenRegex.test(captchaToken)) {
-    return
+    return false
   }
 
-  const captcha = await getKv(`captcha:verify:${captchaToken}`)
-  if (captcha) {
-    await delKv(`captcha:verify:${captchaToken}`)
-    return captcha
-  }
+  return takeKv(`captcha:verify:${captchaToken}`)
 }

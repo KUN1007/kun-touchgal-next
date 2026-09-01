@@ -63,7 +63,7 @@ beforeEach(() => {
     email: 'tester@example.com',
     captcha: 'captcha-token'
   })
-  checkCaptchaMock.mockResolvedValue('captcha')
+  checkCaptchaMock.mockResolvedValue(true)
   findFirstMock.mockResolvedValue(null)
   findUniqueMock.mockResolvedValue(null)
   sendVerificationCodeEmailMock.mockResolvedValue(undefined)

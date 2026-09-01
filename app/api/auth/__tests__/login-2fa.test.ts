@@ -94,7 +94,7 @@ beforeEach(() => {
     password: 'password1',
     captcha: 'captcha-token'
   })
-  checkCaptchaMock.mockResolvedValue('captcha')
+  checkCaptchaMock.mockResolvedValue(true)
   verifyPasswordMock.mockResolvedValue(true)
   findFirstMock.mockResolvedValue({
     id: 7,

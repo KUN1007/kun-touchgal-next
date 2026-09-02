@@ -71,18 +71,23 @@ export const Resources = ({ id, vndbId }: Props) => {
   const [deleting, setDeleting] = useState(false)
   const handleDeleteResource = async () => {
     setDeleting(true)
-
-    await kunFetchDelete<KunResponse<{}>>('/patch/resource', {
-      resourceId: deleteResourceId
-    })
-
-    setResources((prev) =>
-      prev.filter((resource) => resource.id !== deleteResourceId)
-    )
-    setDeleteResourceId(0)
-    setDeleting(false)
-    onCloseDelete()
-    toast.success('删除资源链接成功')
+    try {
+      const res = await kunFetchDelete<KunResponse<{}>>('/patch/resource', {
+        resourceId: deleteResourceId
+      })
+      kunErrorHandler(res, () => {
+        setResources((prev) =>
+          prev.filter((resource) => resource.id !== deleteResourceId)
+        )
+        setDeleteResourceId(0)
+        onCloseDelete()
+        toast.success('删除资源链接成功')
+      })
+    } catch {
+      toast.error('删除资源链接失败, 请稍后重试')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (

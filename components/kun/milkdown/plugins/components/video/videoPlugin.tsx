@@ -3,7 +3,10 @@
 import { $command, $inputRule, $node, $remark } from '@milkdown/utils'
 import { Node } from '@milkdown/prose/model'
 import { InputRule } from '@milkdown/prose/inputrules'
-import { createRoot } from 'react-dom/client'
+import {
+  useNodeViewContext,
+  type ReactNodeViewUserOptions
+} from '@prosemirror-adapter/react'
 import dynamic from 'next/dynamic'
 import directive from 'remark-directive'
 
@@ -13,8 +16,9 @@ const KunPlyr = dynamic(() => import('./Plyr').then((mod) => mod.KunPlyr), {
   ssr: false
 })
 
+// leaf 节点: 从不带子节点。之前声明的 block+ 只会让 transformer 的 createAndFill
+// 塞进一个隐形空段落, 也会让 adapter 的 nodeView 多挂一个永不附着的 contentDOM
 export const videoNode = $node('kun-video', () => ({
-  content: 'block+',
   group: 'block',
   selectable: true,
   draggable: true,
@@ -33,18 +37,11 @@ export const videoNode = $node('kun-video', () => ({
       })
     }
   ],
-  toDOM: (node: Node) => {
-    const container = document.createElement('div')
-    container.setAttribute('data-video-player', '')
-    container.setAttribute('data-src', node.attrs.src)
-    container.setAttribute('contenteditable', 'false')
-    container.className = 'w-full my-4 overflow-hidden shadow-lg rounded-xl'
-
-    const root = createRoot(container)
-    root.render(<KunPlyr src={node.attrs.src} />)
-
-    return container
-  },
+  // 只服务剪贴板 / 拖拽的 HTML 序列化, 编辑器内的实际渲染走下方 nodeView
+  toDOM: (node: Node) => [
+    'div',
+    { 'data-video-player': '', 'data-src': node.attrs.src }
+  ],
   parseMarkdown: {
     match: (node) => node.name === 'kun-video',
     runner: (state, node, type) => {
@@ -61,6 +58,23 @@ export const videoNode = $node('kun-video', () => ({
     }
   }
 }))
+
+const KunVideoView = () => {
+  const { node } = useNodeViewContext()
+  return <KunPlyr src={node.attrs.src} />
+}
+
+// React 生命周期交给 @prosemirror-adapter: 节点销毁 / 编辑器卸载时摘掉 portal,
+// KunPlyr 的 effect cleanup 才会跑到 player.destroy()。旧写法在 toDOM 里 createRoot
+// 且从不 unmount, 每个 Plyr 实例向 document 注册的监听会把整棵 fiber 树钉住
+export const kunVideoNodeViewOptions: ReactNodeViewUserOptions = {
+  component: KunVideoView,
+  as: () => {
+    const dom = document.createElement('div')
+    dom.className = 'w-full my-4 overflow-hidden shadow-lg rounded-xl'
+    return dom
+  }
+}
 
 interface InsertKunVideoCommandPayload {
   src: string

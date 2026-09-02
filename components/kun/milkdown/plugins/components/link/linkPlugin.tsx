@@ -3,8 +3,11 @@
 import { $command, $inputRule, $node, $remark } from '@milkdown/utils'
 import { Node } from '@milkdown/prose/model'
 import { InputRule } from '@milkdown/prose/inputrules'
+import {
+  useNodeViewContext,
+  type ReactNodeViewUserOptions
+} from '@prosemirror-adapter/react'
 import directive from 'remark-directive'
-import { createRoot } from 'react-dom/client'
 import { KunLink } from './KunLink'
 
 interface InsertKunLinkCommandPayload {
@@ -14,8 +17,8 @@ interface InsertKunLinkCommandPayload {
 
 export const kunImageRemarkDirective = $remark('kun-link', () => directive)
 
+// leaf 节点, 理由同 videoPlugin.tsx 的 videoNode
 export const kunLinkNode = $node('kun-link', () => ({
-  content: 'block*',
   group: 'block',
   selectable: true,
   draggable: true,
@@ -33,18 +36,15 @@ export const kunLinkNode = $node('kun-link', () => ({
       })
     }
   ],
-  toDOM: (node: Node) => {
-    const container = document.createElement('div')
-    container.setAttribute('data-kun-link', '')
-    container.setAttribute('data-href', node.attrs.href)
-    container.setAttribute('data-text', node.attrs.text)
-    container.setAttribute('contenteditable', 'false')
-
-    const root = createRoot(container)
-    root.render(<KunLink href={node.attrs.href} text={node.attrs.text} />)
-
-    return container
-  },
+  // 只服务剪贴板 / 拖拽的 HTML 序列化, 编辑器内的实际渲染走下方 nodeView
+  toDOM: (node: Node) => [
+    'div',
+    {
+      'data-kun-link': '',
+      'data-href': node.attrs.href,
+      'data-text': node.attrs.text
+    }
+  ],
   parseMarkdown: {
     match: (node) => node.name === 'kun-link',
     runner: (state, node, type) => {
@@ -65,6 +65,16 @@ export const kunLinkNode = $node('kun-link', () => ({
     }
   }
 }))
+
+const KunLinkView = () => {
+  const { node } = useNodeViewContext()
+  return <KunLink href={node.attrs.href} text={node.attrs.text} />
+}
+
+// 生命周期交给 @prosemirror-adapter, 理由同 videoPlugin.tsx 的 kunVideoNodeViewOptions
+export const kunLinkNodeViewOptions: ReactNodeViewUserOptions = {
+  component: KunLinkView
+}
 
 export const insertKunLinkCommand = $command(
   'InsertKunLink',

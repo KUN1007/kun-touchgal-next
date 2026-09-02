@@ -14,8 +14,11 @@ import { indent } from '@milkdown/plugin-indent'
 import { trailing } from '@milkdown/plugin-trailing'
 import { upload, uploadConfig } from '@milkdown/plugin-upload'
 import { automd } from '@milkdown/plugin-automd'
-import { replaceAll } from '@milkdown/utils'
-import { usePluginViewFactory } from '@prosemirror-adapter/react'
+import { $view, replaceAll } from '@milkdown/utils'
+import {
+  useNodeViewFactory,
+  usePluginViewFactory
+} from '@prosemirror-adapter/react'
 
 import { remarkDirective } from './plugins/components/remarkDirective'
 import { KunMilkdownPluginsMenu } from './plugins/Menu'
@@ -25,6 +28,7 @@ import {
 } from './plugins/components/uploader'
 import {
   insertKunVideoCommand,
+  kunVideoNodeViewOptions,
   kunVideoRemarkDirective,
   videoInputRule,
   videoNode
@@ -33,7 +37,8 @@ import {
   insertKunLinkCommand,
   kunImageRemarkDirective,
   kunLinkInputRule,
-  kunLinkNode
+  kunLinkNode,
+  kunLinkNodeViewOptions
 } from './plugins/components/link/linkPlugin'
 import {
   MentionsListDropdown,
@@ -90,6 +95,7 @@ export const EditorProvider = ({
   )
 
   const pluginViewFactory = usePluginViewFactory()
+  const nodeViewFactory = useNodeViewFactory()
 
   const editor = useEditor((root) =>
     Editor.make()
@@ -155,6 +161,7 @@ export const EditorProvider = ({
         [
           kunVideoRemarkDirective,
           videoNode,
+          $view(videoNode, () => nodeViewFactory(kunVideoNodeViewOptions)),
           insertKunVideoCommand,
           videoInputRule
         ].flat()
@@ -164,7 +171,8 @@ export const EditorProvider = ({
           kunImageRemarkDirective,
           insertKunLinkCommand,
           kunLinkInputRule,
-          kunLinkNode
+          kunLinkNode,
+          $view(kunLinkNode, () => nodeViewFactory(kunLinkNodeViewOptions))
         ].flat()
       )
       .use(

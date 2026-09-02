@@ -31,25 +31,29 @@ export const ConversationList = ({ initialConversations, total }: Props) => {
   }
 
   const fetchConversations = async () => {
-    setLoading(true)
+    try {
+      setLoading(true)
 
-    const response = await kunFetchGet<
-      KunResponse<{
-        conversations: Conversation[]
-        total: number
-      }>
-    >('/message/conversation', {
-      page,
-      limit: 30
-    })
-    if (typeof response === 'string') {
-      toast.error(response)
-    } else {
-      setConversations(response.conversations)
-      syncConversationUnreadStatus(response.conversations)
+      const response = await kunFetchGet<
+        KunResponse<{
+          conversations: Conversation[]
+          total: number
+        }>
+      >('/message/conversation', {
+        page,
+        limit: 30
+      })
+      if (typeof response === 'string') {
+        toast.error(response)
+      } else {
+        setConversations(response.conversations)
+        syncConversationUnreadStatus(response.conversations)
+      }
+    } catch {
+      toast.error('获取会话列表失败, 请稍后重试')
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   useEffect(() => {

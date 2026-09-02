@@ -68,42 +68,49 @@ export const ChatContainer = ({
     setLoading(true)
     const nextPage = page + 1
 
-    const response = await kunFetchGet<
-      KunResponse<{
-        messages: PrivateMessage[]
-        total: number
-        otherUser: KunUser
-      }>
-    >(`/message/conversation/${conversationId}`, {
-      page: nextPage,
-      limit: 30
-    })
-
-    if (typeof response === 'string') {
-      toast.error(response)
-    } else {
-      const scrollContainer = scrollContainerRef.current
-      const previousScrollHeight = scrollContainer?.scrollHeight || 0
-
-      setMessages((prev) =>
-        sortMessagesByTime([
-          ...dropLoadedMessages(prev, response.messages),
-          ...prev
-        ])
-      )
-      setPage(nextPage)
-      setTotalCount(response.total)
-      setHasMore((page + 1) * 30 < response.total)
-
-      requestAnimationFrame(() => {
-        if (scrollContainer) {
-          const newScrollHeight = scrollContainer.scrollHeight
-          scrollContainer.scrollTop = newScrollHeight - previousScrollHeight
-        }
+    try {
+      const response = await kunFetchGet<
+        KunResponse<{
+          messages: PrivateMessage[]
+          total: number
+          otherUser: KunUser
+        }>
+      >(`/message/conversation/${conversationId}`, {
+        page: nextPage,
+        limit: 30
       })
-    }
 
-    setLoading(false)
+      if (typeof response === 'string') {
+        toast.error(response)
+      } else {
+        const scrollContainer = scrollContainerRef.current
+        const previousScrollHeight = scrollContainer?.scrollHeight || 0
+
+        setMessages((prev) =>
+          sortMessagesByTime([
+            ...dropLoadedMessages(prev, response.messages),
+            ...prev
+          ])
+        )
+        setPage(nextPage)
+        setTotalCount(response.total)
+        setHasMore((page + 1) * 30 < response.total)
+
+        requestAnimationFrame(() => {
+          if (scrollContainer) {
+            const newScrollHeight = scrollContainer.scrollHeight
+            scrollContainer.scrollTop = newScrollHeight - previousScrollHeight
+          }
+        })
+      }
+    } catch {
+      // 哨兵可见时 loading 一复位, observer 就会重建并立刻再触发加载,
+      // 持续失败会变成紧循环, 故失败后停止自动加载, 由用户刷新恢复
+      toast.error('获取历史消息失败, 请刷新页面重试')
+      setHasMore(false)
+    } finally {
+      setLoading(false)
+    }
   }, [loading, hasMore, page, conversationId])
 
   const handleMessageSent = useCallback(

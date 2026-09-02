@@ -6,6 +6,7 @@ import { TagHeader } from './TagHeader'
 import { SearchTags } from './SearchTag'
 import { TagList } from './TagList'
 import { kunFetchGet, kunFetchPost } from '~/utils/kunFetch'
+import { errorReporter } from '~/utils/kunErrorHandler'
 import { useMounted } from '~/hooks/useMounted'
 import { KunPagination } from '~/components/kun/Pagination'
 import { KunNull } from '~/components/kun/Null'
@@ -30,20 +31,25 @@ export const Container = ({ initialTags, initialTotal, uid }: Props) => {
     }
 
     setLoading(true)
-    const response = await kunFetchGet<
-      KunResponse<{
-        tags: TagType[]
-        total: number
-      }>
-    >('/tag/all', {
-      page,
-      limit: 100
-    })
-    if (typeof response !== 'string') {
-      setTags(response.tags)
-      setTotal(response.total)
+    try {
+      const response = await kunFetchGet<
+        KunResponse<{
+          tags: TagType[]
+          total: number
+        }>
+      >('/tag/all', {
+        page,
+        limit: 100
+      })
+      if (typeof response !== 'string') {
+        setTags(response.tags)
+        setTotal(response.total)
+      }
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   useEffect(() => {
@@ -75,13 +81,21 @@ export const Container = ({ initialTags, initialTotal, uid }: Props) => {
     }
 
     setSearching(true)
-    const response = await kunFetchPost<KunResponse<TagType[]>>('/tag/search', {
-      query: query.split(' ').filter((term) => term.length > 0)
-    })
-    if (typeof response !== 'string') {
-      setTags(response)
+    try {
+      const response = await kunFetchPost<KunResponse<TagType[]>>(
+        '/tag/search',
+        {
+          query: query.split(' ').filter((term) => term.length > 0)
+        }
+      )
+      if (typeof response !== 'string') {
+        setTags(response)
+      }
+    } catch (error) {
+      errorReporter(error)
+    } finally {
+      setSearching(false)
     }
-    setSearching(false)
   }
 
   return (

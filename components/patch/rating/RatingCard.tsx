@@ -18,6 +18,7 @@ import { RatingLikeButton } from './RatingLike'
 import { useUserStore } from '~/store/userStore'
 import toast from 'react-hot-toast'
 import { kunFetchDelete, kunFetchPost } from '~/utils/kunFetch'
+import { kunErrorHandler } from '~/utils/kunErrorHandler'
 import { RatingModal } from './RatingModal'
 import {
   KUN_GALGAME_RATING_RECOMMEND_MAP,
@@ -115,14 +116,20 @@ export const RatingCard = memo(function RatingCard({
     }
 
     setDeleting(true)
-    await kunFetchDelete<KunResponse<{}>>('/patch/rating', {
-      ratingId: rating.id
-    })
-    setDeleting(false)
-
-    onDeleted(rating.id)
-    onCloseDelete()
-    toast.success('Galgame 评价删除成功')
+    try {
+      const res = await kunFetchDelete<KunResponse<{}>>('/patch/rating', {
+        ratingId: rating.id
+      })
+      kunErrorHandler(res, () => {
+        onDeleted(rating.id)
+        onCloseDelete()
+        toast.success('Galgame 评价删除成功')
+      })
+    } catch {
+      toast.error('删除评价失败, 请稍后重试')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (

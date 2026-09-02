@@ -1,24 +1,19 @@
-import { z } from 'zod'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   kunParseDeleteQuery,
   kunParseGetQuery,
   kunParsePutBody
 } from '~/app/api/utils/parseQuery'
-import { adminResourcePaginationSchema } from '~/validations/admin'
+import {
+  adminDeleteResourceSchema,
+  adminResourcePaginationSchema
+} from '~/validations/admin'
 import { getNSFWHeader } from '~/app/api/utils/getNSFWHeader'
 import { getPatchResource } from './get'
 import { verifyHeaderCookie } from '~/middleware/_verifyHeaderCookie'
 import { patchResourceUpdateSchema } from '~/validations/patch'
 import { updatePatchResource } from './update'
 import { deleteResource } from './delete'
-
-const resourceIdSchema = z.object({
-  resourceId: z.coerce
-    .number({ message: '资源 ID 必须为数字' })
-    .min(1)
-    .max(9999999)
-})
 
 export const GET = async (req: NextRequest) => {
   const input = kunParseGetQuery(req, adminResourcePaginationSchema)
@@ -56,7 +51,7 @@ export const PUT = async (req: NextRequest) => {
 }
 
 export const DELETE = async (req: NextRequest) => {
-  const input = kunParseDeleteQuery(req, resourceIdSchema)
+  const input = kunParseDeleteQuery(req, adminDeleteResourceSchema)
   if (typeof input === 'string') {
     return NextResponse.json(input)
   }

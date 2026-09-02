@@ -7,8 +7,10 @@ const {
   transactionQueryRawMock,
   transactionLinkFindManyMock,
   transactionResourceFindUniqueMock,
+  transactionResourceFindManyMock,
   transactionUserUpdateMock,
   transactionResourceDeleteMock,
+  transactionResourceDeleteManyMock,
   transactionAdminLogCreateMock,
   cleanupResourceCommentDerivativesMock,
   enqueueResourceLinkDeletionsMock,
@@ -19,6 +21,7 @@ const {
   deleteOrphanReportsMock,
   enqueueSearchOutboxMock,
   queueSearchSyncMock,
+  kickSearchOutboxDrainMock,
   invalidatePatchResourceDetailCacheMock,
   invalidateResourceListCacheMock,
   invalidatePatchContentCacheMock,
@@ -32,8 +35,10 @@ const {
   transactionQueryRawMock: vi.fn(),
   transactionLinkFindManyMock: vi.fn(),
   transactionResourceFindUniqueMock: vi.fn(),
+  transactionResourceFindManyMock: vi.fn(),
   transactionUserUpdateMock: vi.fn(),
   transactionResourceDeleteMock: vi.fn(),
+  transactionResourceDeleteManyMock: vi.fn(),
   transactionAdminLogCreateMock: vi.fn(),
   cleanupResourceCommentDerivativesMock: vi.fn(),
   enqueueResourceLinkDeletionsMock: vi.fn(),
@@ -44,6 +49,7 @@ const {
   deleteOrphanReportsMock: vi.fn(),
   enqueueSearchOutboxMock: vi.fn(),
   queueSearchSyncMock: vi.fn(),
+  kickSearchOutboxDrainMock: vi.fn(),
   invalidatePatchResourceDetailCacheMock: vi.fn(),
   invalidateResourceListCacheMock: vi.fn(),
   invalidatePatchContentCacheMock: vi.fn(),
@@ -56,7 +62,9 @@ const transactionClient = {
   user: { update: transactionUserUpdateMock },
   patch_resource: {
     delete: transactionResourceDeleteMock,
-    findUnique: transactionResourceFindUniqueMock
+    deleteMany: transactionResourceDeleteManyMock,
+    findUnique: transactionResourceFindUniqueMock,
+    findMany: transactionResourceFindManyMock
   },
   patch_resource_link: { findMany: transactionLinkFindManyMock },
   admin_log: { create: transactionAdminLogCreateMock },
@@ -64,6 +72,7 @@ const transactionClient = {
 }
 
 vi.mock('~/prisma/index', () => ({
+  isPrismaTransactionConflict: () => false,
   prisma: {
     user: { findUnique: userFindUniqueMock },
     patch_resource: { findUnique: resourceFindUniqueMock },
@@ -112,7 +121,9 @@ vi.mock('~/server/report/pending', () => ({
 
 vi.mock('~/server/search/sync', () => ({
   enqueueSearchOutbox: enqueueSearchOutboxMock,
-  queueSearchSync: queueSearchSyncMock
+  enqueueSearchOutboxBatch: vi.fn(),
+  queueSearchSync: queueSearchSyncMock,
+  kickSearchOutboxDrain: kickSearchOutboxDrainMock
 }))
 
 vi.mock('~/server/storage/s3Outbox', () => ({
@@ -153,6 +164,10 @@ beforeEach(() => {
   transactionResourceFindUniqueMock.mockImplementation(async () =>
     buildSnapshot()
   )
+  // 管理端批量路径: 锁下 findMany 是删除瞬间状态的事实源
+  transactionResourceFindManyMock.mockImplementation(async () => [
+    buildSnapshot()
+  ])
   cleanupResourceCommentDerivativesMock.mockResolvedValue(undefined)
   invalidatePatchContentCacheMock.mockResolvedValue(undefined)
   recalcPatchTypeMock.mockResolvedValue('patch-10')
@@ -214,12 +229,13 @@ describe('删除资源按删除瞬间状态分派缓存失效', () => {
     expect(invalidateResourceListCacheMock).not.toHaveBeenCalled()
   })
 
-  // 隐藏行只有 admin 路径可删, delete 返回 status=1 时公开缓存无需失效
+  // 隐藏行只有 admin 路径可删, 锁下重读 status=1 时公开缓存无需失效
   it('管理员删除隐藏资源不失效公开缓存', async () => {
-    resourceFindUniqueMock.mockResolvedValue(buildSnapshot({ status: 1 }))
-    transactionResourceDeleteMock.mockResolvedValue(buildDeleted({ status: 1 }))
+    transactionResourceFindManyMock.mockResolvedValue([
+      buildSnapshot({ status: 1 })
+    ])
 
-    await adminDeleteResource({ resourceId: 1 }, 9)
+    await adminDeleteResource({ resourceIds: [1] }, 9)
 
     expect(invalidatePatchResourceDetailCacheMock).not.toHaveBeenCalled()
     expect(invalidateResourceListCacheMock).not.toHaveBeenCalled()
@@ -236,11 +252,13 @@ describe('删除资源按删除瞬间状态分派缓存失效', () => {
     expect(invalidateUserPendingResourceCacheMock).toHaveBeenCalledWith(7)
   })
 
-  it('管理员删除同样按删除瞬间状态判定', async () => {
-    resourceFindUniqueMock.mockResolvedValue(buildSnapshot({ status: 3 }))
-    transactionResourceDeleteMock.mockResolvedValue(buildDeleted({ status: 0 }))
+  // 管理端无守卫: 锁下重读为 0 (并发 approve 已提交) 即失效详情而非 pending
+  it('管理员删除同样按锁下重读的删除瞬间状态判定', async () => {
+    transactionResourceFindManyMock.mockResolvedValue([
+      buildSnapshot({ status: 0 })
+    ])
 
-    await adminDeleteResource({ resourceId: 1 }, 9)
+    await adminDeleteResource({ resourceIds: [1] }, 9)
 
     expect(invalidatePatchResourceDetailCacheMock).toHaveBeenCalledTimes(1)
     expect(invalidateUserPendingResourceCacheMock).not.toHaveBeenCalled()
@@ -282,16 +300,14 @@ describe('资源删除以锁下重读的 links 入队 S3 删除', () => {
   })
 
   it('管理员删除的入队与审计都取锁下重读的行', async () => {
-    resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
     const lockedLinks = [
       { storage: 's3', content: 'cur-c', hash: 'cur-h', s3_key: 'cur-k' }
     ]
-    transactionResourceFindUniqueMock.mockResolvedValue(
+    transactionResourceFindManyMock.mockResolvedValue([
       buildSnapshot({ name: 'renamed', links: lockedLinks })
-    )
-    transactionResourceDeleteMock.mockResolvedValue(buildDeleted())
+    ])
 
-    await adminDeleteResource({ resourceId: 1 }, 9)
+    await adminDeleteResource({ resourceIds: [1] }, 9)
 
     expect(enqueueResourceLinkDeletionsMock).toHaveBeenCalledWith(
       transactionClient,
@@ -306,13 +322,12 @@ describe('资源删除以锁下重读的 links 入队 S3 删除', () => {
   })
 
   it('管理员删除在锁下行消失时同样零写入', async () => {
-    resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
     transactionQueryRawMock.mockResolvedValue([])
 
-    const result = await adminDeleteResource({ resourceId: 1 }, 9)
+    const result = await adminDeleteResource({ resourceIds: [1] }, 9)
 
     expect(result).toBe('未找到对应的资源')
-    expect(transactionResourceDeleteMock).not.toHaveBeenCalled()
+    expect(transactionResourceDeleteManyMock).not.toHaveBeenCalled()
     expect(transactionAdminLogCreateMock).not.toHaveBeenCalled()
     expect(kickS3DeletionDrainMock).not.toHaveBeenCalled()
   })
@@ -339,20 +354,19 @@ describe('资源删除清理其评论的 pending 举报', () => {
   })
 
   it('管理员删除: 同款清理顺序', async () => {
-    resourceFindUniqueMock.mockResolvedValue(buildSnapshot())
-    transactionResourceDeleteMock.mockResolvedValue(buildDeleted())
-
-    await adminDeleteResource({ resourceId: 1 }, 9)
+    await adminDeleteResource({ resourceIds: [1] }, 9)
 
     expect(
       cleanupResourceCommentDerivativesMock.mock.invocationCallOrder[0]
-    ).toBeLessThan(transactionResourceDeleteMock.mock.invocationCallOrder[0])
+    ).toBeLessThan(
+      transactionResourceDeleteManyMock.mock.invocationCallOrder[0]
+    )
     expect(deleteOrphanReportsMock).toHaveBeenCalledWith(
       'comment',
       transactionClient
     )
     expect(
-      transactionResourceDeleteMock.mock.invocationCallOrder[0]
+      transactionResourceDeleteManyMock.mock.invocationCallOrder[0]
     ).toBeLessThan(deleteOrphanReportsMock.mock.invocationCallOrder[0])
   })
 })

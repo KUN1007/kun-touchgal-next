@@ -30,6 +30,7 @@ import toast from 'react-hot-toast'
 import { kunFetchDelete, kunFetchGet, kunFetchPut } from '~/utils/kunFetch'
 import { errorReporter } from '~/utils/kunErrorHandler'
 import { kunShouldBackfillDeletedRow } from '~/utils/pagination'
+import { ADMIN_RESOURCE_DELETE_LIMIT } from '~/constants/admin'
 import { useEffect, useRef, useState, type Key } from 'react'
 import type { Selection } from '@heroui/table'
 import { useMounted } from '~/hooks/useMounted'
@@ -89,6 +90,7 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
   const [searchType, setSearchType] = useState<ResourceSearchType>('content')
   const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set())
   const [batchDeleting, setBatchDeleting] = useState(false)
+  const [deleteProgress, setDeleteProgress] = useState('')
   const [batchHiding, setBatchHiding] = useState(false)
   const {
     isOpen: isBatchOpen,
@@ -274,34 +276,56 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
         ? resources.map((r) => r.id)
         : Array.from(selectedKeys).map(Number)
 
-    const results = await Promise.allSettled(
-      ids.map((id) =>
-        kunFetchDelete<KunResponse<{}>>('/admin/resource', { resourceId: id })
-      )
-    )
+    // 分块大小必须不超过后端单次删除上限, 否则整块被校验拒绝; 串行发送避免
+    // 同 patch 的删除事务在通告锁上排队占满连接池
+    const chunkSize = ADMIN_RESOURCE_DELETE_LIMIT
+    try {
+      let deletedCount = 0
+      const failedIds: number[] = []
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize)
+        setDeleteProgress(
+          `${Math.min(i + chunkSize, ids.length)} / ${ids.length}`
+        )
+        try {
+          const res = await kunFetchDelete<KunResponse<{ count: number }>>(
+            '/admin/resource',
+            { resourceIds: chunk.join(',') }
+          )
+          if (typeof res === 'string') {
+            // 透出服务端原因 (未登录 / 权限 / 校验), 否则汇总 toast 只剩「N 条失败」
+            toast.error(res)
+            failedIds.push(...chunk)
+          } else {
+            deletedCount += res.count
+          }
+        } catch (error) {
+          errorReporter(error)
+          failedIds.push(...chunk)
+        }
+      }
 
-    const failed = results.filter(
-      (r) =>
-        r.status === 'rejected' ||
-        (r.status === 'fulfilled' && typeof r.value === 'string')
-    ).length
-    const succeeded = results.length - failed
+      if (failedIds.length) {
+        // 失败块回填选中集, 模态框保持打开供直接重试
+        setSelectedKeys(new Set(failedIds.map(String)))
+        toast.error(
+          `已删除 ${deletedCount} 条, ${failedIds.length} 条删除失败, 已保留选中可重试`
+        )
+      } else {
+        onBatchClose()
+        setSelectedKeys(new Set<string | number>())
+        toast.success(`已删除 ${deletedCount} 条资源`)
+      }
 
-    if (succeeded > 0) {
-      toast.success(`成功删除 ${succeeded} 条资源`)
-    }
-    if (failed > 0) {
-      toast.error(`${failed} 条资源删除失败`)
-    }
-
-    setBatchDeleting(false)
-    onBatchClose()
-    setSelectedKeys(new Set<string | number>())
-
-    // 批量操作已自行清空选中, 刷新走 silent 避免整表骨架屏闪烁; 期间有过
-    // 新请求 (翻页/筛选变更) 则参数已过期, 跳过让用户请求的响应落地
-    if (latestFetchRequestIdRef.current === renderFetchRequestId) {
-      await fetchData({ silent: true })
+      // 批量操作已自行处理选中 (成功清空 / 失败回填), 刷新走 silent 避免整表
+      // 骨架屏闪烁且不动选中集; 期间有过新请求 (翻页/筛选变更) 则参数已过期,
+      // 跳过让用户请求的响应落地
+      if (latestFetchRequestIdRef.current === renderFetchRequestId) {
+        await fetchData({ silent: true })
+      }
+    } finally {
+      setBatchDeleting(false)
+      setDeleteProgress('')
     }
   }
 
@@ -545,6 +569,11 @@ export const Resource = ({ initialResources, initialTotal }: Props) => {
               您确定要删除选中的 <strong>{selectedCount}</strong>{' '}
               条资源吗？该操作不可撤销。
             </p>
+            {deleteProgress && (
+              <p className="text-sm text-default-500">
+                正在删除 {deleteProgress}
+              </p>
+            )}
           </ModalBody>
           <ModalFooter>
             <Button variant="light" onPress={onBatchClose}>

@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import {
   ADMIN_COMMENT_DELETE_LIMIT,
-  ADMIN_RATING_DELETE_LIMIT
+  ADMIN_RATING_DELETE_LIMIT,
+  ADMIN_RESOURCE_DELETE_LIMIT
 } from '~/constants/admin'
 import { MODERATION_TEXT_CONTENT_TYPE } from '~/constants/moderation'
 import { kunPasswordRegex } from '~/utils/validate'
@@ -103,7 +104,8 @@ export const adminResourcePaginationSchema = adminPaginationSchema.extend({
 
 const adminResourceHiddenLimit = 500
 
-const adminResourceIdsSchema = z
+// 逗号分隔的资源 id 列表 → 去重 int[]; 上限由各端点自行 refine (隐藏 500 / 删除 100)
+const adminResourceIdListSchema = z
   .string()
   .trim()
   .min(1, { message: '至少选择一条资源' })
@@ -128,9 +130,38 @@ const adminResourceIdsSchema = z
         .filter((resourceId) => resourceId >= 1 && resourceId <= 9999999)
     )
   ])
-  .refine((resourceIds) => resourceIds.length <= adminResourceHiddenLimit, {
-    message: `单次最多操作 ${adminResourceHiddenLimit} 条资源`
-  })
+
+const adminResourceIdsSchema = adminResourceIdListSchema.refine(
+  (resourceIds) => resourceIds.length <= adminResourceHiddenLimit,
+  { message: `单次最多操作 ${adminResourceHiddenLimit} 条资源` }
+)
+
+const adminDeleteResourceIdsSchema = adminResourceIdListSchema.refine(
+  (resourceIds) => resourceIds.length <= ADMIN_RESOURCE_DELETE_LIMIT,
+  { message: `单次最多删除 ${ADMIN_RESOURCE_DELETE_LIMIT} 条资源` }
+)
+
+// 单条 resourceId 与批量 resourceIds 共用一个 DELETE 端点, 统一归一为 resourceIds
+export const adminDeleteResourceSchema = z.union([
+  z
+    .object({
+      resourceId: z.coerce
+        .number({ message: '资源 ID 必须为数字' })
+        .int()
+        .min(1)
+        .max(9999999)
+    })
+    .transform(({ resourceId }) => ({
+      resourceIds: [resourceId]
+    })),
+  z
+    .object({
+      resourceIds: adminDeleteResourceIdsSchema
+    })
+    .transform(({ resourceIds }) => ({
+      resourceIds
+    }))
+])
 
 // 0 - 正常, 1 - 隐藏 (仅后台可见)
 // 待初次审核 (2) / 待审核 (3) 为系统态, 不可通过此接口设置

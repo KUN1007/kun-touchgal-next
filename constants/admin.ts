@@ -3,6 +3,7 @@ import type { OverviewData } from '~/types/api/admin'
 // 批量删除单次上限, 前端分块大小与后端校验共用, 两侧必须一致
 export const ADMIN_COMMENT_DELETE_LIMIT = 100
 export const ADMIN_RATING_DELETE_LIMIT = 100
+export const ADMIN_RESOURCE_DELETE_LIMIT = 100
 
 // admin_log.content 列宽 (VarChar), 超限写入触发 22001 回滚整个事务
 export const ADMIN_LOG_CONTENT_LIMIT = 10007

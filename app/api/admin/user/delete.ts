@@ -100,7 +100,7 @@ export const deleteUser = async (
 
   if (resourceIds.length) {
     for (const res of resourceIds) {
-      await deleteResource({ resourceId: res }, uid)
+      await deleteResource({ resourceIds: [res] }, uid)
     }
   }
 

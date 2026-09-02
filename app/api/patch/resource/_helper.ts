@@ -145,27 +145,35 @@ export const resolveS3Key = (
 // 待裁决审核任务与申诉不会随级联清理, 须在此显式删除。
 // 评论举报外键是 SET NULL: 调用方须在资源行删除后 deleteOrphanReports('comment')
 // 清理级联置空的孤儿 (保持全站「内容行→举报行」锁序)
+// 接受 id 数组: 管理端批量删除在一个事务里清理整批, 三条语句取代逐资源 N+1
+// (user_message.link 无索引, 前缀删除是全表扫描, 合并成一条 OR 只扫一遍)
 export const cleanupResourceCommentDerivatives = async (
   tx: Prisma.TransactionClient,
-  resourceId: number
+  resourceId: number | number[]
 ) => {
-  const resource = await tx.patch_resource.findUnique({
-    where: { id: resourceId },
+  const resourceIds = Array.isArray(resourceId) ? resourceId : [resourceId]
+  const resources = await tx.patch_resource.findMany({
+    where: { id: { in: resourceIds }, comment: { some: {} } },
     select: {
+      id: true,
       patch: { select: { unique_id: true } },
       comment: { select: { id: true } }
     }
   })
-  if (!resource || resource.comment.length === 0) {
+  if (resources.length === 0) {
     return
   }
 
-  const commentIds = resource.comment.map((comment) => comment.id)
+  const commentIds = resources.flatMap((resource) =>
+    resource.comment.map((comment) => comment.id)
+  )
   await tx.user_message.deleteMany({
     where: {
-      link: {
-        startsWith: `/${resource.patch.unique_id}/resource/${resourceId}?commentId=`
-      }
+      OR: resources.map((resource) => ({
+        link: {
+          startsWith: `/${resource.patch.unique_id}/resource/${resource.id}?commentId=`
+        }
+      }))
     }
   })
   await deletePendingModerationTasks('comment', commentIds, tx)

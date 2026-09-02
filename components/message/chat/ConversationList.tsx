@@ -19,6 +19,7 @@ interface Props {
 export const ConversationList = ({ initialConversations, total }: Props) => {
   const [conversations, setConversations] =
     useState<Conversation[]>(initialConversations)
+  const [conversationTotal, setConversationTotal] = useState(total)
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(1)
   const isMounted = useMounted()
@@ -47,6 +48,7 @@ export const ConversationList = ({ initialConversations, total }: Props) => {
         toast.error(response)
       } else {
         setConversations(response.conversations)
+        setConversationTotal(response.total)
         syncConversationUnreadStatus(response.conversations)
       }
     } catch {
@@ -81,10 +83,10 @@ export const ConversationList = ({ initialConversations, total }: Props) => {
         </div>
       )}
 
-      {total > 30 && (
+      {conversationTotal > 30 && (
         <div className="flex justify-center">
           <KunPagination
-            total={Math.ceil(total / 30)}
+            total={Math.ceil(conversationTotal / 30)}
             page={page}
             onPageChange={setPage}
             isLoading={loading}

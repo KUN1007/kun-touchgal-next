@@ -19,6 +19,7 @@ import { removeComment } from './removeComment'
 import { CommentContent } from './CommentContent'
 import { useUserStore } from '~/store/userStore'
 import { KunNull } from '~/components/kun/Null'
+import toast from 'react-hot-toast'
 import type { PatchComment, PatchCommentResponse } from '~/types/api/patch'
 
 interface Props {
@@ -63,27 +64,36 @@ export const Comments = ({ id, resourceId }: Props) => {
   ) => {
     const requestId = ++requestIdRef.current
     setLoading(true)
-    const res = await kunFetchGet<PatchCommentResponse>('/patch/comment', {
-      patchId: Number(id),
-      ...(resourceId ? { resourceId } : {}),
-      page: pageNum,
-      limit: COMMENTS_PER_PAGE,
-      ...(locateCommentId ? { commentId: locateCommentId } : {})
-    })
-    if (requestId !== requestIdRef.current) {
-      return
-    }
-    if (res && typeof res !== 'string') {
-      setComments(res.comments)
-      setTotal(res.total)
-      if (res.currentPage !== pageNum) {
-        setPage(res.currentPage)
+    try {
+      const res = await kunFetchGet<PatchCommentResponse>('/patch/comment', {
+        patchId: Number(id),
+        ...(resourceId ? { resourceId } : {}),
+        page: pageNum,
+        limit: COMMENTS_PER_PAGE,
+        ...(locateCommentId ? { commentId: locateCommentId } : {})
+      })
+      if (requestId !== requestIdRef.current) {
+        return
+      }
+      if (res && typeof res !== 'string') {
+        setComments(res.comments)
+        setTotal(res.total)
+        if (res.currentPage !== pageNum) {
+          setPage(res.currentPage)
+        }
+      }
+      if (locateCommentId) {
+        setTargetCommentResolved(true)
+      }
+    } catch {
+      if (requestId === requestIdRef.current) {
+        toast.error('获取评论失败, 请稍后重试')
+      }
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setLoading(false)
       }
     }
-    if (locateCommentId) {
-      setTargetCommentResolved(true)
-    }
-    setLoading(false)
   }
 
   useEffect(() => {

@@ -34,12 +34,17 @@ export const Resources = ({ id, vndbId }: Props) => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
-      const res = await kunFetchGet<KunResponse<PatchResource[]>>(
-        '/patch/resource',
-        { patchId: Number(id) }
-      )
-      setLoading(false)
-      kunErrorHandler(res, setResources)
+      try {
+        const res = await kunFetchGet<KunResponse<PatchResource[]>>(
+          '/patch/resource',
+          { patchId: Number(id) }
+        )
+        kunErrorHandler(res, setResources)
+      } catch {
+        toast.error('获取资源列表失败, 请稍后重试')
+      } finally {
+        setLoading(false)
+      }
     }
     fetchData()
   }, [])

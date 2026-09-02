@@ -68,6 +68,8 @@ export const ChatContainer = ({
     setLoading(true)
     const nextPage = page + 1
 
+    // 失败后必须关掉 hasMore: 哨兵可见时 loading 一复位, observer 就会重建并立刻再触发加载,
+    // 抛错与路由返回的字符串错误(未登录 / 无效 ID / 无权访问)都是持久状态, 会变成紧循环, 由用户刷新恢复
     try {
       const response = await kunFetchGet<
         KunResponse<{
@@ -82,6 +84,7 @@ export const ChatContainer = ({
 
       if (typeof response === 'string') {
         toast.error(response)
+        setHasMore(false)
       } else {
         const scrollContainer = scrollContainerRef.current
         const previousScrollHeight = scrollContainer?.scrollHeight || 0
@@ -104,8 +107,6 @@ export const ChatContainer = ({
         })
       }
     } catch {
-      // 哨兵可见时 loading 一复位, observer 就会重建并立刻再触发加载,
-      // 持续失败会变成紧循环, 故失败后停止自动加载, 由用户刷新恢复
       toast.error('获取历史消息失败, 请刷新页面重试')
       setHasMore(false)
     } finally {

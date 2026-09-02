@@ -128,6 +128,8 @@ export interface PatchComment {
   user: KunUser
   quotedContent?: string | null
   quotedUsername?: string | null
+  // 直接父评论 id (根评论为 null); 缓存里升级前写入的旧页面缺此字段
+  replyToId?: number | null
   replyToUser?: KunUser | null
 }
 

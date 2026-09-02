@@ -182,6 +182,7 @@ export const createPatchComment = async (
     status: data.status,
     likeCount: 0,
     parentId: data.parent_id,
+    replyToId: data.parent_id,
     userId: data.user_id,
     patchId: data.patch_id,
     reply: [],

@@ -36,9 +36,10 @@ import type { PatchComment } from '~/types/api/patch'
 interface Props {
   comment: PatchComment
   setComments: (comments: SetStateAction<PatchComment[]>) => void
+  onDeleted: (comment: PatchComment) => void
 }
 
-export const CommentDropdown = ({ comment, setComments }: Props) => {
+export const CommentDropdown = ({ comment, setComments, onDeleted }: Props) => {
   const user = useUserStore((state) => state.user)
   const isPending = comment.status === 1
 
@@ -127,7 +128,7 @@ export const CommentDropdown = ({ comment, setComments }: Props) => {
     })
     kunErrorHandler(res, () => {
       onCloseDelete()
-      setComments((prev) => prev.filter((com) => com.id !== comment.id))
+      onDeleted(comment)
       toast.success('评论删除成功')
     })
     setDeleting(false)

@@ -15,6 +15,7 @@ import { KunTimeAgo } from '~/components/kun/TimeAgo'
 import { PublishComment } from './PublishComment'
 import { CommentLikeButton } from './CommentLike'
 import { CommentDropdown } from './CommentDropdown'
+import { removeComment } from './removeComment'
 import { CommentContent } from './CommentContent'
 import { useUserStore } from '~/store/userStore'
 import { KunNull } from '~/components/kun/Null'
@@ -142,6 +143,19 @@ export const Comments = ({ id, resourceId }: Props) => {
     setReplyTo(null)
   }
 
+  const handleDeletedComment = (deleted: PatchComment) => {
+    setComments((prev) => removeComment(prev, deleted.id))
+    if (deleted.parentId !== null) {
+      return
+    }
+    setTotal((prev) => Math.max(0, prev - 1))
+    // 删掉的是本页最后一条根评论且不在首页: 退回上一页由 page effect 重新拉取,
+    // 否则 totalPages 降到 1 后分页控件整体隐藏, 用户困在空页
+    if (page > 1 && comments.length === 1) {
+      setPage(page - 1)
+    }
+  }
+
   const handlePageChange = (newPage: number) => {
     setPage(newPage)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -219,6 +233,7 @@ export const Comments = ({ id, resourceId }: Props) => {
                   <CommentDropdown
                     comment={comment}
                     setComments={setComments}
+                    onDeleted={handleDeletedComment}
                   />
                 </div>
 
@@ -298,6 +313,7 @@ export const Comments = ({ id, resourceId }: Props) => {
                           <CommentDropdown
                             comment={reply}
                             setComments={setComments}
+                            onDeleted={handleDeletedComment}
                           />
                         </div>
 

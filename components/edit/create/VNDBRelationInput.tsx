@@ -5,6 +5,7 @@ import { Button, Input } from '@heroui/react'
 import toast from 'react-hot-toast'
 import { kunFetchGet, kunFetchPost } from '~/utils/kunFetch'
 import { fetchVNDBDetails } from '~/utils/vndb'
+import { mergePatchAlias } from '~/utils/mergePatchAlias'
 import { FetchPreview } from '~/components/edit/components/FetchPreview'
 import type { PatchFormDataShape } from '~/components/edit/types'
 
@@ -125,7 +126,7 @@ export const VNDBRelationInput = <T extends PatchFormDataShape>({
         ...data,
         vndbId,
         vndbRelationId: normalized,
-        alias: mergedTitles,
+        alias: mergePatchAlias(data.alias, mergedTitles, data.name),
         released: finalReleased,
         vndbTags: tags,
         vndbDevelopers: developers

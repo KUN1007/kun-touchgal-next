@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import clsx from 'clsx'
 import { Star } from 'lucide-react'
 
@@ -71,10 +71,7 @@ export const KunRating = (props: RatingProps) => {
   const isControlled = typeof value === 'number'
   const [internal, setInternal] = useState<number>(defaultValue) // external scale
   const [hoverStar, setHoverStar] = useState<number | null>(null) // star scale
-
-  useEffect(() => {
-    if (isControlled) setInternal(value as number)
-  }, [isControlled, value])
+  const committed = isControlled ? value : internal // external scale
 
   const normalizeToStars = useCallback(
     (v: number) => (stars > 0 ? (v / valueMax) * stars : 0),
@@ -85,7 +82,7 @@ export const KunRating = (props: RatingProps) => {
     [stars, valueMax]
   )
 
-  const currentStar = hoverStar ?? normalizeToStars(internal)
+  const currentStar = hoverStar ?? normalizeToStars(committed)
 
   const setValueFromStars = useCallback(
     (starVal: number) => {
@@ -119,14 +116,8 @@ export const KunRating = (props: RatingProps) => {
   const handleClick = (index: number) => () => {
     if (readOnly || disabled) return
     const starVal = hoverStar ?? index + 1
-    const currentExternal = denormalizeFromStars(currentStar || 0)
     const nextExternal = denormalizeFromStars(starVal)
-    if (
-      allowClear &&
-      Math.abs(
-        nextExternal - (isControlled ? (value as number) : currentExternal)
-      ) < 1e-8
-    ) {
+    if (allowClear && Math.abs(nextExternal - committed) < 1e-8) {
       setValueFromStars(0)
     } else {
       setValueFromStars(starVal)

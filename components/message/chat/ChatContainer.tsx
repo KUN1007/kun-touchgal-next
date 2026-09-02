@@ -9,7 +9,7 @@ import { KunNull } from '~/components/kun/Null'
 import { ChatMessage } from './ChatMessage'
 import { ChatInput } from './ChatInput'
 import { DeleteConversationButton } from './DeleteConversationButton'
-import { mergeOlderMessages } from './mergeOlderMessages'
+import { dropLoadedMessages } from './dropLoadedMessages'
 import { KunAvatar } from '~/components/kun/floating-card/KunAvatar'
 import { kunFetchGet, kunFetchPut } from '~/utils/kunFetch'
 import { useUserStore } from '~/store/userStore'
@@ -87,7 +87,7 @@ export const ChatContainer = ({
 
       setMessages((prev) =>
         sortMessagesByTime([
-          ...mergeOlderMessages(prev, response.messages),
+          ...dropLoadedMessages(prev, response.messages),
           ...prev
         ])
       )

@@ -23,9 +23,13 @@ interface Props {
   isFavorite: boolean
 }
 
-export const FavoriteButton = ({ patchId, isFavorite }: Props) => {
+export const FavoriteButton = ({
+  patchId,
+  isFavorite: initialIsFavorite
+}: Props) => {
   const user = useUserStore((state) => state.user)
   const [isOpen, setIsOpen] = useState(false)
+  const [isFavorite, setIsFavorite] = useState(initialIsFavorite)
 
   const toggleLike = async () => {
     if (!user.uid) {
@@ -61,6 +65,7 @@ export const FavoriteButton = ({ patchId, isFavorite }: Props) => {
           patchId={patchId}
           isOpen={isOpen}
           onClose={() => setIsOpen(false)}
+          onFavoriteChange={setIsFavorite}
         />
       )}
     </>

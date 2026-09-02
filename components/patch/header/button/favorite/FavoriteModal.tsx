@@ -23,9 +23,15 @@ interface Props {
   patchId: number
   isOpen: boolean
   onClose: () => void
+  onFavoriteChange: (isFavorite: boolean) => void
 }
 
-export const FavoriteModal = ({ patchId, isOpen, onClose }: Props) => {
+export const FavoriteModal = ({
+  patchId,
+  isOpen,
+  onClose,
+  onFavoriteChange
+}: Props) => {
   const [folders, setFolders] = useState<UserFavoritePatchFolder[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -69,12 +75,12 @@ export const FavoriteModal = ({ patchId, isOpen, onClose }: Props) => {
 
   const handleAddToFolder = async (folderId: number) => {
     startTransition(async () => {
-      const res = await kunFetchPut<KunResponse<{ added: boolean }>>(
-        `/patch/favorite`,
-        { patchId, folderId }
-      )
+      const res = await kunFetchPut<
+        KunResponse<{ added: boolean; isFavorite: boolean }>
+      >(`/patch/favorite`, { patchId, folderId })
       kunErrorHandler(res, (value) => {
         toast.success(value.added ? '收藏成功' : '取消收藏成功')
+        onFavoriteChange(value.isFavorite)
         fetchFolders(page)
       })
     })

@@ -73,7 +73,13 @@ const togglePatchFavorite = async (
             }
           })
         }
-        return { added: false }
+        // 按钮态是「在用户任一收藏夹内」的跨夹聚合, 单夹 toggle 结果推不出, 事务内回查
+        const remaining =
+          await tx.user_patch_favorite_folder_relation.findFirst({
+            where: { patch_id: input.patchId, folder: { user_id: uid } },
+            select: { id: true }
+          })
+        return { added: false, isFavorite: Boolean(remaining) }
       }
 
       await tx.user_patch_favorite_folder_relation.createMany({
@@ -86,7 +92,7 @@ const togglePatchFavorite = async (
       if (patch.user_id !== uid) {
         await createDedupMessage(messageData, tx)
       }
-      return { added: true }
+      return { added: true, isFavorite: true }
     })
     .catch((error: unknown) => {
       // 事务内任一外键的引用行被并发删除都会命中约束, 无法区分是哪一条, 返回通用文案

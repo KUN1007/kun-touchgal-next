@@ -7,6 +7,7 @@ const {
   patchFindUniqueMock,
   folderFindUniqueMock,
   relationFindUniqueMock,
+  relationFindFirstMock,
   relationDeleteMock,
   relationCreateMock,
   relationDeleteManyMock,
@@ -23,6 +24,7 @@ const {
   patchFindUniqueMock: vi.fn(),
   folderFindUniqueMock: vi.fn(),
   relationFindUniqueMock: vi.fn(),
+  relationFindFirstMock: vi.fn(),
   relationDeleteMock: vi.fn(),
   relationCreateMock: vi.fn(),
   relationDeleteManyMock: vi.fn(),
@@ -40,6 +42,7 @@ const transactionClient = {
   user_patch_favorite_folder_relation: {
     deleteMany: relationDeleteManyMock,
     createMany: relationCreateManyMock,
+    findFirst: relationFindFirstMock,
     delete: relationDeleteMock,
     create: relationCreateMock
   },
@@ -102,6 +105,7 @@ beforeEach(() => {
   })
   folderFindUniqueMock.mockResolvedValue({ user_id: 99 })
   relationFindUniqueMock.mockResolvedValue(null)
+  relationFindFirstMock.mockResolvedValue(null)
   executeRawMock.mockResolvedValue(1)
   relationDeleteManyMock.mockResolvedValue({ count: 0 })
   relationCreateManyMock.mockResolvedValue({ count: 1 })
@@ -117,9 +121,10 @@ beforeEach(() => {
 describe('PUT /api/patch/favorite', () => {
   it('adds atomically via deleteMany + createMany(skipDuplicates) inside the transaction', async () => {
     const res = await PUT(mockRequest)
-    await expect(res.json()).resolves.toEqual({ added: true })
+    await expect(res.json()).resolves.toEqual({ added: true, isFavorite: true })
 
     expect(relationFindUniqueMock).not.toHaveBeenCalled()
+    expect(relationFindFirstMock).not.toHaveBeenCalled()
     expect(relationDeleteMock).not.toHaveBeenCalled()
     expect(relationCreateMock).not.toHaveBeenCalled()
 
@@ -150,8 +155,27 @@ describe('PUT /api/patch/favorite', () => {
     relationDeleteManyMock.mockResolvedValue({ count: 1 })
 
     const res = await PUT(mockRequest)
-    await expect(res.json()).resolves.toEqual({ added: false })
+    await expect(res.json()).resolves.toEqual({
+      added: false,
+      isFavorite: false
+    })
     expect(relationCreateManyMock).not.toHaveBeenCalled()
+    // 聚合态按 (patch, 用户所有收藏夹) 回查, 而非只看被 toggle 的这一夹
+    expect(relationFindFirstMock).toHaveBeenCalledWith({
+      where: { patch_id: 7, folder: { user_id: 99 } },
+      select: { id: true }
+    })
+  })
+
+  it('keeps isFavorite=true when the patch remains in another folder after removal', async () => {
+    relationDeleteManyMock.mockResolvedValue({ count: 1 })
+    relationFindFirstMock.mockResolvedValue({ id: 42 })
+
+    const res = await PUT(mockRequest)
+    await expect(res.json()).resolves.toEqual({
+      added: false,
+      isFavorite: true
+    })
   })
 
   it('cleans up the notification instead of sending one when removing', async () => {

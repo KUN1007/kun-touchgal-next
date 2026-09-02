@@ -43,9 +43,12 @@ export const Comments = ({ id, resourceId }: Props) => {
   const [highlightedCommentId, setHighlightedCommentId] = useState<
     number | null
   >(null)
-  const [targetCommentResolved, setTargetCommentResolved] = useState(false)
   const user = useUserStore((state) => state.user)
   const requestIdRef = useRef(0)
+  // 已定位过的深链 commentId: 同一 commentId 只定位一次, 之后翻页不再带 locate
+  const locatedCommentIdRef = useRef<number | null>(null)
+  // 定位响应跨页时由 setPage 同步页码, 数据已是该页, 紧随其后的那次拉取 effect 跳过
+  const skipNextFetchRef = useRef(false)
   const targetCommentId = useMemo(() => {
     const rawCommentId = searchParams.get('commentId')
     if (!rawCommentId) {
@@ -79,11 +82,9 @@ export const Comments = ({ id, resourceId }: Props) => {
         setComments(res.comments)
         setTotal(res.total)
         if (res.currentPage !== pageNum) {
+          skipNextFetchRef.current = true
           setPage(res.currentPage)
         }
-      }
-      if (locateCommentId) {
-        setTargetCommentResolved(true)
       }
     } catch {
       if (requestId === requestIdRef.current) {
@@ -91,24 +92,28 @@ export const Comments = ({ id, resourceId }: Props) => {
       }
     } finally {
       if (requestId === requestIdRef.current) {
+        // 失败也记为已定位: 深链只尝试一次, 不能劫持用户随后的手动翻页
+        if (locateCommentId) {
+          locatedCommentIdRef.current = locateCommentId
+        }
         setLoading(false)
       }
     }
   }
 
   useEffect(() => {
-    setTargetCommentResolved(false)
-  }, [targetCommentId, id])
-
-  useEffect(() => {
-    if (!user.uid) {
+    const skipFetch = skipNextFetchRef.current
+    skipNextFetchRef.current = false
+    if (!user.uid || skipFetch) {
       return
     }
     fetchComments(
       page,
-      targetCommentId && !targetCommentResolved ? targetCommentId : null
+      targetCommentId && locatedCommentIdRef.current !== targetCommentId
+        ? targetCommentId
+        : null
     )
-  }, [page, user.uid, targetCommentId, targetCommentResolved])
+  }, [page, user.uid, targetCommentId])
 
   useEffect(() => {
     if (loading || !targetCommentId) {

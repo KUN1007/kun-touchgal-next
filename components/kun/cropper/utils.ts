@@ -3,13 +3,14 @@ import { centerCrop, makeAspectCrop } from 'react-image-crop'
 export const centerAspectCrop = (
   mediaWidth: number,
   mediaHeight: number,
-  aspect: number
+  aspect: number,
+  widthPercent = 90
 ) => {
   return centerCrop(
     makeAspectCrop(
       {
         unit: '%',
-        width: 90
+        width: widthPercent
       },
       aspect,
       mediaWidth,

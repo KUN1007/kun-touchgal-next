@@ -1,5 +1,30 @@
 import { describe, expect, it } from 'vitest'
-import { isPrismaTransactionConflict } from '~/prisma/index'
+import {
+  isPrismaTransactionConflict,
+  statementNameGenerator
+} from '~/prisma/index'
+
+describe('statementNameGenerator', () => {
+  const sql3 = 'SELECT "id" FROM "patch" WHERE "id" IN ($1,$2,$3) OFFSET $4'
+  const sql5 =
+    'SELECT "id" FROM "patch" WHERE "id" IN ($1,$2,$3,$4,$5) OFFSET $6'
+
+  it('derives the same name for the same sql text', () => {
+    expect(statementNameGenerator({ sql: sql3 })).toBe(
+      statementNameGenerator({ sql: sql3 })
+    )
+  })
+
+  it('derives different names for different sql text', () => {
+    expect(statementNameGenerator({ sql: sql3 })).not.toBe(
+      statementNameGenerator({ sql: sql5 })
+    )
+  })
+
+  it('stays within the postgres statement name length limit', () => {
+    expect(statementNameGenerator({ sql: sql3 })).toMatch(/^[0-9a-f]{40}$/)
+  })
+})
 
 describe('isPrismaTransactionConflict', () => {
   it.each([

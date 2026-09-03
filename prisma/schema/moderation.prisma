@@ -81,4 +81,6 @@ model moderation_blacklist {
 
   created DateTime @default(now())
   updated DateTime @updatedAt
+
+  @@index([user_id])
 }

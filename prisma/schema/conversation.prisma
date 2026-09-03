@@ -38,4 +38,5 @@ model user_private_message {
   created DateTime @default(now())
   updated DateTime @updatedAt
   @@index([conversation_id, created(sort: Desc), id(sort: Desc)])
+  @@index([sender_id])
 }

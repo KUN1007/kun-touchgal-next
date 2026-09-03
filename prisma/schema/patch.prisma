@@ -55,6 +55,7 @@ model patch {
   @@index([type], type: Gin)
   @@index([language], type: Gin)
   @@index([platform], type: Gin)
+  @@index([user_id])
 }
 
 model patch_alias {

@@ -20,6 +20,7 @@ model patch_tag {
   updated DateTime @updatedAt
 
   @@index([count])
+  @@index([user_id])
 }
 
 model patch_tag_relation {

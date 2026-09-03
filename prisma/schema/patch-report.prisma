@@ -35,5 +35,6 @@ model patch_report {
   @@index([target_type, rating_id, status])
   @@index([sender_id])
   @@index([reported_user_id])
+  @@index([handler_id])
   @@index([patch_id])
 }

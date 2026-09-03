@@ -42,6 +42,7 @@ model patch_rating_like {
   updated DateTime @updatedAt
 
   @@unique([patch_rating_id, user_id])
+  @@index([user_id])
 }
 
 /// Aggregated statistics for patch ratings to speed up reads and sorting

@@ -17,4 +17,6 @@ model admin_log {
 
   created DateTime @default(now())
   updated DateTime @updatedAt
+
+  @@index([user_id])
 }

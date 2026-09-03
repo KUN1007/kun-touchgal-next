@@ -30,17 +30,21 @@ export const Bio = () => {
       setUser({ ...user, bio })
       setLoading(true)
 
-      const res = await kunFetchPost<KunResponse<{ pending?: boolean }>>(
-        '/user/setting/bio',
-        { bio }
-      )
-
-      setLoading(false)
-      kunErrorHandler(res, (value) => {
-        toast.success('更新签名成功')
-        setBio('')
-        markPending(!!value.pending)
-      })
+      try {
+        const res = await kunFetchPost<KunResponse<{ pending?: boolean }>>(
+          '/user/setting/bio',
+          { bio }
+        )
+        kunErrorHandler(res, (value) => {
+          toast.success('更新签名成功')
+          setBio('')
+          markPending(!!value.pending)
+        })
+      } catch {
+        toast.error('更新签名失败, 请稍后重试')
+      } finally {
+        setLoading(false)
+      }
     }
   }
 

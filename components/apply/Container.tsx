@@ -32,12 +32,17 @@ export const ApplyContainer = ({ count }: Props) => {
 
   const handleApply = async () => {
     setApplying(true)
-    const res = await kunFetchPost<KunResponse<{}>>('/apply')
-    kunErrorHandler(res, () => {
-      toast.success('恭喜您, 您的申请已成功提交')
-      router.push('/apply/pending')
-    })
-    setApplying(false)
+    try {
+      const res = await kunFetchPost<KunResponse<{}>>('/apply')
+      kunErrorHandler(res, () => {
+        toast.success('恭喜您, 您的申请已成功提交')
+        router.push('/apply/pending')
+      })
+    } catch {
+      toast.error('提交申请失败, 请稍后重试')
+    } finally {
+      setApplying(false)
+    }
   }
 
   return (

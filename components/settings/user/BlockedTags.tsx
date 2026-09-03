@@ -60,6 +60,8 @@ export const BlockedTags = ({ isActive = true }: BlockedTagsProps) => {
       } else {
         setBlockedTags(response)
       }
+    } catch {
+      toast.error('读取屏蔽标签失败, 请稍后重试')
     } finally {
       setLoading(false)
     }
@@ -111,6 +113,7 @@ export const BlockedTags = ({ isActive = true }: BlockedTagsProps) => {
           setSearchResults(res)
         }
       })
+      .catch(() => toast.error('搜索标签失败, 请稍后重试'))
       .finally(() => setSearching(false))
   }, [debouncedQuery, isActive])
 
@@ -172,6 +175,8 @@ export const BlockedTags = ({ isActive = true }: BlockedTagsProps) => {
       setSearchResults([])
       setDropdownOpen(false)
       toast.success(`已屏蔽标签「${tag.name}」`)
+    } catch {
+      toast.error('屏蔽标签失败, 请稍后重试')
     } finally {
       setUpdatingId(0)
     }
@@ -193,6 +198,8 @@ export const BlockedTags = ({ isActive = true }: BlockedTagsProps) => {
       setUser({ ...user, blockedTagIds: response.blockedTagIds })
       setBlockedTags((prev) => prev.filter((item) => item.id !== tag.id))
       toast.success(`已取消屏蔽标签「${tag.name}」`)
+    } catch {
+      toast.error('取消屏蔽标签失败, 请稍后重试')
     } finally {
       setUpdatingId(0)
     }

@@ -57,12 +57,17 @@ export const AppealCard = ({ item, onRefresh }: Props) => {
         : { contentType: 'rating', taskId: item.taskId, shortSummary: text }
 
     setSubmitting(true)
-    const res = await kunFetchPost<KunResponse<{}>>('/user/appeal', body)
-    setSubmitting(false)
-    kunErrorHandler(res, () => {
-      toast.success('申诉已提交, 请等待管理员复核')
-      onRefresh()
-    })
+    try {
+      const res = await kunFetchPost<KunResponse<{}>>('/user/appeal', body)
+      kunErrorHandler(res, () => {
+        toast.success('申诉已提交, 请等待管理员复核')
+        onRefresh()
+      })
+    } catch {
+      toast.error('提交申诉失败, 请稍后重试')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (

@@ -38,18 +38,22 @@ export const Password = () => {
   const handleUpdatePassword = async (data: PasswordFormData) => {
     setLoading(true)
 
-    const res = await kunFetchPost<KunResponse<{}>>(
-      '/user/setting/password',
-      data
-    )
-    kunErrorHandler(res, () => {
-      reset()
-      logout()
-      toast.success('更改密码成功, 请使用新密码重新登录')
-      router.push('/login')
-    })
-
-    setLoading(false)
+    try {
+      const res = await kunFetchPost<KunResponse<{}>>(
+        '/user/setting/password',
+        data
+      )
+      kunErrorHandler(res, () => {
+        reset()
+        logout()
+        toast.success('更改密码成功, 请使用新密码重新登录')
+        router.push('/login')
+      })
+    } catch {
+      toast.error('更改密码失败, 请稍后重试')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

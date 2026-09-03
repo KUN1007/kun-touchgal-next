@@ -75,14 +75,21 @@ export const Email = () => {
   const handleUpdateEmail = async (data: EmailFormData) => {
     setLoading(true)
 
-    const res = await kunFetchPost<KunResponse<{}>>('/user/setting/email', data)
-    kunErrorHandler(res, () => {
-      reset()
-      onClose()
-      toast.success('更新邮箱成功!')
-    })
-
-    setLoading(false)
+    try {
+      const res = await kunFetchPost<KunResponse<{}>>(
+        '/user/setting/email',
+        data
+      )
+      kunErrorHandler(res, () => {
+        reset()
+        onClose()
+        toast.success('更新邮箱成功!')
+      })
+    } catch {
+      toast.error('更新邮箱失败, 请稍后重试')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

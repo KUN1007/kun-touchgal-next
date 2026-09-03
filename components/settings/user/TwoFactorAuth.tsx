@@ -67,17 +67,21 @@ export const TwoFactorAuth = () => {
 
   useEffect(() => {
     const check2FAStatus = async () => {
-      const response = await kunFetchGet<{
-        enabled: boolean
-        hasSecret: boolean
-        backupCodeLength: number
-      }>('/user/setting/2fa/status')
-      setAuthStatus((current) => ({
-        ...current,
-        isEnabled2FA: response.enabled,
-        hasSecret: response.hasSecret,
-        backupCodeLength: response.backupCodeLength
-      }))
+      try {
+        const response = await kunFetchGet<{
+          enabled: boolean
+          hasSecret: boolean
+          backupCodeLength: number
+        }>('/user/setting/2fa/status')
+        setAuthStatus((current) => ({
+          ...current,
+          isEnabled2FA: response.enabled,
+          hasSecret: response.hasSecret,
+          backupCodeLength: response.backupCodeLength
+        }))
+      } catch {
+        toast.error('读取 2FA 状态失败, 请稍后重试')
+      }
     }
 
     if (isMounted) {
@@ -92,26 +96,30 @@ export const TwoFactorAuth = () => {
     }
 
     startTransition(async () => {
-      const res = await kunFetchPost<
-        KunResponse<{
-          secret: string
-          authUrl: string
-          qrCodeUrl: string
-        }>
-      >('/user/setting/2fa/save-secret')
+      try {
+        const res = await kunFetchPost<
+          KunResponse<{
+            secret: string
+            authUrl: string
+            qrCodeUrl: string
+          }>
+        >('/user/setting/2fa/save-secret')
 
-      kunErrorHandler(res, (value) => {
-        setAuthStatus((current) => ({
-          ...current,
-          secret: value.secret,
-          authUrl: value.authUrl,
-          qrCodeUrl: value.qrCodeUrl,
-          hasSecret: true,
-          backupCodeLength: 0
-        }))
-        onOpen()
-        toast.success('密钥已生成，请使用身份验证器应用扫描二维码')
-      })
+        kunErrorHandler(res, (value) => {
+          setAuthStatus((current) => ({
+            ...current,
+            secret: value.secret,
+            authUrl: value.authUrl,
+            qrCodeUrl: value.qrCodeUrl,
+            hasSecret: true,
+            backupCodeLength: 0
+          }))
+          onOpen()
+          toast.success('密钥已生成，请使用身份验证器应用扫描二维码')
+        })
+      } catch {
+        toast.error('生成 2FA 密钥失败, 请稍后重试')
+      }
     })
   }
 
@@ -122,22 +130,26 @@ export const TwoFactorAuth = () => {
     }
 
     startTransition(async () => {
-      const res = await kunFetchPost<KunResponse<{ backupCode: string[] }>>(
-        '/user/setting/2fa/enable',
-        { token: authStatus.token }
-      )
+      try {
+        const res = await kunFetchPost<KunResponse<{ backupCode: string[] }>>(
+          '/user/setting/2fa/enable',
+          { token: authStatus.token }
+        )
 
-      kunErrorHandler(res, (value) => {
-        setAuthStatus((current) => ({
-          ...current,
-          isEnabled2FA: true,
-          backupCodeLength: value.backupCode.length,
-          backupCode: value.backupCode
-        }))
-        onClose()
-        onBackupOpen()
-        toast.success('两步验证已启用')
-      })
+        kunErrorHandler(res, (value) => {
+          setAuthStatus((current) => ({
+            ...current,
+            isEnabled2FA: true,
+            backupCodeLength: value.backupCode.length,
+            backupCode: value.backupCode
+          }))
+          onClose()
+          onBackupOpen()
+          toast.success('两步验证已启用')
+        })
+      } catch {
+        toast.error('启用 2FA 失败, 请稍后重试')
+      }
     })
   }
 
@@ -155,19 +167,23 @@ export const TwoFactorAuth = () => {
     }
 
     startTransition(async () => {
-      const res = await kunFetchPost<KunResponse<{}>>(
-        '/user/setting/2fa/disable',
-        {
-          token,
-          isBackupCode: isUsingBackupCode
-        }
-      )
+      try {
+        const res = await kunFetchPost<KunResponse<{}>>(
+          '/user/setting/2fa/disable',
+          {
+            token,
+            isBackupCode: isUsingBackupCode
+          }
+        )
 
-      kunErrorHandler(res, () => {
-        setAuthStatus(initialStatus)
-        closeDisableModal()
-        toast.success('两步验证已禁用')
-      })
+        kunErrorHandler(res, () => {
+          setAuthStatus(initialStatus)
+          closeDisableModal()
+          toast.success('两步验证已禁用')
+        })
+      } catch {
+        toast.error('关闭 2FA 失败, 请稍后重试')
+      }
     })
   }
 

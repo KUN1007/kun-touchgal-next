@@ -30,11 +30,16 @@ export const Reset = () => {
     onClose()
 
     setLoading(true)
-    await kunFetchPost<KunResponse<{}>>('/user/status/logout')
-    setLoading(false)
+    try {
+      await kunFetchPost<KunResponse<{}>>('/user/status/logout')
+      toast.success('您已成功清除网站所有数据, 请重新登录')
+    } catch {
+      toast.error('本地数据已清除, 但退出登录失败, 页面即将刷新')
+    } finally {
+      setLoading(false)
+    }
 
     router.push('/login')
-    toast.success('您已成功清除网站所有数据, 请重新登录')
 
     await new Promise((resolve) => {
       setTimeout(resolve, 3000)

@@ -42,16 +42,25 @@ export const Username = () => {
 
       setLoading(true)
 
-      const res = await kunFetchPost<KunResponse<{}>>(
-        '/user/setting/username',
-        { username }
-      )
-      kunErrorHandler(res, () => {
-        toast.success('更新用户名成功')
-        setUser({ ...user, name: username, moemoepoint: user.moemoepoint - 30 })
-        setUsername('')
-      })
-      setLoading(false)
+      try {
+        const res = await kunFetchPost<KunResponse<{}>>(
+          '/user/setting/username',
+          { username }
+        )
+        kunErrorHandler(res, () => {
+          toast.success('更新用户名成功')
+          setUser({
+            ...user,
+            name: username,
+            moemoepoint: user.moemoepoint - 30
+          })
+          setUsername('')
+        })
+      } catch {
+        toast.error('更新用户名失败, 请稍后重试')
+      } finally {
+        setLoading(false)
+      }
     }
   }
 
